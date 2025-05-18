@@ -44,10 +44,11 @@ jQuery(document).ready(function($) {
         var defaultLang = window.aiTranslateDetectable ? window.aiTranslateDetectable.default_language : 'nl'; // Default to 'nl' if not set
 
         // Navigate to the URL provided in the href
-        // Force reload if switching to default language and URL is the same
-        if (lang === defaultLang && window.location.href === url) {
-            window.location.reload(true); // Force hard reload
+        // If switching to the default language and not already on the root path, navigate to the site origin
+        if (lang === defaultLang && window.location.pathname !== '/') {
+            window.location.href = window.location.origin;
         } else {
+            // Otherwise, navigate to the URL provided by PHP
             window.location.href = url;
         }
     });
