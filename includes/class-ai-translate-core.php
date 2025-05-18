@@ -767,7 +767,19 @@ class AI_Translate_Core
         $placeholders = [];
         $placeholder_index = 0;
 
-        // 1. Extract script blocks from $text_to_translate (text after excluded shortcodes removed)
+        // 1. Extract anchor tags from $text_to_translate
+        $text_processed = preg_replace_callback(
+            '/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/i',
+            function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = "{{LINK_PLACEHOLDER_{$placeholder_index}}}";
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $text_to_translate
+        );
+
+        // 2. Extract script blocks from $text_processed
         $text_processed = preg_replace_callback(
             '/<script.*?<\/script>/is',
             function ($matches) use (&$placeholders, &$placeholder_index) {
@@ -779,7 +791,7 @@ class AI_Translate_Core
             $text_to_translate // Start processing from text without excluded shortcodes
         );
 
-        // 2. Extract img tags from $text_processed
+        // 3. Extract img tags from $text_processed
         $text_processed = preg_replace_callback(
             '/<img[^>]+>/i',
             function ($matches) use (&$placeholders, &$placeholder_index) {
@@ -791,7 +803,7 @@ class AI_Translate_Core
             $text_processed
         );
 
-        // 3. Extract overige shortcodes (niet de excluded) from $text_processed
+        // 4. Extract overige shortcodes (niet de excluded) from $text_processed
         $excluded_tags = $this->settings['exclude_shortcodes'] ?? [];
         $pattern = '/\[(\[?)([a-zA-Z0-9_\-]+)([^\]]*?)(?:\](?:.*?\[\/\2\])|\s*\/?\])/s';
         $text_processed = preg_replace_callback(

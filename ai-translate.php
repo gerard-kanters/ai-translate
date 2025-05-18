@@ -232,32 +232,38 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 }
                 $processing_widget_text = true;
 
-                // First, clean up any existing multiple markers
-                if (strpos($text, '<!--aitranslate:translated-->') !== false) {
-                    // Strip all instances of the marker to prevent accumulation
-                    $clean_text = str_replace('<!--aitranslate:translated-->', '', $text);
+                // First translate all URLs in the text
+                $text_with_translated_urls = preg_replace_callback(
+                    '/<a([^>]*)href=["\']([^"\']*)["\']([^>]*)>/i',
+                    function($matches) use ($core, $current_language) {
+                        $attributes_before = $matches[1];
+                        $url = $matches[2];
+                        $attributes_after = $matches[3];
+                        
+                        // Use wp_parse_url for more robust internal URL detection
+                        $parsed_url = wp_parse_url($url);
+                        
+                        // Check if it's a relative URL or internal absolute URL
+                        if (!isset($parsed_url['scheme']) ||
+                            (isset($parsed_url['host']) && $parsed_url['host'] === wp_parse_url(home_url(), PHP_URL_HOST))
+                        ) {
+                            $url = $core->translate_url($url, $current_language);
+                        }
+                        
+                        return '<a' . $attributes_before . 'href="' . $url . '"' . $attributes_after . '>';
+                    },
+                    $text
+                );
 
+                // Then handle content translation
+                if (strpos($text_with_translated_urls, '<!--aitranslate:translated-->') !== false) {
+                    // Strip all instances of the marker to prevent accumulation
+                    $clean_text = str_replace('<!--aitranslate:translated-->', '', $text_with_translated_urls);
                     // Translate the cleaned text as a whole
                     $result = $core->translate_template_part($clean_text, 'widget_text');
-                    // Translate links within the widget text
-                    $result = preg_replace_callback('/<a([^>]*)href=["\']([^"\']*)["\']([^>]*)>/i', function($matches) use ($core, $current_language) {
-                        $attributes_before = $matches[1];
-                        $url = $matches[2];
-                        $attributes_after = $matches[3];
-                        $translated_url = $core->translate_url($url, $current_language);
-                        return '<a' . $attributes_before . 'href="' . $translated_url . '"' . $attributes_after . '>';
-                    }, $result);
                 } else {
                     // Normal case - translate everything
-                    $result = $core->translate_template_part($text, 'widget_text');
-                    // Translate links within the widget text
-                    $result = preg_replace_callback('/<a([^>]*)href=["\']([^"\']*)["\']([^>]*)>/i', function($matches) use ($core, $current_language) {
-                        $attributes_before = $matches[1];
-                        $url = $matches[2];
-                        $attributes_after = $matches[3];
-                        $translated_url = $core->translate_url($url, $current_language);
-                        return '<a' . $attributes_before . 'href="' . $translated_url . '"' . $attributes_after . '>';
-                    }, $result);
+                    $result = $core->translate_template_part($text_with_translated_urls, 'widget_text');
                 }
 
                 $processing_widget_text = false;
@@ -283,16 +289,31 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 }
                 $processing_widget_content = true;
 
-                // Vertaal widget content
-                $result = $core->translate_template_part($content, 'widget_text');
-                // Translate links within the widget text content
-                $result = preg_replace_callback('/<a([^>]*)href=["\']([^"\']*)["\']([^>]*)>/i', function($matches) use ($core, $current_language) {
-                    $attributes_before = $matches[1];
-                    $url = $matches[2];
-                    $attributes_after = $matches[3];
-                    $translated_url = $core->translate_url($url, $current_language);
-                    return '<a' . $attributes_before . 'href="' . $translated_url . '"' . $attributes_after . '>';
-                }, $result);
+                // First translate all URLs in the content
+                $content_with_translated_urls = preg_replace_callback(
+                    '/<a([^>]*)href=["\']([^"\']*)["\']([^>]*)>/i',
+                    function($matches) use ($core, $current_language) {
+                        $attributes_before = $matches[1];
+                        $url = $matches[2];
+                        $attributes_after = $matches[3];
+                        
+                        // Use wp_parse_url for more robust internal URL detection
+                        $parsed_url = wp_parse_url($url);
+                        
+                        // Check if it's a relative URL or internal absolute URL
+                        if (!isset($parsed_url['scheme']) ||
+                            (isset($parsed_url['host']) && $parsed_url['host'] === wp_parse_url(home_url(), PHP_URL_HOST))
+                        ) {
+                            $url = $core->translate_url($url, $current_language);
+                        }
+                        
+                        return '<a' . $attributes_before . 'href="' . $url . '"' . $attributes_after . '>';
+                    },
+                    $content
+                );
+
+                // Then translate the content
+                $result = $core->translate_template_part($content_with_translated_urls, 'widget_text');
 
                 $processing_widget_content = false;
                 return $result;
@@ -375,7 +396,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         }
         $processing_content = true;
     
-        // Exclude content within <div class="notranslate"> from translation
+        // First exclude content within <div class="notranslate"> from translation
         $content = preg_replace_callback(
             '/<div[^>]*class=["\'][^"\']*notranslate[^"\']*["\'][^>]*>(.*?)<\/div>/is',
             function ($matches) {
@@ -385,40 +406,13 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             $content
         );
 
-        // Vertaal de content en voeg marker toe
+        // Finally translate the content and add marker
         $translated = $core->translate_template_part($content, 'post_content');
         if (strpos($translated, AI_Translate_Core::TRANSLATION_MARKER) === false) {
             $translated .= AI_Translate_Core::TRANSLATION_MARKER;
         }
     
-        // Links aanpassen voor taal
-        $current_language = $core->get_current_language();
-        $default_language = $core->get_settings()['default_language'];
-        if ($current_language !== $default_language) {
-            $translated = preg_replace_callback(
-                '/<a\s+([^>]*)href=["\']([^"\']*)["\']([^>]*)>/i', // Improved regex for flexibility
-                function ($matches) use ($core, $current_language) {
-                    $attrs = $matches[1];
-                    $url = $matches[2];
-                    $attrs2 = $matches[3];
-
-                    // Use wp_parse_url for more robust internal URL detection
-                    $parsed_url = wp_parse_url($url);
-
-                    // Check if it's a relative URL (no scheme or host) or an internal absolute URL
-                    if (
-                        !isset($parsed_url['scheme']) ||
-                        (isset($parsed_url['host']) && $parsed_url['host'] === wp_parse_url(home_url(), PHP_URL_HOST))
-                    ) {
-                        // It's likely an internal URL, translate it
-                        $url = $core->translate_url($url, $current_language);
-                    }
-
-                    return "<a{$attrs}href=\"{$url}\"{$attrs2}>";
-                },
-                $translated
-            );
-        }
+        // URLs have already been translated before content translation
     
         $processing_content = false;
         return $translated;
