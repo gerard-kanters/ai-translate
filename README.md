@@ -7,6 +7,7 @@ Stable tag: 1.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
+=== AI Translate ===
 
 A powerful WordPress plugin for automatically translating your website using AI.
 
