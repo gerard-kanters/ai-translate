@@ -1335,12 +1335,9 @@ class AI_Translate_Core
         if (isset($languages[$current_lang])) {
             printf(
                 // Geen inline onclick meer, alleen HTML
-                '<button class="current-lang" title="%s">
-                    <img src="%s" alt="%s" width="20" height="15"> %s <span class="arrow">&#9662;</span>
-                </button>',
+                '<button class="current-lang" title="%s">%s %s <span class="arrow">&#9662;</span></button>',
                 esc_attr__('Choose language', 'ai-translate'),
-                esc_url(plugins_url("assets/flags/{$current_lang}.png", AI_TRANSLATE_FILE)),
-                esc_attr($languages[$current_lang]),
+                sprintf('<img src="%s" alt="%s" width="20" height="15" />', plugins_url("assets/flags/{$current_lang}.png", AI_TRANSLATE_FILE), \esc_attr($languages[$current_lang])),
                 esc_html($languages[$current_lang])
             );
         }
@@ -1367,14 +1364,11 @@ class AI_Translate_Core
             $url = $this->translate_url($base_url, $lang_code);
 
             printf(
-                '<a href="%s" class="lang-option %s" data-lang="%s">
-                    <img src="%s" alt="%s" width="20" height="15"> %s
-                </a>',
+                '<a href="%s" class="lang-option %s" data-lang="%s">%s %s</a>',
                 esc_url($url),
                 $is_current ? 'active' : '',
                 esc_attr($lang_code),
-                esc_url(plugins_url("assets/flags/{$lang_code}.png", AI_TRANSLATE_FILE)),
-                esc_attr($lang_name),
+                sprintf('<img src="%s" alt="%s" width="20" height="15" />', plugins_url("assets/flags/{$lang_code}.png", AI_TRANSLATE_FILE), \esc_attr($lang_name)),
                 esc_html($lang_name)
             );
         }

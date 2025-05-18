@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: AI Translate
-Plugin URI: https://www.netcare.nl/
+Plugin URI: https://github.com/gerard-kanters/ai-translate
 Description: Translate your wordpress site with AI 🤖
 Version: 1.1
 Author: Gerard Kanters
@@ -714,7 +714,7 @@ function add_query_vars(array $vars): array
 function enqueue_switcher_assets(): void
 {
     // ... existing code ...
-    wp_enqueue_style('ai-translate-switcher', plugins_url('assets/css/language-switcher.css', AI_TRANSLATE_FILE));
+    wp_enqueue_style('ai-translate-switcher', plugins_url('assets/css/language-switcher.css', AI_TRANSLATE_FILE), array(), filemtime(AI_TRANSLATE_DIR . 'assets/css/language-switcher.css'));
 }
 
 function set_language_cookie(): void
