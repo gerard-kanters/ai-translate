@@ -1,0 +1,97 @@
+.ai-translate-switcher {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.ai-translate-switcher .current-lang {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* Subtle shadow */
+    font-size: 14px;
+    line-height: 1;
+    color: #333;
+    transition: all 0.2s;
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+.ai-translate-switcher .current-lang .arrow {
+    font-size: 0.8em; /* Smaller arrow */
+    margin-left: 4px; /* Space before arrow */
+    transition: transform 0.2s ease-in-out; /* Smooth rotation */
+}
+
+.ai-translate-switcher .language-popup.show + .current-lang .arrow {
+     transform: rotate(180deg); /* Point arrow up when open */
+}
+
+.ai-translate-switcher .current-lang:hover {
+    background: #f9f9f9; /* Lighter hover */
+    border-color: #ccc;
+}
+
+.ai-translate-switcher .language-popup {
+    display: none; /* Hidden by default */
+    position: absolute;
+    bottom: calc(100% + 5px); /* Position above the button with 5px gap */
+    left: 0;
+    /* margin-bottom: 5px; */ /* Replaced by bottom calc */
+    background: #fff;
+    border-radius: 4px;
+    border: 1px solid #ddd; /* Added border */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Enhanced shadow */
+    padding: 5px 0; /* Reduced padding */
+    min-width: 150px; /* Slightly smaller min-width */
+    z-index: 10; /* Ensure popup is above button */
+    opacity: 0; /* Start hidden for transition */
+    transform: translateY(10px); /* Start slightly lower for transition */
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out; /* Smooth fade/slide */
+}
+
+.ai-translate-switcher .language-popup.show {
+    display: block; /* Show when active */
+    opacity: 1; /* Fade in */
+    transform: translateY(0); /* Slide up */
+}
+
+.ai-translate-switcher .language-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.ai-translate-switcher .lang-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: #333;
+    font-size: 14px;
+    line-height: 1;
+    transition: background-color 0.2s;
+}
+
+.ai-translate-switcher .lang-option:hover {
+    background: #f5f5f5;
+}
+
+.ai-translate-switcher .lang-option.active {
+    background: #eee; /* Slightly lighter active background */
+    font-weight: 600; /* Bolder active item */
+    color: #111; /* Darker text for active */
+}
+
+.ai-translate-switcher img {
+    width: 20px;
+    height: 15px;
+    object-fit: cover;
+    border-radius: 2px;
+}
