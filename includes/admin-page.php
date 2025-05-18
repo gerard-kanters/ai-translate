@@ -27,7 +27,7 @@ function ajax_clear_cache_language()
     }
 
     // Validate nonce
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'clear_cache_language_action')) {
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'clear_cache_language_action')) {
         wp_send_json_error(['message' => 'Beveiligingscontrole mislukt. Vernieuw de pagina en probeer het opnieuw.']);
         return;
     }
@@ -38,7 +38,7 @@ function ajax_clear_cache_language()
         return;
     }
 
-    $lang_code = sanitize_text_field($_POST['lang_code']);
+    $lang_code = sanitize_text_field(wp_unslash($_POST['lang_code']));
 
     // Clear the cache for this language
     $translator = AI_Translate_Core::get_instance();
@@ -82,7 +82,7 @@ add_action('admin_menu', function () {
 add_action('admin_init', function () {
     register_setting('ai_translate', 'ai_translate_settings', [
         'sanitize_callback' => function ($input) {
-            error_log('AI Translate DEBUG: sanitize_callback aangeroepen. Input: ' . print_r($input, true));
+            // error_log('AI Translate DEBUG: sanitize_callback aangeroepen. Input: ' . print_r($input, true));
             if (isset($input['cache_expiration'])) {
                 // Convert days to hours
                 $input['cache_expiration'] = intval($input['cache_expiration']) * 24;
@@ -198,7 +198,7 @@ add_action('admin_init', function () {
         'ai_translate_languages',
         'Language Settings',
         function () {
-            echo '<p>' . __('Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor\'s browser preference matches, but won\'t show in the switcher.', 'ai-translate') . '</p>';
+            echo '<p>' . esc_html(__('Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor\'s browser preference matches, but won\'t show in the switcher.', 'ai-translate')) . '</p>';
         },
         'ai-translate'
     );
@@ -242,7 +242,7 @@ add_action('admin_init', function () {
                 echo '</label>';
             }
             echo '</div>';
-            echo '<p class="description">' . __('Languages selected here will appear in the language switcher.', 'ai-translate') . '</p>';
+            echo '<p class="description">' . esc_html(__('Languages selected here will appear in the language switcher.', 'ai-translate')) . '</p>';
         },
         'ai-translate',
         'ai_translate_languages'
@@ -274,7 +274,7 @@ add_action('admin_init', function () {
                 echo '</label>';
             }
             echo '</div>';
-            echo '<p class="description">' . __('If a visitor\'s browser language matches one of these, the site will be automatically translated (if enabled), but these languages won\'t show in the switcher.', 'ai-translate') . '</p>';
+            echo '<p class="description">' . esc_html(__('If a visitor\'s browser language matches one of these, the site will be automatically translated (if enabled), but these languages won\'t show in the switcher.', 'ai-translate')) . '</p>';
         },
         'ai-translate',
         'ai_translate_languages'
@@ -316,7 +316,7 @@ add_action('admin_init', function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['homepage_meta_description']) ? $settings['homepage_meta_description'] : '';
             echo '<textarea name="ai_translate_settings[homepage_meta_description]" rows="3" class="large-text">' . esc_textarea($value) . '</textarea>';
-            echo '<p class="description">' . __('Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage.', 'ai-translate') . '</p>';
+            echo '<p class="description">' . esc_html(__('Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage.', 'ai-translate')) . '</p>';
         },
         'ai-translate',
         'ai_translate_advanced' // Add to Advanced section
@@ -352,7 +352,7 @@ function render_admin_page()
         isset($_POST['cache_language']) &&
         class_exists('AI_Translate_Core')
     ) {
-        $lang_code = sanitize_text_field($_POST['cache_language']);
+        $lang_code = sanitize_text_field(wp_unslash($_POST['cache_language']));
         $core = AI_Translate_Core::get_instance();
 
         // Haal het aantal bestanden op vóór verwijdering
@@ -374,7 +374,7 @@ function render_admin_page()
         if ($result['success']) {
             if ($result['count'] > 0) {
                 $notice_class = isset($result['warning']) ? 'notice-warning' : 'notice-success';
-                $cache_language_message = '<div class="notice ' . $notice_class . '" id="cache-cleared-message">
+                $cache_language_message = '<div class="notice ' . esc_attr($notice_class) . '" id="cache-cleared-message">
                     <p>Cache voor taal <strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong> gewist. 
                     <br>Verwijderde bestanden: ' . intval($result['count']) . ' 
                     <br>Resterende bestanden: ' . intval($after_count) . '</p>';
@@ -411,19 +411,19 @@ function render_admin_page()
     // --- EINDE NIEUW ---
 
     // Determine active tab
-    $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
+    $active_tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'general';
 ?>
     <div class="wrap">
         <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
         <!-- Tab navigation -->
         <h2 class="nav-tab-wrapper">
-            <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo $active_tab === 'general' ? 'nav-tab-active' : ''; ?>">General</a>
-            <a href="?page=ai-translate&tab=logs" class="nav-tab <?php echo $active_tab === 'logs' ? 'nav-tab-active' : ''; ?>">Logs</a>
-            <a href="?page=ai-translate&tab=cache" class="nav-tab <?php echo $active_tab === 'cache' ? 'nav-tab-active' : ''; ?>">Cache</a>
+            <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo esc_attr($active_tab === 'general' ? 'nav-tab-active' : ''); ?>">General</a>
+            <a href="?page=ai-translate&tab=logs" class="nav-tab <?php echo esc_attr($active_tab === 'logs' ? 'nav-tab-active' : ''); ?>">Logs</a>
+            <a href="?page=ai-translate&tab=cache" class="nav-tab <?php echo esc_attr($active_tab === 'cache' ? 'nav-tab-active' : ''); ?>">Cache</a>
 
         </h2>
         <div id="tab-content">
-            <div id="general" class="tab-panel" style="<?php echo $active_tab === 'general' ? 'display:block;' : 'display:none;' ?>">
+            <div id="general" class="tab-panel" style="<?php echo esc_attr($active_tab === 'general' ? 'display:block;' : 'display:none;'); ?>">
                 <form method="post" action="options.php">
                     <?php
                     settings_fields('ai_translate');
@@ -475,7 +475,7 @@ function render_admin_page()
                 <p>Clear only the transient (database) cache. File cache will remain.</p>
                 <?php
                 if (!empty($transient_cache_message)) {
-                    echo $transient_cache_message;
+                    echo wp_kses_post($transient_cache_message);
                 }
                 ?>
                 <form method="post">
@@ -488,7 +488,7 @@ function render_admin_page()
                 <h3>Clear cache per language</h3>
                 <?php
                 if (!empty($cache_language_message)) {
-                    echo $cache_language_message;
+                    echo wp_kses_post($cache_language_message);
                 }
                 $core = \AITranslate\AI_Translate_Core::get_instance();
                 $languages = $core->get_available_languages();
@@ -567,7 +567,7 @@ function render_admin_page()
                     $total_size_mb = isset($cache_stats['total_size']) ? number_format($cache_stats['total_size'] / (1024 * 1024), 2) : 0;
 
                     // Last update timestamp
-                    $last_modified = isset($cache_stats['last_modified']) ? date('d-m-Y H:i:s', $cache_stats['last_modified']) : 'Unknown';
+                    $last_modified = isset($cache_stats['last_modified']) ? gmdate('d-m-Y H:i:s', $cache_stats['last_modified']) : 'Unknown';
                     ?>
 
                     <div class="cache-summary" style="margin-bottom: 15px; display: flex; gap: 20px;">
@@ -575,7 +575,7 @@ function render_admin_page()
                             <strong>Total number of files:</strong> <span id="total-cache-count"><?php echo intval($cache_stats['total_files'] ?? 0); ?></span>
                         </div>
                         <div class="summary-item">
-                            <strong>Total size:</strong> <?php echo $total_size_mb; ?> MB
+                            <strong>Total size:</strong> <?php echo esc_html($total_size_mb); ?> MB
                         </div>
                         <div class="summary-item">
                             <strong>Expired files:</strong> <?php echo intval($total_expired); ?>
@@ -607,12 +607,12 @@ function render_admin_page()
                                 $details = $languages_details[$code] ?? [];
                                 $size_mb = isset($details['size']) ? number_format($details['size'] / (1024 * 1024), 2) : '0.00';
                                 $expired = isset($details['expired_count']) ? $details['expired_count'] : 0;
-                                $last_mod = isset($details['last_modified']) ? date('d-m-Y H:i:s', $details['last_modified']) : 'N/A';
+                                $last_mod = isset($details['last_modified']) ? gmdate('d-m-Y H:i:s', $details['last_modified']) : 'N/A';
                             ?>
                                 <tr id="cache-row-<?php echo esc_attr($code); ?>" class="<?php echo ($count > 0) ? 'has-cache' : 'no-cache'; ?>">
                                     <td><?php echo esc_html($name); ?> (<?php echo esc_html($code); ?>)</td>
                                     <td><span class="cache-count" data-lang="<?php echo esc_attr($code); ?>"><?php echo intval($count); ?></span> files</td>
-                                    <td><?php echo $size_mb; ?> MB</td>
+                                    <td><?php echo esc_html($size_mb); ?> MB</td>
                                     <td><?php echo intval($expired); ?></td>
                                     <td><?php echo esc_html($last_mod); ?></td>
                                     <td>
@@ -631,7 +631,7 @@ function render_admin_page()
                             <tr>
                                 <th>Total</th>
                                 <th><span id="table-total-count"><?php echo intval($total_files); ?></span> files</th>
-                                <th><?php echo $total_size_mb; ?> MB</th>
+                                <th><?php echo esc_html($total_size_mb); ?> MB</th>
                                 <th><?php echo intval($total_expired); ?></th>
                                 <th><?php echo esc_html($last_modified); ?></th>
                                 <th>
@@ -1066,8 +1066,13 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field($_POST['api_url'])) : '';
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
+    // Verify nonce before accessing POST data
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ai_translate_get_models_nonce')) {
+        wp_send_json_error(['message' => 'Beveiligingscontrole mislukt.']);
+        return;
+    }
+    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field(wp_unslash($_POST['api_url']))) : '';
+    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
     if (empty($api_url) || empty($api_key)) {
         // Fallback op settings als POST leeg is
         $settings = get_option('ai_translate_settings');
@@ -1113,9 +1118,14 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field($_POST['api_url'])) : '';
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
-    $model = isset($_POST['model']) ? trim(sanitize_text_field($_POST['model'])) : '';
+    // Verify nonce before accessing POST data
+    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ai_translate_validate_api_nonce')) {
+        wp_send_json_error(['message' => 'Beveiligingscontrole mislukt.']);
+        return;
+    }
+    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field(wp_unslash($_POST['api_url']))) : '';
+    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
+    $model = isset($_POST['model']) ? trim(sanitize_text_field(wp_unslash($_POST['model']))) : '';
     if (empty($api_url) || empty($api_key) || empty($model)) {
         // Fallback op settings als POST leeg is
         $settings = get_option('ai_translate_settings');
@@ -1157,7 +1167,8 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     $ok = isset($data['choices'][0]['message']['content']) && !empty($data['choices'][0]['message']['content']);
     if ($ok) {
         // Sla settings direct op als validatie slaagt
-        if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
+        // Verify nonce before saving settings
+        if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1' && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ai_translate_validate_api_nonce')) {
             $settings = get_option('ai_translate_settings');
             $settings['api_url'] = $api_url;
             $settings['api_key'] = $api_key;

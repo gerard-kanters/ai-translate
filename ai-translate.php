@@ -140,7 +140,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             if (isset($wp_query) && is_object($wp_query)) {
                 $current_language = $core->get_current_language();
             } else {
-                $current_language = isset($_COOKIE['ai_translate_lang']) ? sanitize_text_field($_COOKIE['ai_translate_lang']) : $default_language;
+                $current_language = isset($_COOKIE['ai_translate_lang']) ? sanitize_text_field(wp_unslash($_COOKIE['ai_translate_lang'])) : $default_language;
             }
 
             // 1. Widget title filter
@@ -301,7 +301,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             // Use path-based language prefix instead of query parameter
             if ($current_language !== $default_language) {
                 // Parse URL to get components
-                $parsed_url = parse_url($url);
+                $parsed_url = wp_parse_url($url);
                 $current_path = $parsed_url['path'] ?? '';
 
                 // Remove existing language prefix if present
@@ -402,13 +402,13 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                     $url = $matches[2];
                     $attrs2 = $matches[3];
 
-                    // Use parse_url for more robust internal URL detection
-                    $parsed_url = parse_url($url);
+                    // Use wp_parse_url for more robust internal URL detection
+                    $parsed_url = wp_parse_url($url);
 
                     // Check if it's a relative URL (no scheme or host) or an internal absolute URL
                     if (
                         !isset($parsed_url['scheme']) ||
-                        (isset($parsed_url['host']) && $parsed_url['host'] === parse_url(home_url(), PHP_URL_HOST))
+                        (isset($parsed_url['host']) && $parsed_url['host'] === wp_parse_url(home_url(), PHP_URL_HOST))
                     ) {
                         // It's likely an internal URL, translate it
                         $url = $core->translate_url($url, $current_language);
@@ -442,7 +442,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     
     // Haal de taalcode uit de cookie
     add_action('init', function () {
-        $language_code = isset($_COOKIE['ai_translate_lang']) ? sanitize_text_field($_COOKIE['ai_translate_lang']) : '';
+        $language_code = isset($_COOKIE['ai_translate_lang']) ? sanitize_text_field(wp_unslash($_COOKIE['ai_translate_lang'])) : '';
         $settings = AI_Translate_Core::get_instance()->get_settings();
         $default_language = $settings['default_language'];
         // Als de cookie geen taalcode bevat, of als de taalcode ongeldig is, stel dan de standaardtaal in
@@ -820,7 +820,7 @@ if (
     }
 } else {
     // Log een fout als de class of methode niet gevonden wordt
-    error_log('AI Translate Fout: Klasse ' . $class_name_for_filters . ' of methode remove_translation_marker niet gevonden tijdens initialisatie van marker verwijderingsfilters.');
+    // error_log('AI Translate Fout: Klasse ' . $class_name_for_filters . ' of methode remove_translation_marker niet gevonden tijdens initialisatie van marker verwijderingsfilters.');
 }
 // --- Einde marker verwijderingsfilters ---
 
@@ -840,7 +840,7 @@ add_action('parse_request', function ($wp) {
     }
     $core = \AITranslate\AI_Translate_Core::get_instance();
     $all_languages = array_keys($core->get_available_languages());
-    $request_path = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
+    $request_path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url(sanitize_url(wp_unslash($_SERVER['REQUEST_URI'])), PHP_URL_PATH) : '/';
     if (!is_string($request_path)) {
         $request_path = '/';
     } else {
@@ -879,7 +879,7 @@ add_filter('redirect_canonical', function($redirect_url, $requested_url) {
     $settings = $core->get_settings();
     $default_language = $settings['default_language'] ?? 'nl';
     // Match alleen /xx/ of /xx (geen slug erachter)
-    if (preg_match('#^/([a-z]{2,3}(?:-[a-z]{2,4})?)/?$#i', parse_url($requested_url, PHP_URL_PATH), $matches)) {
+    if (preg_match('#^/([a-z]{2,3}(?:-[a-z]{2,4})?)/?$#i', wp_parse_url($requested_url, PHP_URL_PATH), $matches)) {
         $lang = strtolower($matches[1]);
         if (in_array($lang, $all_languages, true) && $lang !== $default_language) {
             // Blokkeer alleen als het een geldige taal is en niet de default

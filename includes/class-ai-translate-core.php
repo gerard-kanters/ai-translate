@@ -97,6 +97,7 @@ class AI_Translate_Core
         //error_log('TEST: native error_log direct in constructor');
         //$this->log_event('TEST: log_event direct aangeroepen in __construct van AI_Translate_Core');
         $this->init();
+        add_action('plugins_loaded', [$this, 'schedule_cleanup']);
     }
 
     /**
@@ -129,8 +130,16 @@ class AI_Translate_Core
         // Initialiseer cache directories
         $this->initialize_cache_directories();
 
+    }
+
+    /**
+     * Schedule periodic cache cleanup.
+     * Runs on plugins_loaded action.
+     */
+    public function schedule_cleanup(): void
+    {
         // Voer periodieke opschoning uit (1 op 100 kans, om performance impact te minimaliseren)
-        if (mt_rand(1, 100) === 1) {
+        if (\wp_rand(1, 100) === 1) {
             $this->cleanup_expired_cache();
         }
     }
@@ -146,7 +155,12 @@ class AI_Translate_Core
 
             if ($result) {
                 // Stel correcte rechten in voor Linux
-                @chmod($this->cache_dir, 0755);
+                global $wp_filesystem;
+                if (empty($wp_filesystem)) {
+                    require_once(ABSPATH . '/wp-admin/includes/file.php');
+                    WP_Filesystem();
+                }
+                $wp_filesystem->chmod($this->cache_dir, 0755);
                 $this->log_event("Cache directory aangemaakt: $this->cache_dir", 'info');
             } else {
                 $this->log_event("Kon cache directory niet aanmaken: $this->cache_dir", 'error');
@@ -154,11 +168,26 @@ class AI_Translate_Core
         }
 
         // Controleer of het pad schrijfbaar is
-        if (!is_writable($this->cache_dir)) {
+        global $wp_filesystem;
+        if (empty($wp_filesystem)) {
+            require_once(ABSPATH . '/wp-admin/includes/file.php');
+            WP_Filesystem();
+        }
+        if (!$wp_filesystem->is_writable($this->cache_dir)) {
             // Probeer rechten nogmaals in te stellen
-            @chmod($this->cache_dir, 0755);
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            $wp_filesystem->chmod($this->cache_dir, 0755);
 
-            if (!is_writable($this->cache_dir)) {
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            if (!$wp_filesystem->is_writable($this->cache_dir)) {
                 $this->log_event("Cache directory is niet schrijfbaar: $this->cache_dir", 'error');
             }
         }
@@ -228,7 +257,7 @@ class AI_Translate_Core
             $this->settings = wp_parse_args($settings, $this->get_default_settings());
         }
         if (empty($this->settings['enabled_languages'])) {
-            error_log('AI Translate: Geen talen ingeschakeld in instellingen.');
+            // error_log('AI Translate: Geen talen ingeschakeld in instellingen.'); // Removed debug log
         }
         return $this->settings;
     }
@@ -362,7 +391,12 @@ class AI_Translate_Core
 
         try {
             // Controleer of de cache directory bestaat en schrijfbaar is
-            if (!is_writable($this->cache_dir)) {
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            if (!$wp_filesystem->is_writable($this->cache_dir)) {
                 $this->log_event("Cache directory is niet schrijfbaar: $this->cache_dir", 'error');
                 return false;
             }
@@ -377,12 +411,27 @@ class AI_Translate_Core
             }
 
             // Stel bestandsrechten in
-            @chmod($temp_file, 0644);
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            $wp_filesystem->chmod($temp_file, 0644);
 
             // Verplaats naar definitief bestand
-            if (!rename($temp_file, $cache_file)) {
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            if (!$wp_filesystem->move($temp_file, $cache_file, true)) { // true to overwrite
                 $this->log_event("Kon tijdelijk bestand niet hernoemen naar: $cache_file", 'error');
-                @unlink($temp_file); // Opruimen
+                global $wp_filesystem;
+                if (empty($wp_filesystem)) {
+                    require_once(ABSPATH . '/wp-admin/includes/file.php');
+                    WP_Filesystem();
+                }
+                $wp_filesystem->delete($temp_file); // Opruimen
                 return false;
             }
 
@@ -436,7 +485,7 @@ class AI_Translate_Core
         if (get_transient(self::API_BACKOFF_TRANSIENT)) {
             $error_message = "API backoff active due to repeated errors. Please wait.";
             $this->log_event($error_message, 'warning');
-            throw new \Exception($error_message); // Throw exception to prevent API call
+            throw new \Exception(esc_html($error_message)); // Throw exception to prevent API call
         }
         // --- End Backoff Check ---
 
@@ -530,7 +579,7 @@ class AI_Translate_Core
             $error_message = $error_message ?? "API request failed after $maxRetries attempts.";
         }
 
-        throw new \Exception($error_message);
+        throw new \Exception(esc_html($error_message));
         // --- End Failure Handling ---
     }
 
@@ -632,7 +681,7 @@ class AI_Translate_Core
         // Detect: tekst bestaat alleen uit uitgesloten shortcodes?
         $only_excluded = false;
         if (!empty($shortcodes)) {
-            $stripped = trim(strip_tags(str_replace(array_values($shortcodes), '', $text_to_translate)));
+            $stripped = trim(wp_strip_all_tags(str_replace(array_values($shortcodes), '', $text_to_translate)));
             if ($stripped === '') {
                 $only_excluded = true;
             }
@@ -797,7 +846,7 @@ class AI_Translate_Core
 
         // --- Sanity check: If translation resulted in empty text but original wasn't, log critical error ---
         // Deze check blijft belangrijk, maar we retourneren $text ipv $final_translated_text als de marker mist.
-        if (empty(trim(strip_tags(str_replace(self::TRANSLATION_MARKER, '', (string)$final_translated_text)))) && !empty(trim(strip_tags($text)))) {
+        if (empty(trim(wp_strip_all_tags(str_replace(self::TRANSLATION_MARKER, '', (string)$final_translated_text)))) && !empty(trim(wp_strip_all_tags($text)))) {
             $this->log_event(
                 "Critical placeholder/translation failure: Translation resulted in empty text. Returning original. Original text starts with: '" . substr(trim($text), 0, 100) . "...'",
                 'error'
@@ -1050,8 +1099,8 @@ class AI_Translate_Core
      */
     public function log_event(string $message, string $level = 'debug'): void
     {
-        $timestamp = date('Y-m-d H:i:s');
-        error_log("AI Translate [$level][$timestamp]: $message");
+        $timestamp = gmdate('Y-m-d H:i:s');
+        // error_log("AI Translate [$level][$timestamp]: $message"); // Commented out debug log
     }
 
     /**
@@ -1063,7 +1112,7 @@ class AI_Translate_Core
         if (is_array($files)) {
             foreach ($files as $file) {
                 if (is_file($file)) {
-                    unlink($file);
+                    wp_delete_file($file);
                 }
             }
         }
@@ -1073,21 +1122,54 @@ class AI_Translate_Core
     /**
      * Clear alle transients die bij AI Translate horen.
      */
+    /**
+     * Clear transient cache entries using delete_transient.
+     */
     public function clear_transient_cache(): void
     {
         global $wpdb;
-        // Verwijder opties die beginnen met _transient_ai_translate_trans_
-        $deleted_trans = $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_ai\_translate\_trans\_%'");
-        // Verwijder opties die beginnen met _transient_ai_translate_batch_trans_
-        $deleted_batch_trans = $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_ai\_translate\_batch\_trans\_%'");
-        // Verwijder ook de API error/backoff transients
+        $table_name = $wpdb->options;
+
+        // Get transients to delete
+        $cache_key = 'ai_translate_transients_to_delete';
+        $cache_key = 'ai_translate_transients_to_delete';
+        $transients_to_delete = wp_cache_get( $cache_key );
+
+        if ( false === $transients_to_delete ) {
+            // Get transients to delete
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct query is necessary to get transients by pattern.
+            $transients_to_delete = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT option_name FROM " . $wpdb->prefix . "options WHERE option_name LIKE %s OR option_name LIKE %s",
+                    '_transient_ai_translate_trans_%',
+                    '_transient_timeout_ai_translate_trans_%'
+                )
+            );
+            wp_cache_set( $cache_key, $transients_to_delete, '', 60 ); // Cache for 60 seconds
+        }
+
+        // Delete the transients using delete_option which handles caching
+        foreach ( $transients_to_delete as $transient_name ) {
+            delete_option( $transient_name );
+        }
+
+        // Invalidate the cache after deleting transients
+        wp_cache_delete( $cache_key );
+
+        if ($transients_to_delete) {
+            foreach ($transients_to_delete as $transient_name) {
+                // Use delete_option to clear the transient
+                // Remove the _transient_ or _transient_timeout_ prefix
+                $option_name = str_replace( '_transient_', '', $transient_name );
+                $option_name = str_replace( '_transient_timeout_', '', $option_name );
+                delete_option( $option_name );
+            }
+        }
+        // Also delete the API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
-
-        $total_deleted = ($deleted_trans ?: 0) + ($deleted_batch_trans ?: 0);
-        $this->log_event("Transient cache cleared ($total_deleted items).", 'info');
+        $this->log_event('Transient cache cleared using delete_transient.', 'info');
     }
-
     /**
      * Clear zowel file cache als transients.
      */
@@ -1110,7 +1192,7 @@ class AI_Translate_Core
         if (file_exists($log_file)) {
             $cleared = file_put_contents($log_file, '');
             if ($cleared !== false) {
-                error_log('AI Translate: Log file cleared');
+                // error_log('AI Translate: Log file cleared'); // Commented out debug log
                 return true;
             }
         }
@@ -1154,7 +1236,8 @@ class AI_Translate_Core
 
         // 1. Check URL path voor taalcode (hoogste prioriteit)
         if (isset($_SERVER['REQUEST_URI'])) {
-            $request_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+            $request_path = wp_parse_url(esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])), PHP_URL_PATH);
+    $request_path = sanitize_text_field($request_path);
             // Normaliseer: als leeg of alleen slashes, maak er één enkele slash van
             if (!is_string($request_path) || trim($request_path, '/') === '') {
                 $request_path = '/';
@@ -1173,7 +1256,7 @@ class AI_Translate_Core
         }
         // 2. Check cookie (tweede prioriteit) -- alleen als er geen geldige taal in de URL zat
         if ($this->current_language === null && isset($_COOKIE['ai_translate_lang'])) {
-            $cookie_lang = sanitize_text_field($_COOKIE['ai_translate_lang']);
+            $cookie_lang = sanitize_text_field(wp_unslash($_COOKIE['ai_translate_lang']));
             if (in_array($cookie_lang, array_keys($this->get_available_languages()), true)) {
                 $this->current_language = $cookie_lang;
                 return $this->current_language;
@@ -1185,7 +1268,7 @@ class AI_Translate_Core
         if (!is_admin() && !wp_doing_ajax() && !empty($detectable_languages)) {
             $browser_langs = [];
             if (!empty($_SERVER['HTTP_ACCEPT_LANGUAGE'])) {
-                $accept = strtolower($_SERVER['HTTP_ACCEPT_LANGUAGE']);
+                $accept = strtolower(sanitize_text_field(wp_unslash($_SERVER['HTTP_ACCEPT_LANGUAGE'])));
                 foreach (explode(',', $accept) as $lang) {
                     $lang = explode(';', $lang)[0];
                     $lang = substr($lang, 0, 2);
@@ -1277,8 +1360,8 @@ class AI_Translate_Core
             } else {
                 // Voor andere pagina's: gebruik de huidige URL
                 $scheme = is_ssl() ? 'https' : 'http';
-                $host = $_SERVER['HTTP_HOST'];
-                $request_uri = $_SERVER['REQUEST_URI'];
+                $host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
+                $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_url(wp_unslash($_SERVER['REQUEST_URI'])) : '';
                 $base_url = $scheme . '://' . $host . $request_uri;
             }
             $url = $this->translate_url($base_url, $lang_code);
@@ -1327,13 +1410,18 @@ class AI_Translate_Core
         if (empty($lang_code) || !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $lang_code)) {
             $error = "Ongeldige taalcode '$lang_code' opgegeven voor cache wissen.";
             $this->log_event($error, 'warning');
-            throw new \InvalidArgumentException($error);
+            throw new \InvalidArgumentException(esc_html($error));
         }
 
-        if (!is_dir($this->cache_dir) || !is_writable($this->cache_dir)) {
+        global $wp_filesystem;
+        if (empty($wp_filesystem)) {
+            require_once(ABSPATH . '/wp-admin/includes/file.php');
+            WP_Filesystem();
+        }
+        if (!is_dir($this->cache_dir) || !$wp_filesystem->is_writable($this->cache_dir)) {
             $error = "Cache directory bestaat niet of is niet schrijfbaar: {$this->cache_dir}";
             $this->log_event($error, 'error');
-            throw new \RuntimeException($error);
+            throw new \RuntimeException(esc_html($error));
         }
 
         $count = 0;
@@ -1343,13 +1431,13 @@ class AI_Translate_Core
         if ($files === false) {
             $error = "Fout bij het zoeken naar cachebestanden met patroon: $pattern";
             $this->log_event($error, 'error');
-            throw new \RuntimeException($error);
+            throw new \RuntimeException(esc_html($error));
         }
 
         foreach ($files as $file) {
             // Extra check of het echt een bestand is en de naam begint met de taalcode + underscore
             if (is_file($file) && strpos(basename($file), $lang_code . '_') === 0) {
-                if (unlink($file)) {
+                if (wp_delete_file($file)) {
                     $count++;
                 } else {
                     $this->log_event("Kon cachebestand niet verwijderen: $file", 'warning');
@@ -1517,7 +1605,7 @@ class AI_Translate_Core
         if (is_array($files)) {
             foreach ($files as $file) {
                 if (is_file($file) && $this->is_cache_expired($file)) {
-                    if (@unlink($file)) {
+                    if (wp_delete_file($file)) {
                         $count++;
                     }
                 }
@@ -1795,7 +1883,7 @@ class AI_Translate_Core
             return $url; // Return original URL if target lang is invalid
         }
 
-        $parsed_url = parse_url($url);
+        $parsed_url = wp_parse_url($url);
         if (!$parsed_url) {
             return $url; // Return original URL if parsing fails
         }
