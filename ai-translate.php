@@ -412,8 +412,49 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             $translated .= AI_Translate_Core::TRANSLATION_MARKER;
         }
     
-        // URLs have already been translated before content translation
-    
+        // Now translate links within the translated content
+        $current_language = $core->get_current_language();
+        $default_language = $core->get_settings()['default_language'];
+        // Now find and translate links within the translated content
+        $current_language = $core->get_current_language();
+        $default_language = $core->get_settings()['default_language'];
+        if ($current_language !== $default_language) {
+            // Find all anchor tags and their href attributes
+            preg_match_all('/<a\s+[^>]*href=["\']([^"\']*)["\'][^>]*>/i', $translated, $matches, PREG_SET_ORDER);
+
+            if (!empty($matches)) {
+                foreach ($matches as $match) {
+                    $original_tag = $match[0]; // Full original <a> tag
+                    $original_href = $match[1]; // Original href value
+
+                    // Use wp_parse_url for more robust internal URL detection
+                    $parsed_url = wp_parse_url($original_href);
+
+                    // Check if it's a relative URL (doesn't start with http/https) or an internal absolute URL
+                    if (
+                        (!preg_match('/^https?:\/\//i', $original_href)) || // Check if it doesn't start with http or https
+                        (isset($parsed_url['host']) && $parsed_url['host'] === wp_parse_url(home_url(), PHP_URL_HOST))
+                    ) {
+                        // It's likely an internal or relative URL, translate it
+                        $translated_url = $core->translate_url($original_href, $current_language);
+
+                        // Replace the original href with the translated href in the translated content
+                        // Use a precise replacement to avoid unintended changes
+                        $translated = str_replace(
+                            'href="' . $original_href . '"',
+                            'href="' . $translated_url . '"',
+                            $translated
+                        );
+                         $translated = str_replace(
+                            "href='" . $original_href . "'",
+                            "href='" . $translated_url . "'",
+                            $translated
+                        );
+                    }
+                }
+            }
+        }
+
         $processing_content = false;
         return $translated;
     }, 1);
