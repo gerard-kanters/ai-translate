@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://github.com/gerard-kanters/ai-translate
 Description: Translate your wordpress site with AI 🤖
-Version: 1.1
+Version: 1.12
 Author: Gerard Kanters
 Author URI: https://www.netcare.nl/
 License: GPL2
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.1');
+define('AI_TRANSLATE_VERSION', '1.12');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));

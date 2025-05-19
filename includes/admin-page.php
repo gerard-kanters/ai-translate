@@ -27,8 +27,9 @@ function ajax_clear_cache_language()
     }
 
     // Validate nonce
-    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'clear_cache_language_action')) {
-        wp_send_json_error(['message' => 'Beveiligingscontrole mislukt. Vernieuw de pagina en probeer het opnieuw.']);
+    $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
+    if (!$nonce_value || !wp_verify_nonce($nonce_value, 'clear_cache_language_action')) {
+        wp_send_json_error(['message' => 'Beveiligingscontrole mislukt (nonce). Vernieuw de pagina en probeer het opnieuw.']);
         return;
     }
 
@@ -455,8 +456,9 @@ function render_admin_page()
                     <?php submit_button('Clear Debug Log', 'delete', 'clear_debug', false); ?>
                 </form>
             </div>
-            <div id="cache" class="tab-panel" style="<?php echo $active_tab === 'cache' ? 'display:block;' : 'display:none;' ?>">
+            <div id="cache" class="tab-panel" style="<?php echo esc_attr($active_tab === 'cache' ? 'display:block;' : 'display:none;'); ?>">
                 <h2>Cache Management</h2>
+                <?php wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce'); // Nonce for AJAX clear language cache ?>
                 <p>Clear all translation caches (both files and transients) to force new translations.</p>
                 <?php
                 if (isset($_POST['clear_cache']) && check_admin_referer('clear_cache_action', 'clear_cache_nonce')) {
