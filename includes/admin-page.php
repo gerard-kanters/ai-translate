@@ -55,8 +55,13 @@ function ajax_clear_cache_language()
     }
 }
 
-// Registreer de AJAX handler
+// Registreer de AJAX handlers
 add_action('wp_ajax_ai_translate_clear_cache_language', __NAMESPACE__ . '\\ajax_clear_cache_language');
+
+
+/**
+ * AJAX handler for validating API settings
+ */
 
 function no_admin_page()
 {
@@ -185,9 +190,9 @@ add_action('admin_init', function () {
             echo '<div id="custom_model_div" style="margin-top:10px; display:' . ($is_custom ? 'block' : 'none') . ';">';
             echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($is_custom ? $selected_model : $custom_model) . '" placeholder="Bijv: deepseek-chat, gpt-4o, ..." class="regular-text">';
             echo '</div>';
-            // Validatieknop
             echo '<button type="button" class="button" id="ai-translate-validate-api">Validate API settings</button>';
             echo '<span id="ai-translate-api-status" style="margin-left:10px;"></span>';
+
         },
         'ai-translate',
         'ai_translate_api'
@@ -552,10 +557,6 @@ function render_admin_page()
                     }
                 </style>
                 <div class="cache-stats-section">
-                    <?php
-                    // Generate nonce for AJAX requests
-                    wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce');
-                    ?>
                     <h4>Cache overview per language</h4>
 
                     <?php
@@ -1066,13 +1067,8 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-    // Verify nonce before accessing POST data
-    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ai_translate_get_models_nonce')) {
-        wp_send_json_error(['message' => 'Beveiligingscontrole mislukt.']);
-        return;
-    }
-    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field(wp_unslash($_POST['api_url']))) : '';
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
+    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field($_POST['api_url'])) : '';
+    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
     if (empty($api_url) || empty($api_key)) {
         // Fallback op settings als POST leeg is
         $settings = get_option('ai_translate_settings');
@@ -1118,14 +1114,9 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-    // Verify nonce before accessing POST data
-    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ai_translate_validate_api_nonce')) {
-        wp_send_json_error(['message' => 'Beveiligingscontrole mislukt.']);
-        return;
-    }
-    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field(wp_unslash($_POST['api_url']))) : '';
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
-    $model = isset($_POST['model']) ? trim(sanitize_text_field(wp_unslash($_POST['model']))) : '';
+    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field($_POST['api_url'])) : '';
+    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
+    $model = isset($_POST['model']) ? trim(sanitize_text_field($_POST['model'])) : '';
     if (empty($api_url) || empty($api_key) || empty($model)) {
         // Fallback op settings als POST leeg is
         $settings = get_option('ai_translate_settings');
@@ -1167,8 +1158,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     $ok = isset($data['choices'][0]['message']['content']) && !empty($data['choices'][0]['message']['content']);
     if ($ok) {
         // Sla settings direct op als validatie slaagt
-        // Verify nonce before saving settings
-        if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1' && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ai_translate_validate_api_nonce')) {
+        if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
             $settings = get_option('ai_translate_settings');
             $settings['api_url'] = $api_url;
             $settings['api_key'] = $api_key;
@@ -1181,132 +1171,123 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     }
 });
 
-// --- JavaScript voor dynamisch ophalen van modellen ---
-add_action('admin_footer', function () {
+// Add JavaScript for model selection and API validation
+add_action('admin_footer', function() {
     $screen = get_current_screen();
-    if ($screen && $screen->id === 'toplevel_page_ai-translate') {
+    if (!$screen || $screen->id !== 'toplevel_page_ai-translate') return;
     ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                var select = document.getElementById('selected_model');
-                var customDiv = document.getElementById('custom_model_div');
-                var status = document.getElementById('ai-translate-models-status');
-                // Voeg status-span toe als die niet bestaat
-                if (!status) {
-                    status = document.createElement('span');
-                    status.id = 'ai-translate-models-status';
-                    status.style.marginLeft = '10px';
-                    status.style.color = '#666';
-                    select.parentNode.insertBefore(status, select.nextSibling);
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var select = document.getElementById('selected_model');
+        var customDiv = document.getElementById('custom_model_div');
+        var status = document.getElementById('ai-translate-api-status');
+        var validateBtn = document.getElementById('ai-translate-validate-api');
+
+        function loadModels() {
+            var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]').value;
+            var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]').value;
+
+            if (!apiUrl || !apiKey) {
+                status.textContent = 'Please enter API URL and Key first.';
+                return;
+            }
+
+            status.textContent = 'Loading models...';
+
+            var data = new FormData();
+            data.append('action', 'ai_translate_get_models');
+            data.append('api_url', apiUrl);
+            data.append('api_key', apiKey);
+
+            fetch(ajaxurl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: data
+            })
+            .then(r => r.json())
+            .then(function(resp) {
+                if (resp.success && resp.data && resp.data.models) {
+                    var current = select.value;
+                    select.innerHTML = '';
+                    resp.data.models.forEach(function(model) {
+                        var opt = document.createElement('option');
+                        opt.value = model;
+                        opt.textContent = model;
+                        if (model === current) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                    var opt = document.createElement('option');
+                    opt.value = 'custom';
+                    opt.textContent = 'Select...';
+                    if (current === 'custom') opt.selected = true;
+                    select.appendChild(opt);
+                    status.textContent = 'Models loaded successfully.';
+                } else {
+                    status.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Unknown error');
+                }
+            })
+            .catch(function(e) {
+                status.textContent = 'Error loading models: ' + e.message;
+            });
+        }
+
+        if (select) {
+            select.addEventListener('focus', loadModels);
+            select.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customDiv.style.display = 'block';
+                } else {
+                    customDiv.style.display = 'none';
+                }
+            });
+        }
+
+        if (validateBtn) {
+            validateBtn.addEventListener('click', function() {
+                status.innerHTML = 'Validating...';
+                var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]').value;
+                var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]').value;
+                var model = select.value;
+                if (model === 'custom') {
+                    model = document.querySelector('input[name="ai_translate_settings[custom_model]"]').value;
                 }
 
-                function loadModels() {
-                    status.textContent = 'Modellen laden...';
-                    var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]').value;
-                    var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]').value;
-                    if (!apiUrl || !apiKey) {
-                        status.textContent = 'Vul eerst API URL en Key in.';
-                        return;
+                if (!apiUrl || !apiKey || !model) {
+                    status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Please enter API URL, Key and select a model</span>';
+                    return;
+                }
+
+                validateBtn.disabled = true;
+
+                var data = new FormData();
+                data.append('action', 'ai_translate_validate_api');
+                data.append('api_url', apiUrl);
+                data.append('api_key', apiKey);
+                data.append('model', model);
+
+                fetch(ajaxurl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: data
+                })
+                .then(r => r.json())
+                .then(function(resp) {
+                    if (resp.success) {
+                        status.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connection and model OK</span>';
+                    } else {
+                        status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +
+                            (resp.data && resp.data.message ? resp.data.message : 'Error') + '</span>';
                     }
-                    var data = new FormData();
-                    data.append('action', 'ai_translate_get_models');
-                    data.append('api_url', apiUrl);
-                    data.append('api_key', apiKey);
-                    fetch(ajaxurl, {
-                            method: 'POST',
-                            credentials: 'same-origin',
-                            body: data
-                        })
-                        .then(r => r.json())
-                        .then(function(resp) {
-                            if (resp.success && resp.data && resp.data.models) {
-                                var current = select.value;
-                                select.innerHTML = '';
-                                resp.data.models.forEach(function(model) {
-                                    var opt = document.createElement('option');
-                                    opt.value = model;
-                                    opt.textContent = model;
-                                    if (model === current) opt.selected = true;
-                                    select.appendChild(opt);
-                                });
-                                var opt = document.createElement('option');
-                                opt.value = 'custom';
-                                opt.textContent = 'Select...';
-                                if (current === 'custom') opt.selected = true;
-                                select.appendChild(opt);
-                                status.textContent = 'Models loaded.';
-                            } else {
-                                status.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
-                            }
-                        })
-                        .catch(function(e) {
-                            status.textContent = 'Fout bij laden modellen.';
-                        });
-                }
-                if (select) {
-                    select.addEventListener('focus', loadModels);
-                    select.addEventListener('change', function() {
-                        if (select.value === 'custom') {
-                            customDiv.style.display = 'block';
-                        } else {
-                            customDiv.style.display = 'none';
-                        }
-                    });
-                }
+                })
+                .catch(function(e) {
+                    status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Validation error: ' + e.message + '</span>';
+                })
+                .finally(function() {
+                    validateBtn.disabled = false;
+                });
             });
-        </script>
+        }
+    });
+    </script>
     <?php
-    }
-});
-
-// --- JavaScript voor validatieknop ---
-add_action('admin_footer', function () {
-    $screen = get_current_screen();
-    if ($screen && $screen->id === 'toplevel_page_ai-translate') {
-    ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                var validateBtn = document.getElementById('ai-translate-validate-api');
-                var status = document.getElementById('ai-translate-api-status');
-                if (validateBtn) {
-                    validateBtn.addEventListener('click', function() {
-                        status.innerHTML = 'Bezig met valideren...';
-                        var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]').value;
-                        var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]').value;
-                        var model;
-                        var customModelDiv = document.getElementById('custom_model_div');
-                        if (customModelDiv && customModelDiv.style.display !== 'none') {
-                            var customInput = customModelDiv.querySelector('input[name="ai_translate_settings[custom_model]"]');
-                            model = customInput ? customInput.value : '';
-                        } else {
-                            model = document.querySelector('select[name="ai_translate_settings[selected_model]"]').value;
-                        }
-                        var data = new FormData();
-                        data.append('action', 'ai_translate_validate_api');
-                        data.append('api_url', apiUrl);
-                        data.append('api_key', apiKey);
-                        data.append('model', model);
-                        data.append('save_settings', '1'); // Optioneel: sla settings op bij succesvolle validatie
-                        fetch(ajaxurl, {
-                                method: 'POST',
-                                credentials: 'same-origin',
-                                body: data
-                            })
-                            .then(r => r.json())
-                            .then(function(resp) {
-                                if (resp.success) {
-                                    status.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connection and model OK</span>';
-                                } else {
-                                    status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' + (resp.data && resp.data.message ? resp.data.message : 'Error') + '</span>';
-                                }
-                            })
-                            .catch(function(e) {
-                                status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Fout bij valideren</span>';
-                            });
-                    });
-                }
-            });
-        </script>
-<?php
-    }
 });

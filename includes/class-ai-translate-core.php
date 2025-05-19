@@ -2211,4 +2211,45 @@ class AI_Translate_Core
     {
         self::$translation_memory[$key] = $value;
     }
+
+    /**
+     * Validate API settings by attempting to fetch models
+     *
+     * @param string $api_url The API URL to validate
+     * @param string $api_key The API key to validate
+     * @return array<string,mixed> Response data including models if successful
+     * @throws \Exception If validation fails
+     */
+    public function validate_api_settings(string $api_url, string $api_key): array
+    {
+        // Store original values
+        $original_url = $this->api_endpoint;
+        $original_key = $this->api_key;
+
+        try {
+            // Temporarily set the new values
+            $this->api_endpoint = rtrim($api_url, '/') . '/';
+            $this->api_key = $api_key;
+
+            // Try to fetch models
+            $response = $this->make_api_request('models', [
+                'method' => 'GET'
+            ]);
+
+            if (empty($response['data'])) {
+                throw new \Exception('Geen modellen gevonden in API response.');
+            }
+
+            return [
+                'message' => 'API validatie succesvol.',
+                'models' => $response['data']
+            ];
+        } catch (\Exception $e) {
+            throw new \Exception('API validatie mislukt: ' . $e->getMessage());
+        } finally {
+            // Restore original values
+            $this->api_endpoint = $original_url;
+            $this->api_key = $original_key;
+        }
+    }
 }
