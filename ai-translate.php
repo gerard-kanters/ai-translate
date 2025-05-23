@@ -3,11 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://github.com/gerard-kanters/ai-translate
 Description: Translate your wordpress site with AI 🤖
-<<<<<<< HEAD
 Version: 1.14
-=======
-Version: 1.12
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 Author: Gerard Kanters
 Author URI: https://www.netcare.nl/
 License: GPL2
@@ -24,11 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-<<<<<<< HEAD
 define('AI_TRANSLATE_VERSION', '1.14');
-=======
-define('AI_TRANSLATE_VERSION', '1.12');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -44,10 +36,6 @@ register_deactivation_hook(__FILE__, __NAMESPACE__ . '\\plugin_deactivate');
 add_action('wp_ajax_ai_translate_clear_logs', [AI_Translate_Core::get_instance(), 'clear_logs']);
 
 
-<<<<<<< HEAD
-=======
-// Wacht tot WordPress volledig geladen is
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 add_action('plugins_loaded', function () { // Keep this hook for loading core
     // Plugin initialisatie
     add_action('init', __NAMESPACE__ . '\\init_plugin', 5); // Keep for basic init like scripts
@@ -60,7 +48,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
     $core = AI_Translate_Core::get_instance();
 
-<<<<<<< HEAD
     add_action('wp_head', [$core, 'add_simple_meta_description'], 99);
 
     // Start output buffering voor volledige HTML vertaling (page builder support)
@@ -110,16 +97,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
     add_action('wp_footer', [$core, 'hook_display_language_switcher']);
 
-=======
-    // --- Voeg Vertaalde Meta Description toe (hoge  prioriteit: 99) ---
-    add_action('wp_head', [$core, 'add_simple_meta_description'], 99);
-
-    // Voeg de language switcher toe in de footer
-    add_action('wp_footer', [$core, 'hook_display_language_switcher']);
-
-    // Voeg filters toe zodat titels, content, widgets en menu-items vertaald worden
-    // Menu item titels batch
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     add_filter('wp_nav_menu_objects', function ($items, $args) use ($core) {
         $target_language = $core->get_current_language();
         $settings = $core->get_settings();
@@ -130,33 +107,22 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         }
 
         foreach ($items as $item) {
-<<<<<<< HEAD
             $original_title = $item->title;
             $original_url = $item->url;
             
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             // Translate the title
             $item->title = $core->translate_text($item->title, $default_language, $target_language, true);
             // Remove the marker before display
             $item->title = AI_Translate_Core::remove_translation_marker($item->title);
 
-<<<<<<< HEAD
             // Translate URLs for menu items
-=======
-            // Alleen de taalcode als prefix toevoegen, geen slug vertaling!
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             if (
                 isset($item->object_id) &&
                 in_array($item->object, ['page', 'post', 'custom_post_type']) &&
                 $item->type === 'post_type'
             ) {
                 $url = get_permalink($item->object_id);
-<<<<<<< HEAD
                 $item->url = $core->translate_url($url, $target_language);
-=======
-                $item->url = $core->translate_url($url, $target_language); // deze mag alleen de prefix toevoegen
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             } elseif (strpos($item->url, home_url()) === 0) {
                 // Also translate other internal links (like custom links to homepage)
                 $item->url = $core->translate_url($item->url, $target_language);
@@ -177,37 +143,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         return \AITranslate\AI_Translate_Core::remove_translation_marker($translated_value);
     }, 100);
 
-<<<<<<< HEAD
-=======
-    
-    // Filter om de URL van menu-items aan te passen (voegt de taalcode toe aan de URL en vertaalt de slug)
-    add_filter('nav_menu_link_attributes', function ($atts, $item, $args, $depth = 0) {
-        $core     = AI_Translate_Core::get_instance();
-        $settings = $core->get_settings();
-        $default_language = $settings['default_language'] ?? 'nl';
-        $current_language = $core->get_current_language();
-
-        // Alleen aanpassen als de huidige taal anders is dan de standaardtaal.
-        if ($current_language !== $default_language) {
-            $normalized_item = remove_query_arg('lang', $atts['href']);
-            $normalized_home = remove_query_arg('lang', home_url());
-            $normalized_item = untrailingslashit($normalized_item);
-            $normalized_home = untrailingslashit($normalized_home);
-
-            // Als het menu-item de home-link betreft, genereer dan een nette /[lang]/ URL zonder lang-parameter
-            if ($normalized_item === $normalized_home) {
-                $atts['href'] = $core->translate_url(home_url(), $current_language);
-            } else {
-                // Als er al een lang-parameter aanwezig is, maar er staat een trailing slash achter de URL, verwijder die.
-                if (strpos($atts['href'], '?lang=') !== false && substr($atts['href'], -1) === '/') {
-                    $atts['href'] = rtrim($atts['href'], '/');
-                }
-            }
-        }
-        return $atts;
-    }, 10, 4);
-
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     // Voeg de home_url filter pas toe via de wp actie zodat de globale query beschikbaar is
     add_action('wp', function () {
         add_filter('home_url', function ($url, $path, $orig_scheme, $blog_id) {
@@ -284,18 +219,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 return is_string($result) ? $result : $text;
             }, 10);
             
-<<<<<<< HEAD
-=======
-            
-            // Reset statische variabelen na afloop van de sidebar rendering
-            add_action('dynamic_sidebar_after', function () {
-                // Reset alle statische variabelen voor een nieuwe sidebar
-                $refl = new \ReflectionFunction(function () {});
-                $static_vars = &$refl->getStaticVariables();
-                $static_vars = [];
-            });
-
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             // 2. Widget text filter (voor oudere text widgets)
             add_filter('widget_text', function ($text) use ($core, $current_language) {
                 // Skip in admin
@@ -579,11 +502,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
             if ($current_language !== $default_language) {
                 // Use translate_url to get path-based URL with translated slug
-<<<<<<< HEAD
                 $permalink = $core->translate_url($permalink, $current_language, $post->ID);
-=======
-                $permalink = $core->translate_url($permalink, $current_language);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             }
 
             return $permalink;
@@ -597,11 +516,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
             if ($current_language !== $default_language) {
                 // Use translate_url to get path-based URL with translated slug
-<<<<<<< HEAD
                 $permalink = $core->translate_url($permalink, $current_language, $post_id);
-=======
-                $permalink = $core->translate_url($permalink, $current_language);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             }
 
             return $permalink;
@@ -652,7 +567,6 @@ function plugin_activate(): void
         wp_mkdir_p($flags_dir);
     }
     flush_rewrite_rules();
-<<<<<<< HEAD
 
     // Create custom table for slug translations
     global $wpdb;
@@ -675,8 +589,6 @@ function plugin_activate(): void
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 }
 
 function plugin_deactivate(): void
@@ -726,17 +638,9 @@ function add_language_rewrite_rules(): void
     add_rewrite_rule('^' . $lang_regex . '/([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
     // Rule for homepage with language prefix
     add_rewrite_rule('^' . $lang_regex . '/?$', 'index.php?lang=$matches[1]', 'top');
-<<<<<<< HEAD
 
     // Add 'lang' to query vars so get_query_var works
     add_filter('query_vars', __NAMESPACE__ . '\\add_language_query_var');
-=======
-    add_rewrite_rule('^' . $lang_regex . '/(.*)?$', 'index.php?lang=$matches[1]&original_url=$matches[2]', 'top');
-
-    // Add 'lang' to query vars so get_query_var works
-    add_filter('query_vars', __NAMESPACE__ . '\\add_language_query_var');
-    flush_rewrite_rules();
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 }
 
 function add_language_query_var(array $vars): array
@@ -930,10 +834,6 @@ function maybe_flush_rules_on_settings_update($old_value, $value): void
             // Re-register rules based on the *new* setting before flushing
             register_rewrite_rules();
             flush_rewrite_rules();
-<<<<<<< HEAD
-=======
-            AI_Translate_Core::get_instance()->log_event('Rewrite rules flushed via shutdown due to sitemap setting change.', 'info');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         }, 99); // Run late in shutdown
     }
 }
@@ -982,10 +882,7 @@ if (
     // Log een fout als de class of methode niet gevonden wordt
     // error_log('AI Translate Fout: Klasse ' . $class_name_for_filters . ' of methode remove_translation_marker niet gevonden tijdens initialisatie van marker verwijderingsfilters.');
 }
-<<<<<<< HEAD
-=======
 // --- Einde marker verwijderingsfilters ---
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
 // Zet de juiste lang- en dir-attribuut in de <html> tag op basis van de actieve taal
 add_filter('language_attributes', function($output) {
@@ -1001,7 +898,6 @@ add_action('parse_request', function ($wp) {
     if (is_admin() || (defined('DOING_AJAX') && DOING_AJAX)) {
         return;
     }
-<<<<<<< HEAD
 
     $core = \AITranslate\AI_Translate_Core::get_instance();
     $settings = $core->get_settings();
@@ -1009,17 +905,12 @@ add_action('parse_request', function ($wp) {
     $current_language = $core->get_current_language();
     $all_languages = array_keys($core->get_available_languages());
 
-=======
-    $core = \AITranslate\AI_Translate_Core::get_instance();
-    $all_languages = array_keys($core->get_available_languages());
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     $request_path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url(sanitize_url(wp_unslash($_SERVER['REQUEST_URI'])), PHP_URL_PATH) : '/';
     if (!is_string($request_path)) {
         $request_path = '/';
     } else {
         $request_path = preg_replace('#/+#', '/', $request_path);
     }
-<<<<<<< HEAD
 
     if (preg_match('#^/([a-z]{2,3}(?:-[a-z]{2,4})?)/?$#i', $request_path, $matches)) {
         $lang = strtolower($matches[1]);
@@ -1027,17 +918,6 @@ add_action('parse_request', function ($wp) {
             if (empty($wp->query_vars) || (count($wp->query_vars) === 1 && isset($wp->query_vars['lang']))) {
                 $front_id = get_option('page_on_front');
                 $blog_id = get_option('page_for_posts');
-=======
-    // Alleen taalprefix, geen slug: /en/ of /en
-    if (preg_match('#^/([a-z]{2,3}(?:-[a-z]{2,4})?)/?$#i', $request_path, $matches)) {
-        $lang = strtolower($matches[1]);
-        if (in_array($lang, $all_languages, true)) {
-            // Alleen forceren als er geen andere query_vars zijn (dus geen ?param=... of extra path)
-            if (empty($wp->query_vars) || (count($wp->query_vars) === 1 && isset($wp->query_vars['lang']))) {
-                $front_id = get_option('page_on_front');
-                $blog_id = get_option('page_for_posts');
-                // Als dit de blogpagina is, forceer blogquery
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 if ($blog_id && intval($blog_id) > 0 && $front_id && $front_id == $blog_id) {
                     $wp->query_vars = ['page_id' => $blog_id];
                 } elseif ($front_id && intval($front_id) > 0) {
@@ -1049,7 +929,6 @@ add_action('parse_request', function ($wp) {
                 }
                 $wp->is_home = true;
                 $wp->is_404 = false;
-<<<<<<< HEAD
                 return;
             }
         }
@@ -1085,36 +964,14 @@ add_action('parse_request', function ($wp) {
         }
         $wp->is_404 = false;
     }
-=======
-            }
-        }
-    }
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 });
+
 
 // --- Canonical redirect fix voor homepage met taalprefix ---
 add_filter('redirect_canonical', function($redirect_url, $requested_url) {
-<<<<<<< HEAD
     // Tijdelijk uitgeschakeld voor debugging
     return $redirect_url;
 }, 99, 2);
-=======
-    // Voorkom redirect van /[lang]/ naar / (alleen als het exact een geldige taalprefix is)
-    $core = AI_Translate_Core::get_instance();
-    $all_languages = array_keys($core->get_available_languages());
-    $settings = $core->get_settings();
-    $default_language = $settings['default_language'] ?? 'nl';
-    // Match alleen /xx/ of /xx (geen slug erachter)
-    if (preg_match('#^/([a-z]{2,3}(?:-[a-z]{2,4})?)/?$#i', wp_parse_url($requested_url, PHP_URL_PATH), $matches)) {
-        $lang = strtolower($matches[1]);
-        if (in_array($lang, $all_languages, true) && $lang !== $default_language) {
-            // Blokkeer alleen als het een geldige taal is en niet de default
-            return false;
-        }
-    }
-    return $redirect_url;
-}, 10, 2);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
 // --- Vertaal ook de browser <title> tag via document_title_parts, net als menu items ---
 add_filter('document_title_parts', function ($title_parts) {
@@ -1122,18 +979,11 @@ add_filter('document_title_parts', function ($title_parts) {
     $settings = $core->get_settings();
     $default_language = $settings['default_language'];
     $current_language = $core->get_current_language();
-<<<<<<< HEAD
     if ($current_language === $default_language) {
-=======
-    $core->log_event('document_title_parts: current_language=' . $current_language . ', default_language=' . $default_language . ', title=' . (isset($title_parts['title']) ? $title_parts['title'] : 'N/A'));
-    if ($current_language === $default_language) {
-        $core->log_event('document_title_parts: skipping translation (default language)');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         return $title_parts;
     }
     // Vertaal de belangrijkste onderdelen met dezelfde logica als menu items en paginatitel
     if (isset($title_parts['title']) && !empty($title_parts['title'])) {
-<<<<<<< HEAD
         $title_parts['title'] = $core->translate_template_part($title_parts['title'], 'post_title');
         $title_parts['title'] = $core::remove_translation_marker($title_parts['title']);
     }
@@ -1147,26 +997,5 @@ add_filter('document_title_parts', function ($title_parts) {
     }
     return $title_parts;
 }, 99);
-=======
-        $old = $title_parts['title'];
-        $title_parts['title'] = $core->translate_template_part($title_parts['title'], 'post_title');
-        $title_parts['title'] = $core::remove_translation_marker($title_parts['title']);
-        $core->log_event('document_title_parts: translated title from "' . $old . '" to "' . $title_parts['title'] . '"');
-    }
-    if (isset($title_parts['site']) && !empty($title_parts['site'])) {
-        $old = $title_parts['site'];
-        $title_parts['site'] = $core->translate_template_part($title_parts['site'], 'site_title');
-        $title_parts['site'] = $core::remove_translation_marker($title_parts['site']);
-        $core->log_event('document_title_parts: translated site from "' . $old . '" to "' . $title_parts['site'] . '"');
-    }
-    if (isset($title_parts['tagline']) && !empty($title_parts['tagline'])) {
-        $old = $title_parts['tagline'];
-        $title_parts['tagline'] = $core->translate_template_part($title_parts['tagline'], 'tagline');
-        $title_parts['tagline'] = $core::remove_translation_marker($title_parts['tagline']);
-        $core->log_event('document_title_parts: translated tagline from "' . $old . '" to "' . $title_parts['tagline'] . '"');
-    }
-    return $title_parts;
-}, 99);
 
 
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8

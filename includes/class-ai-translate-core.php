@@ -17,24 +17,13 @@ use function wp_remote_retrieve_body;
 use function get_post;
 use function get_option;
 use function home_url;
-<<<<<<< HEAD
-=======
-use function add_query_arg;
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 use function esc_url;
 use function esc_attr;
 use function sanitize_text_field;
 use function get_transient;
 use function set_transient;
-<<<<<<< HEAD
 use function is_front_page; 
 use function is_home; 
-=======
-use function get_query_var;
-use function has_shortcode;
-use function is_front_page; // Add this use statement
-use function is_home; // Add this use statement
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
 class AI_Translate_Core
 {
@@ -127,7 +116,6 @@ class AI_Translate_Core
     private function init(): void
     {
         $this->settings = $this->get_settings();
-<<<<<<< HEAD
         // Ensure api_provider is set, defaulting if necessary
         if (!isset($this->settings['api_provider'])) {
             $this->settings['api_provider'] = 'openai'; // Default provider
@@ -143,19 +131,6 @@ class AI_Translate_Core
 
         // Initialiseer cache directories
         $this->initialize_cache_directories();
-=======
-        $this->settings = $this->validate_settings($this->settings);
-        $this->default_language = $this->settings['default_language'] ?? 'nl';
-        $this->api_endpoint = $this->settings['api_url'];
-        $this->api_key = $this->settings['api_key'];
-        $this->cache_dir = $this->get_cache_dir();
-        $this->expiration_hours = $this->settings['cache_expiration'];
-        $this->excluded_posts = $this->settings['exclude_pages'];
-
-        // Initialiseer cache directories
-        $this->initialize_cache_directories();
-
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     }
 
     /**
@@ -187,13 +162,7 @@ class AI_Translate_Core
                     WP_Filesystem();
                 }
                 $wp_filesystem->chmod($this->cache_dir, 0755);
-<<<<<<< HEAD
             } else {
-=======
-                $this->log_event("Cache directory aangemaakt: $this->cache_dir", 'info');
-            } else {
-                $this->log_event("Kon cache directory niet aanmaken: $this->cache_dir", 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             }
         }
 
@@ -218,10 +187,6 @@ class AI_Translate_Core
                 WP_Filesystem();
             }
             if (!$wp_filesystem->is_writable($this->cache_dir)) {
-<<<<<<< HEAD
-=======
-                $this->log_event("Cache directory is niet schrijfbaar: $this->cache_dir", 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             }
         }
     }
@@ -253,12 +218,9 @@ class AI_Translate_Core
             case 'batch_trans':
                 // Prefix voor makkelijk verwijderen van batch transients
                 return 'ai_translate_batch_trans_' . $id . '_' . $lang;
-<<<<<<< HEAD
             case 'slug_trans':
                 // Prefix voor slug vertaling transients
                 return 'ai_translate_slug_cache_' . $id . '_' . $lang;
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             default:
                 // Fallback of error? Voor nu een generieke key.
                 return 'unknown_' . $id . '_' . $lang;
@@ -273,25 +235,16 @@ class AI_Translate_Core
     public function get_default_settings(): array
     {
         return [
-<<<<<<< HEAD
             'api_provider'      => 'openai', // New default
             'api_key'           => '',
             'selected_model'    => 'gpt-4', // Consider making this dynamic or provider-specific later
-=======
-            'api_url'           => 'https://api.openai.com/v1/',
-            'api_key'           => '',
-            'selected_model'    => 'gpt-4',
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             'default_language'  => 'nl',
             'enabled_languages' => ['en'],
             'cache_expiration'  => 168, // uren
             'exclude_pages'     => [],
             'exclude_shortcodes' => [],
-<<<<<<< HEAD
             'homepage_meta_description' => '',
             'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'ua'], // Default detectable
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         ];
     }
 
@@ -320,7 +273,6 @@ class AI_Translate_Core
      */
     private function validate_settings(array $settings): array
     {
-<<<<<<< HEAD
         $required = ['api_key', 'default_language', 'api_provider'];
         foreach ($required as $key) {
             if (empty($settings[$key])) {
@@ -332,19 +284,10 @@ class AI_Translate_Core
         if (!array_key_exists($settings['api_provider'], self::get_api_providers())) {
             $settings['api_provider'] = 'openai'; // Fallback to default
         }
-=======
-        $required = ['api_key', 'default_language'];
-        foreach ($required as $key) {
-            if (empty($settings[$key])) {
-                //throw new \InvalidArgumentException("Missing required setting: $key");
-            }
-        }
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         return $settings;
     }
 
     /**
-<<<<<<< HEAD
      * Get defined API providers with their details.
      *
      * @return array<string, array<string, string>>
@@ -390,8 +333,6 @@ class AI_Translate_Core
     }
 
     /**
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
      * Get beschikbare talen.
      *
      * @return array<string,string>
@@ -509,10 +450,6 @@ class AI_Translate_Core
                 WP_Filesystem();
             }
             if (!$wp_filesystem->is_writable($this->cache_dir)) {
-<<<<<<< HEAD
-=======
-                $this->log_event("Cache directory is niet schrijfbaar: $this->cache_dir", 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 return false;
             }
 
@@ -521,10 +458,6 @@ class AI_Translate_Core
             $write_result = file_put_contents($temp_file, $content, LOCK_EX);
 
             if ($write_result === false) {
-<<<<<<< HEAD
-=======
-                $this->log_event("Kon niet schrijven naar tijdelijk cache bestand: $temp_file", 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 return false;
             }
 
@@ -543,10 +476,6 @@ class AI_Translate_Core
                 WP_Filesystem();
             }
             if (!$wp_filesystem->move($temp_file, $cache_file, true)) { // true to overwrite
-<<<<<<< HEAD
-=======
-                $this->log_event("Kon tijdelijk bestand niet hernoemen naar: $cache_file", 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 global $wp_filesystem;
                 if (empty($wp_filesystem)) {
                     require_once(ABSPATH . '/wp-admin/includes/file.php');
@@ -558,10 +487,6 @@ class AI_Translate_Core
 
             return true;
         } catch (\Exception $e) {
-<<<<<<< HEAD
-=======
-            $this->log_event("Exceptie bij cache schrijven: " . $e->getMessage(), 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             return false;
         }
     }
@@ -585,14 +510,6 @@ class AI_Translate_Core
         $is_expired = $age_in_seconds > $expires_in_seconds;
 
         if ($is_expired) {
-<<<<<<< HEAD
-=======
-            $this->log_event(
-                "Cache bestand verlopen: $cache_file (leeftijd: " .
-                    round($age_in_seconds / 3600, 2) . " uur, limiet: {$this->expiration_hours} uur)",
-                'debug'
-            );
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         }
 
         return $is_expired;
@@ -611,10 +528,6 @@ class AI_Translate_Core
         // --- Backoff Check ---
         if (get_transient(self::API_BACKOFF_TRANSIENT)) {
             $error_message = "API backoff active due to repeated errors. Please wait.";
-<<<<<<< HEAD
-=======
-            $this->log_event($error_message, 'warning');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             throw new \Exception(esc_html($error_message)); // Throw exception to prevent API call
         }
         // --- End Backoff Check ---
@@ -639,10 +552,6 @@ class AI_Translate_Core
 
             if (is_wp_error($response)) {
                 $error = $response->get_error_message();
-<<<<<<< HEAD
-=======
-                $this->log_event("API WP_Error (Attempt " . ($attempt + 1) . "): $error", 'warning'); // Log as warning during retry phase
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 // Treat WP_Error as a potentially temporary issue for retry
                 sleep($backoff);
                 $backoff *= 2;
@@ -653,10 +562,6 @@ class AI_Translate_Core
             $status = wp_remote_retrieve_response_code($response);
 
             if ($status === 429) {
-<<<<<<< HEAD
-=======
-                $this->log_event("API response 429 (Rate limit). Attempt " . ($attempt + 1), 'warning');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 sleep($backoff);
                 $backoff *= 2;
                 $attempt++;
@@ -664,10 +569,6 @@ class AI_Translate_Core
             }
 
             if ($status >= 500) { // Retry on server errors (5xx)
-<<<<<<< HEAD
-=======
-                $this->log_event("API response $status (Server Error). Attempt " . ($attempt + 1), 'warning');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 sleep($backoff);
                 $backoff *= 2;
                 $attempt++;
@@ -685,11 +586,6 @@ class AI_Translate_Core
                 if (is_array($result) && isset($result['choices'][0]['message']['content'])) {
                     return $result;
                 } else {
-<<<<<<< HEAD
-=======
-                    // Log unexpected successful response format
-                    $this->log_event("API success (status 200) but unexpected response format: " . $body, 'warning');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                     // Treat as failure for backoff purposes
                     $error_message = "API error: Unexpected response format.";
                     // Fall through to error handling below
@@ -698,10 +594,6 @@ class AI_Translate_Core
                 $body = wp_remote_retrieve_body($response);
                 $error_data = json_decode($body, true);
                 $error_message = $error_data['error']['message'] ?? "Unknown API error (status $status)";
-<<<<<<< HEAD
-=======
-                $this->log_event("API error (status $status): $error_message", 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 // No retry for these errors, proceed to increment error count and throw exception
                 // Fall through to error handling below
                 break; // Exit retry loop
@@ -713,16 +605,8 @@ class AI_Translate_Core
         $error_count++;
         set_transient(self::API_ERROR_COUNT_TRANSIENT, $error_count, self::API_BACKOFF_DURATION * 2); // Store count longer than backoff
 
-<<<<<<< HEAD
         if ($error_count >= self::API_MAX_CONSECUTIVE_ERRORS) {
             set_transient(self::API_BACKOFF_TRANSIENT, true, self::API_BACKOFF_DURATION);
-=======
-        $this->log_event("API call failed. Consecutive error count: $error_count", 'error');
-
-        if ($error_count >= self::API_MAX_CONSECUTIVE_ERRORS) {
-            set_transient(self::API_BACKOFF_TRANSIENT, true, self::API_BACKOFF_DURATION);
-            $this->log_event("API backoff activated for " . self::API_BACKOFF_DURATION . " seconds due to $error_count consecutive errors.", 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             $error_message = "API backoff activated due to repeated errors."; // More specific message
         } else {
             // Use the last known error message if available
@@ -879,15 +763,8 @@ class AI_Translate_Core
                     $result = $this->restore_excluded_shortcodes($result, $shortcodes);
                 }
                 self::$translation_memory[$memory_key] = $result;
-<<<<<<< HEAD
                 return $result;
             } else {
-=======
-                //$this->log_event("Cache hit (transient) for key: $transient_key", 'debug');
-                return $result;
-            } else {
-                $this->log_event("Transient cache found for key: $transient_key, but marker missing. Proceeding to disk cache/API.", 'debug');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             }
         }
 
@@ -908,22 +785,11 @@ class AI_Translate_Core
                     }
                     self::$translation_memory[$memory_key] = $result; // Update memory cache
                     set_transient($transient_key, $result, $this->expiration_hours * 3600); // Update transient
-<<<<<<< HEAD
                     return $result;
                 } else {
                 }
             }
         } else {
-=======
-                    //$this->log_event("Cache hit (disk) for key: $disk_cache_key", 'debug');
-                    return $result;
-                } else {
-                     $this->log_event("Disk cache found for key: $disk_cache_key, but marker missing. Proceeding to API.", 'debug');
-                }
-            }
-        } else {
-             $this->log_event("Disk cache disabled for this translation.", 'debug');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         }
 
         // --- Extract script blocks, img tags, overige shortcodes (voor API) ---
@@ -986,26 +852,15 @@ class AI_Translate_Core
             },
             $text_processed
         );
-<<<<<<< HEAD
-        try {
-            $translated_text_with_placeholders = $this->do_translate($text_processed, $source_language, $target_language, $is_title, $use_disk_cache);
-        } catch (\Exception $e) {
-=======
         // $text_processed bevat nu de tekst met placeholders voor scripts, images, en niet-uitgesloten shortcodes.
 
         // --- API-aanroep ---
         // Gebruik $text_processed, niet $text_for_api
-       // --- API-aanroep ---
-       // Log that no valid cache was found and API call is imminent
-       $this->log_event("No valid cache found for key: $memory_key (memory), $transient_key (transient), $disk_cache_key (disk). Calling API for translation to $target_language. Text starts with: '" . substr(trim($text_processed), 0, 50) . "...'", 'info');
-
-       // Gebruik $text_processed, niet $text_for_api
-       try {
-           $translated_text_with_placeholders = $this->do_translate($text_processed, $source_language, $target_language, $is_title, $use_disk_cache);
-       } catch (\Exception $e) {
-            // Log the specific error from do_translate/make_api_request
-            $this->log_event("Translation failed for text starting with: '" . substr(trim($text_processed), 0, 50) . "...'. Error: " . $e->getMessage(), 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
+        // --- API-aanroep ---
+        // Gebruik $text_processed, niet $text_for_api
+        try {
+            $translated_text_with_placeholders = $this->do_translate($text_processed, $source_language, $target_language, $is_title, $use_disk_cache);
+        } catch (\Exception $e) {
             // Return original text with excluded shortcodes restored if applicable
             if (!empty($shortcodes)) {
                 return $this->restore_excluded_shortcodes($text, $shortcodes); // Restore to original $text
@@ -1028,13 +883,6 @@ class AI_Translate_Core
         // --- Sanity check: If translation resulted in empty text but original wasn't, log critical error ---
         // Deze check blijft belangrijk, maar we retourneren $text ipv $final_translated_text als de marker mist.
         if (empty(trim(wp_strip_all_tags(str_replace(self::TRANSLATION_MARKER, '', (string)$final_translated_text)))) && !empty(trim(wp_strip_all_tags($text)))) {
-<<<<<<< HEAD
-=======
-            $this->log_event(
-                "Critical placeholder/translation failure: Translation resulted in empty text. Returning original. Original text starts with: '" . substr(trim($text), 0, 100) . "...'",
-                'error'
-            );
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             // Geen caching, geef origineel terug
             return $text;
         }
@@ -1092,11 +940,7 @@ class AI_Translate_Core
                 'If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
             ucfirst($source_language),
             ucfirst($target_language),
-<<<<<<< HEAD
-            ucfirst($target_language) 
-=======
             ucfirst($target_language) // Herhaal doeltaal voor duidelijkheid
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         );
 
 
@@ -1128,10 +972,6 @@ class AI_Translate_Core
             return $result_with_marker; // Geef vertaalde of originele tekst MET marker terug
         } else {
             // API gaf lege of ongeldige content terug.
-<<<<<<< HEAD
-=======
-            $this->log_event("API call via do_translate for target '$target_language' returned empty or invalid content. Response: " . json_encode($response), 'warning');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             throw new \Exception("API returned empty or invalid content.");
         }
     }
@@ -1291,11 +1131,7 @@ class AI_Translate_Core
     public function log_event(string $message, string $level = 'debug'): void
     {
         $timestamp = gmdate('Y-m-d H:i:s');
-<<<<<<< HEAD
         error_log("AI Translate [{$level}][{$timestamp}]: {$message}");
-=======
-        // error_log("AI Translate [$level][$timestamp]: $message"); // Commented out debug log
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     }
 
     /**
@@ -1311,10 +1147,6 @@ class AI_Translate_Core
                 }
             }
         }
-<<<<<<< HEAD
-=======
-        $this->log_event('File cache cleared.', 'info');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     }
 
     /**
@@ -1331,20 +1163,13 @@ class AI_Translate_Core
         // Get transients to delete
         $cache_key = 'ai_translate_transients_to_delete';
         $cache_key = 'ai_translate_transients_to_delete';
-<<<<<<< HEAD
         $transients_to_delete = wp_cache_get($cache_key);
 
         if (false === $transients_to_delete) {
-=======
-        $transients_to_delete = wp_cache_get( $cache_key );
-
-        if ( false === $transients_to_delete ) {
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             // Get transients to delete
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct query is necessary to get transients by pattern.
             $transients_to_delete = $wpdb->get_col(
                 $wpdb->prepare(
-<<<<<<< HEAD
                     "SELECT option_name FROM " . $wpdb->prefix . "options WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
                     '_transient_ai_translate_trans_%',
                     '_transient_timeout_ai_translate_trans_%',
@@ -1364,43 +1189,19 @@ class AI_Translate_Core
 
         // Invalidate the cache after deleting transients
         wp_cache_delete($cache_key);
-=======
-                    "SELECT option_name FROM " . $wpdb->prefix . "options WHERE option_name LIKE %s OR option_name LIKE %s",
-                    '_transient_ai_translate_trans_%',
-                    '_transient_timeout_ai_translate_trans_%'
-                )
-            );
-            wp_cache_set( $cache_key, $transients_to_delete, '', 60 ); // Cache for 60 seconds
-        }
-
-        // Delete the transients using delete_option which handles caching
-        foreach ( $transients_to_delete as $transient_name ) {
-            delete_option( $transient_name );
-        }
-
-        // Invalidate the cache after deleting transients
-        wp_cache_delete( $cache_key );
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
         if ($transients_to_delete) {
             foreach ($transients_to_delete as $transient_name) {
                 // Use delete_option to clear the transient
                 // Remove the _transient_ or _transient_timeout_ prefix
-<<<<<<< HEAD
                 $option_name = str_replace('_transient_', '', $transient_name);
                 $option_name = str_replace('_transient_timeout_', '', $option_name);
                 delete_option($option_name);
-=======
-                $option_name = str_replace( '_transient_', '', $transient_name );
-                $option_name = str_replace( '_transient_timeout_', '', $option_name );
-                delete_option( $option_name );
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             }
         }
         // Also delete the API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
-<<<<<<< HEAD
     }
 
     /**
@@ -1416,41 +1217,12 @@ class AI_Translate_Core
 
     /**
      * Clear zowel file cache als transients en de slug cache tabel.
-=======
-        $this->log_event('Transient cache cleared using delete_transient.', 'info');
-    }
-    /**
-     * Clear zowel file cache als transients.
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
      */
     public function clear_all_cache(): void
     {
         $this->clear_translation_cache();
         $this->clear_transient_cache();
-<<<<<<< HEAD
         $this->clear_slug_cache_table();
-=======
-        $this->log_event('All caches cleared.', 'info');
-    }
-
-
-    /**
-     * Clear debug logs.
-     *
-     * @return bool
-     */
-    public function clear_logs(): bool
-    {
-        $log_file = $this->get_log_dir() . '/translation.log';
-        if (file_exists($log_file)) {
-            $cleared = file_put_contents($log_file, '');
-            if ($cleared !== false) {
-                // error_log('AI Translate: Log file cleared'); // Commented out debug log
-                return true;
-            }
-        }
-        return false;
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     }
 
 
@@ -1482,28 +1254,18 @@ class AI_Translate_Core
     public function get_current_language(): string
     {
         // Gebruik caching voor performance
-<<<<<<< HEAD
         // Gebruik caching voor performance
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         if ($this->current_language !== null) {
             return $this->current_language;
         }
 
         $default_language = $this->settings['default_language'] ?? 'nl';
-<<<<<<< HEAD
         $all_languages = array_keys($this->get_available_languages());
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
         // 1. Check URL path voor taalcode (hoogste prioriteit)
         if (isset($_SERVER['REQUEST_URI'])) {
             $request_path = wp_parse_url(esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])), PHP_URL_PATH);
-<<<<<<< HEAD
             $request_path = sanitize_text_field($request_path);
-=======
-    $request_path = sanitize_text_field($request_path);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             // Normaliseer: als leeg of alleen slashes, maak er één enkele slash van
             if (!is_string($request_path) || trim($request_path, '/') === '') {
                 $request_path = '/';
@@ -1513,32 +1275,19 @@ class AI_Translate_Core
             }
             if (is_string($request_path) && preg_match('#^/([a-z]{2,3}(?:-[a-z]{2,4})?)(/|$)#i', $request_path, $matches)) {
                 $lang_from_path = strtolower($matches[1]);
-<<<<<<< HEAD
                 if (in_array($lang_from_path, $all_languages, true)) {
                     $this->current_language = $lang_from_path;
                     // Set cookie to match URL language
                     setcookie('ai_translate_lang', $lang_from_path, time() + (DAY_IN_SECONDS * 30), COOKIEPATH, COOKIE_DOMAIN);
-=======
-                $all_languages = array_keys($this->get_available_languages());
-                if (in_array($lang_from_path, $all_languages, true)) {
-                    $this->current_language = $lang_from_path;
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                     return $this->current_language;
                 }
             }
         }
-<<<<<<< HEAD
 
         // 2. Check cookie (tweede prioriteit)
         if (isset($_COOKIE['ai_translate_lang'])) {
             $cookie_lang = sanitize_text_field(wp_unslash($_COOKIE['ai_translate_lang']));
             if (in_array($cookie_lang, $all_languages, true)) {
-=======
-        // 2. Check cookie (tweede prioriteit) -- alleen als er geen geldige taal in de URL zat
-        if ($this->current_language === null && isset($_COOKIE['ai_translate_lang'])) {
-            $cookie_lang = sanitize_text_field(wp_unslash($_COOKIE['ai_translate_lang']));
-            if (in_array($cookie_lang, array_keys($this->get_available_languages()), true)) {
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 $this->current_language = $cookie_lang;
                 return $this->current_language;
             }
@@ -1612,15 +1361,12 @@ class AI_Translate_Core
         $languages = $this->get_available_languages();
         $enabled_languages = $this->settings['enabled_languages'];
 
-<<<<<<< HEAD
         // Haal de post_id van de huidige pagina op, indien van toepassing
         $current_post_id = null;
         if (is_singular()) { // Check if it's a single post or page
             $current_post_id = get_the_ID();
         }
 
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         echo '<div class="ai-translate-switcher">';
         if (isset($languages[$current_lang])) {
             printf(
@@ -1640,7 +1386,6 @@ class AI_Translate_Core
             $lang_name = $languages[$lang_code];
             $is_current = $lang_code === $current_lang;
 
-<<<<<<< HEAD
             // Gebruik de permalink van de huidige pagina als basis-URL, indien beschikbaar
             $base_url = home_url(''); // Standaard homepage
             if ($current_post_id) {
@@ -1663,21 +1408,6 @@ class AI_Translate_Core
                     'after'
                 );
             }
-=======
-            // Detecteer of we op de homepage zijn
-            if (is_front_page() || is_home()) {
-                // Gebruik altijd home_url('') als basis voor de homepage
-                $base_url = home_url('');
-            } else {
-                // Voor andere pagina's: gebruik de huidige URL
-                $scheme = is_ssl() ? 'https' : 'http';
-                $host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
-                $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_url(wp_unslash($_SERVER['REQUEST_URI'])) : '';
-                $base_url = $scheme . '://' . $host . $request_uri;
-            }
-            $url = $this->translate_url($base_url, $lang_code);
-
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             printf(
                 '<a href="%s" class="lang-option %s" data-lang="%s">%s %s</a>',
                 esc_url($url),
@@ -1718,10 +1448,6 @@ class AI_Translate_Core
         // Basis validatie
         if (empty($lang_code) || !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $lang_code)) {
             $error = "Ongeldige taalcode '$lang_code' opgegeven voor cache wissen.";
-<<<<<<< HEAD
-=======
-            $this->log_event($error, 'warning');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             throw new \InvalidArgumentException(esc_html($error));
         }
 
@@ -1732,10 +1458,6 @@ class AI_Translate_Core
         }
         if (!is_dir($this->cache_dir) || !$wp_filesystem->is_writable($this->cache_dir)) {
             $error = "Cache directory bestaat niet of is niet schrijfbaar: {$this->cache_dir}";
-<<<<<<< HEAD
-=======
-            $this->log_event($error, 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             throw new \RuntimeException(esc_html($error));
         }
 
@@ -1745,10 +1467,6 @@ class AI_Translate_Core
 
         if ($files === false) {
             $error = "Fout bij het zoeken naar cachebestanden met patroon: $pattern";
-<<<<<<< HEAD
-=======
-            $this->log_event($error, 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             throw new \RuntimeException(esc_html($error));
         }
 
@@ -1758,17 +1476,9 @@ class AI_Translate_Core
                 if (wp_delete_file($file)) {
                     $count++;
                 } else {
-<<<<<<< HEAD
                 }
             }
         }
-=======
-                    $this->log_event("Kon cachebestand niet verwijderen: $file", 'warning');
-                }
-            }
-        }
-        $this->log_event("Cache voor taal '$lang_code' gewist. ($count bestanden)", 'info');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         return $count;
     }
 
@@ -1835,11 +1545,7 @@ class AI_Translate_Core
                 ['role' => 'user', 'content' => json_encode(['items' => $items_to_translate], JSON_UNESCAPED_UNICODE)]
             ],
             'temperature' => 0.2,
-<<<<<<< HEAD
             'max_tokens' => 3000,
-=======
-            'max_tokens' => 2000,
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             'frequency_penalty' => 0,
             'presence_penalty' => 0
         ];
@@ -1912,10 +1618,6 @@ class AI_Translate_Core
                     );
                 }
             } catch (\Exception $e) {
-<<<<<<< HEAD
-=======
-                $this->log_event("Batch vertaling API error voor type '$type', taal '$target_language': " . $e->getMessage(), 'error');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 break;
             }
         }
@@ -1944,10 +1646,6 @@ class AI_Translate_Core
         }
 
         if ($count > 0) {
-<<<<<<< HEAD
-=======
-            $this->log_event("Automatische cache opschoning: $count bestanden verwijderd", 'info');
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         }
 
         return $count;
@@ -2206,11 +1904,7 @@ class AI_Translate_Core
         }
     }
 
-<<<<<<< HEAD
     public function translate_url(string $url, string $language, ?int $post_id = null): string
-=======
-    public function translate_url(string $url, string $language): string
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     {
         $default_language = $this->default_language;
         // Gebruik ALLE beschikbare talen, niet alleen enabled
@@ -2231,11 +1925,7 @@ class AI_Translate_Core
 
         // Identify if there's an existing language prefix in the path
         $existing_lang_prefix = '';
-<<<<<<< HEAD
         if (preg_match('#^/([a-z]{2,3}(?:-[a-z]{2,4})?)(/|$)#i', $current_path, $matches)) {
-=======
-        if (preg_match('#^/([a-z]{2})(/|$)#', $current_path, $matches)) {
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             $potential_lang = $matches[1];
             // Check if the matched prefix is a valid language AND not the default language
             if (
@@ -2254,7 +1944,6 @@ class AI_Translate_Core
             }
         }
 
-<<<<<<< HEAD
         // --- SLUG TRANSLATION LOGIC ---
         // Voor slug vertaling gebruiken we altijd de default_language als bron,
         // omdat de slugs in de database in de default taal zijn opgeslagen.
@@ -2265,13 +1954,6 @@ class AI_Translate_Core
         // Add the new language prefix ONLY if the target language is NOT the default language
         if ($language !== $default_language) {
             $new_path = '/' . $language . ($translated_path === '/' ? '/' : $translated_path);
-=======
-        $new_path = $clean_path;
-
-        // Add the new language prefix ONLY if the target language is NOT the default language
-        if ($language !== $default_language) {
-            $new_path = '/' . $language . ($clean_path === '/' ? '' : $clean_path);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         } else {
             if (empty($new_path) || $new_path[0] !== '/') {
                 $new_path = '/' . ltrim($new_path, '/');
@@ -2289,7 +1971,6 @@ class AI_Translate_Core
         return $new_url;
     }
 
-<<<<<<< HEAD
 
     /**
      * Translate URL slugs in a path.
@@ -2397,6 +2078,8 @@ class AI_Translate_Core
      * Get translated slug for a post.
      *
      * @param string $original_slug Original slug
+:start_line:2093
+
      * @param string $post_type Post type
      * @param string $source_language Source language
      * @param string $target_language Target language
@@ -2547,8 +2230,6 @@ class AI_Translate_Core
         return '/' . implode('/', $translated_segments);
     }
 
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     /**
      * Translate menu items using batching.
      * Handles potential errors during batch translation.
@@ -2738,11 +2419,7 @@ class AI_Translate_Core
                     $file_size = filesize($file);
                     $stats['total_size'] += $file_size;
                     $is_expired = $this->is_cache_expired($file);
-<<<<<<< HEAD
 
-=======
-                    
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                     if ($is_expired) {
                         $stats['expired_files']++;
                     }
@@ -2833,7 +2510,6 @@ class AI_Translate_Core
      * @return array<string,mixed> Response data including models if successful
      * @throws \Exception If validation fails
      */
-<<<<<<< HEAD
     public function validate_api_settings(string $provider_key, string $api_key): array
     {
         if (empty($provider_key) || empty($api_key)) {
@@ -3032,38 +2708,5 @@ class AI_Translate_Core
         // Als zelfs dat niet werkt, val dan terug op de gedecodeerde inkomende slug.
         // Dit zal waarschijnlijk nog steeds een 404 zijn, maar het is de laatste poging.
         return ['slug' => $decoded_translated_slug, 'post_type' => null]; // Gebruik de gedecodeerde versie
-=======
-    public function validate_api_settings(string $api_url, string $api_key): array
-    {
-        // Store original values
-        $original_url = $this->api_endpoint;
-        $original_key = $this->api_key;
-
-        try {
-            // Temporarily set the new values
-            $this->api_endpoint = rtrim($api_url, '/') . '/';
-            $this->api_key = $api_key;
-
-            // Try to fetch models
-            $response = $this->make_api_request('models', [
-                'method' => 'GET'
-            ]);
-
-            if (empty($response['data'])) {
-                throw new \Exception('Geen modellen gevonden in API response.');
-            }
-
-            return [
-                'message' => 'API validatie succesvol.',
-                'models' => $response['data']
-            ];
-        } catch (\Exception $e) {
-            throw new \Exception('API validatie mislukt: ' . $e->getMessage());
-        } finally {
-            // Restore original values
-            $this->api_endpoint = $original_url;
-            $this->api_key = $original_key;
-        }
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     }
 }

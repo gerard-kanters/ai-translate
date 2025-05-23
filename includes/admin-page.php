@@ -2,13 +2,8 @@
 
 namespace AITranslate;
 
-<<<<<<< HEAD
 // Load the core class if it doesn't exist yet.
 // Since this file is in the "includes" folder, the core class is at the same level.
-=======
-// Laad de core class indien deze nog niet bestaat.
-// Aangezien dit bestand in de map "includes" staat, staat de core class op hetzelfde niveau.
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 if (! class_exists('AI_Translate_Core')) {
     $core_class_file = plugin_dir_path(__FILE__) . 'class-ai-translate-core.php';
     if (file_exists($core_class_file)) {
@@ -27,32 +22,20 @@ function ajax_clear_cache_language()
 {
     // Check permissions
     if (!current_user_can('manage_options')) {
-<<<<<<< HEAD
         wp_send_json_error(['message' => 'Insufficient permissions to perform this action.']);
-=======
-        wp_send_json_error(['message' => 'Onvoldoende rechten om deze actie uit te voeren.']);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         return;
     }
 
     // Validate nonce
     $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
     if (!$nonce_value || !wp_verify_nonce($nonce_value, 'clear_cache_language_action')) {
-<<<<<<< HEAD
         wp_send_json_error(['message' => 'Security check failed (nonce). Refresh the page and try again.']);
-=======
-        wp_send_json_error(['message' => 'Beveiligingscontrole mislukt (nonce). Vernieuw de pagina en probeer het opnieuw.']);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         return;
     }
 
     // Validate language code
     if (!isset($_POST['lang_code']) || empty($_POST['lang_code'])) {
-<<<<<<< HEAD
         wp_send_json_error(['message' => 'No language selected.']);
-=======
-        wp_send_json_error(['message' => 'Geen taal geselecteerd.']);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         return;
     }
 
@@ -63,29 +46,17 @@ function ajax_clear_cache_language()
     try {
         $count = $translator->clear_cache_for_language($lang_code);
         wp_send_json_success([
-<<<<<<< HEAD
             'message' => sprintf('Cache for language "%s" cleared. %d files removed.', $lang_code, $count),
-=======
-            'message' => sprintf('Cache voor taal "%s" gewist. %d bestanden verwijderd.', $lang_code, $count),
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             'count' => $count
         ]);
     } catch (\Exception $e) {
         wp_send_json_error([
-<<<<<<< HEAD
             'message' => 'Error clearing cache: ' . $e->getMessage()
-=======
-            'message' => 'Fout bij wissen van cache: ' . $e->getMessage()
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         ]);
     }
 }
 
-<<<<<<< HEAD
 // Register the AJAX handlers
-=======
-// Registreer de AJAX handlers
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 add_action('wp_ajax_ai_translate_clear_cache_language', __NAMESPACE__ . '\\ajax_clear_cache_language');
 
 
@@ -100,11 +71,7 @@ function no_admin_page()
     }
 }
 
-<<<<<<< HEAD
 // Add admin menu
-=======
-// Voeg admin menu toe
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 add_action('admin_menu', function () {
     add_menu_page(
         'AI Translate',
@@ -117,7 +84,6 @@ add_action('admin_menu', function () {
     );
 });
 
-<<<<<<< HEAD
 // Register settings (without the shortcodes section)
 add_action('admin_init', function () {
     register_setting('ai_translate', 'ai_translate_settings', [
@@ -168,33 +134,6 @@ add_action('admin_init', function () {
                 }
             }
 
-=======
-// Instellingen registreren (zonder de shortcodes‑sectie)
-add_action('admin_init', function () {
-    register_setting('ai_translate', 'ai_translate_settings', [
-        'sanitize_callback' => function ($input) {
-            // error_log('AI Translate DEBUG: sanitize_callback aangeroepen. Input: ' . print_r($input, true));
-            if (isset($input['cache_expiration'])) {
-                // Convert days to hours
-                $input['cache_expiration'] = intval($input['cache_expiration']) * 24;
-            }
-
-            // Handle model selection
-            if (isset($input['selected_model'])) {
-                if ($input['selected_model'] === 'custom') {
-                    // Gebruik alleen de custom_model waarde als die niet leeg is
-                    if (!empty($input['custom_model'])) {
-                        $input['selected_model'] = $input['custom_model'];
-                    } else {
-                        $input['selected_model'] = 'gpt-4.1-mini'; // Fallback naar standaardmodel
-                    }
-                }
-            }
-            // Trim api_url, api_key en custom_model om spaties te verwijderen
-            if (isset($input['api_url'])) {
-                $input['api_url'] = trim($input['api_url']);
-            }
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             if (isset($input['api_key'])) {
                 $input['api_key'] = trim($input['api_key']);
             }
@@ -202,19 +141,12 @@ add_action('admin_init', function () {
                 $input['custom_model'] = trim($input['custom_model']);
             }
 
-<<<<<<< HEAD
             if (isset($input['homepage_meta_description'])) {
-=======
-            // Sanitize homepage meta description
-            if (isset($input['homepage_meta_description'])) {
-                // Use wp_kses_post for basic HTML or sanitize_textarea_field for plain text
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 $input['homepage_meta_description'] = sanitize_textarea_field($input['homepage_meta_description']);
             } else {
                 $input['homepage_meta_description'] = '';
             }
 
-<<<<<<< HEAD
             if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
                 $input['enabled_languages'] = array_unique(array_map('sanitize_text_field', $input['enabled_languages']));
             } else {
@@ -225,31 +157,13 @@ add_action('admin_init', function () {
                 $input['detectable_languages'] = array_unique(array_map('sanitize_text_field', $input['detectable_languages']));
             } else {
                 $input['detectable_languages'] = [];
-=======
-            // Sanitize enabled languages
-            if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
-                $input['enabled_languages'] = array_unique(array_map('sanitize_text_field', $input['enabled_languages']));
-            } else {
-                $input['enabled_languages'] = ['en']; // Default to English if not set or invalid
-            }
-
-            // Sanitize detectable languages
-            if (isset($input['detectable_languages']) && is_array($input['detectable_languages'])) {
-                $input['detectable_languages'] = array_unique(array_map('sanitize_text_field', $input['detectable_languages']));
-            } else {
-                $input['detectable_languages'] = []; // Default to empty array
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             }
 
             return $input;
         }
     ]);
 
-<<<<<<< HEAD
     // API Settings Section
-=======
-    // API Instellingen Sectie
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     add_settings_section(
         'ai_translate_api',
         'API Settings',
@@ -257,7 +171,6 @@ add_action('admin_init', function () {
         'ai-translate'
     );
     add_settings_field(
-<<<<<<< HEAD
         'api_provider', // Changed from 'api_url'
         'API Provider', // Changed label
         function () {
@@ -276,14 +189,6 @@ add_action('admin_init', function () {
             echo '<p class="description">Enter the endpoint URL for your custom API provider. Example: <a href="https://air.netcare.nl/v1/" target="_blank">https://air.netcare.nl/v1/</a></p>';
             echo '</div>';
 
-=======
-        'api_url',
-        'API URL',
-        function () {
-            $settings = get_option('ai_translate_settings');
-            $value = isset($settings['api_url']) ? rtrim($settings['api_url'], '/') . '/' : 'https://api.openai.com/v1/';
-            echo '<input type="text" name="ai_translate_settings[api_url]" value="' . esc_attr($value) . '" class="regular-text">';
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         },
         'ai-translate',
         'ai_translate_api'
@@ -295,10 +200,7 @@ add_action('admin_init', function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['api_key']) ? $settings['api_key'] : '';
             echo '<input type="password" name="ai_translate_settings[api_key]" value="' . esc_attr($value) . '" class="regular-text">';
-<<<<<<< HEAD
             echo ' <span id="api-key-request-link-span" style="margin-left:10px;"></span>';
-=======
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         },
         'ai-translate',
         'ai_translate_api'
@@ -321,11 +223,7 @@ add_action('admin_init', function () {
             echo '<option value="custom" ' . selected($is_custom, true, false) . '>Select...</option>';
             echo '</select> ';
             echo '<div id="custom_model_div" style="margin-top:10px; display:' . ($is_custom ? 'block' : 'none') . ';">';
-<<<<<<< HEAD
             echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($is_custom ? $selected_model : $custom_model) . '" placeholder="E.g.: deepseek-chat, gpt-4o, ..." class="regular-text">';
-=======
-            echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($is_custom ? $selected_model : $custom_model) . '" placeholder="Bijv: deepseek-chat, gpt-4o, ..." class="regular-text">';
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             echo '</div>';
             echo '<button type="button" class="button" id="ai-translate-validate-api">Validate API settings</button>';
             echo '<span id="ai-translate-api-status" style="margin-left:10px;"></span>';
@@ -335,11 +233,7 @@ add_action('admin_init', function () {
         'ai_translate_api'
     );
 
-<<<<<<< HEAD
     // Language Settings Section
-=======
-    // Taal Instellingen Sectie
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     add_settings_section(
         'ai_translate_languages',
         'Language Settings',
@@ -399,36 +293,20 @@ add_action('admin_init', function () {
         'Detectable Languages (Auto-Translate)',
         function () {
             $settings = get_option('ai_translate_settings');
-<<<<<<< HEAD
             // Default detectable languages (can be empty or contain a subset)
             $default_detectable = ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'ua']; // Optionally retain a default selection
             $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : $default_detectable;
 
             $core = AI_Translate_Core::get_instance();
             // Retrieve ALL available languages from the core class
-=======
-            // Default detecteerbare talen (kan leeg zijn of een subset bevatten)
-            $default_detectable = ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'ua']; // Behoud eventueel een default selectie
-            $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : $default_detectable;
-
-            $core = AI_Translate_Core::get_instance();
-            // Haal ALLE beschikbare talen op uit de core class
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             $languages = $core->get_available_languages();
 
             echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
 
-<<<<<<< HEAD
             // REMOVED: The hardcoded $detectable_languages array is no longer needed.
             // $detectable_languages = [ ... ];
 
             // Loop through ALL available languages from the core class
-=======
-            // VERWIJDERD: De hardgecodeerde $detectable_languages array is niet meer nodig.
-            // $detectable_languages = [ ... ];
-
-            // Loop door ALLE beschikbare talen uit de core class
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             foreach ($languages as $code => $name) {
                 echo '<label style="display:block;margin-bottom:5px;">';
                 echo '<input type="checkbox" name="ai_translate_settings[detectable_languages][]" value="' . esc_attr($code) . '" ' .
@@ -443,11 +321,7 @@ add_action('admin_init', function () {
     );
     // --- End Detectable Languages Field ---
 
-<<<<<<< HEAD
     // Cache Settings Section
-=======
-    // Cache Settings Sectie
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     add_settings_section(
         'ai_translate_cache',
         'Cache Settings',
@@ -459,24 +333,15 @@ add_action('admin_init', function () {
         'Cache Duration (days)',
         function () {
             $settings = get_option('ai_translate_settings');
-<<<<<<< HEAD
             $value = isset($settings['cache_expiration']) ? intval($settings['cache_expiration'] / 24) : 14; // Default to 14 if it doesn't exist
             echo '<input type="number" name="ai_translate_settings[cache_expiration]" value="' . esc_attr($value) . '" class="small-text" min="14"> days';
             echo ' <em style="margin-left:10px;">(' . esc_html__('minimum 14 days', 'ai-translate') . ')</em>';
-=======
-            $value = isset($settings['cache_expiration']) ? intval($settings['cache_expiration'] / 24) : 1;
-            echo '<input type="number" name="ai_translate_settings[cache_expiration]" value="' . esc_attr($value) . '" class="small-text"> days';
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         },
         'ai-translate',
         'ai_translate_cache'
     );
 
-<<<<<<< HEAD
     // Advanced Settings Section
-=======
-    // Advanced Settings Sectie
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     add_settings_section(
         'ai_translate_advanced',
         'Advanced Settings',
@@ -511,19 +376,17 @@ function render_admin_page()
         }
     }
 
-<<<<<<< HEAD
-=======
-    // Clear Debug Log button handling (empty the debug.log file)
-    if (isset($_POST['clear_debug']) && check_admin_referer('clear_debug_action', 'clear_debug_nonce')) {
-        $debug_log_file = WP_CONTENT_DIR . '/debug.log';
-        if (file_exists($debug_log_file)) {
-            file_put_contents($debug_log_file, '');
-            echo '<div id="message" class="updated notice is-dismissible"><p>WP Debug Log has been cleared.</p></div>';
-        } else {
-            echo '<div id="message" class="error notice is-dismissible"><p>WP Debug Log not found.</p></div>';
-        }
-    }    // Cache wissen voor specifieke taal
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
+    // Clear Debug Log button handling (empty the debug.log file) - REMOVED
+    // if (isset($_POST['clear_debug']) && check_admin_referer('clear_debug_action', 'clear_debug_nonce')) {
+    //     $debug_log_file = WP_CONTENT_DIR . '/debug.log';
+    //     if (file_exists($debug_log_file)) {
+    //         file_put_contents($debug_log_file, '');
+    //         echo '<div id="message" class="updated notice is-dismissible"><p>WP Debug Log has been cleared.</p></div>';
+    //     } else {
+    //         echo '<div id="message" class="error notice is-dismissible"><p>WP Debug Log not found.</p></div>';
+    //     }
+    // }
+    // Clear cache for specific language
     $cache_language_message = '';
     if (
         isset($_POST['clear_cache_language']) &&
@@ -534,7 +397,6 @@ function render_admin_page()
         $lang_code = sanitize_text_field(wp_unslash($_POST['cache_language']));
         $core = AI_Translate_Core::get_instance();
 
-<<<<<<< HEAD
         // Get the number of files before deletion
         $cache_stats_before = $core->get_cache_statistics();
         $before_count = isset($cache_stats_before['languages'][$lang_code]) ? $cache_stats_before['languages'][$lang_code] : 0;
@@ -551,24 +413,6 @@ function render_admin_page()
         $lang_name = isset($languages[$lang_code]) ? $languages[$lang_code] : $lang_code;
 
         // Ensure a clear message
-=======
-        // Haal het aantal bestanden op vóór verwijdering
-        $cache_stats_before = $core->get_cache_statistics();
-        $before_count = isset($cache_stats_before['languages'][$lang_code]) ? $cache_stats_before['languages'][$lang_code] : 0;
-
-        // Wis cache bestanden (krijg nu een array terug met meer informatie)
-        $result = $core->clear_cache_for_language($lang_code);
-
-        // Haal het aantal bestanden na verwijdering op
-        $cache_stats_after = $core->get_cache_statistics();
-        $after_count = isset($cache_stats_after['languages'][$lang_code]) ? $cache_stats_after['languages'][$lang_code] : 0;
-
-        // Haal de taalcode op voor weergave (mooier dan de code)
-        $languages = $core->get_available_languages();
-        $lang_name = isset($languages[$lang_code]) ? $languages[$lang_code] : $lang_code;
-
-        // Zorg voor een duidelijke melding
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
         if ($result['success']) {
             if ($result['count'] > 0) {
                 $notice_class = isset($result['warning']) ? 'notice-warning' : 'notice-success';
@@ -578,11 +422,7 @@ function render_admin_page()
                     <br>Resterende bestanden: ' . intval($after_count) . '</p>';
 
                 if (isset($result['warning'])) {
-<<<<<<< HEAD
                     $cache_language_message .= '<p class="error-message">Note: ' . esc_html($result['warning']) . '</p>';
-=======
-                    $cache_language_message .= '<p class="error-message">Let op: ' . esc_html($result['warning']) . '</p>';
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 }
 
                 $cache_language_message .= '</div>';
@@ -592,24 +432,14 @@ function render_admin_page()
                 </div>';
             }
         } else {
-<<<<<<< HEAD
             $error_message = isset($result['error']) ? $result['error'] : 'Unknown error';
             $cache_language_message = '<div class="notice notice-error" id="cache-cleared-message">
                 <p>Error clearing cache for language <strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>: ' . esc_html($error_message) . '</p>
-=======
-            $error_message = isset($result['error']) ? $result['error'] : 'Onbekende fout';
-            $cache_language_message = '<div class="notice notice-error" id="cache-cleared-message">
-                <p>Fout bij het wissen van cache voor taal <strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>: ' . esc_html($error_message) . '</p>
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             </div>';
         }
     }
 
-<<<<<<< HEAD
     // --- NEW: Clear Transient Cache ---
-=======
-    // --- NIEUW: Clear Transient Cache ---
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     $transient_cache_message = '';
     if (
         isset($_POST['clear_transient_cache']) &&
@@ -620,37 +450,22 @@ function render_admin_page()
         $core->clear_transient_cache(); // Call the existing method
         $transient_cache_message = '<div class="notice notice-success"><p>Transient cache successfully cleared.</p></div>';
     }
-<<<<<<< HEAD
     // --- END NEW ---
-=======
-    // --- EINDE NIEUW ---
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
     // Determine active tab
     $active_tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'general';
 ?>
     <div class="wrap">
         <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-<<<<<<< HEAD
         <?php settings_errors(); // Display admin notices, including those from add_settings_error ?>
         <!-- Tab navigation -->
         <h2 class="nav-tab-wrapper">
             <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo esc_attr($active_tab === 'general' ? 'nav-tab-active' : ''); ?>">General</a>
-=======
-        <!-- Tab navigation -->
-        <h2 class="nav-tab-wrapper">
-            <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo esc_attr($active_tab === 'general' ? 'nav-tab-active' : ''); ?>">General</a>
-            <a href="?page=ai-translate&tab=logs" class="nav-tab <?php echo esc_attr($active_tab === 'logs' ? 'nav-tab-active' : ''); ?>">Logs</a>
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             <a href="?page=ai-translate&tab=cache" class="nav-tab <?php echo esc_attr($active_tab === 'cache' ? 'nav-tab-active' : ''); ?>">Cache</a>
 
         </h2>
         <div id="tab-content">
-<<<<<<< HEAD
             <div id="general" class="tab-panel" style="<?php echo esc_attr($active_tab === 'general' || $active_tab === 'logs' ? 'display:block;' : 'display:none;'); ?>"> <?php // Logs tab now refers to general ?>
-=======
-            <div id="general" class="tab-panel" style="<?php echo esc_attr($active_tab === 'general' ? 'display:block;' : 'display:none;'); ?>">
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 <form method="post" action="options.php">
                     <?php
                     settings_fields('ai_translate');
@@ -659,8 +474,7 @@ function render_admin_page()
                     ?>
                 </form>
             </div>
-<<<<<<< HEAD
-=======
+            <?php /* Logs tab content removed
             <div id="logs" class="tab-panel" style="<?php echo $active_tab === 'logs' ? 'display:block;' : 'display:none;' ?>">
                 <h2>Logs</h2>
                 <h3>WordPress Debug Log</h3>
@@ -668,7 +482,37 @@ function render_admin_page()
 <?php
     $wp_debug_log_file = WP_CONTENT_DIR . '/debug.log';
     if (file_exists($wp_debug_log_file)) {
-        echo esc_html(file_get_contents($wp_debug_log_file));
+        global $wp_filesystem;
+        if (empty($wp_filesystem)) {
+            if (!function_exists('WP_Filesystem')) {
+                require_once ABSPATH . '/wp-admin/includes/file.php';
+            }
+            WP_Filesystem();
+        }
+
+        // Try to read the file with WP_Filesystem
+        $all_lines_array = [];
+        if ($wp_filesystem) {
+            $all_lines_array = $wp_filesystem->get_contents_array($wp_debug_log_file);
+        }
+
+        if ($all_lines_array === false || !$wp_filesystem) {
+            // Fallback or error message if WP_Filesystem fails or is not initialized
+            echo 'Could not read WP Debug Log using WP_Filesystem. Check file permissions and WP_Filesystem setup.';
+            if (!$wp_filesystem) {
+                echo ' WP_Filesystem could not be initialized.';
+            }
+        } else {
+            $line_count = count($all_lines_array);
+            // array_slice will get the last 200 elements. If fewer than 200, it gets all of them.
+            $lines_to_show = array_slice($all_lines_array, -200);
+
+            if ($line_count > 200) {
+                echo esc_html('Showing last 200 lines of ' . $line_count . ' total lines:' . "\n\n");
+            }
+            // Implode with an empty string because get_contents_array returns lines with their original newlines.
+            echo esc_html(implode('', $lines_to_show));
+        }
     } else {
         echo 'No WP Debug Log found.';
     }
@@ -679,7 +523,7 @@ function render_admin_page()
                     <?php submit_button('Clear Debug Log', 'delete', 'clear_debug', false); ?>
                 </form>
             </div>
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
+            */ ?>
             <div id="cache" class="tab-panel" style="<?php echo esc_attr($active_tab === 'cache' ? 'display:block;' : 'display:none;'); ?>">
                 <h2>Cache Management</h2>
                 <?php wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce'); // Nonce for AJAX clear language cache ?>
@@ -871,7 +715,6 @@ function render_admin_page()
         </div>
     </div>
     <script>
-<<<<<<< HEAD
         // Update tab links to add the tab parameter
         document.addEventListener('DOMContentLoaded', function() {
             var tabLinks = document.querySelectorAll('.nav-tab-wrapper a');
@@ -880,14 +723,6 @@ function render_admin_page()
                 if (tab) { // Ensure tab has a value
                     link.href = '<?php echo esc_url(admin_url('admin.php?page=ai-translate')); ?>&tab=' + tab;
                 }
-=======
-        // Update tab links om de tab-parameter toe te voegen
-        document.addEventListener('DOMContentLoaded', function() {
-            var tabLinks = document.querySelectorAll('.nav-tab-wrapper a');
-            tabLinks.forEach(function(link) {
-                var tab = link.getAttribute('href').replace('#', '');
-                link.href = '<?php echo esc_url(admin_url('admin.php?page=ai-translate')); ?>&tab=' + tab;
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             });
 
             // Show/hide custom model text field based on selected value
@@ -909,11 +744,7 @@ function render_admin_page()
              */
             function updateCacheUI(langCode) {
                 try {
-<<<<<<< HEAD
                     console.log('Updating UI for language:', langCode);
-=======
-                    console.log('UI bijwerken voor taal:', langCode);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
                     // Update table row for this language
                     var row = document.getElementById('cache-row-' + langCode);
@@ -945,11 +776,7 @@ function render_admin_page()
                             // Replace the button with a checkmark
                             var actionCell = row.querySelector('td:last-child');
                             if (actionCell) {
-<<<<<<< HEAD
                                 actionCell.innerHTML = '<span class="dashicons dashicons-yes-alt" style="color: #46b450;" title="No cache files"></span>';
-=======
-                                actionCell.innerHTML = '<span class="dashicons dashicons-yes-alt" style="color: #46b450;" title="Geen cache bestanden"></span>';
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                             }
 
                             // Highlight the row
@@ -961,7 +788,6 @@ function render_admin_page()
                         }
                     }
                 } catch (error) {
-<<<<<<< HEAD
                     console.error('Error in updateCacheUI:', error);
                 }
             }
@@ -971,23 +797,11 @@ function render_admin_page()
             var langCountSpan = document.getElementById('selected-lang-count');
 
             // Quick cache clear buttons in the table
-=======
-                    console.error('Fout in updateCacheUI:', error);
-                }
-            }
-
-            // Cache per taal functionaliteit
-            var langSelect = document.getElementById('cache_language');
-            var langCountSpan = document.getElementById('selected-lang-count');
-
-            // Snelle cache wissen knoppen in de tabel
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
             var quickClearButtons = document.querySelectorAll('.quick-clear-cache');
             if (quickClearButtons.length > 0) {
                 quickClearButtons.forEach(function(button) {
                     button.addEventListener('click', function(e) {
                         e.preventDefault();
-<<<<<<< HEAD
                         e.stopPropagation(); // Prevent the row click from being triggered as well
 
                         var langCode = button.getAttribute('data-lang');
@@ -1034,54 +848,6 @@ function render_admin_page()
                          var originalText = button.textContent;
                          button.textContent = 'Processing...';
                          button.disabled = true;
-=======
-                        e.stopPropagation(); // Voorkom dat de rij-click ook getriggerd wordt
-
-                        var langCode = button.getAttribute('data-lang');
-                        if (!langCode) return;
-
-                        // Veilig controleren of langSelect bestaat en opties heeft voordat we ze gebruiken
-                        if (langSelect && langSelect.options) {
-                            // Selecteer de juiste taal in de dropdown
-                            for (var i = 0; i < langSelect.options.length; i++) {
-                                if (langSelect.options[i].value === langCode) {
-                                    langSelect.selectedIndex = i;
-                                    break;
-                                }
-                            }
-                        }// AJAX request om de cache te wissen
-                        // Get the nonce from the hidden field
-                        var nonce = document.querySelector('input[name="clear_cache_language_nonce"]').value;
-                        if (!nonce) {
-                            console.error('Nonce veld niet gevonden');
-                            
-                            // Toon een error bericht
-                            var noticeDiv = document.createElement('div');
-                            noticeDiv.className = 'notice notice-error is-dismissible';
-                            noticeDiv.innerHTML = '<p>Beveiligingstoken niet gevonden. Vernieuw de pagina en probeer het opnieuw.</p>';
-
-                            // Voeg de notice toe bovenaan de tab
-                            var cacheTab = document.getElementById('cache');
-                            if (cacheTab) {
-                                cacheTab.insertBefore(noticeDiv, cacheTab.firstChild);
-
-                                // Na 5 seconden automatisch verwijderen
-                                setTimeout(function() {
-                                    noticeDiv.style.transition = 'opacity 1s ease-out';
-                                    noticeDiv.style.opacity = 0;
-                                    setTimeout(function() {
-                                        noticeDiv.remove();
-                                    }, 1000);
-                                }, 5000);
-                            }
-                            return;
-                        }
-
-                        // Voeg een loading indicator toe aan de knop
-                        var originalText = button.textContent;
-                        button.textContent = 'Bezig...';
-                        button.disabled = true;
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
                         // AJAX request
                         var formData = new FormData();
@@ -1373,7 +1139,6 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-<<<<<<< HEAD
     $provider_key = isset($_POST['api_provider']) ? sanitize_text_field($_POST['api_provider']) : null;
     $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
 
@@ -1396,20 +1161,6 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         return;
     }
 
-=======
-    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field($_POST['api_url'])) : '';
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
-    if (empty($api_url) || empty($api_key)) {
-        // Fallback op settings als POST leeg is
-        $settings = get_option('ai_translate_settings');
-        $api_url = isset($settings['api_url']) ? rtrim($settings['api_url'], '/') . '/' : 'https://api.openai.com/v1/';
-        $api_key = isset($settings['api_key']) ? $settings['api_key'] : '';
-    }
-    $api_url = rtrim($api_url, '/') . '/';
-    if (empty($api_url) || empty($api_key)) {
-        wp_send_json_error(['message' => 'API URL of API Key ontbreekt']);
-    }
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     $endpoint = rtrim($api_url, '/') . '/models';
     $response = wp_remote_get($endpoint, [
         'headers' => [
@@ -1445,7 +1196,6 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-<<<<<<< HEAD
     $provider_key = isset($_POST['api_provider']) ? sanitize_text_field($_POST['api_provider']) : null;
     $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
     $model = isset($_POST['model']) ? trim(sanitize_text_field($_POST['model'])) : '';
@@ -1464,22 +1214,6 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         return;
     }
 
-=======
-    $api_url = isset($_POST['api_url']) ? trim(sanitize_text_field($_POST['api_url'])) : '';
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
-    $model = isset($_POST['model']) ? trim(sanitize_text_field($_POST['model'])) : '';
-    if (empty($api_url) || empty($api_key) || empty($model)) {
-        // Fallback op settings als POST leeg is
-        $settings = get_option('ai_translate_settings');
-        $api_url = isset($settings['api_url']) ? rtrim($settings['api_url'], '/') . '/' : 'https://api.openai.com/v1/';
-        $api_key = isset($settings['api_key']) ? $settings['api_key'] : '';
-        $model = isset($settings['selected_model']) ? $settings['selected_model'] : '';
-    }
-    $api_url = rtrim($api_url, '/') . '/';
-    if (empty($api_url) || empty($api_key) || empty($model)) {
-        wp_send_json_error(['message' => 'API URL, Key of model ontbreekt']);
-    }
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     $endpoint = rtrim($api_url, '/') . '/chat/completions';
     $data = [
         'model' => $model,
@@ -1509,7 +1243,6 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     $data = json_decode($body, true);
     $ok = isset($data['choices'][0]['message']['content']) && !empty($data['choices'][0]['message']['content']);
     if ($ok) {
-<<<<<<< HEAD
         // Sla settings direct op als validatie slaagt, maar alleen de API-gerelateerde velden.
         if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
             $current_settings = get_option('ai_translate_settings', []); // Haal alle huidige instellingen op
@@ -1546,19 +1279,6 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         wp_send_json_success(['message' => 'API en model werken. API instellingen zijn opgeslagen.']);
     } else {
         wp_send_json_error(['message' => 'API antwoord onbruikbaar: ' . esc_html(wp_remote_retrieve_body($response))]);
-=======
-        // Sla settings direct op als validatie slaagt
-        if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
-            $settings = get_option('ai_translate_settings');
-            $settings['api_url'] = $api_url;
-            $settings['api_key'] = $api_key;
-            $settings['selected_model'] = $model;
-            update_option('ai_translate_settings', $settings);
-        }
-        wp_send_json_success(['message' => 'API en model werken']);
-    } else {
-        wp_send_json_error(['message' => 'API antwoord onbruikbaar']);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
     }
 });
 
@@ -1569,7 +1289,6 @@ add_action('admin_footer', function() {
     ?>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-<<<<<<< HEAD
         var modelSelect = document.getElementById('selected_model');
         var customModelDiv = document.getElementById('custom_model_div');
         var apiStatusSpan = document.getElementById('ai-translate-api-status');
@@ -1668,28 +1387,6 @@ add_action('admin_footer', function() {
                 }
             }
 
-=======
-        var select = document.getElementById('selected_model');
-        var customDiv = document.getElementById('custom_model_div');
-        var status = document.getElementById('ai-translate-api-status');
-        var validateBtn = document.getElementById('ai-translate-validate-api');
-
-        function loadModels() {
-            var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]').value;
-            var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]').value;
-
-            if (!apiUrl || !apiKey) {
-                status.textContent = 'Please enter API URL and Key first.';
-                return;
-            }
-
-            status.textContent = 'Loading models...';
-
-            var data = new FormData();
-            data.append('action', 'ai_translate_get_models');
-            data.append('api_url', apiUrl);
-            data.append('api_key', apiKey);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
             fetch(ajaxurl, {
                 method: 'POST',
@@ -1698,7 +1395,6 @@ add_action('admin_footer', function() {
             })
             .then(r => r.json())
             .then(function(resp) {
-<<<<<<< HEAD
                 if (modelSelect) {
                     if (resp.success && resp.data && resp.data.models) {
                         var current = modelSelect.value;
@@ -1773,66 +1469,6 @@ add_action('admin_footer', function() {
                     data.append('custom_model_value', customModelInput.value);
                 }
 
-=======
-                if (resp.success && resp.data && resp.data.models) {
-                    var current = select.value;
-                    select.innerHTML = '';
-                    resp.data.models.forEach(function(model) {
-                        var opt = document.createElement('option');
-                        opt.value = model;
-                        opt.textContent = model;
-                        if (model === current) opt.selected = true;
-                        select.appendChild(opt);
-                    });
-                    var opt = document.createElement('option');
-                    opt.value = 'custom';
-                    opt.textContent = 'Select...';
-                    if (current === 'custom') opt.selected = true;
-                    select.appendChild(opt);
-                    status.textContent = 'Models loaded successfully.';
-                } else {
-                    status.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Unknown error');
-                }
-            })
-            .catch(function(e) {
-                status.textContent = 'Error loading models: ' + e.message;
-            });
-        }
-
-        if (select) {
-            select.addEventListener('focus', loadModels);
-            select.addEventListener('change', function() {
-                if (this.value === 'custom') {
-                    customDiv.style.display = 'block';
-                } else {
-                    customDiv.style.display = 'none';
-                }
-            });
-        }
-
-        if (validateBtn) {
-            validateBtn.addEventListener('click', function() {
-                status.innerHTML = 'Validating...';
-                var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]').value;
-                var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]').value;
-                var model = select.value;
-                if (model === 'custom') {
-                    model = document.querySelector('input[name="ai_translate_settings[custom_model]"]').value;
-                }
-
-                if (!apiUrl || !apiKey || !model) {
-                    status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Please enter API URL, Key and select a model</span>';
-                    return;
-                }
-
-                validateBtn.disabled = true;
-
-                var data = new FormData();
-                data.append('action', 'ai_translate_validate_api');
-                data.append('api_url', apiUrl);
-                data.append('api_key', apiKey);
-                data.append('model', model);
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
 
                 fetch(ajaxurl, {
                     method: 'POST',
@@ -1842,7 +1478,6 @@ add_action('admin_footer', function() {
                 .then(r => r.json())
                 .then(function(resp) {
                     if (resp.success) {
-<<<<<<< HEAD
                         if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connectie en model OK. API instellingen opgeslagen.</span>';
                     } else {
                         if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +
@@ -1860,19 +1495,6 @@ add_action('admin_footer', function() {
                 })
                 .finally(function() {
                     validateApiBtn.disabled = false;
-=======
-                        status.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connection and model OK</span>';
-                    } else {
-                        status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +
-                            (resp.data && resp.data.message ? resp.data.message : 'Error') + '</span>';
-                    }
-                })
-                .catch(function(e) {
-                    status.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Validation error: ' + e.message + '</span>';
-                })
-                .finally(function() {
-                    validateBtn.disabled = false;
->>>>>>> 59d20c70e73d9b5b157c376d28993a4044196af8
                 });
             });
         }
