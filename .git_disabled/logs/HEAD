@@ -1,0 +1,12 @@
+0000000000000000000000000000000000000000 1e700c53ddfb05dfd5a8616e6f31057dfe1561ea gerard-kanters <gkanters@gmail.com> 1747553871 +0200	commit (initial): Add LICENSE file and initial project files
+1e700c53ddfb05dfd5a8616e6f31057dfe1561ea 00fb0436928e6c5080f229c21d442832c7a91289 gerard-kanters <gkanters@gmail.com> 1747554339 +0200	commit: Add AI-Translate logo
+00fb0436928e6c5080f229c21d442832c7a91289 3a23af994cc1125b5554e1abed3a616257d7fc0b gerard-kanters <gkanters@gmail.com> 1747560229 +0200	commit: Fix wp linter warnings
+3a23af994cc1125b5554e1abed3a616257d7fc0b a66e4010205db07a011ab8da7003b9b8de459db9 gerard-kanters <gkanters@gmail.com> 1747561222 +0200	commit: Fix: Replace wp_get_image_tag with img tag in language switcher
+a66e4010205db07a011ab8da7003b9b8de459db9 67fbd051233e4491b07402b847719397e9e3790d gerard-kanters <gkanters@gmail.com> 1747562698 +0200	commit: Fix: Language switcher not switching to default on homepage
+67fbd051233e4491b07402b847719397e9e3790d 1af470d3eae9f59a89a9bb80b8e437677b6f6849 gerard-kanters <gkanters@gmail.com> 1747562877 +0200	commit (merge): Merge branch 'master' of https://github.com/gerard-kanters/ai-translate
+1af470d3eae9f59a89a9bb80b8e437677b6f6849 9898782fd0a888e14a8993d1c31f2935b8cc276b gerard-kanters <gkanters@gmail.com> 1747603618 +0200	commit: Fix: Preserve links in translated page/post content
+9898782fd0a888e14a8993d1c31f2935b8cc276b 9898782fd0a888e14a8993d1c31f2935b8cc276b gerard-kanters <gkanters@gmail.com> 1747604652 +0200	reset: moving to 9898782
+9898782fd0a888e14a8993d1c31f2935b8cc276b 348594b20ebf72147960af0db5ec067198e1a6c5 gerard-kanters <gkanters@gmail.com> 1747605458 +0200	commit: Fix: Relative URLs in translated content now include language prefix
+348594b20ebf72147960af0db5ec067198e1a6c5 a426c2521eb10857e0bbf41e7b0c94fb57388a67 gerard-kanters <gkanters@gmail.com> 1747651481 +0200	commit: Fix: Address linter warnings and errors
+a426c2521eb10857e0bbf41e7b0c94fb57388a67 628fe3addc621b1881c4a3b2874557a2997d12f9 gerard-kanters <gkanters@gmail.com> 1747671290 +0200	commit: Dropdown select LLM model
+628fe3addc621b1881c4a3b2874557a2997d12f9 59d20c70e73d9b5b157c376d28993a4044196af8 gerard-kanters <gkanters@gmail.com> 1747672173 +0200	commit: Fix clear cache button
