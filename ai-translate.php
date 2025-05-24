@@ -902,7 +902,7 @@ add_filter('language_attributes', function($output) {
 // Forceer juiste homepage/blog query bij alleen taalprefix in de URL, maar alleen als er geen andere query_vars zijn
 add_action('parse_request', function ($wp) {
     // Voeg een extra controle toe voor admin-gerelateerde URL's
-    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    $request_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])) : '';
     if (
         is_admin() ||
         (defined('DOING_AJAX') && DOING_AJAX) ||

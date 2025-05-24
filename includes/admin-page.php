@@ -1135,12 +1135,13 @@ function render_admin_page()
 
 // --- AJAX handler voor dynamisch ophalen van modellen ---
 add_action('wp_ajax_ai_translate_get_models', function () {
+    check_ajax_referer('ai_translate_get_models_nonce', 'nonce'); // Add nonce verification
     if (!current_user_can('manage_options')) {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-    $provider_key = isset($_POST['api_provider']) ? sanitize_text_field($_POST['api_provider']) : null;
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
+    $provider_key = isset($_POST['api_provider']) ? sanitize_text_field(wp_unslash($_POST['api_provider'])) : null;
+    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
 
     if (!$provider_key) { // Als provider niet in POST zit, haal uit settings
         $settings = get_option('ai_translate_settings');
@@ -1192,13 +1193,14 @@ add_action('wp_ajax_ai_translate_get_models', function () {
 
 // --- AJAX handler voor API validatie ---
 add_action('wp_ajax_ai_translate_validate_api', function () {
+    check_ajax_referer('ai_translate_validate_api_nonce', 'nonce'); // Add nonce verification
     if (!current_user_can('manage_options')) {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
     // Haal actuele waarden uit POST als aanwezig
-    $provider_key = isset($_POST['api_provider']) ? sanitize_text_field($_POST['api_provider']) : null;
-    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field($_POST['api_key'])) : '';
-    $model = isset($_POST['model']) ? trim(sanitize_text_field($_POST['model'])) : '';
+    $provider_key = isset($_POST['api_provider']) ? sanitize_text_field(wp_unslash($_POST['api_provider'])) : null;
+    $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
+    $model = isset($_POST['model']) ? trim(sanitize_text_field(wp_unslash($_POST['model']))) : '';
 
     if (!$provider_key) { // Als provider niet in POST zit, haal uit settings
         $settings = get_option('ai_translate_settings');
@@ -1261,7 +1263,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
             // custom_model wordt ook bijgewerkt als 'selected_model' 'custom' is,
             // of als het expliciet wordt meegestuurd. De sanitize_callback handelt dit verder af.
             if (isset($_POST['custom_model_value'])) {
-                 $current_settings['custom_model'] = trim(sanitize_text_field($_POST['custom_model_value']));
+                 $current_settings['custom_model'] = trim(sanitize_text_field(wp_unslash($_POST['custom_model_value'])));
             } elseif ($model !== 'custom' && isset($current_settings['custom_model'])) {
                 // Als het model niet 'custom' is, maar custom_model bestond, leegmaken.
                 // De sanitize_callback zou dit ook moeten doen, maar voor de duidelijkheid.
@@ -1290,6 +1292,10 @@ add_action('admin_footer', function() {
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         var modelSelect = document.getElementById('selected_model');
+        var getModelsNonce = '<?php echo esc_attr(wp_create_nonce('ai_translate_get_models_nonce')); ?>';
+        var validateApiNonce = '<?php echo esc_attr(wp_create_nonce('ai_translate_validate_api_nonce')); ?>';
+        var getModelsNonce = '<?php echo esc_attr(wp_create_nonce('ai_translate_get_models_nonce')); ?>';
+        var validateApiNonce = '<?php echo esc_attr(wp_create_nonce('ai_translate_validate_api_nonce')); ?>';
         var customModelDiv = document.getElementById('custom_model_div');
         var apiStatusSpan = document.getElementById('ai-translate-api-status');
         var validateApiBtn = document.getElementById('ai-translate-validate-api');
@@ -1378,6 +1384,7 @@ add_action('admin_footer', function() {
 
             var data = new FormData();
             data.append('action', 'ai_translate_get_models');
+            data.append('nonce', getModelsNonce); // Add nonce
             data.append('api_key', apiKey);
             // Pass provider key as well, for server-side logic if needed in future
             if (apiProviderSelect) {
@@ -1457,6 +1464,7 @@ add_action('admin_footer', function() {
 
                 var data = new FormData();
                 data.append('action', 'ai_translate_validate_api');
+                data.append('nonce', validateApiNonce); // Add nonce
                 data.append('api_url', apiUrl); // PHP AJAX handler expects 'api_url'
                 data.append('api_key', apiKey);
                 data.append('model', modelId);
