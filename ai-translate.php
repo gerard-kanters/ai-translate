@@ -146,6 +146,9 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     // Voeg de home_url filter pas toe via de wp actie zodat de globale query beschikbaar is
     add_action('wp', function () {
         add_filter('home_url', function ($url, $path, $orig_scheme, $blog_id) {
+            if (is_admin()) {
+                return $url;
+            }
             $core = AI_Translate_Core::get_instance();
             $settings = $core->get_settings();
             $default_language = $settings['default_language'] ?? 'nl';
@@ -615,8 +618,10 @@ function init_plugin(): void
 function add_language_rewrite_rules(): void
 {
     // Add rewrite rules for translated custom post types (services and products)
-    add_rewrite_rule('^([a-z]{2})/service/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[2]', 'top');
-    add_rewrite_rule('^([a-z]{2})/product/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[2]', 'top');
+    // Add rewrite rules for translated custom post types (services and products)
+    // Exclude /wp-admin/ and /wp-login.php from matching
+    add_rewrite_rule('^([a-z]{2})/(?!wp-admin|wp-login.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');
+    add_rewrite_rule('^([a-z]{2})/(?!wp-admin|wp-login.php)(product)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]', 'top');
 
     $core = AI_Translate_Core::get_instance();
     $settings = $core->get_settings();
@@ -633,10 +638,11 @@ function add_language_rewrite_rules(): void
     $lang_regex = '(' . implode('|', array_map('preg_quote', $lang_codes, ['/'])) . ')'; // e.g., (en|fr|de)
 
     // Rule for pages/posts with language prefix
-    add_rewrite_rule('^' . $lang_regex . '/(.+?)/?$', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
-    // Blogposts (standaard post type)
-    add_rewrite_rule('^' . $lang_regex . '/([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
-    // Rule for homepage with language prefix
+    // Rule for pages/posts with language prefix, excluding admin paths
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(.+?)/?$', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
+    // Blogposts (standaard post type) with language prefix, excluding admin paths
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
+    // Rule for homepage with language prefix, excluding admin paths
     add_rewrite_rule('^' . $lang_regex . '/?$', 'index.php?lang=$matches[1]', 'top');
 
     // Add 'lang' to query vars so get_query_var works
@@ -895,7 +901,14 @@ add_filter('language_attributes', function($output) {
 
 // Forceer juiste homepage/blog query bij alleen taalprefix in de URL, maar alleen als er geen andere query_vars zijn
 add_action('parse_request', function ($wp) {
-    if (is_admin() || (defined('DOING_AJAX') && DOING_AJAX)) {
+    // Voeg een extra controle toe voor admin-gerelateerde URL's
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    if (
+        is_admin() ||
+        (defined('DOING_AJAX') && DOING_AJAX) ||
+        strpos($request_uri, '/wp-admin/') !== false ||
+        strpos($request_uri, '/wp-login.php') !== false
+    ) {
         return;
     }
 
@@ -969,9 +982,37 @@ add_action('parse_request', function ($wp) {
 
 // --- Canonical redirect fix voor homepage met taalprefix ---
 add_filter('redirect_canonical', function($redirect_url, $requested_url) {
-    // Tijdelijk uitgeschakeld voor debugging
+    $core = \AITranslate\AI_Translate_Core::get_instance();
+    $current_language = $core->get_current_language();
+    $default_language = $core->get_settings()['default_language'];
+
+    // Als de huidige taal de standaardtaal is, of als we in de admin zijn,
+    // laat WordPress de canonical redirect afhandelen.
+    if ($current_language === $default_language || is_admin()) {
+        return $redirect_url;
+    }
+
+    // Als de redirect_url leeg is, of als de requested_url al de taalprefix bevat,
+    // en de redirect_url bevat deze niet, dan is er mogelijk een conflict.
+    // We moeten ervoor zorgen dat de canonical URL de taalprefix behoudt.
+    if ($redirect_url && strpos($requested_url, '/' . $current_language . '/') !== false) {
+        $parsed_redirect_url = wp_parse_url($redirect_url);
+        $parsed_requested_url = wp_parse_url($requested_url);
+
+        // Als de redirect_url geen taalprefix heeft, voeg deze dan toe.
+        if (
+            isset($parsed_redirect_url['path']) &&
+            strpos($parsed_redirect_url['path'], '/' . $current_language . '/') === false &&
+            isset($parsed_requested_url['path']) &&
+            strpos($parsed_requested_url['path'], '/' . $current_language . '/') !== false
+        ) {
+            $new_path = '/' . $current_language . $parsed_redirect_url['path'];
+            $redirect_url = str_replace($parsed_redirect_url['path'], $new_path, $redirect_url);
+        }
+    }
+
     return $redirect_url;
-}, 99, 2);
+}, 10, 2); // Lage prioriteit om andere plugins eerst te laten draaien
 
 // --- Vertaal ook de browser <title> tag via document_title_parts, net als menu items ---
 add_filter('document_title_parts', function ($title_parts) {

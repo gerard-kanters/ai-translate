@@ -1254,9 +1254,14 @@ class AI_Translate_Core
     public function get_current_language(): string
     {
         // Gebruik caching voor performance
-        // Gebruik caching voor performance
         if ($this->current_language !== null) {
             return $this->current_language;
+        }
+
+        // Als we in de admin zijn, retourneer direct de default taal.
+        // De admin-omgeving wordt niet vertaald door deze plugin.
+        if (is_admin()) {
+            return $this->settings['default_language'] ?? 'nl';
         }
 
         $default_language = $this->settings['default_language'] ?? 'nl';
@@ -1362,9 +1367,9 @@ class AI_Translate_Core
         $enabled_languages = $this->settings['enabled_languages'];
 
         // Haal de post_id van de huidige pagina op, indien van toepassing
-        $current_post_id = null;
-        if (is_singular()) { // Check if it's a single post or page
-            $current_post_id = get_the_ID();
+        $current_post_id = get_the_ID(); // Haal altijd de ID op, kan false zijn
+        if (!$current_post_id) {
+            $current_post_id = null; // Zorg dat het null is als er geen geldige ID is
         }
 
         echo '<div class="ai-translate-switcher">';
@@ -1394,20 +1399,6 @@ class AI_Translate_Core
 
             $url = $this->translate_url($base_url, $lang_code, $current_post_id); // Geef post_id mee
 
-            if (function_exists('wp_add_inline_script')) {
-                $debug_data = [
-                    'base_url_input' => $base_url,
-                    'lang_code_input' => $lang_code,
-                    'generated_url' => $url,
-                    'current_lang_php' => $this->get_current_language(),
-                    'default_lang_php' => $this->default_language,
-                ];
-                wp_add_inline_script(
-                    'ai-translate-switcher-js',
-                    'aiTranslateDebug.translateUrlCalls.push(' . json_encode($debug_data) . ');',
-                    'after'
-                );
-            }
             printf(
                 '<a href="%s" class="lang-option %s" data-lang="%s">%s %s</a>',
                 esc_url($url),
@@ -1906,6 +1897,11 @@ class AI_Translate_Core
 
     public function translate_url(string $url, string $language, ?int $post_id = null): string
     {
+        // Als we in de admin zijn, of als de URL een admin-pad bevat, retourneer de originele URL.
+        // Dit is een extra veiligheidscheck omdat is_admin() soms te laat true wordt.
+        if (is_admin() || strpos($url, '/wp-admin/') !== false || strpos($url, '/wp-login.php') !== false) {
+            return $url;
+        }
         $default_language = $this->default_language;
         // Gebruik ALLE beschikbare talen, niet alleen enabled
         $all_languages = array_keys($this->get_available_languages());
