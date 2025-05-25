@@ -1961,6 +1961,12 @@ class AI_Translate_Core
             }
         }
 
+        // Ensure trailing slash for non-file paths
+        // Check if the path is not just '/' and does not contain a file extension
+        if ($new_path !== '/' && !preg_match('/\\.[a-zA-Z0-9]{2,5}$/', $new_path)) {
+            $new_path = trailingslashit($new_path);
+        }
+
         $scheme = isset($parsed_url['scheme']) ? $parsed_url['scheme'] . '://' : '';
         $host = $parsed_url['host'] ?? '';
         $port = isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '';
