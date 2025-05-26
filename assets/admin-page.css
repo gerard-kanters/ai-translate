@@ -1,0 +1,53 @@
+.cache-stats-section {
+    margin-top: 20px;
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cache-stats-section h4 {
+    margin-top: 0;
+    font-size: 1.1em;
+}
+
+.cache-summary {
+    background: #fff;
+    padding: 10px 15px;
+    border-left: 4px solid #2271b1;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.summary-item {
+    margin-right: 20px;
+}
+
+.cache-stats-section table {
+    border-collapse: collapse;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
+}
+
+.cache-stats-section th {
+    background: #f0f0f1;
+}
+
+.cache-stats-section tr.has-cache:hover {
+    background-color: #f0f7fb;
+}
+
+.cache-stats-section tr.no-cache {
+    color: #888;
+    background-color: #fafafa;
+}
+
+.quick-clear-cache {
+    transition: all 0.2s ease;
+}
+
+.quick-clear-cache:hover {
+    background-color: #d63638;
+    color: white;
+}

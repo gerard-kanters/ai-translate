@@ -19,13 +19,13 @@ This plugin leverages the power of Artificial Intelligence to provide seamless, 
 
 ## Features
 
-- Automatic translation of pages, posts and custom posts.
-- Supports 21 languages supporting billions of people in their native language.
+- Automatic translation of pages and posts
+- Support for multiple languages
 - Intelligent caching for better performance
 - Simple language switcher interface
-- Slug translation. Orignal url : /over-ons/ will translates to /en/about-us/
+- Extensive logging and debugging options
+- Exclusion of specific pages
 - Customizable translation models
-- Support multiple Generative AI providers (OpenAI compatible)
 - Path-based language URLs (e.g., `/en/my-page`)
 
 ## Installation
