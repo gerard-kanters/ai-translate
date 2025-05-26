@@ -79,11 +79,47 @@ Translations are cached to improve performance and reduce API calls:
 - Path-based language URLs are implemented.
 - Ongoing work to support more content types and improve translation accuracy.
 
+## External services
+
+This plugin connects to external AI translation services to provide automatic translation functionality. The plugin requires an API key from one of the supported providers to function.
+
+### Supported AI Translation Services
+
+**OpenAI API**
+- **What it is**: OpenAI's GPT models for text translation
+- **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
+- **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
+- **Service provider**: OpenAI
+- **Terms of service**: https://openai.com/terms/
+- **Privacy policy**: https://openai.com/privacy/
+
+**Deepseek API**
+- **What it is**: Deepseek's AI models for text translation
+- **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
+- **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
+- **Service provider**: Deepseek
+- **Terms of service**: https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html
+- **Privacy policy**: https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html
+ 
+**Custom API Services**
+- **What it is**: Any OpenAI-compatible API service that you configure
+- **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
+- **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
+- **Service provider**: Varies depending on your custom API configuration
+- **Terms and privacy**: Please refer to your custom API provider's terms of service and privacy policy
+
+### Data Handling
+
+- All translations are cached locally to minimize API calls and improve performance
+- No personal visitor data (IP addresses, cookies, etc.) is sent to the translation services
+- Only the website content that needs translation is transmitted
+- Cached translations are stored on your server and are not shared with external services
+
 ## Requirements
 
 - WordPress 5.0 or higher
 - PHP 7.4 or higher
-- OpenAI or compatible AI API key
+- API key from one of the supported AI translation services (OpenAI, Deepseek, or compatible custom API)
 
 ## Changelog
 
