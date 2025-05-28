@@ -91,7 +91,6 @@ class AI_Translate_Core
      */
     private function __construct()
     {
-        //error_log('TEST: native error_log direct in constructor');
         //$this->log_event('TEST: log_event direct aangeroepen in __construct van AI_Translate_Core');
         $this->init();
         add_action('plugins_loaded', [$this, 'schedule_cleanup']);
@@ -262,7 +261,6 @@ class AI_Translate_Core
             $this->settings = wp_parse_args($settings, $this->get_default_settings());
         }
         if (empty($this->settings['enabled_languages'])) {
-            // error_log('AI Translate: Geen talen ingeschakeld in instellingen.'); // Removed debug log
         }
         return $this->settings;
     }
@@ -1173,9 +1171,6 @@ class AI_Translate_Core
      */
     public function log_event(string $message, string $level = 'debug'): void
     {
-        // error_log() is removed as per linter warning.
-        // $timestamp = gmdate('Y-m-d H:i:s');
-        // error_log("AI Translate [{$level}][{$timestamp}]: {$message}");
     }
 
     /**
@@ -2029,7 +2024,6 @@ class AI_Translate_Core
 
 	// NEW: Skip slug translation entirely for specific languages 
         if (in_array($target_language, ['ar', 'ka'], true)) {
-            // error_log("AI Translate: Skipping slug translation for target language: {$target_language}, path: {$path}");
             return $path;
 	}
 
@@ -2823,8 +2817,6 @@ class AI_Translate_Core
             $source_language = $this->default_language;
             $target_language = $this->get_current_language();
 
-            // error_log("AI Translate DEBUG: Fluent Form - BEFORE translate_text for fluentform output (first 300): " . substr(str_replace(["\n", "\r"], ' ', $output), 0, 300));
-
             $translated_output = $this->translate_text(
                 $output,
                 $source_language,
@@ -2836,7 +2828,6 @@ class AI_Translate_Core
             // De TRANSLATION_MARKER wordt door translate_text toegevoegd.
             // Deze moet hier blijven, zodat de hoofdvertaallogica (als die later nog content met deze marker ziet)
             // weet dat het al "behandeld" is. De mb_text shortcode zal deze output (met marker) insluiten.
-            // error_log("AI Translate DEBUG: Fluent Form - AFTER translate_text for fluentform output (first 300): " . substr(str_replace(["\n", "\r"], ' ', $translated_output), 0, 300));
 
             return $translated_output;
         }

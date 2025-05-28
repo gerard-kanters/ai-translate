@@ -449,7 +449,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             $language_code = $default_language;
 
             // Log de huidige taal
-            //error_log("AI Translate: Current language set to: $language_code");
         }
 
         // Process permalinks to use path-based language URLs
@@ -560,7 +559,6 @@ function init_plugin(): void
     $core = AI_Translate_Core::get_instance();
     $settings = $core->get_settings();
     if (!empty($settings['debug_mode'])) {
-        //error_log("PLUGIN init_plugin: Plugin initialized. Memory: " . memory_get_usage());
     }
     wp_enqueue_script('jquery');
     // Enqueue switcher JS only if needed (moved from core class potentially)
@@ -841,7 +839,6 @@ if (
     }
 } else {
     // Log een fout als de class of methode niet gevonden wordt
-    // error_log('AI Translate Fout: Klasse ' . $class_name_for_filters . ' of methode remove_translation_marker niet gevonden tijdens initialisatie van marker verwijderingsfilters.');
 }
 // --- Einde marker verwijderingsfilters ---
 
