@@ -95,6 +95,8 @@ class AI_Translate_Core
         //$this->log_event('TEST: log_event direct aangeroepen in __construct van AI_Translate_Core');
         $this->init();
         add_action('plugins_loaded', [$this, 'schedule_cleanup']);
+        // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Verwijderd, vervangen door nieuwe aanpak
+        add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
     }
 
     /**
@@ -706,10 +708,46 @@ class AI_Translate_Core
 
 
         // --- Uitsluiten van shortcodes die in admin zijn opgegeven ---
-        $extracted = $this->extract_excluded_shortcodes($text);
-        $text_to_translate = $extracted['text'];
-        $shortcodes = $extracted['shortcodes'];
+        $shortcodes_to_exclude = self::get_always_excluded_shortcodes();
+        $extracted_shortcodes = [];
+        $placeholder_index = 0;
+
+        $text_with_placeholders = $text;
+
+        foreach ($shortcodes_to_exclude as $tagname) {
+            // Regex for opening tag
+            $opening_tag_pattern = '/\[' . preg_quote($tagname, '/') . '([^\]]*?)\]/i';
+            $text_with_placeholders = preg_replace_callback(
+                $opening_tag_pattern,
+                function ($m) use (&$extracted_shortcodes, &$placeholder_index) {
+                    $placeholder = '[[[AI_TRANSLATE_OPEN_SC_' . $placeholder_index . ']]]';
+                    $extracted_shortcodes[$placeholder] = $m[0];
+                    $placeholder_index++;
+                    return $placeholder;
+                },
+                $text_with_placeholders
+            );
+
+            // Regex for closing tag
+            $closing_tag_pattern = '/\[\/' . preg_quote($tagname, '/') . '\]/i';
+            $text_with_placeholders = preg_replace_callback(
+                $closing_tag_pattern,
+                function ($m) use (&$extracted_shortcodes, &$placeholder_index) {
+                    $placeholder = '[[[AI_TRANSLATE_CLOSE_SC_' . $placeholder_index . ']]]';
+                    $extracted_shortcodes[$placeholder] = $m[0];
+                    $placeholder_index++;
+                    return $placeholder;
+                },
+                $text_with_placeholders
+            );
+        }
+
+        $text_to_translate = $text_with_placeholders;
+        $shortcodes = $extracted_shortcodes;
+
+
         if (!empty($shortcodes)) {
+            // Debugging: Shortcodes zijn geëxtraheerd
         }
 
         // Detect: tekst bestaat alleen uit uitgesloten shortcodes?
@@ -754,7 +792,6 @@ class AI_Translate_Core
 
         // Genereer transient key
         $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
-        $cached = get_transient($transient_key);
         $cached = get_transient($transient_key);
         if ($cached !== false) {
             if (strpos($cached, self::TRANSLATION_MARKER) !== false) {
@@ -875,6 +912,10 @@ class AI_Translate_Core
             $final_translated_text = strtr($translated_text_with_placeholders, $placeholders);
         }
 
+        // --- Workaround: Remove any remaining [/mb_text] tags ---
+        // This is a temporary solution if the regex in get_shortcode_regex doesn't fully capture the closing tag.
+        $final_translated_text = preg_replace('/\[\/mb_text\]/', '', $final_translated_text);
+
         // --- Restore excluded shortcodes ---
         if (!empty($shortcodes)) {
             $final_translated_text = $this->restore_excluded_shortcodes($final_translated_text, $shortcodes);
@@ -884,7 +925,9 @@ class AI_Translate_Core
         // Deze check blijft belangrijk, maar we retourneren $text ipv $final_translated_text als de marker mist.
         if (empty(trim(wp_strip_all_tags(str_replace(self::TRANSLATION_MARKER, '', (string)$final_translated_text)))) && !empty(trim(wp_strip_all_tags($text)))) {
             // Geen caching, geef origineel terug
-            return $text;
+            // We retourneren de originele tekst, maar zorgen ervoor dat deze de marker bevat
+            // zodat deze in de cache kan worden opgeslagen en niet opnieuw wordt vertaald.
+            $final_translated_text = $text . self::TRANSLATION_MARKER; // Voeg marker toe aan originele tekst
         }
 
         // --- Cache de vertaalde tekst ---
@@ -956,14 +999,14 @@ class AI_Translate_Core
         ];
 
         $context_hint = substr(preg_replace('/\s+/', ' ', $text), 0, 50);
-
+ 
         $response = $this->make_api_request('chat/completions', $data);
         $translated = $response['choices'][0]['message']['content'] ?? null;
-
+ 
         // Trim spaties van begin/eind voor betere vergelijking
         $trimmed_original = trim($text);
         $trimmed_translated = trim((string)$translated);
-
+ 
         // Controleer of de API een niet-lege string teruggaf
         if (!empty($trimmed_translated)) {
             // API gaf een niet-lege string terug. Voeg ALTIJD de marker toe.
@@ -1661,32 +1704,6 @@ class AI_Translate_Core
         return preg_replace($pattern, '[SHORTCODE]', $text);
     }
 
-    /**
-     * Haal shortcodes uit tekst die niet vertaald mogen worden.
-     *
-     * @param string $text
-     * @return array [ 'text' => string, 'shortcodes' => array ]
-     */
-    public function extract_excluded_shortcodes($text)
-    {
-        $settings = $this->get_settings();
-        $exclude = isset($settings['exclude_shortcodes']) && is_array($settings['exclude_shortcodes'])
-            ? $settings['exclude_shortcodes']
-            : [];
-        // Voeg altijd de hardcoded shortcodes toe
-        $exclude = array_unique(array_merge($exclude, self::get_always_excluded_shortcodes()));
-        if (empty($exclude)) {
-            return ['text' => $text, 'shortcodes' => []];
-        }
-        $shortcodes = [];
-        $pattern = $this->get_shortcode_regex($exclude);
-        $text_without = preg_replace_callback("/$pattern/", function ($m) use (&$shortcodes) {
-            $placeholder = '[[[AI_TRANSLATE_SC_' . count($shortcodes) . ']]]';
-            $shortcodes[$placeholder] = $m[0];
-            return $placeholder;
-        }, $text);
-        return ['text' => $text_without, 'shortcodes' => $shortcodes];
-    }
 
     /**
      * Zet shortcodes terug in tekst na vertaling.
@@ -1700,11 +1717,20 @@ class AI_Translate_Core
         if (empty($shortcodes)) {
             return $text;
         }
-        $text = strtr($text, $shortcodes);
+        // Sort shortcodes by length in descending order to prevent partial matches
+        uksort($shortcodes, function ($a, $b) {
+            return strlen($b) <=> strlen($a);
+        });
+
+        foreach ($shortcodes as $placeholder => $original_shortcode) {
+            // Escape placeholder for regex, and allow for potential whitespace/newlines around it
+            $escaped_placeholder = preg_quote($placeholder, '/');
+            $text = preg_replace('/' . $escaped_placeholder . '\s*/', $original_shortcode, $text);
+        }
         return $text;
     }
 
-    /**
+/**
      * Genereer regex voor opgegeven shortcodes.
      *
      * @param array<string> $shortcodes
@@ -1718,6 +1744,12 @@ class AI_Translate_Core
         // Modified regex to use a simpler non-greedy match for content within enclosing shortcodes
         return '\\[(\\[?)(' . $tagregexp . ')(?![\\w-])([^[\\]]*?)(?:((?:\\/(?!\\]))?\\])|\\](?:(.*?)\\[\\/\\2\\])?)(\\]?)';
     }
+    /**
+     * Genereer regex voor opgegeven shortcodes.
+     *
+     * @param array<string> $shortcodes
+     * @return string
+     */
 
     /**
      * Removes the translation marker from a string.
@@ -1995,7 +2027,13 @@ class AI_Translate_Core
             return $path;
         }
 
-        // Try to identify content from URL if not provided
+	// NEW: Skip slug translation entirely for specific languages 
+        if (in_array($target_language, ['ar', 'ka'], true)) {
+            // error_log("AI Translate: Skipping slug translation for target language: {$target_language}, path: {$path}");
+            return $path;
+	}
+
+	// Try to identify content from URL if not provided
         if ($post_id === null) {
             $post_id = $this->identify_post_from_url($path);
         }
@@ -2738,5 +2776,71 @@ class AI_Translate_Core
         // Als zelfs dat niet werkt, val dan terug op de gedecodeerde inkomende slug.
         // Dit zal waarschijnlijk nog steeds een 404 zijn, maar het is de laatste poging.
         return ['slug' => $decoded_translated_slug, 'post_type' => null]; // Gebruik de gedecodeerde versie
+    }
+
+    /**
+     * Specifically translate Fluent Forms on the contact page after main content translation.
+     *
+     * @param string $content The post content.
+     * @return string Modified content with translated Fluent Form.
+     */
+    public function translate_fluent_form_on_contact_page(string $content): string
+    {
+        // Deze functie wordt niet meer gebruikt voor de Fluent Form logica,
+        // maar de filter hook in __construct moet ook verwijderd worden.
+        // De nieuwe logica gebruikt conditionally_add_fluentform_filter en filter_fluentform_shortcode_output.
+        return $content;
+    }
+
+    /**
+     * Conditionally adds the filter for Fluent Form output if on the contact page and translation is needed.
+     */
+    public function conditionally_add_fluentform_filter(): void
+    {
+        if (is_page('contact') && $this->needs_translation()) {
+            add_filter('do_shortcode_tag', [$this, 'filter_fluentform_shortcode_output'], 10, 3); // 3 i.p.v. 4 argumenten voor WP < 5.4
+        }
+    }
+
+    /**
+     * Filters the output of the [fluentform] shortcode to translate it.
+     *
+     * @param string $output The shortcode output.
+     * @param string $tag    The shortcode tag name.
+     * @param array  $attr   The shortcode attributes.
+     * @return string The (potentially) translated shortcode output.
+     */
+    public function filter_fluentform_shortcode_output(string $output, string $tag, array $attr): string
+    {
+        // De $m parameter (4e argument) is pas vanaf WP 5.4. Voor bredere compatibiliteit gebruiken we 3 argumenten.
+        // Als $m nodig is, moet de add_filter call ook 4 hebben en de PHP versie check.
+
+        if ('fluentform' === $tag) {
+            if (empty(trim($output))) {
+                return $output; // Geen HTML om te vertalen
+            }
+
+            $source_language = $this->default_language;
+            $target_language = $this->get_current_language();
+
+            // error_log("AI Translate DEBUG: Fluent Form - BEFORE translate_text for fluentform output (first 300): " . substr(str_replace(["\n", "\r"], ' ', $output), 0, 300));
+
+            $translated_output = $this->translate_text(
+                $output,
+                $source_language,
+                $target_language,
+                false, // is_title
+                false  // use_disk_cache (false for this specific dynamic translation)
+            );
+            
+            // De TRANSLATION_MARKER wordt door translate_text toegevoegd.
+            // Deze moet hier blijven, zodat de hoofdvertaallogica (als die later nog content met deze marker ziet)
+            // weet dat het al "behandeld" is. De mb_text shortcode zal deze output (met marker) insluiten.
+            // error_log("AI Translate DEBUG: Fluent Form - AFTER translate_text for fluentform output (first 300): " . substr(str_replace(["\n", "\r"], ' ', $translated_output), 0, 300));
+
+            return $translated_output;
+        }
+
+        return $output;
     }
 }

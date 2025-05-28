@@ -557,7 +557,7 @@ function render_admin_page()
                     $total_size_mb = isset($cache_stats['total_size']) ? number_format($cache_stats['total_size'] / (1024 * 1024), 2) : 0;
 
                     // Last update timestamp
-                    $last_modified = isset($cache_stats['last_modified']) ? gmdate('d-m-Y H:i:s', $cache_stats['last_modified']) : 'Unknown';
+                    $last_modified = isset($cache_stats['last_modified']) ? wp_date('d-m-Y H:i:s', $cache_stats['last_modified']) : 'Unknown';
                     ?>
 
                     <div class="cache-summary" style="margin-bottom: 15px; display: flex; gap: 20px;">
@@ -597,7 +597,7 @@ function render_admin_page()
                                 $details = $languages_details[$code] ?? [];
                                 $size_mb = isset($details['size']) ? number_format($details['size'] / (1024 * 1024), 2) : '0.00';
                                 $expired = isset($details['expired_count']) ? $details['expired_count'] : 0;
-                                $last_mod = isset($details['last_modified']) ? gmdate('d-m-Y H:i:s', $details['last_modified']) : 'N/A';
+                                $last_mod = isset($details['last_modified']) ? wp_date('d-m-Y H:i:s', $details['last_modified']) : 'N/A';
                             ?>
                                 <tr id="cache-row-<?php echo esc_attr($code); ?>" class="<?php echo ($count > 0) ? 'has-cache' : 'no-cache'; ?>">
                                     <td><?php echo esc_html($name); ?> (<?php echo esc_html($code); ?>)</td>

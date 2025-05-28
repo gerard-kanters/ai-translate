@@ -50,51 +50,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
     add_action('wp_head', [$core, 'add_simple_meta_description'], 99);
 
-    // Start output buffering voor volledige HTML vertaling (page builder support)
-    add_action('template_redirect', function () {
-        if (!is_admin() && !wp_doing_ajax()) {
-            ob_start('AITranslate\\ai_translate_buffer_callback');
-        }
-    });
-
-    // Callback functie voor output buffering
-    function ai_translate_buffer_callback($buffer) {
-        $core = \AITranslate\AI_Translate_Core::get_instance();
-        $current_language = $core->get_current_language();
-        $default_language = $core->get_settings()['default_language'];
-
-        if ($current_language === $default_language) {
-            return $buffer; // Geen vertaling nodig
-        }
-
-        // Regex om alle href attributen te vinden
-        $buffer = preg_replace_callback(
-            '/(<a\s+[^>]*href=["\'])([^"\']*)((?:["\'][^>]*>)|(?:["\']\s*\/>))/i',
-            function ($matches) use ($core, $current_language) {
-                $before_href = $matches[1]; // Alles voor de href waarde
-                $original_url = $matches[2]; // De originele URL
-                $after_href = $matches[3]; // Alles na de href waarde
-
-                // Gebruik wp_parse_url voor robuustere interne URL detectie
-                $parsed_url = wp_parse_url($original_url);
-
-                // Controleer of het een relatieve URL is of een interne absolute URL
-                if (
-                    !isset($parsed_url['scheme']) || // Relatieve URL
-                    (isset($parsed_url['host']) && $parsed_url['host'] === wp_parse_url(home_url(), PHP_URL_HOST)) // Interne absolute URL
-                ) {
-                    // Vertaal de URL
-                    $translated_url = $core->translate_url($original_url, $current_language);
-                    return $before_href . $translated_url . $after_href;
-                }
-                return $matches[0]; // Retourneer originele tag als het geen interne URL is
-            },
-            $buffer
-        );
-
-        return $buffer;
-    }
-
     add_action('wp_footer', [$core, 'hook_display_language_switcher']);
 
     add_filter('wp_nav_menu_objects', function ($items, $args) use ($core) {
