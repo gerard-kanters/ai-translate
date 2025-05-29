@@ -706,43 +706,15 @@ class AI_Translate_Core
 
 
         // --- Uitsluiten van shortcodes die in admin zijn opgegeven ---
+        // --- Uitsluiten van shortcodes die in admin zijn opgegeven ---
         $shortcodes_to_exclude = self::get_always_excluded_shortcodes();
-        $extracted_shortcodes = [];
-        $placeholder_index = 0;
+        $extracted_shortcode_pairs = [];
 
-        $text_with_placeholders = $text;
-
-        foreach ($shortcodes_to_exclude as $tagname) {
-            // Regex for opening tag
-            $opening_tag_pattern = '/\[' . preg_quote($tagname, '/') . '([^\]]*?)\]/i';
-            $text_with_placeholders = preg_replace_callback(
-                $opening_tag_pattern,
-                function ($m) use (&$extracted_shortcodes, &$placeholder_index) {
-                    $placeholder = '[[[AI_TRANSLATE_OPEN_SC_' . $placeholder_index . ']]]';
-                    $extracted_shortcodes[$placeholder] = $m[0];
-                    $placeholder_index++;
-                    return $placeholder;
-                },
-                $text_with_placeholders
-            );
-
-            // Regex for closing tag
-            $closing_tag_pattern = '/\[\/' . preg_quote($tagname, '/') . '\]/i';
-            $text_with_placeholders = preg_replace_callback(
-                $closing_tag_pattern,
-                function ($m) use (&$extracted_shortcodes, &$placeholder_index) {
-                    $placeholder = '[[[AI_TRANSLATE_CLOSE_SC_' . $placeholder_index . ']]]';
-                    $extracted_shortcodes[$placeholder] = $m[0];
-                    $placeholder_index++;
-                    return $placeholder;
-                },
-                $text_with_placeholders
-            );
-        }
+        // Extract shortcode pairs and replace with placeholders
+        $text_with_placeholders = $this->extract_shortcode_pairs($text, $shortcodes_to_exclude, $extracted_shortcode_pairs);
 
         $text_to_translate = $text_with_placeholders;
-        $shortcodes = $extracted_shortcodes;
-
+        $shortcodes = $extracted_shortcode_pairs; // Rename for consistency with existing code
 
         if (!empty($shortcodes)) {
             // Debugging: Shortcodes zijn geëxtraheerd
@@ -751,13 +723,15 @@ class AI_Translate_Core
         // Detect: tekst bestaat alleen uit uitgesloten shortcodes?
         $only_excluded = false;
         if (!empty($shortcodes)) {
-            $stripped = trim(wp_strip_all_tags(str_replace(array_values($shortcodes), '', $text_to_translate)));
+            // Strip placeholders for this check
+            $stripped = trim(wp_strip_all_tags(str_replace(array_keys($shortcodes), '', $text_to_translate)));
             if ($stripped === '') {
                 $only_excluded = true;
             }
         }
 
         // --- Strip alle shortcodes vóór het berekenen van de cache-key en vóór vertaling ---
+        // strip_all_shortcodes_for_cache zal nu de placeholders zien en deze ook strippen.
         $text_for_cache = $this->strip_all_shortcodes_for_cache($text_to_translate);
         // Gebruik md5 van de gestripte tekst als basis identifier
         $cache_identifier = md5($text_for_cache);
@@ -769,7 +743,7 @@ class AI_Translate_Core
             if (isset(self::$translation_memory[$memory_key])) {
                 $result = self::$translation_memory[$memory_key];
                 if (!empty($shortcodes)) {
-                    $result = $this->restore_excluded_shortcodes($result, $shortcodes);
+                    $result = $this->restore_shortcode_pairs($result, $shortcodes); // Use new restore function
                 }
                 return $result;
             }
@@ -783,7 +757,7 @@ class AI_Translate_Core
         if (isset(self::$translation_memory[$memory_key])) {
             $result = self::$translation_memory[$memory_key];
             if (!empty($shortcodes)) {
-                $result = $this->restore_excluded_shortcodes($result, $shortcodes);
+                $result = $this->restore_shortcode_pairs($result, $shortcodes); // Use new restore function
             }
             return $result;
         }
@@ -915,13 +889,9 @@ class AI_Translate_Core
             $final_translated_text = strtr($translated_text_with_placeholders, $placeholders);
         }
 
-        // --- Workaround: Remove any remaining [/mb_text] tags ---
-        // This is a temporary solution if the regex in get_shortcode_regex doesn't fully capture the closing tag.
-        $final_translated_text = preg_replace('/\[\/mb_text\]/', '', $final_translated_text);
-
         // --- Restore excluded shortcodes ---
         if (!empty($shortcodes)) {
-            $final_translated_text = $this->restore_excluded_shortcodes($final_translated_text, $shortcodes);
+            $final_translated_text = $this->restore_shortcode_pairs($final_translated_text, $shortcodes); // Use new restore function
         }
 
         // --- Sanity check: If translation resulted in empty text but original wasn't, log critical error ---
@@ -1730,26 +1700,6 @@ class AI_Translate_Core
         return $text;
     }
 
-/**
-     * Genereer regex voor opgegeven shortcodes.
-     *
-     * @param array<string> $shortcodes
-     * @return string
-     */
-    private function get_shortcode_regex(array $shortcodes): string
-    {
-        $tagnames = array_map('preg_quote', $shortcodes);
-        $tagregexp = join('|', $tagnames);
-        // Gebaseerd op get_shortcode_regex() van WP, maar alleen voor opgegeven tags
-        // Modified regex to use a simpler non-greedy match for content within enclosing shortcodes
-        return '\\[(\\[?)(' . $tagregexp . ')(?![\\w-])([^[\\]]*?)(?:((?:\\/(?!\\]))?\\])|\\](?:(.*?)\\[\\/\\2\\])?)(\\]?)';
-    }
-    /**
-     * Genereer regex voor opgegeven shortcodes.
-     *
-     * @param array<string> $shortcodes
-     * @return string
-     */
 
     /**
      * Removes the translation marker from a string.
@@ -1762,6 +1712,64 @@ class AI_Translate_Core
     {
         if (is_string($text) && strpos($text, self::TRANSLATION_MARKER) !== false) {
             $text = str_replace(self::TRANSLATION_MARKER, '', $text);
+        }
+        return $text;
+    }
+
+    /**
+     * Extracts shortcode pairs (opening and closing) and replaces them with a single placeholder.
+     *
+     * @param string $text The text containing shortcodes.
+     * @param array<string> $shortcodes_to_exclude An array of shortcode tags to exclude.
+     * @param array<string, string> $extracted_shortcodes Reference to an array to store extracted shortcodes.
+     * @return string The text with shortcodes replaced by placeholders.
+     */
+    private function extract_shortcode_pairs(string $text, array $shortcodes_to_exclude, array &$extracted_shortcodes): string
+    {
+        $placeholder_index = 0;
+        foreach ($shortcodes_to_exclude as $tagname) {
+            // Regex to match both self-closing and enclosing shortcodes
+            // This regex is more robust and handles nested shortcodes better than simple regex.
+            // It's a simplified version of WordPress's get_shortcode_regex for specific tags.
+            $pattern = '/\[(' . preg_quote($tagname, '/') . ')(?![a-zA-Z0-9_\-])([^\]]*?)(?:(\/\])|\](?:([^\[]*+(?:\[(?!\/\1\])[^\[]*+)*+)\[\/\1\]))?\]/s';
+
+            $text = preg_replace_callback(
+                $pattern,
+                function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
+                    // $matches[0] is the full shortcode match
+                    $placeholder = '[[[AI_TRANSLATE_SC_PAIR_' . $placeholder_index . ']]]';
+                    $extracted_shortcodes[$placeholder] = $matches[0];
+                    $placeholder_index++;
+                    return $placeholder;
+                },
+                $text
+            );
+        }
+        return $text;
+    }
+
+    /**
+     * Restores shortcode pairs from placeholders in the translated text.
+     *
+     * @param string $text The translated text with shortcode placeholders.
+     * @param array<string, string> $extracted_shortcodes An array of extracted shortcodes (placeholder => original_shortcode).
+     * @return string The text with original shortcodes restored.
+     */
+    private function restore_shortcode_pairs(string $text, array $extracted_shortcodes): string
+    {
+        if (empty($extracted_shortcodes)) {
+            return $text;
+        }
+
+        // Sort shortcodes by length in descending order to prevent partial matches
+        uksort($extracted_shortcodes, function ($a, $b) {
+            return strlen($b) <=> strlen($a);
+        });
+
+        foreach ($extracted_shortcodes as $placeholder => $original_shortcode) {
+            // Escape placeholder for regex, and allow for potential whitespace/newlines around it
+            $escaped_placeholder = preg_quote($placeholder, '/');
+            $text = preg_replace('/' . $escaped_placeholder . '\s*/', $original_shortcode, $text);
         }
         return $text;
     }
