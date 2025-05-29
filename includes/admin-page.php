@@ -712,7 +712,11 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         if (empty($model)) { $model = $settings['selected_model'] ?? ''; }
     }
 
-    $api_url = isset($_POST['api_url']) ? esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['api_url'])))) : '';
+    $api_url = AI_Translate_Core::get_api_url_for_provider($provider_key);
+    // Als de provider 'custom' is, gebruik dan de custom_api_url uit POST
+    if ($provider_key === 'custom' && isset($_POST['custom_api_url_value'])) {
+        $api_url = esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value']))));
+    }
 
     if (empty($api_url) || empty($api_key) || empty($model)) {
         wp_send_json_error(['message' => 'API Provider, API Key, Model of Custom API URL ontbreekt of is ongeldig.']);

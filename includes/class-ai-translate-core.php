@@ -788,22 +788,6 @@ class AI_Translate_Core
             return $result;
         }
 
-        // Genereer transient key
-        $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
-        $cached = get_transient($transient_key);
-        if ($cached !== false) {
-            if (strpos($cached, self::TRANSLATION_MARKER) !== false) {
-                $result = $cached;
-                if (!empty($shortcodes)) {
-                    $result = $this->restore_excluded_shortcodes($result, $shortcodes);
-                }
-                self::$translation_memory[$memory_key] = $result;
-                return $result;
-            } else {
-            }
-        }
-
-
         // --- Disk Cache Key ---
         $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
 
@@ -819,12 +803,33 @@ class AI_Translate_Core
                         $result = $this->restore_excluded_shortcodes($result, $shortcodes);
                     }
                     self::$translation_memory[$memory_key] = $result; // Update memory cache
-                    set_transient($transient_key, $result, $this->expiration_hours * 3600); // Update transient
+                    // Sla ook op in transient voor snellere toegang bij volgende requests (als object cache actief is)
+                    $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
+                    set_transient($transient_key, $result, $this->expiration_hours * 3600);
                     return $result;
                 } else {
                 }
             }
         } else {
+        }
+
+        // Genereer transient key
+        $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
+        $cached = get_transient($transient_key);
+        if ($cached !== false) {
+            if (strpos($cached, self::TRANSLATION_MARKER) !== false) {
+                $result = $cached;
+                if (!empty($shortcodes)) {
+                    $result = $this->restore_excluded_shortcodes($result, $shortcodes);
+                }
+                self::$translation_memory[$memory_key] = $result;
+                // Als het uit transient komt, sla het dan ook op in disk cache (als toegestaan)
+                if ($use_disk_cache) {
+                    $this->save_to_cache($disk_cache_key, $result);
+                }
+                return $result;
+            } else {
+            }
         }
 
         // --- Extract script blocks, img tags, overige shortcodes (voor API) ---
@@ -2822,7 +2827,7 @@ class AI_Translate_Core
                 $source_language,
                 $target_language,
                 false, // is_title
-                false  // use_disk_cache (false for this specific dynamic translation)
+                true  // use_disk_cache (true to allow caching for Fluent Forms)
             );
             
             // De TRANSLATION_MARKER wordt door translate_text toegevoegd.
