@@ -2028,7 +2028,7 @@ class AI_Translate_Core
         }
 
 	// NEW: Skip slug translation entirely for specific languages 
-        if (in_array($target_language, ['ar', 'ka'], true)) {
+        if (in_array($target_language, ['ar', 'ka', 'hi'], true)) {
             return $path;
 	}
 
