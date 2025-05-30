@@ -71,10 +71,14 @@ Translations are cached to improve performance and reduce API calls:
 - Expired cache is automatically cleaned up periodically.
 - Cache can be manually cleared via the plugin's settings page in the WordPress admin area.
 
+### Important Considerations
+- Dynamically generated content (e.g., forms with nonces, unique IDs, or timestamps) can lead to additional cache files and repeated API calls if not properly handled. The plugin attempts to mitigate this for known dynamic elements, but custom dynamic content may still impact caching efficiency.
+
 ## Development
 
 - Path-based language URLs are implemented.
 - Ongoing work to support more content types and improve translation accuracy.
+- Improve caching strategy to effectively reduce API calls and load pages fast without sacrificing real changes to content.
 
 ## External services
 

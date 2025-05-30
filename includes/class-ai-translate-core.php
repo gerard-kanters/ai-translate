@@ -22,8 +22,8 @@ use function esc_attr;
 use function sanitize_text_field;
 use function get_transient;
 use function set_transient;
-use function is_front_page; 
-use function is_home; 
+use function is_front_page;
+use function is_home;
 
 class AI_Translate_Core
 {
@@ -95,6 +95,7 @@ class AI_Translate_Core
         $this->init();
         add_action('plugins_loaded', [$this, 'schedule_cleanup']);
         // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Verwijderd, vervangen door nieuwe aanpak
+        // De logica voor Fluent Forms is nu gegeneraliseerd in translate_text, dus deze hook is niet meer nodig.
         add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
     }
 
@@ -806,78 +807,76 @@ class AI_Translate_Core
             }
         }
 
-        // --- Extract script blocks, img tags, overige shortcodes (voor API) ---
+        // --- Extract dynamic elements (scripts, images, shortcodes, nonces, referers, etc.) ---
         $placeholders = [];
         $placeholder_index = 0;
+        $text_processed = $text_to_translate; // Start with text after excluded shortcodes
 
-        // 1. Extract anchor tags from $text_to_translate
-        $text_processed = preg_replace_callback(
-            '/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/i',
-            function ($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = "{{LINK_PLACEHOLDER_{$placeholder_index}}}";
-                $placeholders[$placeholder] = $matches[0];
-                $placeholder_index++;
-                return $placeholder;
-            },
-            $text_to_translate
-        );
+        // Helper function to extract and replace
+        $extract_and_replace = function ($pattern, $input_text) use (&$placeholders, &$placeholder_index) {
+            return preg_replace_callback(
+                $pattern,
+                function ($matches) use (&$placeholders, &$placeholder_index) {
+                    $placeholder = "{{DYNAMIC_PLACEHOLDER_{$placeholder_index}}}";
+                    $placeholders[$placeholder] = $matches[0];
+                    $placeholder_index++;
+                    return $placeholder;
+                },
+                $input_text
+            );
+        };
 
-        // 2. Extract script blocks from $text_processed
-        $text_processed = preg_replace_callback(
-            '/<script.*?<\/script>/is',
-            function ($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = "{{SCRIPT_PLACEHOLDER_{$placeholder_index}}}";
-                $placeholders[$placeholder] = $matches[0];
-                $placeholder_index++;
-                return $placeholder;
-            },
-            $text_to_translate // Start processing from text without excluded shortcodes
-        );
+        // 1. Extract script blocks
+        $text_processed = $extract_and_replace('/<script.*?<\/script>/is', $text_processed);
 
-        // 3. Extract img tags from $text_processed
-        $text_processed = preg_replace_callback(
-            '/<img[^>]+>/i',
-            function ($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = "{{IMG_PLACEHOLDER_{$placeholder_index}}}";
-                $placeholders[$placeholder] = $matches[0];
-                $placeholder_index++;
-                return $placeholder;
-            },
-            $text_processed
-        );
+        // 2. Extract img tags
+        $text_processed = $extract_and_replace('/<img[^>]+>/i', $text_processed);
 
-        // 4. Extract overige shortcodes (niet de excluded) from $text_processed
+        // 3. Extract anchor tags (links)
+        $text_processed = $extract_and_replace('/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/i', $text_processed);
+
+        // 4. Extract generic hidden input fields with dynamic values (like nonces, referers)
+        // This pattern targets hidden inputs with 'name' attributes that might contain dynamic values.
+        // It's a balance between being generic and not over-matching.
+        // Specific nonces like _fluentform_..._nonce or _wp_http_referer are covered by this.
+        $text_processed = $extract_and_replace('/<input\s+type=["\']hidden["\'][^>]*name=["\']([^"\']*(?:nonce|referer)[^"\']*)["\'][^>]*value=["\']([^"\']*)["\'][^>]*\/>/i', $text_processed);
+
+        // 5. Extract other shortcodes (not the excluded ones, which are already handled)
         $excluded_tags = $this->settings['exclude_shortcodes'] ?? [];
-        $pattern = '/\[(\[?)([a-zA-Z0-9_\-]+)([^\]]*?)(?:\](?:.*?\[\/\2\])|\s*\/?\])/s';
+        $pattern_other_shortcodes = '/\[(\[?)([a-zA-Z0-9_\-]+)([^\]]*?)(?:\](?:.*?\[\/\2\])|\s*\/?\])/s';
         $text_processed = preg_replace_callback(
-            $pattern,
+            $pattern_other_shortcodes,
             function ($matches) use (&$placeholders, &$placeholder_index, $excluded_tags) {
                 $tag = isset($matches[2]) ? $matches[2] : '';
-                // Skip if it's an excluded shortcode (already handled by extract_excluded_shortcodes)
                 if (in_array($tag, $excluded_tags, true)) {
-                    // This should technically not happen if extract_excluded_shortcodes worked correctly,
-                    // but as a safeguard, return the original match.
-                    return $matches[0];
+                    return $matches[0]; // Already handled
                 }
-                $placeholder = "{{SHORTCODE_PLACEHOLDER_{$placeholder_index}}}";
+                $placeholder = "{{DYNAMIC_PLACEHOLDER_{$placeholder_index}}}"; // Use generic placeholder
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
                 return $placeholder;
             },
             $text_processed
         );
-        // $text_processed bevat nu de tekst met placeholders voor scripts, images, en niet-uitgesloten shortcodes.
 
-        // --- API-aanroep ---
-        // Gebruik $text_processed, niet $text_for_api
-        // --- API-aanroep ---
-        // Gebruik $text_processed, niet $text_for_api
+        // $text_processed now contains the text with all identified dynamic elements replaced by generic placeholders.
+
+        // --- API Call ---
         try {
             $translated_text_with_placeholders = $this->do_translate($text_processed, $source_language, $target_language, $is_title, $use_disk_cache);
         } catch (\Exception $e) {
-            // Return original text with excluded shortcodes restored if applicable
+            // Restore original text with all placeholders if API call fails
+            if (!empty($placeholders)) {
+                // Sort placeholders by length in descending order to prevent partial matches
+                uksort($placeholders, function ($a, $b) {
+                    return strlen($b) <=> strlen($a);
+                });
+                foreach ($placeholders as $placeholder => $original_value) {
+                    $text = str_replace($placeholder, $original_value, $text);
+                }
+            }
             if (!empty($shortcodes)) {
-                return $this->restore_excluded_shortcodes($text, $shortcodes); // Restore to original $text
+                return $this->restore_excluded_shortcodes($text, $shortcodes);
             }
             return $text; // Return original text
         }
@@ -885,8 +884,13 @@ class AI_Translate_Core
         // --- Restore placeholders ---
         $final_translated_text = $translated_text_with_placeholders;
         if (!empty($placeholders)) {
-            // Gebruik strtr voor veiligere vervanging
-            $final_translated_text = strtr($translated_text_with_placeholders, $placeholders);
+            // Sort placeholders by length in descending order to prevent partial matches
+            uksort($placeholders, function ($a, $b) {
+                return strlen($b) <=> strlen($a);
+            });
+            foreach ($placeholders as $placeholder => $original_value) {
+                $final_translated_text = str_replace($placeholder, $original_value, $final_translated_text);
+            }
         }
 
         // --- Restore excluded shortcodes ---
@@ -972,14 +976,14 @@ class AI_Translate_Core
         ];
 
         $context_hint = substr(preg_replace('/\s+/', ' ', $text), 0, 50);
- 
+
         $response = $this->make_api_request('chat/completions', $data);
         $translated = $response['choices'][0]['message']['content'] ?? null;
- 
+
         // Trim spaties van begin/eind voor betere vergelijking
         $trimmed_original = trim($text);
         $trimmed_translated = trim((string)$translated);
- 
+
         // Controleer of de API een niet-lege string teruggaf
         if (!empty($trimmed_translated)) {
             // API gaf een niet-lege string terug. Voeg ALTIJD de marker toe.
@@ -1144,9 +1148,7 @@ class AI_Translate_Core
      * @param string $message
      * @param string $level The log level (error, warning, info, debug).
      */
-    public function log_event(string $message, string $level = 'debug'): void
-    {
-    }
+    public function log_event(string $message, string $level = 'debug'): void {}
 
     /**
      * Clear alleen de file cache.
@@ -2035,12 +2037,12 @@ class AI_Translate_Core
             return $path;
         }
 
-	// NEW: Skip slug translation entirely for specific languages 
+        // NEW: Skip slug translation entirely for specific languages 
         if (in_array($target_language, ['ar', 'ka', 'hi'], true)) {
             return $path;
-	}
+        }
 
-	// Try to identify content from URL if not provided
+        // Try to identify content from URL if not provided
         if ($post_id === null) {
             $post_id = $this->identify_post_from_url($path);
         }
@@ -2674,9 +2676,6 @@ class AI_Translate_Core
         // 1. Check custom slug translation table first (exact match)
         $decoded_translated_slug = $translated_slug; // Verwijder urldecode, gebruik de raw URL-encoded slug
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
         $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
             "SELECT post_id, original_slug FROM {$table_name_slugs}
@@ -2685,11 +2684,6 @@ class AI_Translate_Core
             $source_language
         ));
         if (!$cached_original_slug_data) {
-            // Try fuzzy match if exact match fails
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
-            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
             $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
                 "SELECT post_id, original_slug FROM " . $table_name_slugs . "
                  WHERE translated_slug LIKE %s AND language_code = %s
@@ -2720,9 +2714,7 @@ class AI_Translate_Core
             $decoded_translated_slug // Gebruik de gedecodeerde versie
         ));
         if (!$post) {
-            // Try fuzzy match if exact match fails
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
+            // Try fuzzy match if exact match fails     
             $post = $wpdb->get_row($wpdb->prepare(
                 "SELECT ID, post_name, post_type FROM {$wpdb->posts}
                  WHERE post_name LIKE %s
@@ -2735,10 +2727,7 @@ class AI_Translate_Core
         if ($post) {
             return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Found exact match
         }
-        // 3. Fallback: If no exact match, search through all published posts to find one whose translated slug matches
-        // This is the most expensive operation and should be a last resort.
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
+     
         $posts = $wpdb->get_results(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_status = 'publish'
@@ -2759,12 +2748,6 @@ class AI_Translate_Core
                 return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Return the original slug
             }
         }
-        // No match found, fallback to original slug to prevent 404
-        //$this->log_event("reverse_translate_slug: No match found after all lookups for '{$translated_slug}'. Falling back to original slug.", 'warning');
-
-        // NIEUWE FALLBACK LOGICA
-        // Probeer de post te vinden op basis van de gedecodeerde inkomende slug in de default taal
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
         $post_in_default_lang = $wpdb->get_row($wpdb->prepare(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_name = %s
@@ -2775,29 +2758,12 @@ class AI_Translate_Core
         ));
 
         if ($post_in_default_lang) {
-            // Als een post wordt gevonden met de gedecodeerde slug in de default taal,
-            // retourneer dan de originele slug van die post.
             return ['slug' => $post_in_default_lang->post_name, 'post_type' => $post_in_default_lang->post_type];
         }
-
-        // Als zelfs dat niet werkt, val dan terug op de gedecodeerde inkomende slug.
-        // Dit zal waarschijnlijk nog steeds een 404 zijn, maar het is de laatste poging.
+        
         return ['slug' => $decoded_translated_slug, 'post_type' => null]; // Gebruik de gedecodeerde versie
     }
 
-    /**
-     * Specifically translate Fluent Forms on the contact page after main content translation.
-     *
-     * @param string $content The post content.
-     * @return string Modified content with translated Fluent Form.
-     */
-    public function translate_fluent_form_on_contact_page(string $content): string
-    {
-        // Deze functie wordt niet meer gebruikt voor de Fluent Form logica,
-        // maar de filter hook in __construct moet ook verwijderd worden.
-        // De nieuwe logica gebruikt conditionally_add_fluentform_filter en filter_fluentform_shortcode_output.
-        return $content;
-    }
 
     /**
      * Conditionally adds the filter for Fluent Form output if on the contact page and translation is needed.
@@ -2837,10 +2803,6 @@ class AI_Translate_Core
                 false, // is_title
                 true  // use_disk_cache (true to allow caching for Fluent Forms)
             );
-            
-            // De TRANSLATION_MARKER wordt door translate_text toegevoegd.
-            // Deze moet hier blijven, zodat de hoofdvertaallogica (als die later nog content met deze marker ziet)
-            // weet dat het al "behandeld" is. De mb_text shortcode zal deze output (met marker) insluiten.
 
             return $translated_output;
         }
