@@ -11,7 +11,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 ## Short Description
 
-A powerful WordPress plugin for automatically translating your website using AI.
+A powerful WordPress plugin for automatically translating your website using AI supporting 21 languages.
 
 ## Description
 
@@ -20,13 +20,12 @@ This plugin leverages the power of Artificial Intelligence to provide seamless, 
 ## Features
 
 - Automatic translation of pages and posts
+- Support custom post types
 - Support for multiple languages
 - Intelligent caching for better performance
 - Simple language switcher interface
-- Extensive logging and debugging options
-- Exclusion of specific pages
 - Customizable translation models
-- Path-based language URLs (e.g., `/en/my-page`)
+- Translates URLs (e.g., `/over-ons` to `/en/about-us` )
 
 ## Installation
 
@@ -58,9 +57,7 @@ Access the plugin settings via the WordPress admin menu under 'AI Translate'.
 
 ### Advanced Settings
 
-- **Homepage Meta Description**: Set a specific meta description for the homepage (in the default language) to override the site tagline or generated excerpt.
-- **Excluded Pages**: Select pages that should not be translated.
-- **Excluded Shortcodes**: List shortcode tags that should be excluded from translation processing.
+- **Homepage Meta Description**: Set a specific meta description for the homepage (in the default language) to override the site tagline or generated excerpt. Will be translated to all languages
 
 ## Usage
 
@@ -138,4 +135,4 @@ This plugin connects to external AI translation services to provide automatic tr
 
 ## Provided by
 
-NetCare https://netcare.nl
+[NetCare](https://netcare.nl)

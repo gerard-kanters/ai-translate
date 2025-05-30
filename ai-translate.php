@@ -1,11 +1,11 @@
 <?php
 /*
 Plugin Name: AI Translate
-Plugin URI: https://github.com/gerard-kanters/ai-translate
+Plugin URI: https://netcare.nl/en/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
 Version: 1.17
-Author: Gerard Kanters
-Author URI: https://www.netcare.nl/
+Author: NetCare
+Author URI: https://netcare.nl/
 License: GPL2
 */
 
