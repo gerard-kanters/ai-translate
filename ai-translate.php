@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: AI Translate
-Plugin URI: https://netcare.nl/en/product/ai-translate-voor-wordpress/
+Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
 Version: 1.17
 Author: NetCare
