@@ -137,6 +137,7 @@ This plugin connects to external AI translation services to provide automatic tr
 - Added detectable languages feature for auto-translation without switcher visibility.
 - Improved cache statistics display in admin.
 - Fixed various minor bugs and code style issues.
+- Improved logic for determining original URL in default language for hreflang tags.
 
 ### 1.0
 - Initial release with basic AI translation functionality.
