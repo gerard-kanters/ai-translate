@@ -91,12 +91,12 @@ class AI_Translate_Core
      */
     private function __construct()
     {
-        //$this->log_event('TEST: log_event direct aangeroepen in __construct van AI_Translate_Core');
         $this->init();
         add_action('plugins_loaded', [$this, 'schedule_cleanup']);
-        // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Verwijderd, vervangen door nieuwe aanpak
-        // De logica voor Fluent Forms is nu gegeneraliseerd in translate_text, dus deze hook is niet meer nodig.
+        // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Removed, replaced by new approach
+        // The logic for Fluent Forms has been generalized in translate_text, so this hook is no longer needed.
         add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
+        add_action('wp_head', [$this, 'add_alternate_hreflang_links']);
     }
 
     /**
@@ -131,7 +131,7 @@ class AI_Translate_Core
         $this->expiration_hours = $this->settings['cache_expiration'];
         $this->excluded_posts = $this->settings['exclude_pages'] ?? []; // Ensure it's an array
 
-        // Initialiseer cache directories
+        // Initialize cache directories
         $this->initialize_cache_directories();
     }
 
@@ -141,7 +141,7 @@ class AI_Translate_Core
      */
     public function schedule_cleanup(): void
     {
-        // Voer periodieke opschoning uit (1 op 100 kans, om performance impact te minimaliseren)
+        // Perform periodic cleanup (1 in 100 chance, to minimize performance impact)
         if (\wp_rand(1, 100) === 1) {
             $this->cleanup_expired_cache();
         }
@@ -151,142 +151,140 @@ class AI_Translate_Core
      * Initialiseer de cache directories.
      * Zorg ervoor dat de benodigde mappen bestaan en schrijfbaar zijn.
      */    private function initialize_cache_directories(): void
-    {
-        // Controleer of het pad bestaat en maak het aan indien nodig
-        if (!file_exists($this->cache_dir)) {
-            $result = wp_mkdir_p($this->cache_dir);
-
-            if ($result) {
-                // Stel correcte rechten in voor Linux
-                global $wp_filesystem;
-                if (empty($wp_filesystem)) {
-                    require_once(ABSPATH . '/wp-admin/includes/file.php');
-                    WP_Filesystem();
-                }
-                $wp_filesystem->chmod($this->cache_dir, 0755);
-            } else {
-            }
-        }
-
-        // Controleer of het pad schrijfbaar is
-        global $wp_filesystem;
-        if (empty($wp_filesystem)) {
-            require_once(ABSPATH . '/wp-admin/includes/file.php');
-            WP_Filesystem();
-        }
-        if (!$wp_filesystem->is_writable($this->cache_dir)) {
-            // Probeer rechten nogmaals in te stellen
-            global $wp_filesystem;
-            if (empty($wp_filesystem)) {
-                require_once(ABSPATH . '/wp-admin/includes/file.php');
-                WP_Filesystem();
-            }
-            $wp_filesystem->chmod($this->cache_dir, 0755);
-
-            global $wp_filesystem;
-            if (empty($wp_filesystem)) {
-                require_once(ABSPATH . '/wp-admin/includes/file.php');
-                WP_Filesystem();
-            }
-            if (!$wp_filesystem->is_writable($this->cache_dir)) {
-            }
-        }
-    }
-
-    /**
-     * Genereer een consistente cache key voor vertalingen op basis van type.
-     *
-     * @param string $identifier Unieke identifier (vaak een hash van de content).
-     * @param string $target_language Doeltaalcode.
-     * @param string $type Cache type ('mem', 'trans', 'disk', 'batch_mem', 'batch_trans').
-     * @return string De gegenereerde cache key.
-     */
-    private function generate_cache_key(string $identifier, string $target_language, string $type): string
-    {
-        $lang = sanitize_key($target_language); // Zorg dat taalcode veilig is
-        $id = sanitize_key($identifier); // Zorg dat identifier veilig is (hoewel vaak al hash)
-
-        switch ($type) {
-            case 'mem':
-                return 'mem_' . $id . '_' . $lang;
-            case 'trans':
-                // Prefix voor makkelijk verwijderen van transients
-                return 'ai_translate_trans_' . $id . '_' . $lang;
-            case 'disk':
-                // Formaat dat overeenkomt met bestaande disk cache logica ([lang]_[hash])
-                return $lang . '_' . $id;
-            case 'batch_mem':
-                return 'batch_mem_' . $id . '_' . $lang;
-            case 'batch_trans':
-                // Prefix voor makkelijk verwijderen van batch transients
-                return 'ai_translate_batch_trans_' . $id . '_' . $lang;
-            case 'slug_trans':
-                // Prefix voor slug vertaling transients
-                return 'ai_translate_slug_cache_' . $id . '_' . $lang;
-            default:
-                // Fallback of error? Voor nu een generieke key.
-                return 'unknown_' . $id . '_' . $lang;
-        }
-    }
-
-    /**
-     * Get default plugin settings.
-     *
-     * @return array<string,mixed>
-     */
-    public function get_default_settings(): array
-    {
-        return [
-            'api_provider'      => 'openai', // New default
-            'api_key'           => '',
-            'selected_model'    => 'gpt-4', // Consider making this dynamic or provider-specific later
-            'default_language'  => 'nl',
-            'enabled_languages' => ['en'],
-            'cache_expiration'  => 168, // uren
-            'exclude_pages'     => [],
-            'exclude_shortcodes' => [],
-            'homepage_meta_description' => '',
-            'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'ua'], // Default detectable
-        ];
-    }
-
-    /**
-     * Get plugin settings.
-     *
-     * @return array<string,mixed>
-     */
-    public function get_settings(): array
-    {
-        if ($this->settings === null) {
-            $settings = get_option('ai_translate_settings', []);
-            $this->settings = wp_parse_args($settings, $this->get_default_settings());
-        }
-        if (empty($this->settings['enabled_languages'])) {
-        }
-        return $this->settings;
-    }
-
-    /**
-     * Validate plugin settings.
-     *
-     * @param array<string,mixed> $settings
-     * @return array<string,mixed>
-     */
-    private function validate_settings(array $settings): array
-    {
-        $required = ['api_key', 'default_language', 'api_provider'];
-        foreach ($required as $key) {
-            if (empty($settings[$key])) {
-                // Consider logging an error or handling this more gracefully
-                // For now, we assume defaults or sanitize_callback handles it.
-            }
-        }
-        // Ensure api_provider is valid
-        if (!array_key_exists($settings['api_provider'], self::get_api_providers())) {
-            $settings['api_provider'] = 'openai'; // Fallback to default
-        }
-        return $settings;
-    }
+     {
+         // Check if the path exists and create it if necessary
+         if (!file_exists($this->cache_dir)) {
+             $result = wp_mkdir_p($this->cache_dir);
+ 
+             if ($result) {
+                 // Set correct permissions for Linux
+                 global $wp_filesystem;
+                 if (empty($wp_filesystem)) {
+                     require_once(ABSPATH . '/wp-admin/includes/file.php');
+                     WP_Filesystem();
+                 }
+                 $wp_filesystem->chmod($this->cache_dir, 0755);
+             } else {
+             }
+         }
+ 
+         // Check if the path is writable
+         global $wp_filesystem;
+         if (empty($wp_filesystem)) {
+             require_once(ABSPATH . '/wp-admin/includes/file.php');
+             WP_Filesystem();
+         }
+         if (!$wp_filesystem->is_writable($this->cache_dir)) {
+             // Try to set permissions again
+             global $wp_filesystem;
+             if (empty($wp_filesystem)) {
+                 require_once(ABSPATH . '/wp-admin/includes/file.php');
+                 WP_Filesystem();
+             }
+             $wp_filesystem->chmod($this->cache_dir, 0755);
+ 
+             global $wp_filesystem;
+             if (empty($wp_filesystem)) {
+                 require_once(ABSPATH . '/wp-admin/includes/file.php');
+                 WP_Filesystem();
+             }
+             if (!$wp_filesystem->is_writable($this->cache_dir)) {
+             }
+         }
+     }
+ 
+     /**
+      * Generate a consistent cache key for translations based on type.
+      *
+      * @param string $identifier Unique identifier (often a hash of the content).
+      * @param string $target_language Target language code.
+      * @param string $type Cache type ('mem', 'trans', 'disk', 'batch_mem', 'batch_trans').
+      * @return string The generated cache key.
+      */
+     private function generate_cache_key(string $identifier, string $target_language, string $type): string
+     {
+         $lang = sanitize_key($target_language); // Ensure language code is safe
+         $id = sanitize_key($identifier); // Ensure identifier is safe (though often already a hash)
+ 
+         switch ($type) {
+             case 'mem':
+                 return 'mem_' . $id . '_' . $lang;
+             case 'trans':
+                 // Prefix for easy transient deletion
+                 return 'ai_translate_trans_' . $id . '_' . $lang;
+             case 'disk':
+                 // Format matching existing disk cache logic ([lang]_[hash])
+                 return $lang . '_' . $id;
+             case 'batch_mem':
+                 return 'batch_mem_' . $id . '_' . $lang;
+             case 'batch_trans':
+                 // Prefix for easy batch transient deletion
+                 return 'ai_translate_batch_trans_' . $id . '_' . $lang;
+             case 'slug_trans':
+                 // Prefix for slug translation transients
+                 return 'ai_translate_slug_cache_' . $id . '_' . $lang;
+             default:
+                 // Fallback or error? For now a generic key.
+                 return 'unknown_' . $id . '_' . $lang;
+         }
+     }
+ 
+     /**
+      * Get default plugin settings.
+      *
+      * @return array<string,mixed>
+      */
+     public function get_default_settings(): array
+     {
+         return [
+             'api_provider'      => 'openai', // New default
+             'api_key'           => '',
+             'selected_model'    => 'gpt-4', // Consider making this dynamic or provider-specific later
+             'default_language'  => 'nl',
+             'enabled_languages' => ['en'],
+             'cache_expiration'  => 168, // hours
+             'exclude_pages'     => [],
+             'exclude_shortcodes' => [],
+             'homepage_meta_description' => '',
+             'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'ua'], // Default detectable
+         ];
+     }
+ 
+     /**
+      * Get plugin settings.
+      *
+      * @return array<string,mixed>
+      */
+     public function get_settings(): array
+     {
+         if ($this->settings === null) {
+             $settings = get_option('ai_translate_settings', []);
+             $this->settings = wp_parse_args($settings, $this->get_default_settings());
+         }
+         return $this->settings;
+     }
+ 
+     /**
+      * Validate plugin settings.
+      *
+      * @param array<string,mixed> $settings
+      * @return array<string,mixed>
+      */
+     private function validate_settings(array $settings): array
+     {
+         $required = ['api_key', 'default_language', 'api_provider'];
+         foreach ($required as $key) {
+             if (empty($settings[$key])) {
+                 // Consider logging an error or handling this more gracefully
+                 // For now, we assume defaults or sanitize_callback handles it.
+             }
+         }
+         // Ensure api_provider is valid
+         if (!array_key_exists($settings['api_provider'], self::get_api_providers())) {
+             $settings['api_provider'] = 'openai'; // Fallback to default
+         }
+         return $settings;
+     }
 
     /**
      * Get defined API providers with their details.
@@ -376,7 +374,7 @@ class AI_Translate_Core
      */    public function get_cache_dir(): string
     {
         $upload_dir = wp_upload_dir();
-        // Gebruik DIRECTORY_SEPARATOR voor cross-platform compatibiliteit
+        // Use DIRECTORY_SEPARATOR for cross-platform compatibility
         return $upload_dir['basedir'] . DIRECTORY_SEPARATOR . 'ai-translate' . DIRECTORY_SEPARATOR . 'cache';
     }
 
@@ -387,7 +385,7 @@ class AI_Translate_Core
      */    public function get_log_dir(): string
     {
         $upload_dir = wp_upload_dir();
-        // Gebruik DIRECTORY_SEPARATOR voor cross-platform compatibiliteit
+        // Use DIRECTORY_SEPARATOR for cross-platform compatibility
         return $upload_dir['basedir'] . DIRECTORY_SEPARATOR . 'ai-translate' . DIRECTORY_SEPARATOR . 'logs';
     }
 
@@ -417,104 +415,101 @@ class AI_Translate_Core
     /**
      * Get cached content.
      *
-     * @param string $cache_key De volledige cache key (bijv. 'en_md5hash' voor disk).
+     * @param string $cache_key The full cache key (e.g., 'en_md5hash' for disk).
      * @return string|false
      */    public function get_cached_content(string $cache_key)
-    {
-        // Normaliseer het pad met directory separator
-        $cache_file = rtrim($this->cache_dir, '/\\') . DIRECTORY_SEPARATOR . $cache_key . '.cache';
-        if (file_exists($cache_file) && !$this->is_cache_expired($cache_file)) {
-            $cached = file_get_contents($cache_file);
-            if (!empty($cached)) {
-                return $cached;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Save content to cache.
-     *
-     * @param string $cache_key De volledige cache key (bijv. 'en_md5hash' voor disk).
-     * @param string $content
-     * @return bool Success indicator
-     */
-    public function save_to_cache(string $cache_key, string $content): bool
-    {
-        $cache_file = $this->cache_dir . '/' . $cache_key . '.cache';
-
-        try {
-            // Controleer of de cache directory bestaat en schrijfbaar is
-            global $wp_filesystem;
-            if (empty($wp_filesystem)) {
-                require_once(ABSPATH . '/wp-admin/includes/file.php');
-                WP_Filesystem();
-            }
-            if (!$wp_filesystem->is_writable($this->cache_dir)) {
-                return false;
-            }
-
-            // Schrijf naar een tijdelijk bestand en verplaats daarna (atomaire schrijfactie)
-            $temp_file = $this->cache_dir . '/tmp_' . uniqid() . '.tmp';
-            $write_result = file_put_contents($temp_file, $content, LOCK_EX);
-
-            if ($write_result === false) {
-                return false;
-            }
-
-            // Stel bestandsrechten in
-            global $wp_filesystem;
-            if (empty($wp_filesystem)) {
-                require_once(ABSPATH . '/wp-admin/includes/file.php');
-                WP_Filesystem();
-            }
-            $wp_filesystem->chmod($temp_file, 0644);
-
-            // Verplaats naar definitief bestand
-            global $wp_filesystem;
-            if (empty($wp_filesystem)) {
-                require_once(ABSPATH . '/wp-admin/includes/file.php');
-                WP_Filesystem();
-            }
-            if (!$wp_filesystem->move($temp_file, $cache_file, true)) { // true to overwrite
-                global $wp_filesystem;
-                if (empty($wp_filesystem)) {
-                    require_once(ABSPATH . '/wp-admin/includes/file.php');
-                    WP_Filesystem();
-                }
-                $wp_filesystem->delete($temp_file); // Opruimen
-                return false;
-            }
-
-            return true;
-        } catch (\Exception $e) {
-            return false;
-        }
-    }
-
-    /**
-     * Check if cache is expired.
-     *
-     * @param string $cache_file
-     * @return bool
-     */
-    private function is_cache_expired(string $cache_file): bool
-    {
-        if (!file_exists($cache_file)) {
-            return true;
-        }
-
-        $cache_time = filemtime($cache_file);
-        $age_in_seconds = time() - $cache_time;
-        $expires_in_seconds = $this->expiration_hours * 3600;
-
-        $is_expired = $age_in_seconds > $expires_in_seconds;
-
-        if ($is_expired) {
-        }
-
-        return $is_expired;
-    }
+     {
+         // Normalize the path with directory separator
+         $cache_file = rtrim($this->cache_dir, '/\\') . DIRECTORY_SEPARATOR . $cache_key . '.cache';
+         if (file_exists($cache_file) && !$this->is_cache_expired($cache_file)) {
+             $cached = file_get_contents($cache_file);
+             if (!empty($cached)) {
+                 return $cached;
+             }
+         }
+         return false;
+     }
+ 
+     /**
+      * Save content to cache.
+      *
+      * @param string $cache_key The full cache key (e.g., 'en_md5hash' for disk).
+      * @param string $content
+      * @return bool Success indicator
+      */
+     public function save_to_cache(string $cache_key, string $content): bool
+     {
+         $cache_file = $this->cache_dir . '/' . $cache_key . '.cache';
+ 
+         try {
+             // Check if the cache directory exists and is writable
+             global $wp_filesystem;
+             if (empty($wp_filesystem)) {
+                 require_once(ABSPATH . '/wp-admin/includes/file.php');
+                 WP_Filesystem();
+             }
+             if (!$wp_filesystem->is_writable($this->cache_dir)) {
+                 return false;
+             }
+ 
+             // Write to a temporary file and then move (atomic write operation)
+             $temp_file = $this->cache_dir . '/tmp_' . uniqid() . '.tmp';
+             $write_result = file_put_contents($temp_file, $content, LOCK_EX);
+ 
+             if ($write_result === false) {
+                 return false;
+             }
+ 
+             // Set file permissions
+             global $wp_filesystem;
+             if (empty($wp_filesystem)) {
+                 require_once(ABSPATH . '/wp-admin/includes/file.php');
+                 WP_Filesystem();
+             }
+             $wp_filesystem->chmod($temp_file, 0644);
+ 
+             // Move to final file
+             global $wp_filesystem;
+             if (empty($wp_filesystem)) {
+                 require_once(ABSPATH . '/wp-admin/includes/file.php');
+                 WP_Filesystem();
+             }
+             if (!$wp_filesystem->move($temp_file, $cache_file, true)) { // true to overwrite
+                 global $wp_filesystem;
+                 if (empty($wp_filesystem)) {
+                     require_once(ABSPATH . '/wp-admin/includes/file.php');
+                     WP_Filesystem();
+                 }
+                 $wp_filesystem->delete($temp_file); // Cleanup
+                 return false;
+             }
+ 
+             return true;
+         } catch (\Exception $e) {
+             return false;
+         }
+     }
+ 
+     /**
+      * Check if cache is expired.
+      *
+      * @param string $cache_file
+      * @return bool
+      */
+     private function is_cache_expired(string $cache_file): bool
+     {
+         if (!file_exists($cache_file)) {
+             return true;
+         }
+ 
+         $cache_time = filemtime($cache_file);
+         $age_in_seconds = time() - $cache_time;
+         $expires_in_seconds = $this->expiration_hours * 3600;
+ 
+         $is_expired = $age_in_seconds > $expires_in_seconds;
+ 
+         return $is_expired;
+     }
 
     /**
      * Make API request to OpenAI. Handles retries for rate limits and implements backoff.
@@ -635,79 +630,118 @@ class AI_Translate_Core
         bool $is_title = false,
         bool $use_disk_cache = true
     ): string {
-        // --- Essentiële Checks ---
-        // 0. AJAX-check als absolute eerste regel
+        // --- Essential Checks ---
+        // 0. AJAX request check as the absolute first rule
         if (wp_doing_ajax()) {
-            //$this->log_event('AI Translate: AJAX request gedetecteerd, vertaling overgeslagen.', 'error');
             return $text;
         }
 
-        // 0a. Style-tags nooit vertalen
+        // 0a. Never translate style tags
         if (stripos(trim($text), '<style') === 0) {
-            //$this->log_event('AI Translate: Style tag gedetecteerd, vertaling overgeslagen: ' . substr(trim($text), 0, 70) . '...', 'warning');
             return $text;
         }
 
-        // 0b. Hidden velden van Contact Form 7 nooit vertalen
+        // 0b. Never translate hidden fields from Contact Form 7
         $cf7_hidden_fields = ['_wpcf7', '_wpcf7_locale', '_wpcf7_unit_tag', '_wpcf7_container_post', '_wpcf7_version'];
         if (in_array($text, $cf7_hidden_fields, true)) {
-            //$this->log_event('AI Translate: CF7 hidden field gedetecteerd, vertaling overgeslagen: ' . $text, 'warning');
             return $text;
         }
 
-        // Haal de ingestelde default taal op
+        // Get the configured default language
         $default_language = $this->settings['default_language'] ?? null;
 
-        // 1. NIEUW: Sla vertaling over als de *doeltaal* de ingestelde default taal is.
-        // We gaan ervan uit dat content in de default taal niet vertaald hoeft te worden *naar* de default taal.
+        // 1. Skip translation if the *target language* is the configured default language.
+        // We assume that content in the default language does not need to be translated *to* the default language.
         if (!empty($default_language) && $target_language === $default_language) {
             return $text;
         }
 
-        // 2. Sla vertaling over als bron en doel (expliciet meegegeven) gelijk zijn.
-        // Deze check blijft belangrijk voor gevallen waar de doeltaal *niet* de default is, maar wel gelijk aan de bron.
+        // 2. Skip translation if source and target (explicitly provided) are the same.
+        // This check remains important for cases where the target language is *not* the default, but is equal to the source.
         if ($source_language === $target_language) {
             return $text;
         }
 
-        // 3. Sla vertaling over voor lege tekst.
+        // 3. Skip translation for empty text.
         if (empty(trim($text))) {
             return $text;
         }
 
-        // 4. Sla vertaling over in admin area.
+        // 4. Skip translation in admin area.
         if (is_admin()) {
             return $text;
         }
 
-        // --- Einde Essentiële Checks ---
+        // --- End Essential Checks ---
 
-        // --- GUARD MET LOGGING: Voorkom vertaling van volledige HTML/grote scripts ---
+        // --- Essential Checks ---
+        // 0. AJAX request check as the absolute first rule
+        if (wp_doing_ajax()) {
+            return $text;
+        }
+
+        // 0a. Never translate style tags
+        if (stripos(trim($text), '<style') === 0) {
+            return $text;
+        }
+
+        // 0b. Never translate hidden fields from Contact Form 7
+        $cf7_hidden_fields = ['_wpcf7', '_wpcf7_locale', '_wpcf7_unit_tag', '_wpcf7_container_post', '_wpcf7_version'];
+        if (in_array($text, $cf7_hidden_fields, true)) {
+            return $text;
+        }
+
+        // Get the configured default language
+        $default_language = $this->settings['default_language'] ?? null;
+
+        // 1. Skip translation if the *target language* is the configured default language.
+        // We assume that content in the default language does not need to be translated *to* the default language.
+        if (!empty($default_language) && $target_language === $default_language) {
+            return $text;
+        }
+
+        // 2. Skip translation if source and target (explicitly provided) are the same.
+        // This check remains important for cases where the target language is *not* the default, but is equal to the source.
+        if ($source_language === $target_language) {
+            return $text;
+        }
+
+        // 3. Skip translation for empty text.
+        if (empty(trim($text))) {
+            return $text;
+        }
+
+        // 4. Skip translation in admin area.
+        if (is_admin()) {
+            return $text;
+        }
+
+        // --- End Essential Checks ---
+
+        // --- GUARD WITH LOGGING: Prevent translation of full HTML/large scripts ---
         $trimmed_text = trim($text);
-        $skip_reason = ''; // Houd bij waarom we overslaan
+        $skip_reason = ''; // Keep track of why we skip
 
         if (stripos($trimmed_text, '<html') === 0) {
             $skip_reason = 'Starts with <html>';
         } elseif (stripos($trimmed_text, '<!DOCTYPE') === 0) {
             $skip_reason = 'Starts with <!DOCTYPE>';
         } elseif (stripos($trimmed_text, '<script') === 0) {
-            // Controleer of dit de reden is voor het overslaan van description
+            // Check if this is the reason for skipping description
             $skip_reason = 'Starts with <script>';
-        } elseif (strlen($text) > 20000) { // Lengte check
+        } elseif (strlen($text) > 20000) { // Length check
             $skip_reason = 'Length > 20000';
         }
 
-        // Als er een reden is om over te slaan, log het en stop
+        // If there's a reason to skip, log it and stop
         if (!empty($skip_reason)) {
             $context_hint = substr(preg_replace('/\s+/', ' ', $trimmed_text), 0, 100);
-            return $text; // Geef originele tekst terug
+            return $text; // Return original text
         }
 
-        // --- EINDE GUARD MET LOGGING ---
+        // --- END GUARD WITH LOGGING ---
 
-
-        // --- Uitsluiten van shortcodes die in admin zijn opgegeven ---
-        // --- Uitsluiten van shortcodes die in admin zijn opgegeven ---
+        // --- Exclude shortcodes specified in admin ---
         $shortcodes_to_exclude = self::get_always_excluded_shortcodes();
         $extracted_shortcode_pairs = [];
 
@@ -717,11 +751,7 @@ class AI_Translate_Core
         $text_to_translate = $text_with_placeholders;
         $shortcodes = $extracted_shortcode_pairs; // Rename for consistency with existing code
 
-        if (!empty($shortcodes)) {
-            // Debugging: Shortcodes zijn geëxtraheerd
-        }
-
-        // Detect: tekst bestaat alleen uit uitgesloten shortcodes?
+        // Detect: text consists only of excluded shortcodes?
         $only_excluded = false;
         if (!empty($shortcodes)) {
             // Strip placeholders for this check
@@ -731,15 +761,15 @@ class AI_Translate_Core
             }
         }
 
-        // --- Strip alle shortcodes vóór het berekenen van de cache-key en vóór vertaling ---
-        // strip_all_shortcodes_for_cache zal nu de placeholders zien en deze ook strippen.
+        // --- Strip all shortcodes before calculating the cache-key and before translation ---
+        // strip_all_shortcodes_for_cache will now see the placeholders and strip them as well.
         $text_for_cache = $this->strip_all_shortcodes_for_cache($text_to_translate);
-        // Gebruik md5 van de gestripte tekst als basis identifier
+        // Use md5 of the stripped text as the base identifier
         $cache_identifier = md5($text_for_cache);
-        // Genereer keys met de centrale functie
+        // Generate keys with the central function
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
-        // SHORTCODE-ONLY: alleen in memory cache!
+        // SHORTCODE-ONLY: only in memory cache!
         if ($only_excluded) {
             if (isset(self::$translation_memory[$memory_key])) {
                 $result = self::$translation_memory[$memory_key];
@@ -748,13 +778,13 @@ class AI_Translate_Core
                 }
                 return $result;
             }
-            // Gebruik originele tekst met uitgesloten shortcodes teruggeplaatst
-            $result = $text; // Start met originele tekst
-            self::$translation_memory[$memory_key] = $text; // Cache originele tekst
+            // Use original text with excluded shortcodes restored
+            $result = $text; // Start with original text
+            self::$translation_memory[$memory_key] = $text; // Cache original text
             return $text;
         }
 
-        // Normale cache flow (ook voor gemixte content)
+        // Normal cache flow (also for mixed content)
         if (isset(self::$translation_memory[$memory_key])) {
             $result = self::$translation_memory[$memory_key];
             if (!empty($shortcodes)) {
@@ -766,10 +796,10 @@ class AI_Translate_Core
         // --- Disk Cache Key ---
         $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
 
-        // Alleen disk cache als toegestaan
+        // Only disk cache if allowed
         $disk_cached = false;
         if ($use_disk_cache) {
-            // get_cached_content verwacht de key ZONDER .cache suffix
+            // get_cached_content expects the key WITHOUT .cache suffix
             $disk_cached = $this->get_cached_content($disk_cache_key);
             if ($disk_cached !== false) {
                 if (strpos($disk_cached, self::TRANSLATION_MARKER) !== false) {
@@ -778,17 +808,15 @@ class AI_Translate_Core
                         $result = $this->restore_excluded_shortcodes($result, $shortcodes);
                     }
                     self::$translation_memory[$memory_key] = $result; // Update memory cache
-                    // Sla ook op in transient voor snellere toegang bij volgende requests (als object cache actief is)
+                    // Also save to transient for faster access on subsequent requests (if object cache is active)
                     $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
                     set_transient($transient_key, $result, $this->expiration_hours * 3600);
                     return $result;
-                } else {
                 }
             }
-        } else {
         }
 
-        // Genereer transient key
+        // Generate transient key
         $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
         $cached = get_transient($transient_key);
         if ($cached !== false) {
@@ -798,12 +826,11 @@ class AI_Translate_Core
                     $result = $this->restore_excluded_shortcodes($result, $shortcodes);
                 }
                 self::$translation_memory[$memory_key] = $result;
-                // Als het uit transient komt, sla het dan ook op in disk cache (als toegestaan)
+                // If it comes from transient, also save it to disk cache (if allowed)
                 if ($use_disk_cache) {
                     $this->save_to_cache($disk_cache_key, $result);
                 }
                 return $result;
-            } else {
             }
         }
 
@@ -840,7 +867,7 @@ class AI_Translate_Core
         // It's a balance between being generic and not over-matching.
         // Specific nonces like _fluentform_..._nonce or _wp_http_referer are covered by this.
         $text_processed = $extract_and_replace('/<input\s+type=["\']hidden["\'][^>]*name=["\']([^"\']*(?:nonce|referer)[^"\']*)["\'][^>]*value=["\']([^"\']*)["\'][^>]*\/>/i', $text_processed);
-
+        
         // 5. Extract other shortcodes (not the excluded ones, which are already handled)
         $excluded_tags = $this->settings['exclude_shortcodes'] ?? [];
         $pattern_other_shortcodes = '/\[(\[?)([a-zA-Z0-9_\-]+)([^\]]*?)(?:\](?:.*?\[\/\2\])|\s*\/?\])/s';
@@ -899,30 +926,27 @@ class AI_Translate_Core
         }
 
         // --- Sanity check: If translation resulted in empty text but original wasn't, log critical error ---
-        // Deze check blijft belangrijk, maar we retourneren $text ipv $final_translated_text als de marker mist.
+        // This check remains important, but we return $text instead of $final_translated_text if the marker is missing.
         if (empty(trim(wp_strip_all_tags(str_replace(self::TRANSLATION_MARKER, '', (string)$final_translated_text)))) && !empty(trim(wp_strip_all_tags($text)))) {
-            // Geen caching, geef origineel terug
-            // We retourneren de originele tekst, maar zorgen ervoor dat deze de marker bevat
-            // zodat deze in de cache kan worden opgeslagen en niet opnieuw wordt vertaald.
-            $final_translated_text = $text . self::TRANSLATION_MARKER; // Voeg marker toe aan originele tekst
+            $final_translated_text = $text . self::TRANSLATION_MARKER; // Add marker to original text
         }
 
-        // --- Cache de vertaalde tekst ---
-        // Sla het resultaat ALTIJD op in memory cache voor dit request.
+        // --- Cache the translated text ---
+        // ALWAYS store the result in memory cache for this request.
         self::$translation_memory[$memory_key] = $final_translated_text;
 
-        // Sla op in persistent cache (transient/disk) alleen als de marker aanwezig is.
+        // Store in persistent cache (transient/disk) only if the marker is present.
         if (strpos((string)$final_translated_text, self::TRANSLATION_MARKER) !== false) {
             // Store in transient
             set_transient($transient_key, $final_translated_text, $this->expiration_hours * 3600);
             // Store in disk if enabled
             if ($use_disk_cache) {
-                // save_to_cache verwacht de key ZONDER .cache suffix
+                // save_to_cache expects the key WITHOUT .cache suffix
                 $this->save_to_cache($disk_cache_key, $final_translated_text);
             }
         } else {
-            // Als de marker ontbreekt (API gaf originele tekst terug), log dit maar sla NIET opnieuw op in transient/disk.
-            // De memory cache is al bijgewerkt.
+            // If the marker is missing (API returned original text), log this but DO NOT save to transient/disk again.
+            // The memory cache has already been updated.
         }
 
         // Return the final text (translated or original)
@@ -1009,19 +1033,19 @@ class AI_Translate_Core
             return is_array($content) ? array_values($content) : (string)$content;
         }
 
-        // Batch handling voor specifieke types
+        // Batch handling for specific types
         if (in_array($type, ['post_title', 'menu_item', 'widget_title'], true) && is_array($content)) {
             $target_language_batch = $this->get_current_language();
             $translated_batch = $this->batch_translate_items($content, $this->default_language, $target_language_batch, $type);
 
-            // Fallback: als batch faalt of geen array oplevert, geef altijd een array terug
+            // Fallback: if batch fails or doesn't return an array, always return an array
             if (!is_array($translated_batch) || count($translated_batch) !== count($content)) {
                 return array_values($content);
             }
             return $translated_batch;
         }
 
-        // Zorg dat content een string is
+        // Ensure content is a string
         if (is_array($content)) {
             $content = (string) reset($content);
         }
@@ -1031,19 +1055,19 @@ class AI_Translate_Core
         $cache_identifier = md5($content . $type);
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
-        // --- AANGEPASTE Memory Cache Check ---
-        // Als het item in de memory cache zit voor dit request, geef het *altijd* terug.
-        // Dit voorkomt de loop als de API de originele tekst teruggeeft.
+        // --- CUSTOM Memory Cache Check ---
+        // If the item is in the memory cache for this request, always return it.
+        // This prevents the loop if the API returns the original text.
         if (isset(self::$translation_memory[$memory_key])) {
             return self::$translation_memory[$memory_key];
         }
-        // --- EINDE AANGEPASTE Memory Cache Check ---
+        // --- END CUSTOM Memory Cache Check ---
 
 
         $use_disk_cache = !in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
         $is_title = in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
 
-        // Roep translate_text aan, die do_translate gebruikt en persistent caching regelt
+        // Call translate_text, which uses do_translate and handles persistent caching
         $translated = $this->translate_text(
             $content,
             $default_language,
@@ -1052,8 +1076,8 @@ class AI_Translate_Core
             $use_disk_cache
         );
 
-        // Update memory cache ALTIJD met het resultaat (met of zonder marker)
-        // Dit zorgt ervoor dat bij volgende aanroepen binnen dit request de cache hit hierboven werkt.
+        // ALWAYS update memory cache with the result (with or without marker)
+        // This ensures that on subsequent calls within this request, the cache hit above works.
         self::$translation_memory[$memory_key] = $translated;
 
 
@@ -1061,30 +1085,30 @@ class AI_Translate_Core
     }
 
     /**
-     * Translate post content (gebruik 'raw' content om filter-recursie te voorkomen).
+     * Translate post content (use 'raw' content to prevent filter recursion).
      *
      * @param \WP_Post|null $post
      * @return string
      */
     public function translate_post_content($post = null): string
     {
-        // Haal post ID en content op
+        // Get post ID and content
         $post_id = $post ? $post->ID : get_the_ID();
         if (!$post_id) {
-            return ''; // Geen post ID gevonden
+            return ''; // No post ID found
         }
         $content = get_post_field('post_content', $post_id, 'raw');
         if ($content === null) {
-            $content = ''; // Zorg dat het een string is
+            $content = ''; // Ensure it's a string
         }
 
-        // Check of vertaling nodig is
+        // Check if translation is needed
         if (!$this->needs_translation()) {
             return $content;
         }
 
         $target_language = $this->get_current_language();
-        // Gebruik 'post_' + ID als identifier voor post content memory cache
+        // Use 'post_' + ID as identifier for post content memory cache
         $cache_identifier = 'post_' . $post_id;
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
@@ -1092,10 +1116,10 @@ class AI_Translate_Core
             return self::$translation_memory[$memory_key];
         }
 
-        // Roep translate_template_part aan (die translate_text gebruikt met disk cache)
+        // Call translate_template_part (which uses translate_text with disk cache)
         $translated = $this->translate_template_part((string)$content, 'post_content');
 
-        // Alleen in memory cache zetten als marker aanwezig is of doeltaal default is
+        // Only set in memory cache if marker is present or target language is default
         if (strpos($translated, self::TRANSLATION_MARKER) !== false || $target_language === $this->default_language) {
             self::$translation_memory[$memory_key] = $translated;
         }
@@ -1143,7 +1167,7 @@ class AI_Translate_Core
     }
 
     /**
-     * Log een event.
+     * Log event.
      *
      * @param string $message
      * @param string $level The log level (error, warning, info, debug).
@@ -1941,6 +1965,43 @@ class AI_Translate_Core
             }
         }
     }
+/**
+     * Adds alternate hreflang links to the <head> section for enabled languages.
+     * This helps search engines understand the language and regional targeting of your pages.
+     */
+    public function add_alternate_hreflang_links(): void
+    {
+        // Do not execute in admin area
+        if (is_admin()) {
+            return;
+        }
+
+        $enabled_languages = $this->settings['enabled_languages'] ?? [];
+        $current_lang = $this->get_current_language();
+        $default_lang = $this->default_language;
+
+        // Get the current page URL. Use home_url() to ensure it's a full URL.
+        // add_query_arg(null, null) preserves current query parameters.
+        $current_page_url = home_url(add_query_arg(null, null));
+
+        // Get the post ID for context in translate_url.
+        $current_post_id = get_the_ID();
+        if (!$current_post_id) {
+            $current_post_id = null; // Ensure it's null if no valid ID
+        }
+       
+        $original_page_url_in_default_lang = $this->translate_url($current_page_url, $default_lang, $current_post_id);
+
+        foreach ($enabled_languages as $lang_code) {
+            if ($lang_code === $current_lang || $lang_code === $default_lang) {
+                continue;
+            }
+
+            $hreflang_url = $this->translate_url($original_page_url_in_default_lang, $lang_code, $current_post_id);
+            echo '<link rel="alternate" hreflang="' . esc_attr($lang_code) . '" href="' . esc_url($hreflang_url) . '" />' . "\n";
+        }
+
+    }
 
     public function translate_url(string $url, string $language, ?int $post_id = null): string
     {
@@ -2057,8 +2118,19 @@ class AI_Translate_Core
                 $path_parts = explode('/', trim($path, '/'));
                 if (!empty($path_parts)) {
                     // Replace the last part (slug) with translated version
-                    $original_slug = $path_parts[count($path_parts) - 1];
-                    $path_parts[count($path_parts) - 1] = $translated_slug;
+                    // Get the original slug from the post object, not from the URL path.
+                    // This ensures we always translate from the canonical default language slug.
+                    $original_post_slug = $post->post_name;
+                    $translated_slug = $this->get_translated_slug($original_post_slug, $post->post_type, $source_language, $target_language, $post->ID);
+
+                    // Replace the last part (slug) with translated version
+                    $path_parts = explode('/', trim($path, '/'));
+                    // Find the position of the original slug in the path parts
+                    $last_segment_key = array_key_last($path_parts);
+                    if ($last_segment_key !== null) {
+                        $path_parts[$last_segment_key] = $translated_slug;
+                    }
+                    
                     $new_path = '/' . implode('/', $path_parts);
                     return $new_path;
                 }
@@ -2810,3 +2882,4 @@ class AI_Translate_Core
         return $output;
     }
 }
+

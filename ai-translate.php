@@ -47,9 +47,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     }
 
     $core = AI_Translate_Core::get_instance();
-
     add_action('wp_head', [$core, 'add_simple_meta_description'], 99);
-
     add_action('wp_footer', [$core, 'hook_display_language_switcher']);
 
     add_filter('wp_nav_menu_objects', function ($items, $args) use ($core) {

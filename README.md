@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, ai, artificial intelligence, multilingual, translate
 Requires at least: 5.0
 Tested up to: 6.8
-Stable tag: 1.18
+Stable tag: 1.19
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -21,7 +21,7 @@ This plugin leverages the power of Artificial Intelligence to provide seamless, 
 
 - Automatic translation of pages and posts
 - Support custom post types
-- Support for multiple languages
+- Support all major languages of the world
 - Intelligent caching for better performance
 - Simple language switcher interface
 - Customizable translation models
@@ -73,6 +73,10 @@ Translations are cached to improve performance and reduce API calls:
 
 ### Important Considerations
 - Dynamically generated content (e.g., forms with nonces, unique IDs, or timestamps) can lead to additional cache files and repeated API calls if not properly handled. The plugin attempts to mitigate this for known dynamic elements, but custom dynamic content may still impact caching efficiency.
+
+## Recommended Model selection
+- OpenAI - gpt-4.1-mini
+- Deepseek - deepseek-chat which is slower, but cheaper.
 
 ## Development
 
