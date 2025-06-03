@@ -327,7 +327,7 @@ add_action('admin_init', function () {
         function () {
             $settings = get_option('ai_translate_settings');
             // Default detectable languages (can be empty or contain a subset)
-            $default_detectable = ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'ua']; // Optionally retain a default selection
+            $default_detectable = ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'uk']; // Optionally retain a default selection
             $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : $default_detectable;
 
             $core = AI_Translate_Core::get_instance();

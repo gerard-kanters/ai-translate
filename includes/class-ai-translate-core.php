@@ -248,7 +248,7 @@ class AI_Translate_Core
              'exclude_pages'     => [],
              'exclude_shortcodes' => [],
              'homepage_meta_description' => '',
-             'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'ua'], // Default detectable
+             'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'uk'], // Default detectable
          ];
      }
  
@@ -363,7 +363,7 @@ class AI_Translate_Core
                 'ko' => '한국어',
                 'tr' => 'Türkçe',
                 'cs' => 'Čeština',
-                'ua' => 'Українська',
+                'uk' => 'Українська',
             ];
         }
         return $this->available_languages;
@@ -2080,18 +2080,50 @@ class AI_Translate_Core
 
         // Get the current page URL. Use home_url() to ensure it's a full URL.
         // add_query_arg(null, null) preserves current query parameters.
-        $current_page_url = home_url(add_query_arg(null, null));
-
-        // Get the post ID for context in translate_url.
         $current_post_id = get_the_ID();
         if (!$current_post_id) {
             $current_post_id = null; // Ensure it's null if no valid ID
         }
-       
-        $original_page_url_in_default_lang = $this->translate_url($current_page_url, $default_lang, $current_post_id);
+        
+        $original_page_url_in_default_lang = home_url('/'); // Initialiseer met basis URL
+        $default_lang_url = ''; // Initialize variable to store the default language URL
 
-        // Voeg de x-default hreflang tag toe
-        echo '<link rel="alternate" hreflang="x-default" href="' . esc_url($original_page_url_in_default_lang) . '" />' . "\n";
+        // Als er een post ID is, probeer de originele permalink te bepalen
+        if ($current_post_id !== null) {
+            $post = get_post($current_post_id);
+            if ($post) {
+                // Haal de originele slug op via reverse translation
+                $original_slug_data = $this->reverse_translate_slug(
+                    $post->post_name,
+                    $this->get_current_language(), // Huidige taal van de post
+                    $this->default_language // Doeltaal (standaard)
+                );
+                $original_slug = $original_slug_data['slug'] ?? $post->post_name;
+
+                // Construct the path based on post type and original slug
+                $path = '';
+                if ($post->post_type === 'page') {
+                    $path = get_page_uri($current_post_id);
+                } elseif ($post->post_type === 'post') {
+                    // For posts, use the date archive structure if applicable, otherwise just slug
+                    $path = date('Y/m/d', strtotime($post->post_date)) . '/' . $original_slug;
+                } else {
+                    // For custom post types, use the post type slug and original slug
+                    $post_type_object = get_post_type_object($post->post_type);
+                    $post_type_slug = $post_type_object->rewrite['slug'] ?? $post->post_type;
+                    $path = $post_type_slug . '/' . $original_slug;
+                }
+
+                // Ensure path starts with a slash and has a trailing slash if it's not a file
+                if ($path[0] !== '/') {
+                    $path = '/' . $path;
+                }
+                if ($path !== '/' && !preg_match('/\\.[a-zA-Z0-9]{2,5}$/', $path)) {
+                    $path = trailingslashit($path);
+                }
+                $original_page_url_in_default_lang = home_url($path);
+            }
+        }
 
         // Voeg de default taal toe aan de lijst als deze nog niet aanwezig is
         if (!in_array($default_lang, $all_hreflang_languages)) {
@@ -2099,14 +2131,19 @@ class AI_Translate_Core
         }
 
         foreach ($all_hreflang_languages as $lang_code) {
-            // Sla de huidige taal over als deze al de default taal is, om duplicaten te voorkomen
-            if ($lang_code === $current_lang && $lang_code === $default_lang) {
-                continue;
+            $hreflang_url = $this->translate_url($original_page_url_in_default_lang, $lang_code, $current_post_id);
+            
+            // Store the URL for the default language
+            if ($lang_code === $default_lang) {
+                $default_lang_url = $hreflang_url;
             }
 
-            $hreflang_url = $this->translate_url($original_page_url_in_default_lang, $lang_code, $current_post_id);
             echo '<link rel="alternate" hreflang="' . esc_attr($lang_code) . '" href="' . esc_url($hreflang_url) . '" />' . "\n";
         }
+
+        // Now, output the x-default hreflang link using the stored default language URL
+        // This ensures x-default is exactly the same as the default language URL
+        echo '<link rel="alternate" hreflang="x-default" href="' . esc_url($default_lang_url) . '" />' . "\n";
 
     }
 
@@ -2119,12 +2156,8 @@ class AI_Translate_Core
      */
     public function filter_post_type_permalink(string $permalink, \WP_Post $post): string
     {
-        // Log the original permalink and post details
-        $this->log_event("filter_post_type_permalink: Original permalink: {$permalink}, Post ID: {$post->ID}, Post Type: {$post->post_type}, Post Name: {$post->post_name}", 'debug');
-
         // Only translate if translation is needed and it's a public post type
-        if (!$this->needs_translation() || !in_array($post->post_type, get_post_types(['public' => true]), true)) {
-            $this->log_event("filter_post_type_permalink: Skipping translation for post ID {$post->ID} (no translation needed or not a public post type).", 'debug');
+        if (!$this->needs_translation() || !in_array($post->post_type, get_post_types(['public' => true]), true)) {        
             return $permalink;
         }
 
@@ -2140,26 +2173,16 @@ class AI_Translate_Core
             $post->ID
         );
 
-        // Log the translated slug
-        $this->log_event("filter_post_type_permalink: Translated slug for '{$post->post_name}' to '{$translated_slug}' for language '{$current_language}'.", 'debug');
-
-        // Replace the original slug with the translated slug in the permalink
-        // Use preg_replace to handle potential variations in permalink structure
-        // This regex targets the last segment of the URL path, which is typically the slug.
         $new_permalink = preg_replace('/' . preg_quote($post->post_name, '/') . '(\/?)$/', $translated_slug . '$1', $permalink, 1);
 
-        // If the slug replacement didn't change anything, it means the original slug wasn't found as the last segment.
-        // This can happen with custom permalink structures where the post_name isn't the last part.
-        // In such cases, we fall back to translating the entire URL.
-        if ($new_permalink === $permalink) {
-            $this->log_event("filter_post_type_permalink: Slug '{$post->post_name}' not found as last segment in permalink. Falling back to full URL translation.", 'debug');
+        if ($new_permalink === $permalink) {            
             $new_permalink = $this->translate_url($permalink, $current_language, $post->ID);
         } else {
             // If slug was replaced, ensure the language prefix is correct
             $new_permalink = $this->translate_url($new_permalink, $current_language, $post->ID);
         }
         
-        $this->log_event("filter_post_type_permalink: Final permalink for post ID {$post->ID}: {$new_permalink}", 'debug');
+
         return $new_permalink;
     }
 
@@ -2258,13 +2281,10 @@ class AI_Translate_Core
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
 
-        // Log the incoming query vars for debugging
-        $this->log_event("parse_translated_request: Initial query_vars: " . json_encode($query_vars), 'debug');
-
         // Check if a 'name' (post slug) is present in the query vars
         if (isset($query_vars['name']) && !empty($query_vars['name'])) {
             $incoming_slug = $query_vars['name'];
-            $this->log_event("parse_translated_request: Incoming slug: {$incoming_slug}", 'debug');
+            //$this->log_event("parse_translated_request: Incoming slug: {$incoming_slug}", 'debug');
 
             // Attempt to reverse translate the slug
             $original_slug_data = $this->reverse_translate_slug($incoming_slug, $current_language, $default_language);
@@ -2275,13 +2295,13 @@ class AI_Translate_Core
 
                 // If the original slug is different from the incoming slug, it means we found a translation
                 if ($original_slug !== $incoming_slug) {
-                    $this->log_event("parse_translated_request: Reverse translated '{$incoming_slug}' to original slug '{$original_slug}'.", 'debug');
+                    //$this->log_event("parse_translated_request: Reverse translated '{$incoming_slug}' to original slug '{$original_slug}'.", 'debug');
                     $query_vars['name'] = $original_slug; // Set the original slug for WordPress to find the post
 
                     // If a post type was identified during reverse translation, set it
                     if ($post_type) {
                         $query_vars['post_type'] = $post_type;
-                        $this->log_event("parse_translated_request: Setting post_type to '{$post_type}'.", 'debug');
+                        //$this->log_event("parse_translated_request: Setting post_type to '{$post_type}'.", 'debug');
                     }
 
                     // Unset 'pagename' if it exists, as 'name' is more specific for posts/pages
@@ -2396,17 +2416,13 @@ class AI_Translate_Core
         $post_type_from_path = null;
         $public_cpts = get_post_types(['public' => true, '_builtin' => false], 'names');
         $allowed_post_types = array_merge(['post', 'page'], $public_cpts);
-
-        // Log the path and segments for debugging
-        $this->log_event("identify_post_from_url: Path: {$path}, Segments: " . implode(', ', $path_segments), 'debug');
-
+        
         // Determine potential post type from path segments
         // For "3-deep" structure like /lang/cpt-slug/post-slug/
         if (count($path_segments) >= 2) {
             $potential_post_type_slug = $path_segments[count($path_segments) - 2];
             if (in_array($potential_post_type_slug, $allowed_post_types, true)) {
                 $post_type_from_path = $potential_post_type_slug;
-                $this->log_event("identify_post_from_url: Potential post type from path: {$post_type_from_path}", 'debug');
             }
         }
 
@@ -2429,10 +2445,10 @@ class AI_Translate_Core
         $post = $wpdb->get_row($wpdb->prepare($sql, ...$params));
 
         if ($post) {
-            $this->log_event("identify_post_from_url: Found post ID {$post->ID} with type {$post->post_type} for slug {$slug}", 'debug');
+            //$this->log_event("identify_post_from_url: Found post ID {$post->ID} with type {$post->post_type} for slug {$slug}", 'debug');
             return (int)$post->ID;
         } else {
-            $this->log_event("identify_post_from_url: No post found for slug {$slug} with path segments " . implode(', ', $path_segments), 'debug');
+            //$this->log_event("identify_post_from_url: No post found for slug {$slug} with path segments " . implode(', ', $path_segments), 'debug');
             return null;
         }
     }
@@ -3118,4 +3134,3 @@ class AI_Translate_Core
         return $output;
     }
 }
-
