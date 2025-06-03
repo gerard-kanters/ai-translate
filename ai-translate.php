@@ -338,7 +338,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     
         // Retourneer de vertaalde titel zonder marker.
         return $result;
-    }, 10, 2); 
+    }, 10, 2);
 
     add_filter('the_content', function ($content) use ($core) {
         // Controleer of de marker al aanwezig is
@@ -568,7 +568,6 @@ function init_plugin(): void
 
 function add_language_rewrite_rules(): void
 {
-    // Add rewrite rules for translated custom post types (services and products)
     // Add rewrite rules for translated custom post types (services and products)
     // Exclude /wp-admin/ and /wp-login.php from matching
     add_rewrite_rule('^([a-z]{2})/(?!wp-admin|wp-login.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');

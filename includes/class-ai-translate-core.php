@@ -97,6 +97,8 @@ class AI_Translate_Core
         // The logic for Fluent Forms has been generalized in translate_text, so this hook is no longer needed.
         add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
         add_action('wp_head', [$this, 'add_alternate_hreflang_links']);
+        add_filter('post_type_link', [$this, 'filter_post_type_permalink'], 10, 2);
+        add_filter('request', [$this, 'parse_translated_request']);
     }
 
     /**
@@ -859,8 +861,61 @@ class AI_Translate_Core
         // 2. Extract img tags
         $text_processed = $extract_and_replace('/<img[^>]+>/i', $text_processed);
 
-        // 3. Extract anchor tags (links)
-        $text_processed = $extract_and_replace('/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/i', $text_processed);
+        // 3. Extract anchor tags (links) - handle href and title attributes separately
+        // This regex captures:
+        // $matches[0]: Full <a> tag
+        // $matches[1]: Attributes before href (e.g., class="btn")
+        // $matches[2]: href value
+        // $matches[3]: Attributes after href but before title (if any)
+        // $matches[4]: title value (if present)
+        // $matches[5]: Attributes after title (if any)
+        // $matches[6]: Inner HTML content of the <a> tag
+        $text_processed = preg_replace_callback(
+            '/<a(\s+[^>]*?)href=["\']([^"\']*)["\'](\s+[^>]*?)(?:title=["\']([^"\']*)["\'])?(\s*[^>]*?)>(.*?)<\/a>/is',
+            function ($matches) use (&$placeholders, &$placeholder_index, $source_language, $target_language) {
+                $full_tag = $matches[0];
+                $attributes_before_href = $matches[1];
+                $href = $matches[2];
+                $attributes_after_href = $matches[3];
+                $title = $matches[4] ?? ''; // Will be empty string if no title attribute
+                $attributes_after_title = $matches[5];
+                $inner_html = $matches[6];
+
+                // Store href with unique placeholder
+                $href_placeholder = "{{HREF_PLACEHOLDER_{$placeholder_index}}}";
+                $placeholders[$href_placeholder] = $href;
+
+                $translated_title = '';
+                if (!empty($title)) {
+                    // Translate the title value directly
+                    $translated_title = $this->translate_text($title, $source_language, $target_language, true, false);
+                    // Remove marker if present
+                    $translated_title = self::remove_translation_marker($translated_title);
+                }
+                
+                // Store translated title with unique placeholder
+                $title_placeholder = "{{TITLE_PLACEHOLDER_{$placeholder_index}}}";
+                $placeholders[$title_placeholder] = $translated_title;
+
+                // Translate the inner HTML content of the <a> tag
+                $translated_inner_html = $this->translate_text($inner_html, $source_language, $target_language, false, false);
+                // Remove marker if present
+                $translated_inner_html = self::remove_translation_marker($translated_inner_html);
+
+                $placeholder_index++;
+
+                // Reconstruct the tag for translation, replacing href and title with placeholders
+                // The inner_html will be translated by the AI
+                $reconstructed_tag = '<a' . $attributes_before_href . 'href="' . $href_placeholder . '"';
+                if (!empty($translated_title)) {
+                    $reconstructed_tag .= ' title="' . $title_placeholder . '"';
+                }
+                $reconstructed_tag .= $attributes_after_href . $attributes_after_title . '>' . $translated_inner_html . '</a>';
+
+                return $reconstructed_tag;
+            },
+            $text_processed
+        );
 
         // 4. Extract generic hidden input fields with dynamic values (like nonces, referers)
         // This pattern targets hidden inputs with 'name' attributes that might contain dynamic values.
@@ -915,8 +970,18 @@ class AI_Translate_Core
             uksort($placeholders, function ($a, $b) {
                 return strlen($b) <=> strlen($a);
             });
-            foreach ($placeholders as $placeholder => $original_value) {
-                $final_translated_text = str_replace($placeholder, $original_value, $final_translated_text);
+            foreach ($placeholders as $placeholder => $value) {
+                // Special handling for HREF and TITLE placeholders
+                if (strpos($placeholder, 'HREF_PLACEHOLDER_') !== false) {
+                    // Replace the placeholder with the original href value
+                    $final_translated_text = str_replace('href="' . $placeholder . '"', 'href="' . $value . '"', $final_translated_text);
+                } elseif (strpos($placeholder, 'TITLE_PLACEHOLDER_') !== false) {
+                    // Replace the placeholder with the translated title value
+                    $final_translated_text = str_replace('title="' . $placeholder . '"', 'title="' . $value . '"', $final_translated_text);
+                } else {
+                    // For other placeholders, use the generic replacement
+                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
+                }
             }
         }
 
@@ -1172,7 +1237,36 @@ class AI_Translate_Core
      * @param string $message
      * @param string $level The log level (error, warning, info, debug).
      */
-    public function log_event(string $message, string $level = 'debug'): void {}
+    public function log_event(string $message, string $level = 'debug'): void
+    {
+        // Controleer of logging is ingeschakeld in de instellingen
+        $settings = $this->get_settings();
+        if (!($settings['enable_logging'] ?? false)) {
+            return;
+        }
+
+        $log_dir = $this->get_log_dir();
+        if (!file_exists($log_dir)) {
+            wp_mkdir_p($log_dir);
+        }
+
+        $log_file = $log_dir . DIRECTORY_SEPARATOR . 'ai-translate.log';
+        $timestamp = current_time('mysql');
+        $log_entry = sprintf("[%s] [%s] %s\n", $timestamp, strtoupper($level), $message);
+
+        // Gebruik WP_Filesystem om veilig te schrijven
+        global $wp_filesystem;
+        if (empty($wp_filesystem)) {
+            require_once(ABSPATH . '/wp-admin/includes/file.php');
+            WP_Filesystem();
+        }
+
+        if ($wp_filesystem->put_contents($log_file, $log_entry, FILE_APPEND)) {
+            // Log succesvol
+        } else {
+            // Fout bij schrijven naar logbestand
+        }
+    }
 
     /**
      * Clear alleen de file cache.
@@ -1977,6 +2071,10 @@ class AI_Translate_Core
         }
 
         $enabled_languages = $this->settings['enabled_languages'] ?? [];
+        $detectable_languages = $this->get_detectable_languages();
+        // Combineer enabled en detectable talen, verwijder duplicaten en zorg voor unieke waarden
+        $all_hreflang_languages = array_unique(array_merge($enabled_languages, $detectable_languages));
+
         $current_lang = $this->get_current_language();
         $default_lang = $this->default_language;
 
@@ -1992,8 +2090,17 @@ class AI_Translate_Core
        
         $original_page_url_in_default_lang = $this->translate_url($current_page_url, $default_lang, $current_post_id);
 
-        foreach ($enabled_languages as $lang_code) {
-            if ($lang_code === $current_lang || $lang_code === $default_lang) {
+        // Voeg de x-default hreflang tag toe
+        echo '<link rel="alternate" hreflang="x-default" href="' . esc_url($original_page_url_in_default_lang) . '" />' . "\n";
+
+        // Voeg de default taal toe aan de lijst als deze nog niet aanwezig is
+        if (!in_array($default_lang, $all_hreflang_languages)) {
+            $all_hreflang_languages[] = $default_lang;
+        }
+
+        foreach ($all_hreflang_languages as $lang_code) {
+            // Sla de huidige taal over als deze al de default taal is, om duplicaten te voorkomen
+            if ($lang_code === $current_lang && $lang_code === $default_lang) {
                 continue;
             }
 
@@ -2001,6 +2108,59 @@ class AI_Translate_Core
             echo '<link rel="alternate" hreflang="' . esc_attr($lang_code) . '" href="' . esc_url($hreflang_url) . '" />' . "\n";
         }
 
+    }
+
+    /**
+     * Filter for 'post_type_link' to translate CPT slugs in outgoing URLs.
+     *
+     * @param string $permalink The post's permalink.
+     * @param \WP_Post $post The post object.
+     * @return string The translated permalink.
+     */
+    public function filter_post_type_permalink(string $permalink, \WP_Post $post): string
+    {
+        // Log the original permalink and post details
+        $this->log_event("filter_post_type_permalink: Original permalink: {$permalink}, Post ID: {$post->ID}, Post Type: {$post->post_type}, Post Name: {$post->post_name}", 'debug');
+
+        // Only translate if translation is needed and it's a public post type
+        if (!$this->needs_translation() || !in_array($post->post_type, get_post_types(['public' => true]), true)) {
+            $this->log_event("filter_post_type_permalink: Skipping translation for post ID {$post->ID} (no translation needed or not a public post type).", 'debug');
+            return $permalink;
+        }
+
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+
+        // Get the translated slug
+        $translated_slug = $this->get_translated_slug(
+            $post->post_name,
+            $post->post_type,
+            $default_language, // Source language for slug is always default
+            $current_language,
+            $post->ID
+        );
+
+        // Log the translated slug
+        $this->log_event("filter_post_type_permalink: Translated slug for '{$post->post_name}' to '{$translated_slug}' for language '{$current_language}'.", 'debug');
+
+        // Replace the original slug with the translated slug in the permalink
+        // Use preg_replace to handle potential variations in permalink structure
+        // This regex targets the last segment of the URL path, which is typically the slug.
+        $new_permalink = preg_replace('/' . preg_quote($post->post_name, '/') . '(\/?)$/', $translated_slug . '$1', $permalink, 1);
+
+        // If the slug replacement didn't change anything, it means the original slug wasn't found as the last segment.
+        // This can happen with custom permalink structures where the post_name isn't the last part.
+        // In such cases, we fall back to translating the entire URL.
+        if ($new_permalink === $permalink) {
+            $this->log_event("filter_post_type_permalink: Slug '{$post->post_name}' not found as last segment in permalink. Falling back to full URL translation.", 'debug');
+            $new_permalink = $this->translate_url($permalink, $current_language, $post->ID);
+        } else {
+            // If slug was replaced, ensure the language prefix is correct
+            $new_permalink = $this->translate_url($new_permalink, $current_language, $post->ID);
+        }
+        
+        $this->log_event("filter_post_type_permalink: Final permalink for post ID {$post->ID}: {$new_permalink}", 'debug');
+        return $new_permalink;
     }
 
     public function translate_url(string $url, string $language, ?int $post_id = null): string
@@ -2079,6 +2239,69 @@ class AI_Translate_Core
         $new_url = $scheme . $host . $port . $new_path . $query . $fragment;
 
         return $new_url;
+    }
+
+    /**
+     * Filters the WordPress 'request' array to handle translated slugs for incoming URLs.
+     * This allows WordPress to correctly identify posts based on their translated slugs.
+     *
+     * @param array $query_vars The array of WordPress query variables.
+     * @return array The modified array of query variables.
+     */
+    public function parse_translated_request(array $query_vars): array
+    {
+        // Only proceed if translation is needed and it's not an admin request
+        if (!$this->needs_translation() || is_admin() || empty($query_vars)) {
+            return $query_vars;
+        }
+
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+
+        // Log the incoming query vars for debugging
+        $this->log_event("parse_translated_request: Initial query_vars: " . json_encode($query_vars), 'debug');
+
+        // Check if a 'name' (post slug) is present in the query vars
+        if (isset($query_vars['name']) && !empty($query_vars['name'])) {
+            $incoming_slug = $query_vars['name'];
+            $this->log_event("parse_translated_request: Incoming slug: {$incoming_slug}", 'debug');
+
+            // Attempt to reverse translate the slug
+            $original_slug_data = $this->reverse_translate_slug($incoming_slug, $current_language, $default_language);
+
+            if ($original_slug_data && isset($original_slug_data['slug'])) {
+                $original_slug = $original_slug_data['slug'];
+                $post_type = $original_slug_data['post_type'] ?? null;
+
+                // If the original slug is different from the incoming slug, it means we found a translation
+                if ($original_slug !== $incoming_slug) {
+                    $this->log_event("parse_translated_request: Reverse translated '{$incoming_slug}' to original slug '{$original_slug}'.", 'debug');
+                    $query_vars['name'] = $original_slug; // Set the original slug for WordPress to find the post
+
+                    // If a post type was identified during reverse translation, set it
+                    if ($post_type) {
+                        $query_vars['post_type'] = $post_type;
+                        $this->log_event("parse_translated_request: Setting post_type to '{$post_type}'.", 'debug');
+                    }
+
+                    // Unset 'pagename' if it exists, as 'name' is more specific for posts/pages
+                    if (isset($query_vars['pagename'])) {
+                        unset($query_vars['pagename']);
+                    }
+                } else {
+                    $this->log_event("parse_translated_request: Incoming slug '{$incoming_slug}' is already the original slug or no translation found.", 'debug');
+                }
+            } else {
+                $this->log_event("parse_translated_request: No original slug found for '{$incoming_slug}'.", 'debug');
+            }
+        } else {
+            $this->log_event("parse_translated_request: No 'name' (post slug) found in query_vars.", 'debug');
+        }
+
+        // Final logging of query vars
+        $this->log_event("parse_translated_request: Final query_vars: " . json_encode($query_vars), 'debug');
+
+        return $query_vars;
     }
 
 
@@ -2171,14 +2394,19 @@ class AI_Translate_Core
         }
 
         $post_type_from_path = null;
-        // Check if a known CPT slug is present in the path
-        // Assuming 'service' and 'product' are the CPT slugs
+        $public_cpts = get_post_types(['public' => true, '_builtin' => false], 'names');
+        $allowed_post_types = array_merge(['post', 'page'], $public_cpts);
+
+        // Log the path and segments for debugging
+        $this->log_event("identify_post_from_url: Path: {$path}, Segments: " . implode(', ', $path_segments), 'debug');
+
+        // Determine potential post type from path segments
+        // For "3-deep" structure like /lang/cpt-slug/post-slug/
         if (count($path_segments) >= 2) {
             $potential_post_type_slug = $path_segments[count($path_segments) - 2];
-            if ($potential_post_type_slug === 'service') {
-                $post_type_from_path = 'service';
-            } elseif ($potential_post_type_slug === 'product') {
-                $post_type_from_path = 'product';
+            if (in_array($potential_post_type_slug, $allowed_post_types, true)) {
+                $post_type_from_path = $potential_post_type_slug;
+                $this->log_event("identify_post_from_url: Potential post type from path: {$post_type_from_path}", 'debug');
             }
         }
 
@@ -2189,8 +2417,10 @@ class AI_Translate_Core
             $sql .= " AND post_type = %s";
             $params[] = $post_type_from_path;
         } else {
-            // If no specific post type from path, prioritize pages and then posts
-            $sql .= " AND post_type IN ('post', 'page', 'service', 'product')"; // Include known CPTs
+            // If no specific post type from path, search within all allowed public post types
+            $post_type_placeholders = implode(', ', array_fill(0, count($allowed_post_types), '%s'));
+            $sql .= " AND post_type IN ({$post_type_placeholders})";
+            $params = array_merge($params, $allowed_post_types);
         }
 
         $sql .= " ORDER BY post_type = 'page' DESC, post_date DESC LIMIT 1";
@@ -2198,7 +2428,13 @@ class AI_Translate_Core
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Query is prepared using $wpdb->prepare(), and direct query is necessary here.
         $post = $wpdb->get_row($wpdb->prepare($sql, ...$params));
 
-        return $post ? (int)$post->ID : null;
+        if ($post) {
+            $this->log_event("identify_post_from_url: Found post ID {$post->ID} with type {$post->post_type} for slug {$slug}", 'debug');
+            return (int)$post->ID;
+        } else {
+            $this->log_event("identify_post_from_url: No post found for slug {$slug} with path segments " . implode(', ', $path_segments), 'debug');
+            return null;
+        }
     }
 
     /**
