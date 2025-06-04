@@ -1042,14 +1042,12 @@ class AI_Translate_Core
 
         // Verbeterde prompt: explicieter over vertalen en behoud structuur/placeholders
         $system_prompt = sprintf(
-            'You are a translation engine. Translate the following text from %s to %s. ' .
+            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". ' .
                 'Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, and line breaks. ' .
                 'Return ONLY the translated text, without any additional explanations or markdown formatting. ' .
-                'Even if the input seems partially translated, provide the full translation in the target language %s. ' .
-                'If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
-            ucfirst($source_language),
-            ucfirst($target_language),
-            ucfirst($target_language) // Herhaal doeltaal voor duidelijkheid
+                'Even if the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
+            $source_language,
+            $target_language
         );
 
 
@@ -1658,13 +1656,12 @@ class AI_Translate_Core
         // Log alleen bij cache miss
 
         $system_prompt = sprintf(
-            'You are a translation engine. Translate the following text from %s to %s. ' .
+            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". ' .
                 'Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, and line breaks. ' .
                 'Return ONLY the translated text, without any additional explanations or markdown formatting. ' .
-                'Even if the input seems partially translated, provide the full translation in the target language %s. ' .
-                'If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
-            ucfirst($source_language),
-            ucfirst($target_language)
+                'Even if the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
+            $source_language,
+            $target_language
         );
 
         $data = [
@@ -2088,8 +2085,11 @@ class AI_Translate_Core
         $original_page_url_in_default_lang = home_url('/'); // Initialiseer met basis URL
         $default_lang_url = ''; // Initialize variable to store the default language URL
 
-        // Als er een post ID is, probeer de originele permalink te bepalen
-        if ($current_post_id !== null) {
+        // Als het de homepage is, moet de URL altijd de basis URL zijn.
+        if (is_front_page() || is_home()) {
+            $original_page_url_in_default_lang = home_url('/');
+        } elseif ($current_post_id !== null) {
+            // Als er een post ID is en het is geen homepage, probeer de originele permalink te bepalen
             $post = get_post($current_post_id);
             if ($post) {
                 // Haal de originele slug op via reverse translation
