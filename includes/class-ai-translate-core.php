@@ -1044,7 +1044,7 @@ class AI_Translate_Core
         $system_prompt = sprintf(
             'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". ' .
                 'Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, and line breaks. ' .
-                'Return ONLY the translated text, without any additional explanations or markdown formatting. ' .
+                'Return ONLY the translated text, without any additional explanations or (markdown) formatting. ' .
                 'Even if the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
             $source_language,
             $target_language
@@ -2888,18 +2888,25 @@ class AI_Translate_Core
     /**
      * Validate API settings by attempting to fetch models
      *
-     * @param string $api_url The API URL to validate
-     * @param string $api_key The API key to validate
-     * @return array<string,mixed> Response data including models if successful
-     * @throws \Exception If validation fails
+     * @param string $provider_key The key of the provider (e.g., 'openai').
+     * @param string $api_key The API key to validate.
+     * @param string $custom_api_url Optional custom API URL if provider is 'custom'.
+     * @return array<string,mixed> Response data including models if successful.
+     * @throws \Exception If validation fails.
      */
-    public function validate_api_settings(string $provider_key, string $api_key): array
+    public function validate_api_settings(string $provider_key, string $api_key, string $custom_api_url = ''): array
     {
         if (empty($provider_key) || empty($api_key)) {
             throw new \InvalidArgumentException('Provider key of API key is leeg.');
         }
 
-        $api_url = self::get_api_url_for_provider($provider_key);
+        $api_url = '';
+        if ($provider_key === 'custom' && !empty($custom_api_url)) {
+            $api_url = $custom_api_url;
+        } else {
+            $api_url = self::get_api_url_for_provider($provider_key);
+        }
+
         if (empty($api_url)) {
             throw new \InvalidArgumentException('Kon API URL niet bepalen voor provider: ' . esc_html($provider_key));
         }

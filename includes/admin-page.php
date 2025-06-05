@@ -700,93 +700,57 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     if (!current_user_can('manage_options')) {
         wp_send_json_error(['message' => 'Geen rechten']);
     }
+
     // Haal actuele waarden uit POST als aanwezig
     $provider_key = isset($_POST['api_provider']) ? sanitize_text_field(wp_unslash($_POST['api_provider'])) : null;
     $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
     $model = isset($_POST['model']) ? trim(sanitize_text_field(wp_unslash($_POST['model']))) : '';
+    $custom_api_url_value = isset($_POST['custom_api_url_value']) ? esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value'])))) : '';
 
-    if (!$provider_key) { // Als provider niet in POST zit, haal uit settings
+    // Als provider niet in POST zit, haal uit settings
+    if (!$provider_key) {
         $settings = get_option('ai_translate_settings');
         $provider_key = $settings['api_provider'] ?? 'openai'; // Default
         if (empty($api_key)) { $api_key = $settings['api_key'] ?? ''; }
         if (empty($model)) { $model = $settings['selected_model'] ?? ''; }
+        if (empty($custom_api_url_value)) { $custom_api_url_value = $settings['custom_api_url'] ?? ''; }
     }
 
-    $api_url = AI_Translate_Core::get_api_url_for_provider($provider_key);
-    // Als de provider 'custom' is, gebruik dan de custom_api_url uit POST
-    if ($provider_key === 'custom' && isset($_POST['custom_api_url_value'])) {
-        $api_url = esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value']))));
-    }
+    $core = AI_Translate_Core::get_instance();
 
-    if (empty($api_url) || empty($api_key) || empty($model)) {
-        wp_send_json_error(['message' => 'API Provider, API Key, Model of Custom API URL ontbreekt of is ongeldig.']);
-        return;
-    }
+    try {
+        // Roep de validate_api_settings functie aan in de core class
+        $validation_result = $core->validate_api_settings($provider_key, $api_key, $custom_api_url_value);
 
-    $endpoint = rtrim($api_url, '/') . '/chat/completions';
-    $data = [
-        'model' => $model,
-        'messages' => [
-            ['role' => 'system', 'content' => 'Vertaal het woord "test" naar het Engels.'],
-            ['role' => 'user', 'content' => 'test']
-        ],
-        'temperature' => 0.0
-    ];
-    $response = wp_remote_post($endpoint, [
-        'headers' => [
-            'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type'  => 'application/json',
-        ],
-        'body' => json_encode($data),
-        'timeout' => 20,
-        'sslverify' => true,
-    ]);
-    if (is_wp_error($response)) {
-        wp_send_json_error(['message' => $response->get_error_message()]);
-    }
-    $code = wp_remote_retrieve_response_code($response);
-    $body = wp_remote_retrieve_body($response);
-    if ($code !== 200) {
-        wp_send_json_error(['message' => 'API fout: ' . $body]);
-    }
-    $data = json_decode($body, true);
-    $ok = isset($data['choices'][0]['message']['content']) && !empty($data['choices'][0]['message']['content']);
-    if ($ok) {
-        // Sla settings direct op als validatie slaagt, maar alleen de API-gerelateerde velden.
+        // Als validatie succesvol is, sla settings op
         if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
-            $current_settings = get_option('ai_translate_settings', []); // Haal alle huidige instellingen op
+            $current_settings = get_option('ai_translate_settings', []);
 
-            // Converteer cache_expiration (indien aanwezig) van uren (opgeslagen waarde) naar dagen
-            // zodat de sanitize_callback het correct kan verwerken.
             if (isset($current_settings['cache_expiration'])) {
                 $current_settings['cache_expiration'] = intval($current_settings['cache_expiration']) / 24;
             }
             
-            // Werk alleen de API-specifieke instellingen bij
             $current_settings['api_provider'] = $provider_key;
             $current_settings['api_key'] = $api_key;
             $current_settings['selected_model'] = $model;
             
-            // custom_model wordt ook bijgewerkt als 'selected_model' 'custom' is,
-            // of als het expliciet wordt meegestuurd. De sanitize_callback handelt dit verder af.
             if (isset($_POST['custom_model_value'])) {
                  $current_settings['custom_model'] = trim(sanitize_text_field(wp_unslash($_POST['custom_model_value'])));
             } elseif ($model !== 'custom' && isset($current_settings['custom_model'])) {
-                // Als het model niet 'custom' is, maar custom_model bestond, leegmaken.
-                // De sanitize_callback zou dit ook moeten doen, maar voor de duidelijkheid.
                 $current_settings['custom_model'] = '';
             }
-            // custom_api_url wordt ook bijgewerkt als 'api_provider' 'custom' is
-            if (isset($_POST['custom_api_url_value'])) {
-                $current_settings['custom_api_url'] = esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value']))));
-            } elseif ($provider_key !== 'custom' && isset($current_settings['custom_api_url'])) {
+            
+            if ($provider_key === 'custom') {
+                $current_settings['custom_api_url'] = $custom_api_url_value;
+            } elseif (isset($current_settings['custom_api_url'])) {
                 $current_settings['custom_api_url'] = '';
             }
 
-            update_option('ai_translate_settings', $current_settings); // Sla de volledige, bijgewerkte instellingen op
+            update_option('ai_translate_settings', $current_settings);
         }
         wp_send_json_success(['message' => 'API en model werken. API instellingen zijn opgeslagen.']);
-    } else {
-        wp_send_json_error(['message' => 'API antwoord onbruikbaar: ' . esc_html(wp_remote_retrieve_body($response))]);
+
+    } catch (\Exception $e) {
+        wp_send_json_error(['message' => 'API validatie mislukt: ' . $e->getMessage()]);
     }
 });

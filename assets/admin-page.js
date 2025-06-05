@@ -187,7 +187,12 @@ document.addEventListener('DOMContentLoaded', function() {
             data.append('api_key', apiKey);
             data.append('model', modelId);
             
-            if (apiProviderSelect) data.append('api_provider', apiProviderSelect.value);
+            if (apiProviderSelect) {
+                data.append('api_provider', apiProviderSelect.value);
+                if (apiProviderSelect.value === 'custom' && customApiUrlInput) {
+                    data.append('custom_api_url_value', customApiUrlInput.value);
+                }
+            }
             data.append('save_settings', '1');
             
             if (modelId === 'custom' && customModelInput) {
