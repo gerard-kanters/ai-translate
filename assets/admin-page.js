@@ -1,6 +1,6 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     var tabLinks = document.querySelectorAll('.nav-tab-wrapper a');
-    tabLinks.forEach(function(link) {
+    tabLinks.forEach(function (link) {
         var tab = link.getAttribute('href').split('&tab=')[1];
         if (tab) {
             link.href = aiTranslateAdmin.adminUrl + '&tab=' + tab;
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var selectedModel = document.getElementById('selected_model');
     var customModelDiv = document.getElementById('custom_model_div');
     if (selectedModel) {
-        selectedModel.addEventListener('change', function() {
+        selectedModel.addEventListener('change', function () {
             if (this.value === 'custom') {
                 customModelDiv.style.display = 'block';
             } else {
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // API Validation functionality
     var apiStatusSpan = document.getElementById('ai-translate-api-status');
     var validateApiBtn = document.getElementById('ai-translate-validate-api');
@@ -65,17 +65,65 @@ document.addEventListener('DOMContentLoaded', function() {
         if (apiProviderSelect && customApiUrlDiv) {
             if (apiProviderSelect.value === 'custom') {
                 customApiUrlDiv.style.display = 'block';
+                // Fetch custom URL when 'Custom URL' provider is selected
+                var data = new FormData();
+                data.append('action', 'ai_translate_get_custom_url');
+                data.append('nonce', aiTranslateAdmin.getCustomUrlNonce); // Assuming a nonce is available
+                
+                fetch(ajaxurl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: data
+                })
+                    .then(r => {                        
+                        if (!r.ok) {
+                            throw new Error('Network response was not ok ' + r.statusText);
+                        }
+                        return r.json();
+                    })
+                    .then(function (resp) {
+                        if (resp.success && resp.data && resp.data.settings !== undefined) {
+                            var customApiUrl = resp.data.settings.custom_api_url;
+                            if (customApiUrlInput) {
+                                customApiUrlInput.value = customApiUrl !== undefined ? customApiUrl : ''; // Vul veld in, leeg als undefined
+                            } else {
+                                console.error('Custom API URL input field not found.'); 
+                            }
+                        } else {
+                            console.error('Fout bij ophalen custom URL of settings ontbreken:', resp.data && resp.data.message ? resp.data.message : 'Onbekende fout'); 
+                            if (customApiUrlInput) customApiUrlInput.value = ''; // Clear on error
+                        }
+                    })
+                    .catch(function (e) {
+                        console.error('AJAX Fout bij ophalen custom URL:', e.message); 
+                        if (customApiUrlInput) customApiUrlInput.value = ''; // Clear on error
+                    });
+
             } else {
                 customApiUrlDiv.style.display = 'none';
+                console.log('Provider is not custom. Hiding custom URL field.'); 
             }
+        } else {
+            console.error('apiProviderSelect or customApiUrlDiv not found.'); 
         }
     }
 
     if (apiProviderSelect) {
         apiProviderSelect.addEventListener('change', updateApiKeyRequestLink);
         apiProviderSelect.addEventListener('change', toggleCustomApiUrlField);
+        apiProviderSelect.addEventListener('change', clearApiKeyField); // Voeg deze regel toe
         updateApiKeyRequestLink();
         toggleCustomApiUrlField();
+    }
+
+    // Nieuwe functie om het API-sleutelveld te legen
+    function clearApiKeyField() {
+        if (apiKeyInput) {
+            apiKeyInput.value = ''; // Leeg het API-sleutelveld
+        }
+        if (apiStatusSpan) {
+            apiStatusSpan.textContent = ''; // Leeg de API-status melding
+        }
     }
 
     function getSelectedApiUrl() {
@@ -105,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data.append('action', 'ai_translate_get_models');
         data.append('nonce', aiTranslateAdmin.getModelsNonce);
         data.append('api_key', apiKey);
-        
+
         if (apiProviderSelect) {
             data.append('api_provider', apiProviderSelect.value);
             if (apiProviderSelect.value === 'custom' && customApiUrlInput) {
@@ -118,53 +166,53 @@ document.addEventListener('DOMContentLoaded', function() {
             credentials: 'same-origin',
             body: data
         })
-        .then(r => r.json())
-        .then(function(resp) {
-            if (selectedModel) {
-                if (resp.success && resp.data && resp.data.models) {
-                    var current = selectedModel.value;
-                    selectedModel.innerHTML = '';
-                    resp.data.models.forEach(function(modelId) {
-                        var opt = document.createElement('option');
-                        opt.value = modelId;
-                        opt.textContent = modelId;
-                        if (modelId === current) opt.selected = true;
-                        selectedModel.appendChild(opt);
-                    });
-                    
-                    var customOpt = document.createElement('option');
-                    customOpt.value = 'custom';
-                    customOpt.textContent = 'Select...';
-                    if (current === 'custom') customOpt.selected = true;
-                    selectedModel.appendChild(customOpt);
-                    if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
-                } else {
-                    if (apiStatusSpan) apiStatusSpan.textContent = 'Geen modellen gevonden: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
+            .then(r => r.json())
+            .then(function (resp) {
+                if (selectedModel) {
+                    if (resp.success && resp.data && resp.data.models) {
+                        var current = selectedModel.value;
+                        selectedModel.innerHTML = '';
+                        resp.data.models.forEach(function (modelId) {
+                            var opt = document.createElement('option');
+                            opt.value = modelId;
+                            opt.textContent = modelId;
+                            if (modelId === current) opt.selected = true;
+                            selectedModel.appendChild(opt);
+                        });
+
+                        var customOpt = document.createElement('option');
+                        customOpt.value = 'custom';
+                        customOpt.textContent = 'Select...';
+                        if (current === 'custom') customOpt.selected = true;
+                        selectedModel.appendChild(customOpt);
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
+                    } else {
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Geen modellen gevonden: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
+                    }
                 }
-            }
-        })
-        .catch(function(e) {
-            if (apiStatusSpan) apiStatusSpan.textContent = 'Fout bij laden modellen: ' + e.message;
-        });
+            })
+            .catch(function (e) {
+                if (apiStatusSpan) apiStatusSpan.textContent = 'Fout bij laden modellen: ' + e.message;
+            });
     }
 
     if (selectedModel) {
         selectedModel.addEventListener('focus', loadModels);
-        selectedModel.addEventListener('change', function() {
+        selectedModel.addEventListener('change', function () {
             if (customModelDiv) {
                 customModelDiv.style.display = (this.value === 'custom') ? 'block' : 'none';
             }
         });
-        
+
         if (customModelDiv) {
             customModelDiv.style.display = (selectedModel.value === 'custom') ? 'block' : 'none';
         }
     }
 
     if (validateApiBtn) {
-        validateApiBtn.addEventListener('click', function() {
+        validateApiBtn.addEventListener('click', function () {
             if (apiStatusSpan) apiStatusSpan.innerHTML = 'Valideren...';
-            
+
             var apiUrl = getSelectedApiUrl();
             var apiKey = apiKeyInput ? apiKeyInput.value : '';
             var modelId = selectedModel ? selectedModel.value : '';
@@ -186,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
             data.append('api_url', apiUrl);
             data.append('api_key', apiKey);
             data.append('model', modelId);
-            
+
             if (apiProviderSelect) {
                 data.append('api_provider', apiProviderSelect.value);
                 if (apiProviderSelect.value === 'custom' && customApiUrlInput) {
@@ -194,7 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             data.append('save_settings', '1');
-            
+
             if (modelId === 'custom' && customModelInput) {
                 data.append('custom_model_value', customModelInput.value);
             }
@@ -204,32 +252,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin',
                 body: data
             })
-            .then(r => r.json())
-            .then(function(resp) {
-                if (resp.success) {
-                    if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connectie en model OK. API instellingen opgeslagen.</span>';
-                } else {
-                    if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +
-                        (resp.data && resp.data.message ? resp.data.message : 'Fout') + '</span>';
-                }
-            })
-            .catch(function(error) {
-                if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Validatie AJAX Fout: ' + error.message + '</span>';
-            })
-            .finally(function() {
-                validateApiBtn.disabled = false;
-            });
+                .then(r => r.json())
+                .then(function (resp) {
+                    if (resp.success) {
+                        if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connectie en model OK. API instellingen opgeslagen.</span>';
+                    } else {
+                        if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +
+                            (resp.data && resp.data.message ? resp.data.message : 'Fout') + '</span>';
+                    }
+                })
+                .catch(function (error) {
+                    if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Validatie AJAX Fout: ' + error.message + '</span>';
+                })
+                .finally(function () {
+                    validateApiBtn.disabled = false;
+                });
         });
     }
-    
+
     /**
      * Updates the UI elements after cache clearing
      * @param {string} langCode - The language code that was cleared
      */
     function updateCacheUI(langCode) {
-        try {
-            console.log('Updating UI for language:', langCode);
-
+        try {            
             // Update table row for this language
             var row = document.getElementById('cache-row-' + langCode);
             if (row) {
@@ -265,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     // Highlight the row
                     row.style.backgroundColor = '#e7f7ed';
-                    setTimeout(function() {
+                    setTimeout(function () {
                         row.style.transition = 'background-color 1s ease-in-out';
                         row.style.backgroundColor = '';
                     }, 1500);
@@ -283,8 +329,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Quick cache clear buttons in the table
     var quickClearButtons = document.querySelectorAll('.quick-clear-cache');
     if (quickClearButtons.length > 0) {
-        quickClearButtons.forEach(function(button) {
-            button.addEventListener('click', function(e) {
+        quickClearButtons.forEach(function (button) {
+            button.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -303,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 var nonce = document.querySelector('input[name="clear_cache_language_nonce"]').value;
                 if (!nonce) {
                     console.error('Nonce field not found');
-                    
+
                     var noticeDiv = document.createElement('div');
                     noticeDiv.className = 'notice notice-error is-dismissible';
                     noticeDiv.innerHTML = '<p>Security token not found. Refresh the page and try again.</p>';
@@ -312,10 +358,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (cacheTab) {
                         cacheTab.insertBefore(noticeDiv, cacheTab.firstChild);
 
-                        setTimeout(function() {
+                        setTimeout(function () {
                             noticeDiv.style.transition = 'opacity 1s ease-out';
                             noticeDiv.style.opacity = 0;
-                            setTimeout(function() {
+                            setTimeout(function () {
                                 noticeDiv.remove();
                             }, 1000);
                         }, 5000);
@@ -334,17 +380,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('nonce', nonce);
 
                 fetch(ajaxurl, {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        body: formData
-                    }).then(response => {
-                        if (!response.ok) {
-                            throw new Error('Server response niet ok: ' + response.status);
-                        }
-                        return response.json();
-                    })
-                    .then(function(data) {
-                        console.log('AJAX response:', data);
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: formData
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error('Server response niet ok: ' + response.status);
+                    }
+                    return response.json();
+                })
+                    .then(function (data) {                   
 
                         if (data.success) {
                             var noticeDiv = document.createElement('div');
@@ -355,17 +400,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (cacheTab) {
                                 cacheTab.insertBefore(noticeDiv, cacheTab.firstChild);
 
-                                setTimeout(function() {
+                                setTimeout(function () {
                                     noticeDiv.style.transition = 'opacity 1s ease-out';
                                     noticeDiv.style.opacity = 0;
-                                    setTimeout(function() {
+                                    setTimeout(function () {
                                         noticeDiv.remove();
                                     }, 1000);
                                 }, 5000);
                             }
 
                             updateCacheUI(langCode);
-                            setTimeout(function() {
+                            setTimeout(function () {
                                 window.location.reload();
                             }, 3000);
                         } else {
@@ -385,10 +430,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (cacheTab) {
                                 cacheTab.insertBefore(noticeDiv, cacheTab.firstChild);
 
-                                setTimeout(function() {
+                                setTimeout(function () {
                                     noticeDiv.style.transition = 'opacity 1s ease-out';
                                     noticeDiv.style.opacity = 0;
-                                    setTimeout(function() {
+                                    setTimeout(function () {
                                         noticeDiv.remove();
                                     }, 1000);
                                 }, 5000);
@@ -398,9 +443,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             button.disabled = false;
                         }
                     })
-                    .catch(function(error) {
+                    .catch(function (error) {
                         console.error('AJAX Error:', error);
-                        
+
                         var noticeDiv = document.createElement('div');
                         noticeDiv.className = 'notice notice-error is-dismissible';
                         noticeDiv.innerHTML = '<p>Er is een fout opgetreden bij het wissen van de cache: ' + error.message + '</p>';
@@ -409,10 +454,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (cacheTab) {
                             cacheTab.insertBefore(noticeDiv, cacheTab.firstChild);
 
-                            setTimeout(function() {
+                            setTimeout(function () {
                                 noticeDiv.style.transition = 'opacity 1s ease-out';
                                 noticeDiv.style.opacity = 0;
-                                setTimeout(function() {
+                                setTimeout(function () {
                                     noticeDiv.remove();
                                 }, 1000);
                             }, 5000);
@@ -427,15 +472,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Make table rows clickable to select a language
     var cacheTableRows = document.querySelectorAll('tr[id^="cache-row-"]');
-    cacheTableRows.forEach(function(row) {
+    cacheTableRows.forEach(function (row) {
         row.style.cursor = 'pointer';
         row.setAttribute('title', 'Klik om deze taal te selecteren');
-        row.addEventListener('click', function(e) {
+        row.addEventListener('click', function (e) {
             if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
                 return;
             }
             var langCode = row.id.replace('cache-row-', '');
-            
+
             if (langSelect && langSelect.options) {
                 for (var i = 0; i < langSelect.options.length; i++) {
                     if (langSelect.options[i].value === langCode) {
@@ -450,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (langSelect && langCountSpan) {
-        langSelect.addEventListener('change', function() {
+        langSelect.addEventListener('change', function () {
             if (langSelect.options && langSelect.selectedIndex !== undefined && langSelect.selectedIndex >= 0) {
                 var selectedOption = langSelect.options[langSelect.selectedIndex];
                 if (selectedOption) {
@@ -470,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var cacheForm = document.getElementById('clear-cache-language-form');
         if (cacheForm) {
-            cacheForm.addEventListener('submit', function() {
+            cacheForm.addEventListener('submit', function () {
                 if (langSelect && langSelect.options && langSelect.selectedIndex !== undefined && langSelect.selectedIndex >= 0) {
                     var selectedOption = langSelect.options[langSelect.selectedIndex];
                     if (selectedOption) {
@@ -485,15 +530,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validate API fields before form submission
     var generalForm = document.querySelector('#general form');
     if (generalForm) {
-        generalForm.addEventListener('submit', function(e) {
+        generalForm.addEventListener('submit', function (e) {
             var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]');
             var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]');
-            
+
             var existingErrors = document.querySelectorAll('.aitranslate-error');
-            existingErrors.forEach(function(error) {
+            existingErrors.forEach(function (error) {
                 error.remove();
             });
-            
+
             if (!apiUrl.value.trim() || !apiKey.value.trim()) {
                 var errorMsg = document.createElement('div');
                 errorMsg.className = 'error notice aitranslate-error';

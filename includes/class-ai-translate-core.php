@@ -239,12 +239,12 @@ class AI_Translate_Core
      public function get_default_settings(): array
      {
          return [
-             'api_provider'      => 'openai', // New default
+             'api_provider'      => 'openai', 
              'api_key'           => '',
-             'selected_model'    => 'gpt-4', // Consider making this dynamic or provider-specific later
+             'selected_model'    => 'gpt-4.1-mini', 
              'default_language'  => 'nl',
-             'enabled_languages' => ['en'],
-             'cache_expiration'  => 168, // hours
+             'enabled_languages' => ['en', 'de', 'nl'],
+             'cache_expiration'  => 336, // hours
              'exclude_pages'     => [],
              'exclude_shortcodes' => [],
              'homepage_meta_description' => '',
@@ -2284,7 +2284,7 @@ class AI_Translate_Core
         // Check if a 'name' (post slug) is present in the query vars
         if (isset($query_vars['name']) && !empty($query_vars['name'])) {
             $incoming_slug = $query_vars['name'];
-            //$this->log_event("parse_translated_request: Incoming slug: {$incoming_slug}", 'debug');
+           
 
             // Attempt to reverse translate the slug
             $original_slug_data = $this->reverse_translate_slug($incoming_slug, $current_language, $default_language);
@@ -2294,14 +2294,12 @@ class AI_Translate_Core
                 $post_type = $original_slug_data['post_type'] ?? null;
 
                 // If the original slug is different from the incoming slug, it means we found a translation
-                if ($original_slug !== $incoming_slug) {
-                    //$this->log_event("parse_translated_request: Reverse translated '{$incoming_slug}' to original slug '{$original_slug}'.", 'debug');
+                if ($original_slug !== $incoming_slug) {                    
                     $query_vars['name'] = $original_slug; // Set the original slug for WordPress to find the post
 
                     // If a post type was identified during reverse translation, set it
                     if ($post_type) {
-                        $query_vars['post_type'] = $post_type;
-                        //$this->log_event("parse_translated_request: Setting post_type to '{$post_type}'.", 'debug');
+                        $query_vars['post_type'] = $post_type;                        
                     }
 
                     // Unset 'pagename' if it exists, as 'name' is more specific for posts/pages
@@ -2317,9 +2315,6 @@ class AI_Translate_Core
         } else {
             $this->log_event("parse_translated_request: No 'name' (post slug) found in query_vars.", 'debug');
         }
-
-        // Final logging of query vars
-        $this->log_event("parse_translated_request: Final query_vars: " . json_encode($query_vars), 'debug');
 
         return $query_vars;
     }
@@ -2444,11 +2439,9 @@ class AI_Translate_Core
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Query is prepared using $wpdb->prepare(), and direct query is necessary here.
         $post = $wpdb->get_row($wpdb->prepare($sql, ...$params));
 
-        if ($post) {
-            //$this->log_event("identify_post_from_url: Found post ID {$post->ID} with type {$post->post_type} for slug {$slug}", 'debug');
+        if ($post) {           
             return (int)$post->ID;
-        } else {
-            //$this->log_event("identify_post_from_url: No post found for slug {$slug} with path segments " . implode(', ', $path_segments), 'debug');
+        } else {            
             return null;
         }
     }

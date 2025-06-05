@@ -113,7 +113,8 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'adminUrl' => esc_url(admin_url('admin.php?page=ai-translate')),
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'getModelsNonce' => wp_create_nonce('ai_translate_get_models_nonce'),
-        'validateApiNonce' => wp_create_nonce('ai_translate_validate_api_nonce')
+        'validateApiNonce' => wp_create_nonce('ai_translate_validate_api_nonce'),
+        'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce') // Added nonce for fetching custom URL
     ));
 });
 
@@ -131,11 +132,11 @@ add_action('admin_init', function () {
             // Remove old api_url if it exists from a previous version
             unset($input['api_url']);
 
-            // Sanitize custom_api_url if provider is 'custom'
-            if (isset($input['api_provider']) && $input['api_provider'] === 'custom' && isset($input['custom_api_url'])) {
+            // Sanitize custom_api_url if present, regardless of provider
+            if (isset($input['custom_api_url'])) {
                 $input['custom_api_url'] = esc_url_raw(trim($input['custom_api_url']));
             } else {
-                // Ensure custom_api_url is unset or empty if not using custom provider
+                // Ensure custom_api_url is set, even if empty
                 $input['custom_api_url'] = '';
             }
 
@@ -694,6 +695,19 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     wp_send_json_success(['models' => $models]);
 });
 
+// --- AJAX handler voor dynamisch ophalen van custom URL ---
+add_action('wp_ajax_ai_translate_get_custom_url', function () {
+    check_ajax_referer('ai_translate_get_custom_url_nonce', 'nonce'); // Nonce verification
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Geen rechten']);
+    }
+
+    $settings = get_option('ai_translate_settings', []);
+    // Stuur de volledige settings array terug voor debugging in de browserconsole
+    wp_send_json_success(['settings' => $settings]);
+});
+
+
 // --- AJAX handler voor API validatie ---
 add_action('wp_ajax_ai_translate_validate_api', function () {
     check_ajax_referer('ai_translate_validate_api_nonce', 'nonce'); // Add nonce verification
@@ -740,11 +754,12 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                 $current_settings['custom_model'] = '';
             }
             
+            // Update custom_api_url only if the provider is custom
             if ($provider_key === 'custom') {
                 $current_settings['custom_api_url'] = $custom_api_url_value;
-            } elseif (isset($current_settings['custom_api_url'])) {
-                $current_settings['custom_api_url'] = '';
             }
+            // Note: We don't explicitly set custom_api_url to empty here
+            // because the sanitize_callback handles ensuring it's saved if present.
 
             update_option('ai_translate_settings', $current_settings);
         }
