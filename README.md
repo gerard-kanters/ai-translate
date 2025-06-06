@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, ai, artificial intelligence, multilingual, translate
 Requires at least: 5.0
 Tested up to: 6.8
-Stable tag: 1.2
+Stable tag: 1.20
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -135,6 +135,7 @@ This plugin connects to external AI translation services to provide automatic tr
 - Fix issue with lang code versus country code for Ukrain
 - More user friendly API settings options. 
 - Added custom post type support.
+- Improved url translation for Non Latin scripts.
 
 ### 1.1
 - Implemented path-based language URLs for better SEO and user experience.

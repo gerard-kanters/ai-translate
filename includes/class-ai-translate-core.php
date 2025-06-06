@@ -2335,14 +2335,9 @@ class AI_Translate_Core
         if ($source_language === $target_language || $path === '/') {
             return $path;
         }
-
-        // NEW: Skip slug translation entirely for specific languages 
-        if (in_array($target_language, ['ar', 'ka', 'hi'], true)) {
-            return $path;
-        }
-
-        // Try to identify content from URL if not provided
-        if ($post_id === null) {
+ 
+         // Try to identify content from URL if not provided
+         if ($post_id === null) {
             $post_id = $this->identify_post_from_url($path);
         }
 
@@ -2547,7 +2542,7 @@ class AI_Translate_Core
 
             return $translated_slug;
         } catch (\Exception $e) {
-            $this->log_event("Error translating slug '{$original_slug}': " . $e->getMessage(), 'error');
+            $this->log_event("AI Translate: Error translating slug '{$original_slug}': " . $e->getMessage(), 'error');
             return $original_slug; // Return original on failure
         }
     }
