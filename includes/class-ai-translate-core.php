@@ -2148,11 +2148,17 @@ class AI_Translate_Core
         }
 
         // Voeg de default taal toe aan de lijst als deze nog niet aanwezig is
-        if (!in_array($default_lang, $all_hreflang_languages)) {
-            $all_hreflang_languages[] = $default_lang;
+        // Zorg ervoor dat de default taal alleen wordt toegevoegd als deze niet al in de enabled of detectable talen zit.
+        if (!in_array($default_lang, $enabled_languages) && !in_array($default_lang, $detectable_languages)) {
+             $all_hreflang_languages[] = $default_lang;
         }
 
         foreach ($all_hreflang_languages as $lang_code) {
+            // Sla de hreflang tag voor de huidige taal over, omdat deze al in de output staat
+            if ($lang_code === $current_lang) {
+                continue;
+            }
+
             $hreflang_url = $this->translate_url($original_page_url_in_default_lang, $lang_code, $current_post_id);
             
             // Store the URL for the default language
