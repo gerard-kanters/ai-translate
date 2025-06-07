@@ -1421,7 +1421,28 @@ class AI_Translate_Core
             }
         }
 
-        // 2. Check cookie (tweede prioriteit)
+        // 2. Check for switcher parameter on root URL (override cookie)
+        // This handles the case where the user explicitly clicks the default language on the homepage.
+        if (isset($_GET['from_switcher']) && $_GET['from_switcher'] === '1') {
+            $request_path = wp_parse_url(esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'] ?? '')), PHP_URL_PATH);
+            // Normalize path: if empty or only slashes, make it a single slash
+            if (!is_string($request_path) || trim($request_path, '/') === '') {
+                $request_path = '/';
+            } else {
+                // Replace multiple slashes with a single one
+                $request_path = preg_replace('#/+#', '/', $request_path);
+            }
+
+            // If on the root URL and from switcher, force default language
+            if ($request_path === '/') {
+                $this->current_language = $default_language;
+                // Optionally, clear the cookie here if forcing default language from switcher is the intent
+                // setcookie('ai_translate_lang', '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
+                return $this->current_language;
+            }
+        }
+
+        // 3. Check cookie (tweede prioriteit na URL en switcher override)
         if (isset($_COOKIE['ai_translate_lang'])) {
             $cookie_lang = sanitize_text_field(wp_unslash($_COOKIE['ai_translate_lang']));
             if (in_array($cookie_lang, $all_languages, true)) {
@@ -1430,7 +1451,7 @@ class AI_Translate_Core
             }
         }
 
-        // 3. Detecteer browsertaal als geen taal in URL/cookie en detecteerbare talen zijn ingesteld
+        // 4. Detecteer browsertaal als geen taal in URL/cookie en detecteerbare talen zijn ingesteld
         $detectable_languages = $this->get_detectable_languages();
         if (!is_admin() && !wp_doing_ajax() && !empty($detectable_languages)) {
             $browser_langs = [];
@@ -1455,13 +1476,14 @@ class AI_Translate_Core
             }
         }
 
-        // 4. Als URL geen taal bevat en we zijn niet in admin, gebruik default taal
+        // 5. Als URL geen taal bevat en we zijn niet in admin, gebruik default taal
+        // Deze stap wordt nu bereikt als geen van de bovenstaande checks een taal heeft bepaald.
         if (!is_admin() && !wp_doing_ajax()) {
             $this->current_language = $default_language;
             return $this->current_language;
         }
 
-        // 5. Fallback: gebruik default taal
+        // 6. Fallback: gebruik default taal (voor alle overige gevallen, bijv. AJAX requests zonder taal in URL/cookie)
         $this->current_language = $default_language;
         return $this->current_language;
     }

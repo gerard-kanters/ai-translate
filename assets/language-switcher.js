@@ -63,7 +63,8 @@ jQuery(document).ready(function($) {
        // If the clicked language is the default language AND the cookie was not the default language,
        // navigate to the home URL. Otherwise, navigate to the URL in the href.
        if (lang === defaultLang && cookieLang !== defaultLang) {
-           window.location.href = window.location.origin + '/';
+           // Add a query parameter to indicate navigation from the switcher
+           window.location.href = window.location.origin + '/?from_switcher=1';
        } else {
            window.location.href = url;
        }
