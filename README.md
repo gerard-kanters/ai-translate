@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, ai, artificial intelligence, multilingual, translate
 Requires at least: 5.0
 Tested up to: 6.8
-Stable tag: 1.20
+Stable tag: 1.21
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -33,6 +33,7 @@ This plugin leverages the power of Artificial Intelligence to provide seamless, 
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 3. Navigate to 'Admin > AI Translate' to configure the plugin settings.
 4. Add your OpenAI API key (or compatible API key) and select the desired languages.
+5. It is strongly advised to use memcached or redis to improve performance. This plugin heavilly caches data and makes use of these engines. After initial translation the performance of translated pages is as good as non translated pages.
 
 ## Configuration
 

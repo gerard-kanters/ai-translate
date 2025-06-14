@@ -153,140 +153,140 @@ class AI_Translate_Core
      * Initialiseer de cache directories.
      * Zorg ervoor dat de benodigde mappen bestaan en schrijfbaar zijn.
      */    private function initialize_cache_directories(): void
-     {
-         // Check if the path exists and create it if necessary
-         if (!file_exists($this->cache_dir)) {
-             $result = wp_mkdir_p($this->cache_dir);
- 
-             if ($result) {
-                 // Set correct permissions for Linux
-                 global $wp_filesystem;
-                 if (empty($wp_filesystem)) {
-                     require_once(ABSPATH . '/wp-admin/includes/file.php');
-                     WP_Filesystem();
-                 }
-                 $wp_filesystem->chmod($this->cache_dir, 0755);
-             } else {
-             }
-         }
- 
-         // Check if the path is writable
-         global $wp_filesystem;
-         if (empty($wp_filesystem)) {
-             require_once(ABSPATH . '/wp-admin/includes/file.php');
-             WP_Filesystem();
-         }
-         if (!$wp_filesystem->is_writable($this->cache_dir)) {
-             // Try to set permissions again
-             global $wp_filesystem;
-             if (empty($wp_filesystem)) {
-                 require_once(ABSPATH . '/wp-admin/includes/file.php');
-                 WP_Filesystem();
-             }
-             $wp_filesystem->chmod($this->cache_dir, 0755);
- 
-             global $wp_filesystem;
-             if (empty($wp_filesystem)) {
-                 require_once(ABSPATH . '/wp-admin/includes/file.php');
-                 WP_Filesystem();
-             }
-             if (!$wp_filesystem->is_writable($this->cache_dir)) {
-             }
-         }
-     }
- 
-     /**
-      * Generate a consistent cache key for translations based on type.
-      *
-      * @param string $identifier Unique identifier (often a hash of the content).
-      * @param string $target_language Target language code.
-      * @param string $type Cache type ('mem', 'trans', 'disk', 'batch_mem', 'batch_trans').
-      * @return string The generated cache key.
-      */
-     private function generate_cache_key(string $identifier, string $target_language, string $type): string
-     {
-         $lang = sanitize_key($target_language); // Ensure language code is safe
-         $id = sanitize_key($identifier); // Ensure identifier is safe (though often already a hash)
- 
-         switch ($type) {
-             case 'mem':
-                 return 'mem_' . $id . '_' . $lang;
-             case 'trans':
-                 // Prefix for easy transient deletion
-                 return 'ai_translate_trans_' . $id . '_' . $lang;
-             case 'disk':
-                 // Format matching existing disk cache logic ([lang]_[hash])
-                 return $lang . '_' . $id;
-             case 'batch_mem':
-                 return 'batch_mem_' . $id . '_' . $lang;
-             case 'batch_trans':
-                 // Prefix for easy batch transient deletion
-                 return 'ai_translate_batch_trans_' . $id . '_' . $lang;
-             case 'slug_trans':
-                 // Prefix for slug translation transients
-                 return 'ai_translate_slug_cache_' . $id . '_' . $lang;
-             default:
-                 // Fallback or error? For now a generic key.
-                 return 'unknown_' . $id . '_' . $lang;
-         }
-     }
- 
-     /**
-      * Get default plugin settings.
-      *
-      * @return array<string,mixed>
-      */
-     public function get_default_settings(): array
-     {
-         return [
-             'api_provider'      => 'openai', 
-             'api_key'           => '',
-             'selected_model'    => 'gpt-4.1-mini', 
-             'default_language'  => 'nl',
-             'enabled_languages' => ['en', 'de', 'nl'],
-             'cache_expiration'  => 336, // hours
-             'exclude_pages'     => [],
-             'exclude_shortcodes' => [],
-             'homepage_meta_description' => '',
-             'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'uk'], // Default detectable
-         ];
-     }
- 
-     /**
-      * Get plugin settings.
-      *
-      * @return array<string,mixed>
-      */
-     public function get_settings(): array
-     {
-         if ($this->settings === null) {
-             $settings = get_option('ai_translate_settings', []);
-             $this->settings = wp_parse_args($settings, $this->get_default_settings());
-         }
-         return $this->settings;
-     }
- 
-     /**
-      * Validate plugin settings.
-      *
-      * @param array<string,mixed> $settings
-      * @return array<string,mixed>
-      */
-     private function validate_settings(array $settings): array
-     {
-         $required = ['api_key', 'default_language', 'api_provider'];
-         foreach ($required as $key) {
-             if (empty($settings[$key])) {
-                 // Consider logging an error or handling this more gracefully
-                 // For now, we assume defaults or sanitize_callback handles it.
-             }
-         }
-         // Ensure api_provider is valid
-         if (!array_key_exists($settings['api_provider'], self::get_api_providers())) {
-             $settings['api_provider'] = 'openai'; // Fallback to default
-         }
-         return $settings;
-     }
+    {
+        // Check if the path exists and create it if necessary
+        if (!file_exists($this->cache_dir)) {
+            $result = wp_mkdir_p($this->cache_dir);
+
+            if ($result) {
+                // Set correct permissions for Linux
+                global $wp_filesystem;
+                if (empty($wp_filesystem)) {
+                    require_once(ABSPATH . '/wp-admin/includes/file.php');
+                    WP_Filesystem();
+                }
+                $wp_filesystem->chmod($this->cache_dir, 0755);
+            } else {
+            }
+        }
+
+        // Check if the path is writable
+        global $wp_filesystem;
+        if (empty($wp_filesystem)) {
+            require_once(ABSPATH . '/wp-admin/includes/file.php');
+            WP_Filesystem();
+        }
+        if (!$wp_filesystem->is_writable($this->cache_dir)) {
+            // Try to set permissions again
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            $wp_filesystem->chmod($this->cache_dir, 0755);
+
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            if (!$wp_filesystem->is_writable($this->cache_dir)) {
+            }
+        }
+    }
+
+    /**
+     * Generate a consistent cache key for translations based on type.
+     *
+     * @param string $identifier Unique identifier (often a hash of the content).
+     * @param string $target_language Target language code.
+     * @param string $type Cache type ('mem', 'trans', 'disk', 'batch_mem', 'batch_trans').
+     * @return string The generated cache key.
+     */
+    private function generate_cache_key(string $identifier, string $target_language, string $type): string
+    {
+        $lang = sanitize_key($target_language); // Ensure language code is safe
+        $id = sanitize_key($identifier); // Ensure identifier is safe (though often already a hash)
+
+        switch ($type) {
+            case 'mem':
+                return 'mem_' . $id . '_' . $lang;
+            case 'trans':
+                // Prefix for easy transient deletion
+                return 'ai_translate_trans_' . $id . '_' . $lang;
+            case 'disk':
+                // Format matching existing disk cache logic ([lang]_[hash])
+                return $lang . '_' . $id;
+            case 'batch_mem':
+                return 'batch_mem_' . $id . '_' . $lang;
+            case 'batch_trans':
+                // Prefix for easy batch transient deletion
+                return 'ai_translate_batch_trans_' . $id . '_' . $lang;
+            case 'slug_trans':
+                // Prefix for slug translation transients
+                return 'ai_translate_slug_cache_' . $id . '_' . $lang;
+            default:
+                // Fallback or error? For now a generic key.
+                return 'unknown_' . $id . '_' . $lang;
+        }
+    }
+
+    /**
+     * Get default plugin settings.
+     *
+     * @return array<string,mixed>
+     */
+    public function get_default_settings(): array
+    {
+        return [
+            'api_provider'      => 'openai',
+            'api_key'           => '',
+            'selected_model'    => 'gpt-4.1-mini',
+            'default_language'  => 'nl',
+            'enabled_languages' => ['en', 'de', 'nl'],
+            'cache_expiration'  => 336, // hours
+            'exclude_pages'     => [],
+            'exclude_shortcodes' => [],
+            'homepage_meta_description' => '',
+            'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'uk'], // Default detectable
+        ];
+    }
+
+    /**
+     * Get plugin settings.
+     *
+     * @return array<string,mixed>
+     */
+    public function get_settings(): array
+    {
+        if ($this->settings === null) {
+            $settings = get_option('ai_translate_settings', []);
+            $this->settings = wp_parse_args($settings, $this->get_default_settings());
+        }
+        return $this->settings;
+    }
+
+    /**
+     * Validate plugin settings.
+     *
+     * @param array<string,mixed> $settings
+     * @return array<string,mixed>
+     */
+    private function validate_settings(array $settings): array
+    {
+        $required = ['api_key', 'default_language', 'api_provider'];
+        foreach ($required as $key) {
+            if (empty($settings[$key])) {
+                // Consider logging an error or handling this more gracefully
+                // For now, we assume defaults or sanitize_callback handles it.
+            }
+        }
+        // Ensure api_provider is valid
+        if (!array_key_exists($settings['api_provider'], self::get_api_providers())) {
+            $settings['api_provider'] = 'openai'; // Fallback to default
+        }
+        return $settings;
+    }
 
     /**
      * Get defined API providers with their details.
@@ -420,98 +420,98 @@ class AI_Translate_Core
      * @param string $cache_key The full cache key (e.g., 'en_md5hash' for disk).
      * @return string|false
      */    public function get_cached_content(string $cache_key)
-     {
-         // Normalize the path with directory separator
-         $cache_file = rtrim($this->cache_dir, '/\\') . DIRECTORY_SEPARATOR . $cache_key . '.cache';
-         if (file_exists($cache_file) && !$this->is_cache_expired($cache_file)) {
-             $cached = file_get_contents($cache_file);
-             if (!empty($cached)) {
-                 return $cached;
-             }
-         }
-         return false;
-     }
- 
-     /**
-      * Save content to cache.
-      *
-      * @param string $cache_key The full cache key (e.g., 'en_md5hash' for disk).
-      * @param string $content
-      * @return bool Success indicator
-      */
-     public function save_to_cache(string $cache_key, string $content): bool
-     {
-         $cache_file = $this->cache_dir . '/' . $cache_key . '.cache';
- 
-         try {
-             // Check if the cache directory exists and is writable
-             global $wp_filesystem;
-             if (empty($wp_filesystem)) {
-                 require_once(ABSPATH . '/wp-admin/includes/file.php');
-                 WP_Filesystem();
-             }
-             if (!$wp_filesystem->is_writable($this->cache_dir)) {
-                 return false;
-             }
- 
-             // Write to a temporary file and then move (atomic write operation)
-             $temp_file = $this->cache_dir . '/tmp_' . uniqid() . '.tmp';
-             $write_result = file_put_contents($temp_file, $content, LOCK_EX);
- 
-             if ($write_result === false) {
-                 return false;
-             }
- 
-             // Set file permissions
-             global $wp_filesystem;
-             if (empty($wp_filesystem)) {
-                 require_once(ABSPATH . '/wp-admin/includes/file.php');
-                 WP_Filesystem();
-             }
-             $wp_filesystem->chmod($temp_file, 0644);
- 
-             // Move to final file
-             global $wp_filesystem;
-             if (empty($wp_filesystem)) {
-                 require_once(ABSPATH . '/wp-admin/includes/file.php');
-                 WP_Filesystem();
-             }
-             if (!$wp_filesystem->move($temp_file, $cache_file, true)) { // true to overwrite
-                 global $wp_filesystem;
-                 if (empty($wp_filesystem)) {
-                     require_once(ABSPATH . '/wp-admin/includes/file.php');
-                     WP_Filesystem();
-                 }
-                 $wp_filesystem->delete($temp_file); // Cleanup
-                 return false;
-             }
- 
-             return true;
-         } catch (\Exception $e) {
-             return false;
-         }
-     }
- 
-     /**
-      * Check if cache is expired.
-      *
-      * @param string $cache_file
-      * @return bool
-      */
-     private function is_cache_expired(string $cache_file): bool
-     {
-         if (!file_exists($cache_file)) {
-             return true;
-         }
- 
-         $cache_time = filemtime($cache_file);
-         $age_in_seconds = time() - $cache_time;
-         $expires_in_seconds = $this->expiration_hours * 3600;
- 
-         $is_expired = $age_in_seconds > $expires_in_seconds;
- 
-         return $is_expired;
-     }
+    {
+        // Normalize the path with directory separator
+        $cache_file = rtrim($this->cache_dir, '/\\') . DIRECTORY_SEPARATOR . $cache_key . '.cache';
+        if (file_exists($cache_file) && !$this->is_cache_expired($cache_file)) {
+            $cached = file_get_contents($cache_file);
+            if (!empty($cached)) {
+                return $cached;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Save content to cache.
+     *
+     * @param string $cache_key The full cache key (e.g., 'en_md5hash' for disk).
+     * @param string $content
+     * @return bool Success indicator
+     */
+    public function save_to_cache(string $cache_key, string $content): bool
+    {
+        $cache_file = $this->cache_dir . '/' . $cache_key . '.cache';
+
+        try {
+            // Check if the cache directory exists and is writable
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            if (!$wp_filesystem->is_writable($this->cache_dir)) {
+                return false;
+            }
+
+            // Write to a temporary file and then move (atomic write operation)
+            $temp_file = $this->cache_dir . '/tmp_' . uniqid() . '.tmp';
+            $write_result = file_put_contents($temp_file, $content, LOCK_EX);
+
+            if ($write_result === false) {
+                return false;
+            }
+
+            // Set file permissions
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            $wp_filesystem->chmod($temp_file, 0644);
+
+            // Move to final file
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once(ABSPATH . '/wp-admin/includes/file.php');
+                WP_Filesystem();
+            }
+            if (!$wp_filesystem->move($temp_file, $cache_file, true)) { // true to overwrite
+                global $wp_filesystem;
+                if (empty($wp_filesystem)) {
+                    require_once(ABSPATH . '/wp-admin/includes/file.php');
+                    WP_Filesystem();
+                }
+                $wp_filesystem->delete($temp_file); // Cleanup
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Check if cache is expired.
+     *
+     * @param string $cache_file
+     * @return bool
+     */
+    private function is_cache_expired(string $cache_file): bool
+    {
+        if (!file_exists($cache_file)) {
+            return true;
+        }
+
+        $cache_time = filemtime($cache_file);
+        $age_in_seconds = time() - $cache_time;
+        $expires_in_seconds = $this->expiration_hours * 3600;
+
+        $is_expired = $age_in_seconds > $expires_in_seconds;
+
+        return $is_expired;
+    }
 
     /**
      * Make API request to OpenAI. Handles retries for rate limits and implements backoff.
@@ -892,7 +892,7 @@ class AI_Translate_Core
                     // Remove marker if present
                     $translated_title = self::remove_translation_marker($translated_title);
                 }
-                
+
                 // Store translated title with unique placeholder
                 $title_placeholder = "{{TITLE_PLACEHOLDER_{$placeholder_index}}}";
                 $placeholders[$title_placeholder] = $translated_title;
@@ -922,7 +922,7 @@ class AI_Translate_Core
         // It's a balance between being generic and not over-matching.
         // Specific nonces like _fluentform_..._nonce or _wp_http_referer are covered by this.
         $text_processed = $extract_and_replace('/<input\s+type=["\']hidden["\'][^>]*name=["\']([^"\']*(?:nonce|referer)[^"\']*)["\'][^>]*value=["\']([^"\']*)["\'][^>]*\/>/i', $text_processed);
-        
+
         // 5. Extract other shortcodes (not the excluded ones, which are already handled)
         $excluded_tags = $this->settings['exclude_shortcodes'] ?? [];
         $pattern_other_shortcodes = '/\[(\[?)([a-zA-Z0-9_\-]+)([^\]]*?)(?:\](?:.*?\[\/\2\])|\s*\/?\])/s';
@@ -1042,10 +1042,7 @@ class AI_Translate_Core
 
         // Verbeterde prompt: explicieter over vertalen en behoud structuur/placeholders
         $system_prompt = sprintf(
-            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". ' .
-                'Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, and line breaks. ' .
-                'Return ONLY the translated text, without any additional explanations or (markdown) formatting. ' .
-                'Even if the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
+            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, [[[AI_TRANSLATE_SC_PAIR_X]]], [{{DYNAMIC_PLACE_HOLDER_X}}], [{{DYNAMIC_PLACEER_X}}]] line breaks and other similar placeholders. Return ONLY the translated text, without any additional explanations or (markdown) formatting. If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
             $source_language,
             $target_language
         );
@@ -1678,10 +1675,7 @@ class AI_Translate_Core
         // Log alleen bij cache miss
 
         $system_prompt = sprintf(
-            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". ' .
-                'Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, and line breaks. ' .
-                'Return ONLY the translated text, without any additional explanations or markdown formatting. ' .
-                'Even if the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
+            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, [[[AI_TRANSLATE_SC_PAIR_X]]], [{{DYNAMIC_PLACE_HOLDER_X}}], [{{DYNAMIC_PLACEER_X}}]] line breaks and other similar placeholders. Return ONLY the translated text, without any additional explanations or (markdown) formatting. If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
             $source_language,
             $target_language
         );
@@ -2078,7 +2072,7 @@ class AI_Translate_Core
             }
         }
     }
-/**
+    /**
      * Adds alternate hreflang links to the <head> section for enabled languages.
      * This helps search engines understand the language and regional targeting of your pages.
      */
@@ -2103,7 +2097,7 @@ class AI_Translate_Core
         if (!$current_post_id) {
             $current_post_id = null; // Ensure it's null if no valid ID
         }
-        
+
         $original_page_url_in_default_lang = home_url('/'); // Initialiseer met basis URL
         $default_lang_url = ''; // Initialize variable to store the default language URL
 
@@ -2150,7 +2144,7 @@ class AI_Translate_Core
         // Voeg de default taal toe aan de lijst als deze nog niet aanwezig is
         // Zorg ervoor dat de default taal alleen wordt toegevoegd als deze niet al in de enabled of detectable talen zit.
         if (!in_array($default_lang, $enabled_languages) && !in_array($default_lang, $detectable_languages)) {
-             $all_hreflang_languages[] = $default_lang;
+            $all_hreflang_languages[] = $default_lang;
         }
 
         foreach ($all_hreflang_languages as $lang_code) {
@@ -2160,7 +2154,7 @@ class AI_Translate_Core
             }
 
             $hreflang_url = $this->translate_url($original_page_url_in_default_lang, $lang_code, $current_post_id);
-            
+
             // Store the URL for the default language
             if ($lang_code === $default_lang) {
                 $default_lang_url = $hreflang_url;
@@ -2172,7 +2166,6 @@ class AI_Translate_Core
         // Now, output the x-default hreflang link using the stored default language URL
         // This ensures x-default is exactly the same as the default language URL
         echo '<link rel="alternate" hreflang="x-default" href="' . esc_url($default_lang_url) . '" />' . "\n";
-
     }
 
     /**
@@ -2185,7 +2178,7 @@ class AI_Translate_Core
     public function filter_post_type_permalink(string $permalink, \WP_Post $post): string
     {
         // Only translate if translation is needed and it's a public post type
-        if (!$this->needs_translation() || !in_array($post->post_type, get_post_types(['public' => true]), true)) {        
+        if (!$this->needs_translation() || !in_array($post->post_type, get_post_types(['public' => true]), true)) {
             return $permalink;
         }
 
@@ -2203,13 +2196,13 @@ class AI_Translate_Core
 
         $new_permalink = preg_replace('/' . preg_quote($post->post_name, '/') . '(\/?)$/', $translated_slug . '$1', $permalink, 1);
 
-        if ($new_permalink === $permalink) {            
+        if ($new_permalink === $permalink) {
             $new_permalink = $this->translate_url($permalink, $current_language, $post->ID);
         } else {
             // If slug was replaced, ensure the language prefix is correct
             $new_permalink = $this->translate_url($new_permalink, $current_language, $post->ID);
         }
-        
+
 
         return $new_permalink;
     }
@@ -2312,7 +2305,7 @@ class AI_Translate_Core
         // Check if a 'name' (post slug) is present in the query vars
         if (isset($query_vars['name']) && !empty($query_vars['name'])) {
             $incoming_slug = $query_vars['name'];
-           
+
 
             // Attempt to reverse translate the slug
             $original_slug_data = $this->reverse_translate_slug($incoming_slug, $current_language, $default_language);
@@ -2322,12 +2315,12 @@ class AI_Translate_Core
                 $post_type = $original_slug_data['post_type'] ?? null;
 
                 // If the original slug is different from the incoming slug, it means we found a translation
-                if ($original_slug !== $incoming_slug) {                    
+                if ($original_slug !== $incoming_slug) {
                     $query_vars['name'] = $original_slug; // Set the original slug for WordPress to find the post
 
                     // If a post type was identified during reverse translation, set it
                     if ($post_type) {
-                        $query_vars['post_type'] = $post_type;                        
+                        $query_vars['post_type'] = $post_type;
                     }
 
                     // Unset 'pagename' if it exists, as 'name' is more specific for posts/pages
@@ -2363,9 +2356,9 @@ class AI_Translate_Core
         if ($source_language === $target_language || $path === '/') {
             return $path;
         }
- 
-         // Try to identify content from URL if not provided
-         if ($post_id === null) {
+
+        // Try to identify content from URL if not provided
+        if ($post_id === null) {
             $post_id = $this->identify_post_from_url($path);
         }
 
@@ -2391,7 +2384,7 @@ class AI_Translate_Core
                     if ($last_segment_key !== null) {
                         $path_parts[$last_segment_key] = $translated_slug;
                     }
-                    
+
                     $new_path = '/' . implode('/', $path_parts);
                     return $new_path;
                 }
@@ -2434,7 +2427,7 @@ class AI_Translate_Core
         $post_type_from_path = null;
         $public_cpts = get_post_types(['public' => true, '_builtin' => false], 'names');
         $allowed_post_types = array_merge(['post', 'page'], $public_cpts);
-        
+
         // Determine potential post type from path segments
         // For "3-deep" structure like /lang/cpt-slug/post-slug/
         if (count($path_segments) >= 2) {
@@ -2462,9 +2455,9 @@ class AI_Translate_Core
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Query is prepared using $wpdb->prepare(), and direct query is necessary here.
         $post = $wpdb->get_row($wpdb->prepare($sql, ...$params));
 
-        if ($post) {           
+        if ($post) {
             return (int)$post->ID;
-        } else {            
+        } else {
             return null;
         }
     }
@@ -3074,7 +3067,7 @@ class AI_Translate_Core
         if ($post) {
             return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Found exact match
         }
-     
+
         $posts = $wpdb->get_results(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_status = 'publish'
@@ -3107,7 +3100,7 @@ class AI_Translate_Core
         if ($post_in_default_lang) {
             return ['slug' => $post_in_default_lang->post_name, 'post_type' => $post_in_default_lang->post_type];
         }
-        
+
         return ['slug' => $decoded_translated_slug, 'post_type' => null]; // Gebruik de gedecodeerde versie
     }
 
