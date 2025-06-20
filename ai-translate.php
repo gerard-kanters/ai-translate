@@ -953,7 +953,7 @@ add_filter('redirect_canonical', function($redirect_url, $requested_url) {
             isset($parsed_requested_url['path']) &&
             strpos($parsed_requested_url['path'], '/' . $current_language . '/') !== false
         ) {
-            $new_path = '/' . $current_language . $parsed_redirect_url['path'];
+            $new_path = '/' . $current_language . $parsed_redirect_url['path'];            
             $redirect_url = str_replace($parsed_redirect_url['path'], $new_path, $redirect_url);
         }
     }

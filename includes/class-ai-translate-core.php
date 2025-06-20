@@ -96,7 +96,10 @@ class AI_Translate_Core
         // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Removed, replaced by new approach
         // The logic for Fluent Forms has been generalized in translate_text, so this hook is no longer needed.
         add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
-        add_action('wp_head', [$this, 'add_alternate_hreflang_links']);
+        add_action('wp_head', function() {
+            echo '<!-- Begin AI-Translate rel-tag -->' . "\n";
+        }, 9); // Prioriteit 9, vóór canonical (10)        
+        add_action('wp_head', [$this, 'add_alternate_hreflang_links'], 11); // Prioriteit 12, ná End tag (11)
         add_filter('post_type_link', [$this, 'filter_post_type_permalink'], 10, 2);
         add_filter('request', [$this, 'parse_translated_request']);
     }
@@ -364,6 +367,8 @@ class AI_Translate_Core
                 'tr' => 'Türkçe',
                 'cs' => 'Čeština',
                 'uk' => 'Українська',
+                'ro' => 'Română',
+                'el' => 'Ελληνικά', 
             ];
         }
         return $this->available_languages;
@@ -2142,11 +2147,12 @@ class AI_Translate_Core
         }
 
         // Voeg de default taal toe aan de lijst als deze nog niet aanwezig is
-        // Zorg ervoor dat de default taal alleen wordt toegevoegd als deze niet al in de enabled of detectable talen zit.
+        // Zorg ervoor dat de default taal alleen wordt toegevoegd als deze niet al in de enabled of detectable talen zit.        
         if (!in_array($default_lang, $enabled_languages) && !in_array($default_lang, $detectable_languages)) {
             $all_hreflang_languages[] = $default_lang;
         }
 
+       
         foreach ($all_hreflang_languages as $lang_code) {
             // Sla de hreflang tag voor de huidige taal over, omdat deze al in de output staat
             if ($lang_code === $current_lang) {
@@ -2166,6 +2172,7 @@ class AI_Translate_Core
         // Now, output the x-default hreflang link using the stored default language URL
         // This ensures x-default is exactly the same as the default language URL
         echo '<link rel="alternate" hreflang="x-default" href="' . esc_url($default_lang_url) . '" />' . "\n";
+        echo '<!-- End AI-Translate rel-tag -->' . "\n";
     }
 
     /**
