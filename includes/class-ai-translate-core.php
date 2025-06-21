@@ -1515,7 +1515,8 @@ If the input is empty or untranslatable, return it unchanged.',
 
         // 2. Check for switcher parameter on root URL (override cookie)
         // This handles the case where the user explicitly clicks the default language on the homepage.
-        if (isset($_GET['from_switcher']) && $_GET['from_switcher'] === '1') {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Language switching doesn't require nonce verification for public functionality.
+        if (isset($_GET['from_switcher']) && sanitize_text_field(wp_unslash($_GET['from_switcher'])) === '1') {
             $request_path = wp_parse_url(esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'] ?? '')), PHP_URL_PATH);
             // Normalize path: if empty or only slashes, make it a single slash
             if (!is_string($request_path) || trim($request_path, '/') === '') {
@@ -2214,7 +2215,7 @@ If the input is empty or untranslatable, return it unchanged.',
                     $path = get_page_uri($current_post_id);
                 } elseif ($post->post_type === 'post') {
                     // For posts, use the date archive structure if applicable, otherwise just slug
-                    $path = date('Y/m/d', strtotime($post->post_date)) . '/' . $original_slug;
+                    $path = gmdate('Y/m/d', strtotime($post->post_date)) . '/' . $original_slug;
                 } else {
                     // For custom post types, use the post type slug and original slug
                     $post_type_object = get_post_type_object($post->post_type);
@@ -3110,6 +3111,7 @@ If the input is empty or untranslatable, return it unchanged.',
         // 1. Check custom slug translation table first (exact match)
         $decoded_translated_slug = $translated_slug; // Verwijder urldecode, gebruik de raw URL-encoded slug
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query necessary for custom slug translation table lookup.
         $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
             "SELECT post_id, original_slug FROM {$table_name_slugs}
@@ -3118,8 +3120,10 @@ If the input is empty or untranslatable, return it unchanged.',
             $source_language
         ));
         if (!$cached_original_slug_data) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query necessary for custom slug translation table lookup with LIKE pattern.
             $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
-                "SELECT post_id, original_slug FROM " . $table_name_slugs . "
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
+                "SELECT post_id, original_slug FROM {$table_name_slugs}
                  WHERE translated_slug LIKE %s AND language_code = %s
                  ORDER BY LENGTH(translated_slug) ASC LIMIT 1", // Prefer kortere match
                 $wpdb->esc_like($decoded_translated_slug) . '%', // Gebruik de gedecodeerde versie
@@ -3138,7 +3142,7 @@ If the input is empty or untranslatable, return it unchanged.',
         }
         // 2. Fallback: Try to find a post with this exact slug (might be already in target language or default)
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query necessary for post lookup by slug.
         $post = $wpdb->get_row($wpdb->prepare(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_name = %s
@@ -3148,7 +3152,7 @@ If the input is empty or untranslatable, return it unchanged.',
             $decoded_translated_slug // Gebruik de gedecodeerde versie
         ));
         if (!$post) {
-            // Try fuzzy match if exact match fails     
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query necessary for fuzzy post lookup by slug pattern.
             $post = $wpdb->get_row($wpdb->prepare(
                 "SELECT ID, post_name, post_type FROM {$wpdb->posts}
                  WHERE post_name LIKE %s
@@ -3162,6 +3166,7 @@ If the input is empty or untranslatable, return it unchanged.',
             return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Found exact match
         }
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query necessary for comprehensive post lookup for slug reverse translation.
         $posts = $wpdb->get_results(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_status = 'publish'
@@ -3182,6 +3187,7 @@ If the input is empty or untranslatable, return it unchanged.',
                 return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Return the original slug
             }
         }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query necessary for fallback post lookup in default language.
         $post_in_default_lang = $wpdb->get_row($wpdb->prepare(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_name = %s
