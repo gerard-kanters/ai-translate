@@ -1049,13 +1049,8 @@ class AI_Translate_Core
             return $text . self::TRANSLATION_MARKER;
         }
 
-        // Verbeterde prompt: explicieter over vertalen en behoud structuur/placeholders
-        $system_prompt = sprintf(
-            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, [[[AI_TRANSLATE_SC_PAIR_X]]], [{{DYNAMIC_PLACE_HOLDER_X}}], [{{DYNAMIC_PLACEER_X}}]] line breaks and other similar placeholders. Return ONLY the translated text, without any additional explanations or (markdown) formatting. If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
-            $source_language,
-            $target_language
-        );
-
+        // Generate optimized system prompt with proper validation
+        $system_prompt = $this->build_translation_prompt($source_language, $target_language, $is_title);
 
         $data = [
             'model'             => $this->settings['selected_model'],
@@ -1087,6 +1082,97 @@ class AI_Translate_Core
             // API gaf lege of ongeldige content terug.
             throw new \Exception("API returned empty or invalid content.");
         }
+    }
+
+    /**
+     * Build optimized translation prompt with proper validation and caching.
+     *
+     * @param string $source_language Source language code.
+     * @param string $target_language Target language code.
+     * @param bool $is_title Whether the text is a title.
+     * @return string The system prompt for translation.
+     */
+    private function build_translation_prompt(string $source_language, string $target_language, bool $is_title = false): string
+    {
+        // Validate language codes
+        if (empty($source_language) || empty($target_language)) {
+            throw new \InvalidArgumentException('Source and target language codes cannot be empty');
+        }
+
+        // Validate language code format (ISO 639-1/639-3)
+        if (!preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $source_language) ||
+            !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $target_language)) {
+            throw new \InvalidArgumentException('Invalid language code format');
+        }
+
+        // Cache key for prompt caching
+        $cache_key = "prompt_{$source_language}_{$target_language}_" . ($is_title ? 'title' : 'text');
+        
+        // Check static cache for performance
+        static $prompt_cache = [];
+        if (isset($prompt_cache[$cache_key])) {
+            return $prompt_cache[$cache_key];
+        }
+
+        // Build context-specific instructions
+        $context_instructions = $is_title
+            ? 'Focus on translating titles and headings accurately while maintaining their impact and meaning. NEVER add HTML tags to plain text titles - if the input has no HTML tags, the output should also have no HTML tags.'
+            : 'Translate the content while preserving its original meaning, tone, and structure.';
+
+        // Consolidated placeholder list for better maintainability
+        $placeholders = [
+            '{{PLACEHOLDER_X}}',
+            '[[[AI_TRANSLATE_SC_PAIR_X]]]',
+            '[{{DYNAMIC_PLACE_HOLDER_X}}]',
+            '[{{DYNAMIC_PLACEER_X}}]',
+            '{{HREF_PLACEHOLDER_X}}',
+            '{{TITLE_PLACEHOLDER_X}}'
+        ];
+
+        $placeholder_text = implode(', ', $placeholders);
+
+        // Build optimized prompt with clear structure
+        $system_prompt = sprintf(
+            'You are a professional translation engine. Translate the following text from %s (ISO 639-1 code: "%s") to %s (ISO 639-1 code: "%s").
+
+CRITICAL REQUIREMENTS:
+1. Preserve ALL HTML tags and their exact structure - do NOT add or remove HTML tags
+2. If input has NO HTML tags, output must also have NO HTML tags
+3. Maintain ALL placeholders EXACTLY as they appear: %s
+4. NEVER modify placeholder syntax - do NOT add extra brackets, spaces, or characters to placeholders
+5. Keep line breaks and formatting intact
+6. Do NOT escape quotes or special characters in HTML attributes
+7. Return ONLY the translated text without explanations or markdown formatting
+8. NEVER wrap plain text in HTML tags like <p>, <div>, or any other tags
+9. Placeholders must remain IDENTICAL in format - {{PLACEHOLDER_X}} stays {{PLACEHOLDER_X}}, not [{{PLACEHOLDER_X}}] or {{PLACEHOLDER_X}}]
+
+%s
+
+If the input is empty or untranslatable, return it unchanged.',
+            $this->get_language_name($source_language),
+            $source_language,
+            $this->get_language_name($target_language),
+            $target_language,
+            $placeholder_text,
+            $context_instructions
+        );
+
+        // Cache the prompt for performance
+        $prompt_cache[$cache_key] = $system_prompt;
+
+        return $system_prompt;
+    }
+
+    /**
+     * Get human-readable language name from language code.
+     *
+     * @param string $language_code ISO language code.
+     * @return string Human-readable language name.
+     */
+    private function get_language_name(string $language_code): string
+    {
+        $languages = $this->get_available_languages();
+        return $languages[$language_code] ?? ucfirst($language_code);
     }
 
     /**
@@ -1683,11 +1769,8 @@ class AI_Translate_Core
         // --- Cache miss ---
         // Log alleen bij cache miss
 
-        $system_prompt = sprintf(
-            'You are a translation engine. Translate the following text from the source language, identified by its ISO 639-1 language code "%s", to the target language, identified by its ISO 639-1 language code "%s". Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, [[[AI_TRANSLATE_SC_PAIR_X]]], [{{DYNAMIC_PLACE_HOLDER_X}}], [{{DYNAMIC_PLACEER_X}}]] line breaks and other similar placeholders. Return ONLY the translated text, without any additional explanations or (markdown) formatting. If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
-            $source_language,
-            $target_language
-        );
+        // Use the same optimized prompt builder for consistency
+        $system_prompt = $this->build_translation_prompt($source_language, $target_language, false);
 
         $data = [
             'model' => $this->settings['selected_model'],
