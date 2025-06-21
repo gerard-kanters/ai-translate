@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
-Version: 1.21
+Version: 1.22
 Author: NetCare
 Author URI: https://netcare.nl/
 License: GPL2
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.21');
+define('AI_TRANSLATE_VERSION', '1.22');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -38,6 +38,12 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     // Plugin initialisatie
     add_action('init', __NAMESPACE__ . '\\init_plugin', 5); // Keep for basic init like scripts
     add_action('init', __NAMESPACE__ . '\\add_language_rewrite_rules', 10); // Add rewrite rules later in init
+    
+    // Force flush rewrite rules if needed (only once per request)
+    if (!get_transient('ai_translate_rules_flushed')) {
+        add_action('init', __NAMESPACE__ . '\\force_flush_rewrite_rules', 15);
+        set_transient('ai_translate_rules_flushed', true, HOUR_IN_SECONDS);
+    }
 
     if (is_admin()) {
         require_once AI_TRANSLATE_DIR . 'includes/admin-page.php';
@@ -549,6 +555,15 @@ function plugin_deactivate(): void
     flush_rewrite_rules();
 }
 
+/**
+ * Force flush rewrite rules to ensure language rules are active
+ */
+function force_flush_rewrite_rules(): void
+{
+    add_language_rewrite_rules();
+    flush_rewrite_rules();
+}
+
 function init_plugin(): void
 {
     // Basic init - enqueue scripts/styles
@@ -566,11 +581,6 @@ function init_plugin(): void
 
 function add_language_rewrite_rules(): void
 {
-    // Add rewrite rules for translated custom post types (services and products)
-    // Exclude /wp-admin/ and /wp-login.php from matching
-    add_rewrite_rule('^([a-z]{2})/(?!wp-admin|wp-login.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');
-    add_rewrite_rule('^([a-z]{2})/(?!wp-admin|wp-login.php)(product)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]', 'top');
-
     $core = AI_Translate_Core::get_instance();
     $settings = $core->get_settings();
     $selected_languages = $settings['enabled_languages'] ?? [];
@@ -585,13 +595,20 @@ function add_language_rewrite_rules(): void
     }
     $lang_regex = '(' . implode('|', array_map('preg_quote', $lang_codes, ['/'])) . ')'; // e.g., (en|fr|de)
 
-    // Rule for pages/posts with language prefix
-    // Rule for pages/posts with language prefix, excluding admin paths
-    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(.+?)/?$', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
-    // Blogposts (standaard post type) with language prefix, excluding admin paths
-    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
-    // Rule for homepage with language prefix, excluding admin paths
+    // BELANGRIJKE VOLGORDE: Specifieke regels eerst, algemene regels later
+    
+    // 1. Rule for homepage with language prefix (MOET EERST!)
     add_rewrite_rule('^' . $lang_regex . '/?$', 'index.php?lang=$matches[1]', 'top');
+    
+    // 2. Rules for custom post types
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(product)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]', 'top');
+    
+    // 3. Rule for pages with language prefix
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(.+?)/?$', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
+    
+    // 4. Rule for single posts with language prefix (LAATSTE!)
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
 
     // Add 'lang' to query vars so get_query_var works
     add_filter('query_vars', __NAMESPACE__ . '\\add_language_query_var');

@@ -92,16 +92,18 @@ class AI_Translate_Core
     private function __construct()
     {
         $this->init();
+        $this->log_event("AI_Translate_Core constructor called.", 'debug'); // Added log for constructor
         add_action('plugins_loaded', [$this, 'schedule_cleanup']);
         // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Removed, replaced by new approach
         // The logic for Fluent Forms has been generalized in translate_text, so this hook is no longer needed.
         add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
         add_action('wp_head', function() {
             echo '<!-- Begin AI-Translate rel-tag -->' . "\n";
-        }, 9); // Prioriteit 9, vóór canonical (10)        
+        }, 9); // Prioriteit 9, vóór canonical (10)
         add_action('wp_head', [$this, 'add_alternate_hreflang_links'], 11); // Prioriteit 12, ná End tag (11)
         add_filter('post_type_link', [$this, 'filter_post_type_permalink'], 10, 2);
         add_filter('request', [$this, 'parse_translated_request']);
+        add_action('template_redirect', [$this, 'handle_404_redirect'], 1); // Hook for 404 redirection, priority changed to 1
     }
 
     /**
@@ -138,6 +140,8 @@ class AI_Translate_Core
 
         // Initialize cache directories
         $this->initialize_cache_directories();
+        // Log the determined log directory path for debugging
+        $this->log_event("Log directory path: " . $this->get_log_dir(), 'debug');
     }
 
     /**
@@ -3155,5 +3159,24 @@ class AI_Translate_Core
         }
 
         return $output;
+    }
+
+    /**
+     * Redirects to the homepage of the current language if a 404 error occurs.
+     * This function is hooked to 'template_redirect'.
+     */
+    public function handle_404_redirect(): void
+    {
+        if (is_404() && !is_admin()) {
+            $current_lang = $this->get_current_language();
+            $default_lang = $this->default_language;
+            
+            // Alleen redirecten naar de default language homepage om loops te voorkomen
+            if ($current_lang !== $default_lang) {
+                $home_url = home_url('/');
+                wp_redirect($home_url, 302);
+                exit;
+            }
+        }
     }
 }

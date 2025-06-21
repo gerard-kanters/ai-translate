@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, ai, artificial intelligence, multilingual, translate
 Requires at least: 5.0
 Tested up to: 6.8
-Stable tag: 1.21
+Stable tag: 1.22
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -128,6 +128,9 @@ This plugin connects to external AI translation services to provide automatic tr
 - API key from one of the supported AI translation services (OpenAI, Deepseek, or compatible custom API)
 
 ## Changelog
+### 1.22
+- Added Greek and Romanian
+- Fix redirect issue to translated homepage
 
 ### 1.2
 - Reduced API calls.
