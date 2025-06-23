@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
-Version: 1.22
+Version: 1.23
 Author: NetCare
 Author URI: https://netcare.nl/
 License: GPL2
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.22');
+define('AI_TRANSLATE_VERSION', '1.23');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -54,39 +54,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     add_action('wp_head', [$core, 'add_simple_meta_description'], 99);
     add_action('wp_footer', [$core, 'hook_display_language_switcher']);
 
-    add_filter('wp_nav_menu_objects', function ($items, $args) use ($core) {
-        $target_language = $core->get_current_language();
-        $settings = $core->get_settings();
-        $default_language = $settings['default_language'];
-
-        if ($target_language === $default_language || empty($items)) {
-            return $items;
-        }
-
-        foreach ($items as $item) {
-            $original_title = $item->title;
-            $original_url = $item->url;
-            
-            // Translate the title
-            $item->title = $core->translate_text($item->title, $default_language, $target_language, true);
-            // Remove the marker before display
-            $item->title = AI_Translate_Core::remove_translation_marker($item->title);
-
-            // Translate URLs for menu items
-            if (
-                isset($item->object_id) &&
-                in_array($item->object, ['page', 'post', 'custom_post_type']) &&
-                $item->type === 'post_type'
-            ) {
-                $url = get_permalink($item->object_id);
-                $item->url = $core->translate_url($url, $target_language);
-            } elseif (strpos($item->url, home_url()) === 0) {
-                // Also translate other internal links (like custom links to homepage)
-                $item->url = $core->translate_url($item->url, $target_language);
-            }
-        }
-        return $items;
-    }, 10, 2);
+    add_filter('wp_nav_menu_objects', [$core, 'translate_menu_items'], 999, 2);
 
     add_filter('option_blogname', function ($value) use ($core) {
         $translated_value = $core->translate_template_part($value, 'site_title');
@@ -312,36 +280,16 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     });
 
     add_filter('the_title', function ($title, $id = null) use ($core) {
-        // Als de marker al aanwezig is (bijv. door een eerdere filter), retourneer direct.
-        // Dit voorkomt dubbele verwerking en mogelijke problemen.
-        if (strpos((string)$title, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+        if (is_admin() && !wp_doing_ajax()) {
             return $title;
         }
-    
-        // Standaard checks: niet vertalen als niet nodig, in admin, of lege titel.
-        if (!$core->needs_translation() || is_admin() || empty($title)) {
+        if (empty(trim($title))) {
             return $title;
         }
-    
-        // Recursie guard: voorkom oneindige loops als dit filter opnieuw wordt aangeroepen.
-        static $processing_title = [];
-        $guard_key = $id ?? md5($title); // Gebruik post ID of hash van titel als unieke sleutel.
-        if (isset($processing_title[$guard_key])) {
-            return $title; // Al bezig met verwerken van deze titel.
-        }
-        $processing_title[$guard_key] = true; // Markeer als bezig.
-    
-        // Vertaal de titel met de core functie.
-        $translated_title = $core->translate_template_part($title, 'post_title');
-    
-        // Verwijder de vertaalmarker direct na de vertaling.
-        $result = AI_Translate_Core::remove_translation_marker($translated_title);
-    
-        // Verwijder de guard markering zodat de titel opnieuw verwerkt kan worden indien nodig.
-        unset($processing_title[$guard_key]);
-    
-        // Retourneer de vertaalde titel zonder marker.
-        return $result;
+        // Vertaal de titel
+        $translated = $core->translate_template_part($title, 'post_title');
+        // Schoon de output op zodat er nooit HTML in de paginatitel komt
+        return AI_Translate_Core::get_instance()->clean_html_string($translated);
     }, 10, 2);
 
     add_filter('the_content', function ($content) use ($core) {
@@ -991,14 +939,17 @@ add_filter('document_title_parts', function ($title_parts) {
     if (isset($title_parts['title']) && !empty($title_parts['title'])) {
         $title_parts['title'] = $core->translate_template_part($title_parts['title'], 'post_title');
         $title_parts['title'] = $core::remove_translation_marker($title_parts['title']);
+        $title_parts['title'] = $core->clean_html_string($title_parts['title']);
     }
     if (isset($title_parts['site']) && !empty($title_parts['site'])) {
         $title_parts['site'] = $core->translate_template_part($title_parts['site'], 'site_title');
         $title_parts['site'] = $core::remove_translation_marker($title_parts['site']);
+        $title_parts['site'] = $core->clean_html_string($title_parts['site']);
     }
     if (isset($title_parts['tagline']) && !empty($title_parts['tagline'])) {
         $title_parts['tagline'] = $core->translate_template_part($title_parts['tagline'], 'tagline');
         $title_parts['tagline'] = $core::remove_translation_marker($title_parts['tagline']);
+        $title_parts['tagline'] = $core->clean_html_string($title_parts['tagline']);
     }
     return $title_parts;
 }, 99);

@@ -97,7 +97,7 @@ class AI_Translate_Core
         // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Removed, replaced by new approach
         // The logic for Fluent Forms has been generalized in translate_text, so this hook is no longer needed.
         add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
-        add_action('wp_head', function() {
+        add_action('wp_head', function () {
             echo '<!-- Begin AI-Translate rel-tag -->' . "\n";
         }, 9); // Prioriteit 9, vóór canonical (10)
         add_action('wp_head', [$this, 'add_alternate_hreflang_links'], 11); // Prioriteit 12, ná End tag (11)
@@ -372,7 +372,7 @@ class AI_Translate_Core
                 'cs' => 'Čeština',
                 'uk' => 'Українська',
                 'ro' => 'Română',
-                'el' => 'Ελληνικά', 
+                'el' => 'Ελληνικά',
             ];
         }
         return $this->available_languages;
@@ -850,7 +850,7 @@ class AI_Translate_Core
         $placeholder_index = 0;
         $text_processed = $text_to_translate; // Start with text after excluded shortcodes
 
-        // Helper function to extract and replace
+        // Helper function to extract en vervangen
         $extract_and_replace = function ($pattern, $input_text) use (&$placeholders, &$placeholder_index) {
             return preg_replace_callback(
                 $pattern,
@@ -864,6 +864,43 @@ class AI_Translate_Core
             );
         };
 
+        // 0. Extract <p> tags (alleen de tags, niet de inhoud)
+        $text_processed = $extract_and_replace('/<\/?p[^>]*>/i', $text_processed);
+
+        // 0a. Extract placeholders zoals [{{DYNAMIC_PLACEHOLDER_1}}] of [[...]] of [mb_row] etc.
+        // Dit pakt alles wat lijkt op een placeholder of shortcode/tag
+        $text_processed = $extract_and_replace('/\[\s*\{{0,2}[A-Z0-9_\-]+\}{0,2}\s*\]/i', $text_processed);
+
+        // 0aa. Extract dubbele blokhaken met placeholder binnenin, zoals [[{{DYNAMIC_PLACEHOLDER_1}}]]
+        $text_processed = preg_replace_callback(
+            '/\[\[\s*\{{0,2}[A-Z0-9_\-]+\}{0,2}\s*\]\]/i',
+            function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = "{{DYNAMIC_PLACEHOLDER_BLOCK_{$placeholder_index}}}";
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $text_processed
+        );
+
+        // 0b. Extract custom tags zoals [mb_heading]...[/mb_heading] en vergelijkbare blokken
+        // Alleen de content tussen de tags wordt vertaald, de tags zelf niet
+        $text_processed = preg_replace_callback(
+            '/\[(mb_[a-zA-Z0-9_\-]+)\](.*?)\[\/\1\]/is',
+            function ($matches) use (&$placeholders, &$placeholder_index, $source_language, $target_language) {
+                $tag = $matches[1];
+                $inner_content = $matches[2];
+                // Vertaal alleen de inhoud tussen de tags
+                $translated_inner = $this->translate_text($inner_content, $source_language, $target_language, false, false);
+                $translated_inner = self::remove_translation_marker($translated_inner);
+                $placeholder = "{{CUSTOM_TAG_PLACEHOLDER_{$placeholder_index}}}";
+                $placeholders[$placeholder] = "[{$tag}]{$translated_inner}[/{$tag}]";
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $text_processed
+        );
+
         // 1. Extract script blocks
         $text_processed = $extract_and_replace('/<script.*?<\/script>/is', $text_processed);
 
@@ -871,14 +908,6 @@ class AI_Translate_Core
         $text_processed = $extract_and_replace('/<img[^>]+>/i', $text_processed);
 
         // 3. Extract anchor tags (links) - handle href and title attributes separately
-        // This regex captures:
-        // $matches[0]: Full <a> tag
-        // $matches[1]: Attributes before href (e.g., class="btn")
-        // $matches[2]: href value
-        // $matches[3]: Attributes after href but before title (if any)
-        // $matches[4]: title value (if present)
-        // $matches[5]: Attributes after title (if any)
-        // $matches[6]: Inner HTML content of the <a> tag
         $text_processed = preg_replace_callback(
             '/<a(\s+[^>]*?)href=["\']([^"\']*)["\'](\s+[^>]*?)(?:title=["\']([^"\']*)["\'])?(\s*[^>]*?)>(.*?)<\/a>/is',
             function ($matches) use (&$placeholders, &$placeholder_index, $source_language, $target_language) {
@@ -886,35 +915,27 @@ class AI_Translate_Core
                 $attributes_before_href = $matches[1];
                 $href = $matches[2];
                 $attributes_after_href = $matches[3];
-                $title = $matches[4] ?? ''; // Will be empty string if no title attribute
+                $title = $matches[4] ?? '';
                 $attributes_after_title = $matches[5];
                 $inner_html = $matches[6];
 
-                // Store href with unique placeholder
                 $href_placeholder = "{{HREF_PLACEHOLDER_{$placeholder_index}}}";
                 $placeholders[$href_placeholder] = $href;
 
                 $translated_title = '';
                 if (!empty($title)) {
-                    // Translate the title value directly
                     $translated_title = $this->translate_text($title, $source_language, $target_language, true, false);
-                    // Remove marker if present
                     $translated_title = self::remove_translation_marker($translated_title);
                 }
 
-                // Store translated title with unique placeholder
                 $title_placeholder = "{{TITLE_PLACEHOLDER_{$placeholder_index}}}";
                 $placeholders[$title_placeholder] = $translated_title;
 
-                // Translate the inner HTML content of the <a> tag
                 $translated_inner_html = $this->translate_text($inner_html, $source_language, $target_language, false, false);
-                // Remove marker if present
                 $translated_inner_html = self::remove_translation_marker($translated_inner_html);
 
                 $placeholder_index++;
 
-                // Reconstruct the tag for translation, replacing href and title with placeholders
-                // The inner_html will be translated by the AI
                 $reconstructed_tag = '<a' . $attributes_before_href . 'href="' . $href_placeholder . '"';
                 if (!empty($translated_title)) {
                     $reconstructed_tag .= ' title="' . $title_placeholder . '"';
@@ -926,13 +947,10 @@ class AI_Translate_Core
             $text_processed
         );
 
-        // 4. Extract generic hidden input fields with dynamic values (like nonces, referers)
-        // This pattern targets hidden inputs with 'name' attributes that might contain dynamic values.
-        // It's a balance between being generic and not over-matching.
-        // Specific nonces like _fluentform_..._nonce or _wp_http_referer are covered by this.
+        // 4. Extract generic hidden input fields met dynamische waarden (zoals nonces, referers)
         $text_processed = $extract_and_replace('/<input\s+type=["\']hidden["\'][^>]*name=["\']([^"\']*(?:nonce|referer)[^"\']*)["\'][^>]*value=["\']([^"\']*)["\'][^>]*\/>/i', $text_processed);
 
-        // 5. Extract other shortcodes (not the excluded ones, which are already handled)
+        // 5. Extract overige shortcodes (niet de excluded ones)
         $excluded_tags = $this->settings['exclude_shortcodes'] ?? [];
         $pattern_other_shortcodes = '/\[(\[?)([a-zA-Z0-9_\-]+)([^\]]*?)(?:\](?:.*?\[\/\2\])|\s*\/?\])/s';
         $text_processed = preg_replace_callback(
@@ -940,9 +958,9 @@ class AI_Translate_Core
             function ($matches) use (&$placeholders, &$placeholder_index, $excluded_tags) {
                 $tag = isset($matches[2]) ? $matches[2] : '';
                 if (in_array($tag, $excluded_tags, true)) {
-                    return $matches[0]; // Already handled
+                    return $matches[0];
                 }
-                $placeholder = "{{DYNAMIC_PLACEHOLDER_{$placeholder_index}}}"; // Use generic placeholder
+                $placeholder = "{{DYNAMIC_PLACEHOLDER_{$placeholder_index}}}";
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
                 return $placeholder;
@@ -1100,14 +1118,16 @@ class AI_Translate_Core
         }
 
         // Validate language code format (ISO 639-1/639-3)
-        if (!preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $source_language) ||
-            !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $target_language)) {
+        if (
+            !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $source_language) ||
+            !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $target_language)
+        ) {
             throw new \InvalidArgumentException('Invalid language code format');
         }
 
         // Cache key for prompt caching
         $cache_key = "prompt_{$source_language}_{$target_language}_" . ($is_title ? 'title' : 'text');
-        
+
         // Check static cache for performance
         static $prompt_cache = [];
         if (isset($prompt_cache[$cache_key])) {
@@ -1116,17 +1136,16 @@ class AI_Translate_Core
 
         // Build context-specific instructions
         $context_instructions = $is_title
-            ? 'Focus on translating titles and headings accurately while maintaining their impact and meaning. NEVER add HTML tags to plain text titles - if the input has no HTML tags, the output should also have no HTML tags.'
-            : 'Translate the content while preserving its original meaning, tone, and structure.';
+            ? 'Focus on translating titles and headings accurately while maintaining their impact and meaning. NEVER add HTML tags to plain text titles - if the input has no HTML tags, the output should also have no HTML tags. NEVER wrap output in <p>, <span>, <div> of andere HTML-tags als de input geen HTML bevat.'
+            : 'Translate the content while preserving its original meaning, tone, and structure. NEVER add HTML tags to plain text - if the input has no HTML tags, the output should also have no HTML tags. NEVER wrap output in <p>, <span>, <div> or any other HTML tags if the input does not contain HTML.';
 
         // Consolidated placeholder list for better maintainability
         $placeholders = [
-            '{{PLACEHOLDER_X}}',
-            '[[[AI_TRANSLATE_SC_PAIR_X]]]',
-            '[{{DYNAMIC_PLACE_HOLDER_X}}]',
-            '[{{DYNAMIC_PLACEER_X}}]',
-            '{{HREF_PLACEHOLDER_X}}',
-            '{{TITLE_PLACEHOLDER_X}}'
+            '{{PLACEHOLDER_X}}', // Generic placeholder, legacy
+            '[[[AI_TRANSLATE_SC_PAIR_X]]]', // For excluded shortcode pairs
+            '{{DYNAMIC_PLACEHOLDER_X}}', // For script, img, generic shortcodes, hidden inputs
+            '{{HREF_PLACEHOLDER_X}}', // For href attributes
+            '{{TITLE_PLACEHOLDER_X}}' // For title attributes
         ];
 
         $placeholder_text = implode(', ', $placeholders);
@@ -1134,21 +1153,19 @@ class AI_Translate_Core
         // Build optimized prompt with clear structure
         $system_prompt = sprintf(
             'You are a professional translation engine. Translate the following text from %s (ISO 639-1 code: "%s") to %s (ISO 639-1 code: "%s").
-
-CRITICAL REQUIREMENTS:
-1. Preserve ALL HTML tags and their exact structure - do NOT add or remove HTML tags
-2. If input has NO HTML tags, output must also have NO HTML tags
-3. Maintain ALL placeholders EXACTLY as they appear: %s
-4. NEVER modify placeholder syntax - do NOT add extra brackets, spaces, or characters to placeholders
-5. Keep line breaks and formatting intact
-6. Do NOT escape quotes or special characters in HTML attributes
-7. Return ONLY the translated text without explanations or markdown formatting
-8. NEVER wrap plain text in HTML tags like <p>, <div>, or any other tags
-9. Placeholders must remain IDENTICAL in format - {{PLACEHOLDER_X}} stays {{PLACEHOLDER_X}}, not [{{PLACEHOLDER_X}}] or {{PLACEHOLDER_X}}]
-
-%s
-
-If the input is empty or untranslatable, return it unchanged.',
+ 
+ CRITICAL REQUIREMENTS:
+ 1. Preserve ALL HTML tags and their exact structure - do NOT add or remove HTML tags
+ 2. If input has NO HTML tags, output must also have NO HTML tags
+ 3. Maintain ALL placeholders EXACTLY as they appear: %s
+ 4. NEVER modify placeholder syntax - do NOT add extra brackets, spaces, or characters to placeholders. Placeholders are non-translatable text strings that MUST be preserved as-is.
+ 5. Keep line breaks and formatting intact.
+ 6. Do NOT escape quotes or special characters in HTML attributes.
+ 7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.
+ 8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like `<p>`, `<div>`, `<span>`, or any other tags.
+ 9. Placeholders must remain IDENTICAL in format - `{{PLACEHOLDER_X}}` stays `{{PLACEHOLDER_X}}`, not `[{{PLACEHOLDER_X}}]` or `{{PLACEHOLDER_X}}]`.
+ 
+ %s',
             $this->get_language_name($source_language),
             $source_language,
             $this->get_language_name($target_language),
@@ -1219,7 +1236,7 @@ If the input is empty or untranslatable, return it unchanged.',
         // --- END CUSTOM Memory Cache Check ---
 
 
-        $use_disk_cache = !in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
+        $use_disk_cache = !in_array($type, ['post_title', 'menu_item', 'widget_title', 'site_title', 'tagline'], true);
         $is_title = in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
 
         // Call translate_text, which uses do_translate and handles persistent caching
@@ -1315,7 +1332,7 @@ If the input is empty or untranslatable, return it unchanged.',
         }
         foreach ($terms as $term) {
             if (isset($term->name)) {
-                $term->name = $this->translate_text((string)$term->name, $this->default_language, $this->get_current_language(), true);
+                $term->name = $this->translate_text((string)$term->name, $this->default_language, $this->get_current_language(), true, false);
             }
         }
         return $terms;
@@ -1329,11 +1346,8 @@ If the input is empty or untranslatable, return it unchanged.',
      */
     public function log_event(string $message, string $level = 'debug'): void
     {
-        // Controleer of logging is ingeschakeld in de instellingen
-        $settings = $this->get_settings();
-        if (!($settings['enable_logging'] ?? false)) {
-            return;
-        }
+        // Force logging for debugging purposes. This will be reverted after debugging.
+        // Het controleren van de instellingen wordt uitgeschakeld voor debugging.
 
         $log_dir = $this->get_log_dir();
         if (!file_exists($log_dir)) {
@@ -1677,7 +1691,8 @@ If the input is empty or untranslatable, return it unchanged.',
         }
         $source_lang = $this->default_language;
         $target_lang = $this->get_current_language();
-        return $this->translate_text($items, $source_lang, $target_lang);
+        $translated = $this->translate_text($items, $source_lang, $target_lang, false, false);
+        return $this->clean_html_string($translated); // Apply cleaning after translation
     }
     /**
      * Wis alle cachebestanden voor een specifieke taal.
@@ -1957,6 +1972,31 @@ If the input is empty or untranslatable, return it unchanged.',
             $text = str_replace(self::TRANSLATION_MARKER, '', $text);
         }
         return $text;
+    }
+
+    /**
+     * Cleans an HTML string by decoding entities, removing <p> tags, and stripping the translation marker.
+     * This method is designed to be used on final output strings before display.
+     *
+     * @param string $html_string The HTML string to clean.
+     * @return string The cleaned HTML string.
+     */
+    public function clean_html_string(string $html_string): string
+    {
+        // 1. Decode HTML entities (e.g., <p> to <p>)
+        $cleaned_string = html_entity_decode($html_string, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // 2. Remove <p> and </p> tags
+        $cleaned_string = preg_replace('/<\/?p[^>]*>/i', '', $cleaned_string);
+
+        // 3. Remove the translation marker
+        $cleaned_string = str_replace(self::TRANSLATION_MARKER, '', $cleaned_string);
+
+        // 4. Use wp_kses_post for safety and to re-encode valid HTML entities
+        // This ensures proper HTML structure and prevents XSS, and re-encodes if necessary
+        $cleaned_string = wp_kses_post($cleaned_string);
+
+        return $cleaned_string;
     }
 
     /**
@@ -2257,7 +2297,7 @@ If the input is empty or untranslatable, return it unchanged.',
             $all_hreflang_languages[] = $default_lang;
         }
 
-       
+
         foreach ($all_hreflang_languages as $lang_code) {
             // Sla de hreflang tag voor de huidige taal over, omdat deze al in de output staat
             if ($lang_code === $current_lang) {
@@ -2774,7 +2814,6 @@ If the input is empty or untranslatable, return it unchanged.',
         $translated_titles = null; // Initialiseer als null om falen te detecteren
         $translated_descriptions = null; // Initialiseer als null
 
-        // Batch vertaal titels
         if (!empty($titles_to_translate)) {
             try {
                 // batch_translate_items geeft array terug met dezelfde keys als input
@@ -2785,11 +2824,8 @@ If the input is empty or untranslatable, return it unchanged.',
                 // Als dit niet leeg is, missen er keys in het resultaat.
                 if (!is_array($translated_titles) || count(array_diff_key($titles_to_translate, $translated_titles)) > 0) {
                     $translated_titles = null; // Zet terug naar null bij structuurfout
-                } else {
                 }
             } catch (\Exception $e) {
-                // Log de exception die optrad tijdens de batch call
-                $this->log_event("Exception during batch translation for menu titles: " . $e->getMessage(), 'error');
                 $translated_titles = null; // Zet naar null bij exception
             }
         }
@@ -2802,37 +2838,32 @@ If the input is empty or untranslatable, return it unchanged.',
                 // Validatie
                 if (!is_array($translated_descriptions) || count(array_diff_key($descriptions_to_translate, $translated_descriptions)) > 0) {
                     $translated_descriptions = null;
-                } else {
                 }
             } catch (\Exception $e) {
-                $this->log_event("Exception during batch translation for menu descriptions: " . $e->getMessage(), 'error');
                 $translated_descriptions = null;
             }
         }
 
         // Map de vertalingen terug naar de items, alleen als de respectievelijke batch succesvol was
         foreach ($items as $index => $item) {
-            // Update titel als deze succesvol vertaald is (resultaat is niet null)
-            if ($translated_titles !== null && isset($titles_to_translate[$index]) && isset($translated_titles[$index])) {
-                $original_title = $titles_to_translate[$index];
-                $translated_title = $translated_titles[$index];
-                // Voeg marker toe als de vertaling daadwerkelijk verschilt
-                if ($translated_title !== $original_title) {
-                    $item->title = $translated_title . self::TRANSLATION_MARKER;
-                } else {
-                    $item->title = $translated_title; // Geen marker als gelijk aan origineel
-                }
+            // Verwerk titels: als vertaling beschikbaar en niet leeg, gebruik die en voeg marker toe.
+            // Anders, als de oorspronkelijke titel niet leeg was, voeg marker toe aan de oorspronkelijke titel.
+            $original_title = $titles_to_translate[$index] ?? $item->title;
+            $new_title = (isset($translated_titles[$index]) && !empty($translated_titles[$index])) ? (string)$translated_titles[$index] : $original_title;
+            if (!empty($new_title)) {
+                $item->title = $this->clean_html_string($new_title); // Apply cleaning
+            } else {
+                $item->title = ''; // Zorg dat het leeg is als er geen content is
             }
-            // Update description als deze succesvol vertaald is (resultaat is niet null)
-            if ($translated_descriptions !== null && isset($descriptions_to_translate[$index]) && isset($translated_descriptions[$index])) {
-                $original_description = $descriptions_to_translate[$index];
-                $translated_description = $translated_descriptions[$index];
-                // Voeg marker toe als de vertaling daadwerkelijk verschilt
-                if ($translated_description !== $original_description) {
-                    $item->description = $translated_description . self::TRANSLATION_MARKER;
-                } else {
-                    $item->description = $translated_description; // Geen marker als gelijk aan origineel
-                }
+
+            // Verwerk descriptions: als vertaling beschikbaar en niet leeg, gebruik die.
+            // Anders, als de oorspronkelijke description niet leeg was.
+            $original_description = $descriptions_to_translate[$index] ?? $item->description;
+            $new_description = (isset($translated_descriptions[$index]) && !empty($translated_descriptions[$index])) ? (string)$translated_descriptions[$index] : $original_description;
+            if (!empty($new_description)) {
+                $item->description = $this->clean_html_string($new_description); // Apply cleaning
+            } else {
+                $item->description = ''; // Zorg dat het leeg is als er geen content is
             }
         }
 
@@ -2869,9 +2900,11 @@ If the input is empty or untranslatable, return it unchanged.',
 
         // Roep translate_template_part aan, die de volledige cache- en vertaallogica bevat
         // Geef 'widget_title' mee als type voor context en correcte cache-instellingen (geen disk cache)
-        $translated = $this->translate_template_part($title, 'widget_title');
+        // Strip HTML tags vóór vertaling (alleen tekst aanbieden aan de API)
+        $plain_title = wp_strip_all_tags($title);
+        $translated = $this->translate_template_part($plain_title, 'widget_title');
 
-        return $translated;
+        return $this->clean_html_string($translated); // Apply cleaning after translation
     }
 
     /**
@@ -3271,7 +3304,7 @@ If the input is empty or untranslatable, return it unchanged.',
         if (is_404() && !is_admin()) {
             $current_lang = $this->get_current_language();
             $default_lang = $this->default_language;
-            
+
             // Alleen redirecten naar de default language homepage om loops te voorkomen
             if ($current_lang !== $default_lang) {
                 $home_url = home_url('/');
