@@ -66,7 +66,9 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     add_filter('option_blogname', function ($value) use ($core) {
         $translated_value = $core->translate_template_part($value, 'site_title');
         // Marker direct strippen
-        return \AITranslate\AI_Translate_Core::remove_translation_marker($translated_value);
+        $cleaned = \AITranslate\AI_Translate_Core::remove_translation_marker($translated_value);
+        // Verwijder alle HTML (zoals <p>) uit de site_title
+        return $core->clean_html_string($cleaned);
     }, 100);
     
     add_filter('option_blogdescription', function ($value) use ($core) {
