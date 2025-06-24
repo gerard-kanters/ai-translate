@@ -1000,13 +1000,18 @@ class AI_Translate_Core
             foreach ($placeholders as $placeholder => $value) {
                 // Special handling for HREF and TITLE placeholders
                 if (strpos($placeholder, 'HREF_PLACEHOLDER_') !== false) {
-                    // Replace the placeholder with the original href value
                     $final_translated_text = str_replace('href="' . $placeholder . '"', 'href="' . $value . '"', $final_translated_text);
                 } elseif (strpos($placeholder, 'TITLE_PLACEHOLDER_') !== false) {
-                    // Replace the placeholder with the translated title value
                     $final_translated_text = str_replace('title="' . $placeholder . '"', 'title="' . $value . '"', $final_translated_text);
+                } elseif (strpos($placeholder, 'DYNAMIC_PLACEHOLDER_BLOCK_') !== false) {
+                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
+                } elseif (strpos($placeholder, 'CUSTOM_TAG_PLACEHOLDER_') !== false) {
+                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
+                } elseif (strpos($placeholder, 'DYNAMIC_PLACEHOLDER_') !== false) {
+                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
+                } elseif (strpos($placeholder, 'AI_TRANSLATE_SC_PAIR_') !== false) {
+                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
                 } else {
-                    // For other placeholders, use the generic replacement
                     $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
                 }
             }
@@ -3308,8 +3313,13 @@ class AI_Translate_Core
             // Alleen redirecten naar de default language homepage om loops te voorkomen
             if ($current_lang !== $default_lang) {
                 $home_url = home_url('/');
-                wp_redirect($home_url, 302);
-                exit;
+                // Controleer of we al op de homepage zijn (voorkom loop)
+                $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
+                $home_path = wp_parse_url($home_url, PHP_URL_PATH);
+                if ($request_uri !== $home_path && rtrim($request_uri, '/') !== rtrim($home_path, '/')) {
+                    wp_redirect($home_url, 302);
+                    exit;
+                }
             }
         }
     }

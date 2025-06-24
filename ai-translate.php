@@ -42,7 +42,14 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     // Force flush rewrite rules if needed (only once per request)
     if (!get_transient('ai_translate_rules_flushed')) {
         add_action('init', __NAMESPACE__ . '\\force_flush_rewrite_rules', 15);
-        set_transient('ai_translate_rules_flushed', true, HOUR_IN_SECONDS);
+        
+        // Gebruik de cache instelling voor de transient duur
+        $core = AI_Translate_Core::get_instance();
+        $settings = $core->get_settings();
+        $cache_hours = $settings['cache_expiration'] ?? (14 * 24); // Default 14 dagen in uren
+        $cache_seconds = $cache_hours * 3600; // Converteer naar seconden
+        
+        set_transient('ai_translate_rules_flushed', true, $cache_seconds);
     }
 
     if (is_admin()) {
@@ -473,6 +480,9 @@ function plugin_activate(): void
     if (!file_exists($flags_dir)) {
         wp_mkdir_p($flags_dir);
     }
+    
+    // Voeg rewrite rules toe en flush ze
+    add_language_rewrite_rules();
     flush_rewrite_rules();
 
     // Create custom table for slug translations
@@ -844,11 +854,32 @@ add_action('parse_request', function ($wp) {
                 $front_id = get_option('page_on_front');
                 $blog_id = get_option('page_for_posts');
                 if ($blog_id && intval($blog_id) > 0 && $front_id && $front_id == $blog_id) {
-                    $wp->query_vars = ['page_id' => $blog_id];
+                    $front_post = get_post($blog_id);
+                    $wp->query_vars = [
+                        'page_id' => $blog_id,
+                        'pagename' => $front_post ? $front_post->post_name : '',
+                        'post_type' => $front_post ? $front_post->post_type : 'page',
+                    ];
+                    $wp->is_page = true;
+                    $wp->is_singular = true;
                 } elseif ($front_id && intval($front_id) > 0) {
-                    $wp->query_vars = ['page_id' => $front_id];
+                    $front_post = get_post($front_id);
+                    $wp->query_vars = [
+                        'page_id' => $front_id,
+                        'pagename' => $front_post ? $front_post->post_name : '',
+                        'post_type' => $front_post ? $front_post->post_type : 'page',
+                    ];
+                    $wp->is_page = true;
+                    $wp->is_singular = true;
                 } elseif ($blog_id && intval($blog_id) > 0) {
-                    $wp->query_vars = ['page_id' => $blog_id];
+                    $front_post = get_post($blog_id);
+                    $wp->query_vars = [
+                        'page_id' => $blog_id,
+                        'pagename' => $front_post ? $front_post->post_name : '',
+                        'post_type' => $front_post ? $front_post->post_type : 'page',
+                    ];
+                    $wp->is_page = true;
+                    $wp->is_singular = true;
                 } else {
                     $wp->query_vars = ['is_home' => true];
                 }
