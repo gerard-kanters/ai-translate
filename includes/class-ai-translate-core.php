@@ -92,7 +92,6 @@ class AI_Translate_Core
     private function __construct()
     {
         $this->init();
-        $this->log_event("AI_Translate_Core constructor called.", 'debug'); // Added log for constructor
         add_action('plugins_loaded', [$this, 'schedule_cleanup']);
         // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Removed, replaced by new approach
         // The logic for Fluent Forms has been generalized in translate_text, so this hook is no longer needed.
@@ -140,8 +139,6 @@ class AI_Translate_Core
 
         // Initialize cache directories
         $this->initialize_cache_directories();
-        // Log the determined log directory path for debugging
-        $this->log_event("Log directory path: " . $this->get_log_dir(), 'debug');
     }
 
     /**
@@ -387,17 +384,6 @@ class AI_Translate_Core
         $upload_dir = wp_upload_dir();
         // Use DIRECTORY_SEPARATOR for cross-platform compatibility
         return $upload_dir['basedir'] . DIRECTORY_SEPARATOR . 'ai-translate' . DIRECTORY_SEPARATOR . 'cache';
-    }
-
-    /**
-     * Get log directory path.
-     *
-     * @return string
-     */    public function get_log_dir(): string
-    {
-        $upload_dir = wp_upload_dir();
-        // Use DIRECTORY_SEPARATOR for cross-platform compatibility
-        return $upload_dir['basedir'] . DIRECTORY_SEPARATOR . 'ai-translate' . DIRECTORY_SEPARATOR . 'logs';
     }
 
     /**
@@ -1351,30 +1337,13 @@ class AI_Translate_Core
      */
     public function log_event(string $message, string $level = 'debug'): void
     {
-        // Force logging for debugging purposes. This will be reverted after debugging.
-        // Het controleren van de instellingen wordt uitgeschakeld voor debugging.
-
-        $log_dir = $this->get_log_dir();
-        if (!file_exists($log_dir)) {
-            wp_mkdir_p($log_dir);
+        if (in_array($level, ['error', 'warning'], true)) {
+            $timestamp = current_time('mysql');
+            $log_entry = sprintf('[%s] [%s] %s', $timestamp, strtoupper($level), $message);
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+            error_log($log_entry);
         }
-
-        $log_file = $log_dir . DIRECTORY_SEPARATOR . 'ai-translate.log';
-        $timestamp = current_time('mysql');
-        $log_entry = sprintf("[%s] [%s] %s\n", $timestamp, strtoupper($level), $message);
-
-        // Gebruik WP_Filesystem om veilig te schrijven
-        global $wp_filesystem;
-        if (empty($wp_filesystem)) {
-            require_once(ABSPATH . '/wp-admin/includes/file.php');
-            WP_Filesystem();
-        }
-
-        if ($wp_filesystem->put_contents($log_file, $log_entry, FILE_APPEND)) {
-            // Log succesvol
-        } else {
-            // Fout bij schrijven naar logbestand
-        }
+        // Debug/info logging is uitgeschakeld en wordt genegeerd
     }
 
     /**
@@ -1535,6 +1504,11 @@ class AI_Translate_Core
         // 2. Check for switcher parameter on root URL (override cookie)
         // This handles the case where the user explicitly clicks the default language on the homepage.
         if (isset($_GET['from_switcher']) && $_GET['from_switcher'] === '1') {
+            $nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash($_GET['_wpnonce'])) : '';
+            if (empty($nonce) || !wp_verify_nonce($nonce, 'ai_translate_switcher')) {
+                $lang = $this->current_language ?? ($this->settings['default_language'] ?? 'nl');
+                return (string)$lang;
+            }
             $request_path = wp_parse_url(esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'] ?? '')), PHP_URL_PATH);
             // Normalize path: if empty or only slashes, make it a single slash
             if (!is_string($request_path) || trim($request_path, '/') === '') {
@@ -2277,7 +2251,7 @@ class AI_Translate_Core
                     $path = get_page_uri($current_post_id);
                 } elseif ($post->post_type === 'post') {
                     // For posts, use the date archive structure if applicable, otherwise just slug
-                    $path = date('Y/m/d', strtotime($post->post_date)) . '/' . $original_slug;
+                    $path = gmdate('Y/m/d', strtotime($post->post_date)) . '/' . $original_slug;
                 } else {
                     // For custom post types, use the post type slug and original slug
                     $post_type_object = get_post_type_object($post->post_type);
@@ -3167,22 +3141,16 @@ class AI_Translate_Core
         $decoded_translated_slug = $translated_slug; // Verwijder urldecode, gebruik de raw URL-encoded slug
 
         $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-            "SELECT post_id, original_slug FROM {$table_name_slugs}
-             WHERE translated_slug = %s AND language_code = %s",
-            $decoded_translated_slug, // Gebruik de gedecodeerde versie
+            "SELECT post_id, original_slug FROM {$table_name_slugs} WHERE translated_slug = %s AND language_code = %s",
+            $decoded_translated_slug,
             $source_language
         ));
         if (!$cached_original_slug_data) {
             $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
-                "SELECT post_id, original_slug FROM " . $table_name_slugs . "
-                 WHERE translated_slug LIKE %s AND language_code = %s
-                 ORDER BY LENGTH(translated_slug) ASC LIMIT 1", // Prefer kortere match
-                $wpdb->esc_like($decoded_translated_slug) . '%', // Gebruik de gedecodeerde versie
+                "SELECT post_id, original_slug FROM {$table_name_slugs} WHERE translated_slug LIKE %s AND language_code = %s ORDER BY LENGTH(translated_slug) ASC LIMIT 1",
+                $wpdb->esc_like($decoded_translated_slug) . '%',
                 $source_language
             ));
-            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         }
         if ($cached_original_slug_data) {
             $post = get_post($cached_original_slug_data->post_id);

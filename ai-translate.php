@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
-Version: 1.23
+Version: 1.24
 Author: NetCare
 Author URI: https://netcare.nl/
 License: GPL2
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.23');
+define('AI_TRANSLATE_VERSION', '1.24');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -609,7 +609,6 @@ function translate_posts(array $posts): array
         if ($post->post_type === 'post' || $post->post_type === 'page') {
             $post->post_title   = $core->translate_template_part($post->post_title, 'post_title');
             $post->post_content = $core->translate_template_part($post->post_content, 'post_content');
-            $post->post_excerpt = $core->translate_template_part($post->post_excerpt, 'post_excerpt');
         }
     }
     return $posts;
@@ -781,8 +780,8 @@ if (
     $marker_removal_priority = 99; // Hoge prioriteit
 
     // --- Standaard WordPress Filters ---
-    add_filter('get_the_excerpt', [$class_name_for_filters, 'remove_translation_marker'], $marker_removal_priority);
-    add_filter('the_excerpt', [$class_name_for_filters, 'remove_translation_marker'], $marker_removal_priority);
+    // add_filter('get_the_excerpt', [$class_name_for_filters, 'remove_translation_marker'], $marker_removal_priority); // VERWIJDERD
+    // add_filter('the_excerpt', [$class_name_for_filters, 'remove_translation_marker'], $marker_removal_priority); // VERWIJDERD
 
     // Specifieke check voor bloginfo methode
     if (method_exists($class_name_for_filters, 'remove_marker_from_bloginfo')) {
@@ -986,5 +985,27 @@ add_filter('document_title_parts', function ($title_parts) {
     }
     return $title_parts;
 }, 99);
+
+// --- Excerpt vertaling na genereren excerpt ---
+add_filter('get_the_excerpt', function($excerpt, $post) {
+    // Alleen vertalen als er een excerpt is (dus niet leeg)
+    if (empty(trim($excerpt))) {
+        return $excerpt;
+    }
+    // Voorkom vertaling in admin
+    if (is_admin() && !wp_doing_ajax()) {
+        return $excerpt;
+    }
+    $core = \AITranslate\AI_Translate_Core::get_instance();
+    // Vertaal alleen als nodig
+    if (!$core->needs_translation()) {
+        return $excerpt;
+    }
+    // Vertaal de excerpt
+    $translated = $core->translate_template_part($excerpt, 'post_excerpt');
+    // Marker verwijderen
+    $translated = $core::remove_translation_marker($translated);
+    return $translated;
+}, 20, 2);
 
 

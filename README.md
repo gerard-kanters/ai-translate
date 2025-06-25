@@ -1,13 +1,13 @@
 === AI Translate ===
 Contributors: gkanters
-Tags: translation, ai, artificial intelligence, multilingual, translate
+Tags: translation, ai, artificial intelligence, multilingual, translate, ai translate, seo
 Requires at least: 5.0
 Tested up to: 6.8
-Stable tag: 1.23
+Stable tag: 1.24
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-= Automatically translate your WordPress website content using AI =
+= A powerful WordPress plugin for automatically translating your website using AI supporting 21 languages. This plugin will increase your website traffic and improves the SEO  =
 
 ## Short Description
 
@@ -128,8 +128,9 @@ This plugin connects to external AI translation services to provide automatic tr
 - API key from one of the supported AI translation services (OpenAI, Deepseek, or compatible custom API)
 
 ## Changelog
-### 1.23
+### 1.24
 - Improved caching
+- Improved translateion performance.
 - Added Greek and Romanian
 - Fix redirect issue to translated homepage.
 - Fix issue with language specific clear cache.
