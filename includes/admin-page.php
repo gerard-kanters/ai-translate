@@ -463,19 +463,6 @@ function render_admin_page()
         }
     }
 
-    // --- NEW: Clear Transient Cache ---
-    $transient_cache_message = '';
-    if (
-        isset($_POST['clear_transient_cache']) &&
-        check_admin_referer('clear_transient_cache_action', 'clear_transient_cache_nonce') &&
-        class_exists('AITranslate\AI_Translate_Core')
-    ) {
-        $core = AI_Translate_Core::get_instance();
-        $core->clear_transient_cache(); // Call the existing method
-        $transient_cache_message = '<div class="notice notice-success"><p>Transient cache successfully cleared.</p></div>';
-    }
-    // --- END NEW ---
-
     // Determine active tab
     $active_tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'general';
 ?>
@@ -501,7 +488,10 @@ function render_admin_page()
               <div id="cache" class="tab-panel" style="<?php echo esc_attr($active_tab === 'cache' ? 'display:block;' : 'display:none;'); ?>">
                 <h2>Cache Management</h2>
                 <?php wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce'); // Nonce for AJAX clear language cache ?>
-                <p>Clear all translation caches (both files and transients) to force new translations.</p>
+                
+                <!-- Clear all caches -->
+                <h3>Clear all caches</h3>
+                <p>Clear all translation caches (disk, memory, transients, menu, slugs).</p>
                 <?php
                 if (isset($_POST['clear_cache']) && check_admin_referer('clear_cache_action', 'clear_cache_nonce')) {
                     if (!class_exists('AI_Translate_Core')) {
@@ -509,29 +499,36 @@ function render_admin_page()
                     }
                     $core = AI_Translate_Core::get_instance();
                     $core->clear_all_cache();
-                    echo '<div class="notice notice-success"><p>Cache successfully cleared.</p></div>';
+                    echo '<div class="notice notice-success"><p>All caches successfully cleared.</p></div>';
                 }
                 ?>
                 <form method="post">
                     <?php wp_nonce_field('clear_cache_action', 'clear_cache_nonce'); ?>
-                    <?php submit_button('Clear Cache', 'delete', 'clear_cache', false); ?>
+                    <?php submit_button('Clear all caches', 'delete', 'clear_cache', false); ?>
                 </form>
 
                 <hr style="margin: 20px 0;">
 
-                <!-- NIEUW: Clear Transient Cache Form -->
-                <h3>Clear Transient Cache Only</h3>
-                <p>Clear only the transient (database) cache. File cache will remain.</p>
+                <!-- Clear memory cache -->
+                <h3>Clear memory cache</h3>
+                <p>Clear only memory cache and all transients (database). Disk cache will remain and be used to refill memory/transients.</p>
                 <?php
-                if (!empty($transient_cache_message)) {
-                    echo wp_kses_post($transient_cache_message);
+                $memory_cache_message = '';
+                if (isset($_POST['clear_memory_cache']) && check_admin_referer('clear_memory_cache_action', 'clear_memory_cache_nonce')) {
+                    if (class_exists('AI_Translate_Core')) {
+                        $core = AI_Translate_Core::get_instance();
+                        $core->clear_memory_and_transients();
+                        $memory_cache_message = '<div class="notice notice-success"><p>Memory cache and transients successfully cleared.</p></div>';
+                    }
+                }
+                if (!empty($memory_cache_message)) {
+                    echo wp_kses_post($memory_cache_message);
                 }
                 ?>
                 <form method="post">
-                    <?php wp_nonce_field('clear_transient_cache_action', 'clear_transient_cache_nonce'); ?>
-                    <?php submit_button('Clear Transient Cache', 'delete', 'clear_transient_cache', false); ?>
+                    <?php wp_nonce_field('clear_memory_cache_action', 'clear_memory_cache_nonce'); ?>
+                    <?php submit_button('Clear memory cache', 'delete', 'clear_memory_cache', false); ?>
                 </form>
-                <!-- EINDE NIEUW -->
 
                 <hr style="margin: 20px 0;">
                 <h3>Clear cache per language</h3>

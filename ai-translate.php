@@ -63,6 +63,28 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
     add_filter('wp_nav_menu_objects', [$core, 'translate_menu_items'], 999, 2);
 
+    // Extra filter voor menu vertaling via wp_nav_menu
+    add_filter('wp_nav_menu', function($nav_menu, $args) use ($core) {
+        if (!$core->needs_translation() || is_admin()) {
+            return $nav_menu;
+        }
+        
+        // Parse de HTML en vertaal de menu items
+        $dom = new \DOMDocument();
+        @$dom->loadHTML(mb_convert_encoding($nav_menu, 'HTML-ENTITIES', 'UTF-8'), LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        
+        $links = $dom->getElementsByTagName('a');
+        foreach ($links as $link) {
+            $text = $link->textContent;
+            if (!empty(trim($text))) {
+                $translated_text = $core->translate_template_part($text, 'menu_item');
+                $link->textContent = $core->clean_html_string($translated_text);
+            }
+        }
+        
+        return $dom->saveHTML();
+    }, 999, 2);
+
     add_filter('option_blogname', function ($value) use ($core) {
         $translated_value = $core->translate_template_part($value, 'site_title');
         // Marker direct strippen

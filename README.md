@@ -134,6 +134,7 @@ This plugin connects to external AI translation services to provide automatic tr
 - Added Greek and Romanian
 - Fix redirect issue to translated homepage.
 - Fix issue with language specific clear cache.
+- Fix issue with non roman languages and translated URL's.
 - Better AI prompting to avoid confusion with some tags and placeholders.
 
 ### 1.2

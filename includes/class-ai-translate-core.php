@@ -352,7 +352,7 @@ class AI_Translate_Core
                 'fr' => 'Français',
                 'es' => 'Español',
                 'it' => 'Italiano',
-                'ka' => 'Georgian',
+                'ka' => 'ქართული',
                 'pt' => 'Português',
                 'pl' => 'Polski',
                 'sv' => 'Svenska',
@@ -761,8 +761,8 @@ class AI_Translate_Core
         // --- Strip all shortcodes before calculating the cache-key and before translation ---
         // strip_all_shortcodes_for_cache will now see the placeholders and strip them as well.
         $text_for_cache = $this->strip_all_shortcodes_for_cache($text_to_translate);
-        // Use md5 of the stripped text as the base identifier
-        $cache_identifier = md5($text_for_cache);
+        // Use md5 of the stripped text + target language as the base identifier
+        $cache_identifier = md5($text_for_cache . $target_language);
         // Generate keys with the central function
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
@@ -836,125 +836,26 @@ class AI_Translate_Core
         $placeholder_index = 0;
         $text_processed = $text_to_translate; // Start with text after excluded shortcodes
 
-        // Helper function to extract en vervangen
-        $extract_and_replace = function ($pattern, $input_text) use (&$placeholders, &$placeholder_index) {
-            return preg_replace_callback(
-                $pattern,
-                function ($matches) use (&$placeholders, &$placeholder_index) {
-                    $placeholder = "{{DYNAMIC_PLACEHOLDER_{$placeholder_index}}}";
-                    $placeholders[$placeholder] = $matches[0];
-                    $placeholder_index++;
-                    return $placeholder;
-                },
-                $input_text
-            );
-        };
+        // Remove all placeholders of the type __AITRANSLATE_PLACEHOLDER_X__ from the text and remember their positions
+        $placeholder_pattern = '/__AITRANSLATE_PLACEHOLDER_\d+__/';
+        $placeholder_positions = [];
+        if (preg_match_all($placeholder_pattern, $text_processed, $matches, PREG_OFFSET_CAPTURE)) {
+            foreach ($matches[0] as $match) {
+                $placeholder = $match[0];
+                $offset = $match[1];
+                $placeholder_positions[] = [
+                    'placeholder' => $placeholder,
+                    'offset' => $offset
+                ];
+            }
+            // Remove all placeholders from the text
+            $text_processed = preg_replace($placeholder_pattern, '', $text_processed);
+        }
 
-        // 0. Extract <p> tags (alleen de tags, niet de inhoud)
-        $text_processed = $extract_and_replace('/<\/?p[^>]*>/i', $text_processed);
-
-        // 0a. Extract placeholders zoals [{{DYNAMIC_PLACEHOLDER_1}}] of [[...]] of [mb_row] etc.
-        // Dit pakt alles wat lijkt op een placeholder of shortcode/tag
-        $text_processed = $extract_and_replace('/\[\s*\{{0,2}[A-Z0-9_\-]+\}{0,2}\s*\]/i', $text_processed);
-
-        // 0aa. Extract dubbele blokhaken met placeholder binnenin, zoals [[{{DYNAMIC_PLACEHOLDER_1}}]]
-        $text_processed = preg_replace_callback(
-            '/\[\[\s*\{{0,2}[A-Z0-9_\-]+\}{0,2}\s*\]\]/i',
-            function ($matches) use (&$placeholders, &$placeholder_index) {
-                $placeholder = "{{DYNAMIC_PLACEHOLDER_BLOCK_{$placeholder_index}}}";
-                $placeholders[$placeholder] = $matches[0];
-                $placeholder_index++;
-                return $placeholder;
-            },
-            $text_processed
-        );
-
-        // 0b. Extract custom tags zoals [mb_heading]...[/mb_heading] en vergelijkbare blokken
-        // Alleen de content tussen de tags wordt vertaald, de tags zelf niet
-        $text_processed = preg_replace_callback(
-            '/\[(mb_[a-zA-Z0-9_\-]+)\](.*?)\[\/\1\]/is',
-            function ($matches) use (&$placeholders, &$placeholder_index, $source_language, $target_language) {
-                $tag = $matches[1];
-                $inner_content = $matches[2];
-                // Vertaal alleen de inhoud tussen de tags
-                $translated_inner = $this->translate_text($inner_content, $source_language, $target_language, false, false);
-                $translated_inner = self::remove_translation_marker($translated_inner);
-                $placeholder = "{{CUSTOM_TAG_PLACEHOLDER_{$placeholder_index}}}";
-                $placeholders[$placeholder] = "[{$tag}]{$translated_inner}[/{$tag}]";
-                $placeholder_index++;
-                return $placeholder;
-            },
-            $text_processed
-        );
-
-        // 1. Extract script blocks
-        $text_processed = $extract_and_replace('/<script.*?<\/script>/is', $text_processed);
-
-        // 2. Extract img tags
-        $text_processed = $extract_and_replace('/<img[^>]+>/i', $text_processed);
-
-        // 3. Extract anchor tags (links) - handle href and title attributes separately
-        $text_processed = preg_replace_callback(
-            '/<a(\s+[^>]*?)href=["\']([^"\']*)["\'](\s+[^>]*?)(?:title=["\']([^"\']*)["\'])?(\s*[^>]*?)>(.*?)<\/a>/is',
-            function ($matches) use (&$placeholders, &$placeholder_index, $source_language, $target_language) {
-                $full_tag = $matches[0];
-                $attributes_before_href = $matches[1];
-                $href = $matches[2];
-                $attributes_after_href = $matches[3];
-                $title = $matches[4] ?? '';
-                $attributes_after_title = $matches[5];
-                $inner_html = $matches[6];
-
-                $href_placeholder = "{{HREF_PLACEHOLDER_{$placeholder_index}}}";
-                $placeholders[$href_placeholder] = $href;
-
-                $translated_title = '';
-                if (!empty($title)) {
-                    $translated_title = $this->translate_text($title, $source_language, $target_language, true, false);
-                    $translated_title = self::remove_translation_marker($translated_title);
-                }
-
-                $title_placeholder = "{{TITLE_PLACEHOLDER_{$placeholder_index}}}";
-                $placeholders[$title_placeholder] = $translated_title;
-
-                $translated_inner_html = $this->translate_text($inner_html, $source_language, $target_language, false, false);
-                $translated_inner_html = self::remove_translation_marker($translated_inner_html);
-
-                $placeholder_index++;
-
-                $reconstructed_tag = '<a' . $attributes_before_href . 'href="' . $href_placeholder . '"';
-                if (!empty($translated_title)) {
-                    $reconstructed_tag .= ' title="' . $title_placeholder . '"';
-                }
-                $reconstructed_tag .= $attributes_after_href . $attributes_after_title . '>' . $translated_inner_html . '</a>';
-
-                return $reconstructed_tag;
-            },
-            $text_processed
-        );
-
-        // 4. Extract generic hidden input fields met dynamische waarden (zoals nonces, referers)
-        $text_processed = $extract_and_replace('/<input\s+type=["\']hidden["\'][^>]*name=["\']([^"\']*(?:nonce|referer)[^"\']*)["\'][^>]*value=["\']([^"\']*)["\'][^>]*\/>/i', $text_processed);
-
-        // 5. Extract overige shortcodes (niet de excluded ones)
-        $excluded_tags = $this->settings['exclude_shortcodes'] ?? [];
-        $pattern_other_shortcodes = '/\[(\[?)([a-zA-Z0-9_\-]+)([^\]]*?)(?:\](?:.*?\[\/\2\])|\s*\/?\])/s';
-        $text_processed = preg_replace_callback(
-            $pattern_other_shortcodes,
-            function ($matches) use (&$placeholders, &$placeholder_index, $excluded_tags) {
-                $tag = isset($matches[2]) ? $matches[2] : '';
-                if (in_array($tag, $excluded_tags, true)) {
-                    return $matches[0];
-                }
-                $placeholder = "{{DYNAMIC_PLACEHOLDER_{$placeholder_index}}}";
-                $placeholders[$placeholder] = $matches[0];
-                $placeholder_index++;
-                return $placeholder;
-            },
-            $text_processed
-        );
-
-        // $text_processed now contains the text with all identified dynamic elements replaced by generic placeholders.
+        // --- Ensure there are now NO __AITRANSLATE_PLACEHOLDER_X__ placeholders left in the input ---
+        if (preg_match($placeholder_pattern, $text_processed)) {
+            throw new \Exception('There is still a placeholder in the input for translation.');
+        }
 
         // --- API Call ---
         try {
@@ -976,32 +877,23 @@ class AI_Translate_Core
             return $text; // Return original text
         }
 
-        // --- Restore placeholders ---
-        $final_translated_text = $translated_text_with_placeholders;
-        if (!empty($placeholders)) {
-            // Sort placeholders by length in descending order to prevent partial matches
-            uksort($placeholders, function ($a, $b) {
-                return strlen($b) <=> strlen($a);
+        // --- Restore placeholders at their original positions ---
+        if (!empty($placeholder_positions)) {
+            // Insert placeholders back at their original positions
+            // Because string offsets change after replacement, work from back to front
+            usort($placeholder_positions, function ($a, $b) {
+                return $b['offset'] - $a['offset'];
             });
-            foreach ($placeholders as $placeholder => $value) {
-                // Special handling for HREF and TITLE placeholders
-                if (strpos($placeholder, 'HREF_PLACEHOLDER_') !== false) {
-                    $final_translated_text = str_replace('href="' . $placeholder . '"', 'href="' . $value . '"', $final_translated_text);
-                } elseif (strpos($placeholder, 'TITLE_PLACEHOLDER_') !== false) {
-                    $final_translated_text = str_replace('title="' . $placeholder . '"', 'title="' . $value . '"', $final_translated_text);
-                } elseif (strpos($placeholder, 'DYNAMIC_PLACEHOLDER_BLOCK_') !== false) {
-                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
-                } elseif (strpos($placeholder, 'CUSTOM_TAG_PLACEHOLDER_') !== false) {
-                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
-                } elseif (strpos($placeholder, 'DYNAMIC_PLACEHOLDER_') !== false) {
-                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
-                } elseif (strpos($placeholder, 'AI_TRANSLATE_SC_PAIR_') !== false) {
-                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
-                } else {
-                    $final_translated_text = str_replace($placeholder, $value, $final_translated_text);
-                }
+            foreach ($placeholder_positions as $info) {
+                $translated_text_with_placeholders = substr_replace(
+                    $translated_text_with_placeholders,
+                    $info['placeholder'],
+                    (int) $info['offset'],
+                    0
+                );
             }
         }
+        $final_translated_text = $translated_text_with_placeholders;
 
         // --- Restore excluded shortcodes ---
         if (!empty($shortcodes)) {
@@ -1077,18 +969,18 @@ class AI_Translate_Core
         $response = $this->make_api_request('chat/completions', $data);
         $translated = $response['choices'][0]['message']['content'] ?? null;
 
-        // Trim spaties van begin/eind voor betere vergelijking
+        // Trim spaces from beginning/end for better comparison
         $trimmed_original = trim($text);
         $trimmed_translated = trim((string)$translated);
 
-        // Controleer of de API een niet-lege string teruggaf
+        // Check if the API returned a non-empty string
         if (!empty($trimmed_translated)) {
-            // API gaf een niet-lege string terug. Voeg ALTIJD de marker toe.
+            // API returned a non-empty string. Always add the marker.
             $result_with_marker = $translated . self::TRANSLATION_MARKER;
 
-            return $result_with_marker; // Geef vertaalde of originele tekst MET marker terug
+            return $result_with_marker; // Return translated or original text with marker
         } else {
-            // API gaf lege of ongeldige content terug.
+            // API returned empty or invalid content.
             throw new \Exception("API returned empty or invalid content.");
         }
     }
@@ -1103,71 +995,20 @@ class AI_Translate_Core
      */
     private function build_translation_prompt(string $source_language, string $target_language, bool $is_title = false): string
     {
-        // Validate language codes
-        if (empty($source_language) || empty($target_language)) {
-            throw new \InvalidArgumentException('Source and target language codes cannot be empty');
-        }
-
-        // Validate language code format (ISO 639-1/639-3)
-        if (
-            !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $source_language) ||
-            !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $target_language)
-        ) {
-            throw new \InvalidArgumentException('Invalid language code format');
-        }
-
-        // Cache key for prompt caching
         $cache_key = "prompt_{$source_language}_{$target_language}_" . ($is_title ? 'title' : 'text');
-
-        // Check static cache for performance
         static $prompt_cache = [];
         if (isset($prompt_cache[$cache_key])) {
             return $prompt_cache[$cache_key];
         }
-
-        // Build context-specific instructions
         $context_instructions = $is_title
             ? 'Focus on translating titles and headings accurately while maintaining their impact and meaning. NEVER add HTML tags to plain text titles - if the input has no HTML tags, the output should also have no HTML tags. NEVER wrap output in <p>, <span>, <div> of andere HTML-tags als de input geen HTML bevat.'
-            : 'Translate the content while preserving its original meaning, tone, and structure. NEVER add HTML tags to plain text - if the input has no HTML tags, the output should also have no HTML tags. NEVER wrap output in <p>, <span>, <div> or any other HTML tags if the input does not contain HTML.';
-
-        // Consolidated placeholder list for better maintainability
-        $placeholders = [
-            '{{PLACEHOLDER_X}}', // Generic placeholder, legacy
-            '[[[AI_TRANSLATE_SC_PAIR_X]]]', // For excluded shortcode pairs
-            '{{DYNAMIC_PLACEHOLDER_X}}', // For script, img, generic shortcodes, hidden inputs
-            '{{HREF_PLACEHOLDER_X}}', // For href attributes
-            '{{TITLE_PLACEHOLDER_X}}' // For title attributes
-        ];
-
-        $placeholder_text = implode(', ', $placeholders);
-
-        // Build optimized prompt with clear structure
+            : 'Translate the content while preserving its original meaning, tone, and structure. NEVER add HTML tags to plain text - if the input has no HTML tags, the output must also have no HTML tags. NEVER wrap output in <p>, <span>, <div> or any other HTML tags if the input does not contain HTML.';
         $system_prompt = sprintf(
-            'You are a professional translation engine. Translate the following text from %s (ISO 639-1 code: "%s") to %s (ISO 639-1 code: "%s").
- 
- CRITICAL REQUIREMENTS:
- 1. Preserve ALL HTML tags and their exact structure - do NOT add or remove HTML tags
- 2. If input has NO HTML tags, output must also have NO HTML tags
- 3. Maintain ALL placeholders EXACTLY as they appear: %s
- 4. NEVER modify placeholder syntax - do NOT add extra brackets, spaces, or characters to placeholders. Placeholders are non-translatable text strings that MUST be preserved as-is.
- 5. Keep line breaks and formatting intact.
- 6. Do NOT escape quotes or special characters in HTML attributes.
- 7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.
- 8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like `<p>`, `<div>`, `<span>`, or any other tags.
- 9. Placeholders must remain IDENTICAL in format - `{{PLACEHOLDER_X}}` stays `{{PLACEHOLDER_X}}`, not `[{{PLACEHOLDER_X}}]` or `{{PLACEHOLDER_X}}]`.
- 
- %s',
+            'You are a professional translation engine. Translate the following text from %s to %s.\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_PLACEHOLDER_X__ stays __AITRANSLATE_PLACEHOLDER_X__ and __AITRANSLATE_SC_PLACEHOLDER_X__ stays __AITRANSLATE_SC_PLACEHOLDER_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_PLACEHOLDER_X__ or __AITRANSLATE_SC_PLACEHOLDER_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.',
             $this->get_language_name($source_language),
-            $source_language,
-            $this->get_language_name($target_language),
-            $target_language,
-            $placeholder_text,
-            $context_instructions
+            $this->get_language_name($target_language)
         );
-
-        // Cache the prompt for performance
         $prompt_cache[$cache_key] = $system_prompt;
-
         return $system_prompt;
     }
 
@@ -1215,7 +1056,7 @@ class AI_Translate_Core
 
         $target_language = $this->get_current_language();
         $default_language = $this->default_language ?: ($this->settings['default_language'] ?? 'nl');
-        $cache_identifier = md5($content . $type);
+        $cache_identifier = md5($content . $type . $target_language);
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
         // --- CUSTOM Memory Cache Check ---
@@ -1374,21 +1215,22 @@ class AI_Translate_Core
 
         // Get transients to delete
         $cache_key = 'ai_translate_transients_to_delete';
-        $cache_key = 'ai_translate_transients_to_delete';
         $transients_to_delete = wp_cache_get($cache_key);
 
         if (false === $transients_to_delete) {
-            // Get transients to delete
+            // Get transients to delete - include batch transients
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct query is necessary to get transients by pattern.
             $transients_to_delete = $wpdb->get_col(
                 $wpdb->prepare(
-                    "SELECT option_name FROM " . $wpdb->prefix . "options WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+                    "SELECT option_name FROM " . $wpdb->prefix . "options WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
                     '_transient_ai_translate_trans_%',
                     '_transient_timeout_ai_translate_trans_%',
                     '_transient_ai_translate_slug_%',
                     '_transient_timeout_ai_translate_slug_%',
-                    '_transient_ai_translate_slug_cache_%', // Add this line for the new slug cache
-                    '_transient_timeout_ai_translate_slug_cache_%' // Add this line for the new slug cache timeout
+                    '_transient_ai_translate_slug_cache_%',
+                    '_transient_timeout_ai_translate_slug_cache_%',
+                    '_transient_ai_translate_batch_trans_%',
+                    '_transient_timeout_ai_translate_batch_trans_%'
                 )
             );
             wp_cache_set($cache_key, $transients_to_delete, '', 60); // Cache for 60 seconds
@@ -1435,6 +1277,7 @@ class AI_Translate_Core
         $this->clear_translation_cache();
         $this->clear_transient_cache();
         $this->clear_slug_cache_table();
+        $this->clear_menu_cache(); // Also clear menu cache specifically
     }
 
 
@@ -1680,12 +1523,7 @@ class AI_Translate_Core
      * @return int Aantal verwijderde bestanden
      */    public function clear_cache_for_language(string $lang_code): int
     {
-        // Basis validatie
-        if (empty($lang_code) || !preg_match('/^[a-z]{2,3}(?:-[a-z]{2,4})?$/i', $lang_code)) {
-            $error = "Ongeldige taalcode '$lang_code' opgegeven voor cache wissen.";
-            throw new \InvalidArgumentException(esc_html($error));
-        }
-
+        // No language code validation needed; codes are always from internal logic
         global $wp_filesystem;
         if (empty($wp_filesystem)) {
             require_once(ABSPATH . '/wp-admin/includes/file.php');
@@ -1710,7 +1548,6 @@ class AI_Translate_Core
             if (is_file($file) && strpos(basename($file), $lang_code . '_') === 0) {
                 if (wp_delete_file($file)) {
                     $count++;
-                } else {
                 }
             }
         }
@@ -1737,8 +1574,8 @@ class AI_Translate_Core
         $original_keys = array_keys($items); // Bewaar originele keys
         $items_to_translate = array_values($items); // Werk met numerieke array voor API
 
-        // Gebruik hash van items + type als identifier
-        $cache_identifier = md5(json_encode($items_to_translate) . $type); // Hash van values
+        // Gebruik hash van items + type + target_language als identifier
+        $cache_identifier = md5(json_encode($items_to_translate) . $type . $target_language); // Hash van values + taal
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_mem');
 
         // Memory Cache Check
@@ -1850,11 +1687,11 @@ class AI_Translate_Core
                 $fail_reason = "Invalid JSON or item count mismatch";
                 if (is_array($decoded)) $fail_reason = "Item count mismatch (expected " . count($items_to_translate) . ", got " . count($decoded['items'] ?? $decoded) . ")";
                 elseif ($decoded === null) $fail_reason = "Invalid JSON response";
-                // Log volledige API response bij fout
+                // Log full API response on error
                 if ($attempt === 1) {
                     $data['messages'][0]['content'] = sprintf(
                         'You are a translation engine. Translate the following text from %s to %s. ' .
-                            'Preserve HTML structure, placeholders like {{PLACEHOLDER_X}}, and line breaks. ' .
+                            'Preserve HTML structure, placeholders like __AITRANSLATE_PLACEHOLDER_X__, and line breaks. ' .
                             'Return ONLY the translated text, without any additional explanations or markdown formatting. ' .
                             'Even if the input seems partially translated, provide the full translation in the target language %s. ' .
                             'If the input text is empty or cannot be translated meaningfully, return the original input text unchanged.',
@@ -1990,16 +1827,11 @@ class AI_Translate_Core
     {
         $placeholder_index = 0;
         foreach ($shortcodes_to_exclude as $tagname) {
-            // Regex to match both self-closing and enclosing shortcodes
-            // This regex is more robust and handles nested shortcodes better than simple regex.
-            // It's a simplified version of WordPress's get_shortcode_regex for specific tags.
-            $pattern = '/\[(' . preg_quote($tagname, '/') . ')(?![a-zA-Z0-9_\-])([^\]]*?)(?:(\/\])|\](?:([^\[]*+(?:\[(?!\/\1\])[^\[]*+)*+)\[\/\1\]))?\]/s';
-
+            $pattern = '/\\[(' . preg_quote($tagname, '/') . ')(?![a-zA-Z0-9_\-])([^\]]*?)(?:(\/\\])|\\](?:([^\[]*+(?:\\[(?!\/\\1\\])[^\[]*+)*+)\\[\/\\1\\]))?\\]/s';
             $text = preg_replace_callback(
                 $pattern,
                 function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
-                    // $matches[0] is the full shortcode match
-                    $placeholder = '[[[AI_TRANSLATE_SC_PAIR_' . $placeholder_index . ']]]';
+                    $placeholder = '__AITRANSLATE_SC_PLACEHOLDER_' . $placeholder_index . '__';
                     $extracted_shortcodes[$placeholder] = $matches[0];
                     $placeholder_index++;
                     return $placeholder;
@@ -2022,16 +1854,12 @@ class AI_Translate_Core
         if (empty($extracted_shortcodes)) {
             return $text;
         }
-
-        // Sort shortcodes by length in descending order to prevent partial matches
         uksort($extracted_shortcodes, function ($a, $b) {
             return strlen($b) <=> strlen($a);
         });
-
         foreach ($extracted_shortcodes as $placeholder => $original_shortcode) {
-            // Escape placeholder for regex, and allow for potential whitespace/newlines around it
             $escaped_placeholder = preg_quote($placeholder, '/');
-            $text = preg_replace('/' . $escaped_placeholder . '\s*/', $original_shortcode, $text);
+            $text = preg_replace('/' . $escaped_placeholder . '/s', $original_shortcode, $text);
         }
         return $text;
     }
@@ -2868,7 +2696,7 @@ class AI_Translate_Core
         $default_language = $this->default_language;
 
         // Use a unique identifier for this specific title and language
-        $cache_identifier = md5($title . 'widget_title'); // Add type context
+        $cache_identifier = md5($title . 'widget_title' . $target_language); // Add type context and language
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
 
@@ -3290,5 +3118,73 @@ class AI_Translate_Core
                 }
             }
         }
+    }
+
+    /**
+     * Clear menu item cache specifically.
+     * This is needed to fix issues with memcached where menu items are cached in wrong language.
+     */
+    public function clear_menu_cache(): void
+    {
+        global $wpdb;
+        
+        // Clear menu-related transients (both old and new format)
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+                '_transient_ai_translate_batch_trans_%',
+                '_transient_timeout_ai_translate_batch_trans_%',
+                '_transient_ai_translate_trans_%',
+                '_transient_timeout_ai_translate_trans_%'
+            )
+        );
+        
+        // Clear ALL memory cache (not just menu-related)
+        self::$translation_memory = [];
+        
+        // Clear all disk cache files (since we changed the cache key format)
+        $files = glob($this->cache_dir . '/*.cache');
+        if (is_array($files)) {
+            foreach ($files as $file) {
+                wp_delete_file($file);
+            }
+        }
+        
+        // Also clear API error/backoff transients
+        delete_transient(self::API_ERROR_COUNT_TRANSIENT);
+        delete_transient(self::API_BACKOFF_TRANSIENT);
+    }
+
+    /**
+     * Clear alleen memory cache en alle transients (database).
+     * Disk cache blijft staan.
+     */
+    public function clear_memory_and_transients(): void
+    {
+        global $wpdb;
+        
+        // Leeg memory cache
+        self::$translation_memory = [];
+        
+        // Verwijder alle relevante transients
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+                '_transient_ai_translate_%',
+                '_transient_timeout_ai_translate_%',
+                '_transient_ai_translate_batch_trans_%',
+                '_transient_timeout_ai_translate_batch_trans_%',
+                '_transient_ai_translate_trans_%',
+                '_transient_timeout_ai_translate_trans_%',
+                '_transient_ai_translate_slug_%',
+                '_transient_timeout_ai_translate_slug_%',
+                '_transient_ai_translate_slug_cache_%',
+                '_transient_timeout_ai_translate_slug_cache_%'
+            )
+        );
+        
+        // Clear API error/backoff transients
+        delete_transient(self::API_ERROR_COUNT_TRANSIENT);
+        delete_transient(self::API_BACKOFF_TRANSIENT);
     }
 }
