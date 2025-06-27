@@ -129,8 +129,8 @@ This plugin connects to external AI translation services to provide automatic tr
 
 ## Changelog
 ### 1.24
-- Improved caching
-- Improved translateion performance.
+- Improved translation by providing better site specific context andmore freedom to translate to the AI
+- Improved caching and translateion performance.
 - Added Greek and Romanian
 - Fix redirect issue to translated homepage.
 - Fix issue with language specific clear cache.
