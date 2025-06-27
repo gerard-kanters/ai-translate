@@ -252,6 +252,7 @@ class AI_Translate_Core
             'exclude_pages'     => [],
             'exclude_shortcodes' => [],
             'homepage_meta_description' => '',
+            'website_context'   => '',
             'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'uk'], // Default detectable
         ];
     }
@@ -995,20 +996,47 @@ class AI_Translate_Core
      */
     private function build_translation_prompt(string $source_language, string $target_language, bool $is_title = false): string
     {
-        $cache_key = "prompt_{$source_language}_{$target_language}_" . ($is_title ? 'title' : 'text');
-        static $prompt_cache = [];
-        if (isset($prompt_cache[$cache_key])) {
-            return $prompt_cache[$cache_key];
-        }
         $context_instructions = $is_title
             ? 'Focus on translating titles and headings accurately while maintaining their impact and meaning. NEVER add HTML tags to plain text titles - if the input has no HTML tags, the output should also have no HTML tags. NEVER wrap output in <p>, <span>, <div> of andere HTML-tags als de input geen HTML bevat.'
             : 'Translate the content while preserving its original meaning, tone, and structure. NEVER add HTML tags to plain text - if the input has no HTML tags, the output must also have no HTML tags. NEVER wrap output in <p>, <span>, <div> or any other HTML tags if the input does not contain HTML.';
+        
+        // Get website context if available - properly escape and handle UTF-8
+        $website_context = '';
+        if (!empty($this->settings['website_context'])) {
+            // Ensure proper UTF-8 encoding and escape any problematic characters
+            $context_text = $this->settings['website_context'];
+            
+            // Convert to UTF-8 if not already
+            if (!mb_check_encoding($context_text, 'UTF-8')) {
+                $context_text = mb_convert_encoding($context_text, 'UTF-8', 'auto');
+            }
+            
+            // Clean the text: remove any null bytes and normalize whitespace
+            $context_text = str_replace("\0", '', $context_text);
+            $context_text = preg_replace('/\s+/', ' ', trim($context_text));
+            
+            // Escape any quotes that might break the prompt structure
+            // Use JSON encoding for safe embedding in the prompt
+            $context_json = json_encode($context_text, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            
+            if ($context_json !== false) {
+                // Remove the outer quotes from JSON encoding since we're embedding it
+                $context_json = substr($context_json, 1, -1);
+                $website_context = "\n\nWEBSITE CONTEXT:\n" . $context_json . "\n\nUse this context to provide more accurate and contextually appropriate translations. Consider the industry, tone, and terminology relevant to this website when translating. Adapt the translation style to match the business context and target audience.";
+            } else {
+                // Fallback: use basic escaping if JSON encoding fails
+                $context_text = str_replace(['"', "'"], ['\"', "\\'"], $context_text);
+                $website_context = "\n\nWEBSITE CONTEXT:\n" . $context_text . "\n\nUse this context to provide more accurate and contextually appropriate translations. Consider the industry, tone, and terminology relevant to this website when translating. Adapt the translation style to match the business context and target audience.";
+            }
+        }
+        
         $system_prompt = sprintf(
-            'You are a professional translation engine. Translate the following text from %s to %s.\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_PLACEHOLDER_X__ stays __AITRANSLATE_PLACEHOLDER_X__ and __AITRANSLATE_SC_PLACEHOLDER_X__ stays __AITRANSLATE_SC_PLACEHOLDER_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_PLACEHOLDER_X__ or __AITRANSLATE_SC_PLACEHOLDER_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.',
+            'You are a professional translation engine. Translate the following text from %s to %s.%s\n\nTRANSLATION STYLE:\n- Make the translation sound natural and professional, as if written by a native speaker\n- Adapt phrasing slightly to make it sound more persuasive and aligned with standard language on a website\n- Avoid literal translations that sound awkward or robotic\n- Use idiomatic expressions and natural word choices appropriate for the target language\n- Maintain the original tone and intent while ensuring the text flows naturally\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_PLACEHOLDER_X__ stays __AITRANSLATE_PLACEHOLDER_X__ and __AITRANSLATE_SC_PLACEHOLDER_X__ stays __AITRANSLATE_SC_PLACEHOLDER_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_PLACEHOLDER_X__ or __AITRANSLATE_SC_PLACEHOLDER_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.',
             $this->get_language_name($source_language),
-            $this->get_language_name($target_language)
+            $this->get_language_name($target_language),
+            $website_context
         );
-        $prompt_cache[$cache_key] = $system_prompt;
+        
         return $system_prompt;
     }
 
@@ -3186,5 +3214,204 @@ class AI_Translate_Core
         // Clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
+    }
+
+    /**
+     * Generate website context suggestion based on homepage content.
+     * Analyzes the homepage to create a brief context description.
+     *
+     * @return string Generated context suggestion (max 100 words)
+     * @throws \Exception If API call fails or content cannot be analyzed
+     */
+    public function generate_website_context_suggestion(): string
+    {
+        // Check if API is configured
+        if (empty($this->settings['api_key'])) {
+            throw new \Exception('API key is not configured. Please configure the API settings first.');
+        }
+
+        // Get homepage content
+        $homepage_content = $this->get_homepage_content();
+        if (empty($homepage_content)) {
+            throw new \Exception('Could not retrieve homepage content. Please ensure your homepage has content.');
+        }
+
+        // Ensure proper UTF-8 encoding for the content
+        if (!mb_check_encoding($homepage_content, 'UTF-8')) {
+            $homepage_content = mb_convert_encoding($homepage_content, 'UTF-8', 'auto');
+        }
+
+        // Clean the content: remove null bytes and normalize whitespace
+        $homepage_content = str_replace("\0", '', $homepage_content);
+        $homepage_content = preg_replace('/\s+/', ' ', trim($homepage_content));
+
+        // Prepare the prompt for context generation
+        $system_prompt = 'You are an AI assistant that analyzes website content to generate a brief, professional context description. Your task is to create a concise description (maximum 100 words) that explains what the website or business is about. Focus on the main purpose, industry, and key services or topics. Write in a clear, professional tone suitable for translation context.';
+
+        $user_prompt = "Analyze the following homepage content and generate a brief context description (max 100 words) that explains what this website or business is about:\n\n" . $homepage_content;
+
+        $data = [
+            'model' => $this->settings['selected_model'],
+            'messages' => [
+                ['role' => 'system', 'content' => $system_prompt],
+                ['role' => 'user', 'content' => $user_prompt]
+            ],
+            'temperature' => 0.3,
+            'max_tokens' => 200,
+            'frequency_penalty' => 0,
+            'presence_penalty' => 0
+        ];
+
+        try {
+            $response = $this->make_api_request('chat/completions', $data);
+            $generated_context = $response['choices'][0]['message']['content'] ?? '';
+
+            // Clean and validate the response
+            $generated_context = trim($generated_context);
+            if (empty($generated_context)) {
+                throw new \Exception('Generated context is empty.');
+            }
+
+            // Ensure proper UTF-8 encoding for the generated context
+            if (!mb_check_encoding($generated_context, 'UTF-8')) {
+                $generated_context = mb_convert_encoding($generated_context, 'UTF-8', 'auto');
+            }
+
+            // Clean the generated context: remove null bytes and normalize whitespace
+            $generated_context = str_replace("\0", '', $generated_context);
+            $generated_context = preg_replace('/\s+/', ' ', $generated_context);
+
+            // Limit to approximately 100 words
+            $words = explode(' ', $generated_context);
+            if (count($words) > 100) {
+                $generated_context = implode(' ', array_slice($words, 0, 100));
+                $generated_context = rtrim($generated_context, ',.!?') . '.';
+            }
+
+            return $generated_context;
+
+        } catch (\Exception $e) {
+            throw new \Exception('Failed to generate context: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get homepage content for context analysis.
+     * Retrieves and cleans homepage content from various sources.
+     *
+     * @return string Cleaned homepage content
+     */
+    private function get_homepage_content(): string
+    {
+        $content_parts = [];
+
+        // Get site title and tagline
+        $site_title = get_bloginfo('name');
+        $site_tagline = get_bloginfo('description');
+        
+        // Ensure proper UTF-8 encoding
+        if (!mb_check_encoding($site_title, 'UTF-8')) {
+            $site_title = mb_convert_encoding($site_title, 'UTF-8', 'auto');
+        }
+        if (!mb_check_encoding($site_tagline, 'UTF-8')) {
+            $site_tagline = mb_convert_encoding($site_tagline, 'UTF-8', 'auto');
+        }
+        
+        if (!empty($site_title)) {
+            $content_parts[] = 'Site Title: ' . $site_title;
+        }
+        if (!empty($site_tagline)) {
+            $content_parts[] = 'Site Description: ' . $site_tagline;
+        }
+
+        // Get homepage meta description if set
+        $homepage_meta = $this->settings['homepage_meta_description'] ?? '';
+        if (!empty($homepage_meta)) {
+            // Ensure proper UTF-8 encoding
+            if (!mb_check_encoding($homepage_meta, 'UTF-8')) {
+                $homepage_meta = mb_convert_encoding($homepage_meta, 'UTF-8', 'auto');
+            }
+            $content_parts[] = 'Meta Description: ' . $homepage_meta;
+        }
+
+        // Get homepage post/page content
+        $homepage_id = get_option('page_on_front') ?: (get_option('show_on_front') === 'posts' ? 0 : get_option('page_for_posts'));
+        
+        if ($homepage_id) {
+            $homepage_post = get_post($homepage_id);
+            if ($homepage_post) {
+                // Get title
+                if (!empty($homepage_post->post_title)) {
+                    $title = $homepage_post->post_title;
+                    // Ensure proper UTF-8 encoding
+                    if (!mb_check_encoding($title, 'UTF-8')) {
+                        $title = mb_convert_encoding($title, 'UTF-8', 'auto');
+                    }
+                    $content_parts[] = 'Page Title: ' . $title;
+                }
+                
+                // Get content (first 500 characters)
+                $content = wp_strip_all_tags($homepage_post->post_content);
+                if (!empty($content)) {
+                    // Ensure proper UTF-8 encoding
+                    if (!mb_check_encoding($content, 'UTF-8')) {
+                        $content = mb_convert_encoding($content, 'UTF-8', 'auto');
+                    }
+                    $content = substr($content, 0, 500);
+                    $content_parts[] = 'Page Content: ' . $content;
+                }
+            }
+        }
+
+        // If no specific homepage, try to get recent posts content
+        if (empty($content_parts) || count($content_parts) < 3) {
+            $recent_posts = get_posts([
+                'numberposts' => 3,
+                'post_status' => 'publish'
+            ]);
+            
+            foreach ($recent_posts as $post) {
+                $content = wp_strip_all_tags($post->post_content);
+                if (!empty($content)) {
+                    // Ensure proper UTF-8 encoding
+                    if (!mb_check_encoding($content, 'UTF-8')) {
+                        $content = mb_convert_encoding($content, 'UTF-8', 'auto');
+                    }
+                    $content_parts[] = 'Recent Post: ' . substr($content, 0, 200);
+                }
+            }
+        }
+
+        $combined_content = implode("\n\n", $content_parts);
+        
+        // Final UTF-8 check and cleaning
+        if (!mb_check_encoding($combined_content, 'UTF-8')) {
+            $combined_content = mb_convert_encoding($combined_content, 'UTF-8', 'auto');
+        }
+        
+        // Remove any null bytes and normalize whitespace
+        $combined_content = str_replace("\0", '', $combined_content);
+        $combined_content = preg_replace('/\s+/', ' ', trim($combined_content));
+
+        return $combined_content;
+    }
+
+    /**
+     * Clear the static prompt cache to force regeneration with new context.
+     */
+    public function clear_prompt_cache(): void
+    {
+        // Clear the static prompt cache by redefining the static variable
+        static $prompt_cache = [];
+        $prompt_cache = [];
+    }
+
+    /**
+     * Debug function to check if website context is being used in prompts.
+     * This can be called to verify the context is properly included.
+     */
+    public function debug_prompt_with_context(string $source_language = 'nl', string $target_language = 'en'): string
+    {
+        return $this->build_translation_prompt($source_language, $target_language, false);
     }
 }

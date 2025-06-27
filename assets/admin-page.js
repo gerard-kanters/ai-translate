@@ -547,4 +547,83 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // Generate Website Context functionality
+    var generateContextBtn = document.getElementById('generate-context-btn');
+    var generateContextStatus = document.getElementById('generate-context-status');
+    var websiteContextField = document.getElementById('website_context_field');
+
+    if (generateContextBtn && generateContextStatus && websiteContextField) {
+        generateContextBtn.addEventListener('click', function () {
+            // Check if API is configured
+            var apiKey = apiKeyInput ? apiKeyInput.value : '';
+            if (!apiKey) {
+                generateContextStatus.innerHTML = '<span style="color:red;">Please configure API key first</span>';
+                return;
+            }
+
+            // Check if context field is empty
+            if (websiteContextField.value.trim()) {
+                if (!confirm('The context field already has content. Do you want to replace it with a generated suggestion?')) {
+                    return;
+                }
+            }
+
+            generateContextBtn.disabled = true;
+            generateContextStatus.innerHTML = '<span style="color:blue;">Generating context from homepage...</span>';
+
+            var formData = new FormData();
+            formData.append('action', 'ai_translate_generate_website_context');
+            formData.append('nonce', aiTranslateAdmin.generateContextNonce);
+
+            fetch(ajaxurl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Server response was not ok: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                if (data.success && data.data && data.data.context) {
+                    websiteContextField.value = data.data.context;
+                    generateContextStatus.innerHTML = '<span style="color:green;">✓ Context generated successfully!</span>';
+                    
+                    // Auto-save the form
+                    var form = websiteContextField.closest('form');
+                    if (form) {
+                        var submitBtn = form.querySelector('input[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.click();
+                        }
+                    }
+                } else {
+                    var errorMsg = 'Failed to generate context';
+                    if (data.data && data.data.message) {
+                        errorMsg += ': ' + data.data.message;
+                    } else if (data.message) {
+                        errorMsg += ': ' + data.message;
+                    }
+                    generateContextStatus.innerHTML = '<span style="color:red;">✗ ' + errorMsg + '</span>';
+                }
+            })
+            .catch(function (error) {
+                console.error('AJAX Error:', error);
+                generateContextStatus.innerHTML = '<span style="color:red;">✗ Error generating context: ' + error.message + '</span>';
+            })
+            .finally(function () {
+                generateContextBtn.disabled = false;
+                
+                // Clear status message after 5 seconds
+                setTimeout(function () {
+                    if (generateContextStatus.innerHTML.includes('✓')) {
+                        generateContextStatus.innerHTML = '';
+                    }
+                }, 5000);
+            });
+        });
+    }
 });

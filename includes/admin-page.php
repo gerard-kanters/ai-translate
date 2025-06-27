@@ -59,6 +59,64 @@ function ajax_clear_cache_language()
 // Register the AJAX handlers
 add_action('wp_ajax_ai_translate_clear_cache_language', __NAMESPACE__ . '\\ajax_clear_cache_language');
 
+/**
+ * AJAX handler for generating website context suggestion
+ */
+function ajax_generate_website_context()
+{
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Insufficient permissions to perform this action.']);
+        return;
+    }
+
+    // Validate nonce
+    $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
+    if (!$nonce_value || !wp_verify_nonce($nonce_value, 'generate_website_context_nonce')) {
+        wp_send_json_error(['message' => 'Security check failed (nonce). Refresh the page and try again.']);
+        return;
+    }
+
+    // Generate website context suggestion
+    $translator = AI_Translate_Core::get_instance();
+    try {
+        $context_suggestion = $translator->generate_website_context_suggestion();
+        
+        // Clear prompt cache to ensure new context is used immediately
+        $translator->clear_prompt_cache();
+        
+        wp_send_json_success([
+            'context' => $context_suggestion
+        ]);
+    } catch (\Exception $e) {
+        wp_send_json_error([
+            'message' => 'Error generating context: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// Register the new AJAX handler
+add_action('wp_ajax_ai_translate_generate_website_context', __NAMESPACE__ . '\\ajax_generate_website_context');
+
+/**
+ * Clear prompt cache when settings are updated (specifically when website context changes)
+ */
+add_action('update_option_ai_translate_settings', function ($old_value, $value) {
+    // Check if website context has changed
+    $old_context = isset($old_value['website_context']) ? $old_value['website_context'] : '';
+    $new_context = isset($value['website_context']) ? $value['website_context'] : '';
+    
+    if ($old_context !== $new_context) {
+        // Clear prompt cache to force regeneration with new context
+        if (class_exists('AI_Translate_Core')) {
+            $core = AI_Translate_Core::get_instance();
+            $core->clear_prompt_cache();
+            
+            // Also clear translation cache to force re-translation with new context
+            $core->clear_all_cache();
+        }
+    }
+}, 10, 2);
 
 /**
  * AJAX handler for validating API settings
@@ -114,7 +172,8 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'getModelsNonce' => wp_create_nonce('ai_translate_get_models_nonce'),
         'validateApiNonce' => wp_create_nonce('ai_translate_validate_api_nonce'),
-        'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce') // Added nonce for fetching custom URL
+        'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce'), // Added nonce for fetching custom URL
+        'generateContextNonce' => wp_create_nonce('generate_website_context_nonce') // Added nonce for generating website context
     ));
 });
 
@@ -179,6 +238,12 @@ add_action('admin_init', function () {
                 $input['homepage_meta_description'] = sanitize_textarea_field($input['homepage_meta_description']);
             } else {
                 $input['homepage_meta_description'] = '';
+            }
+
+            if (isset($input['website_context'])) {
+                $input['website_context'] = sanitize_textarea_field($input['website_context']);
+            } else {
+                $input['website_context'] = '';
             }
 
             if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
@@ -397,6 +462,34 @@ add_action('admin_init', function () {
         'ai_translate_advanced' // Add to Advanced section
     );
     // --- End Homepage Meta Description Field ---
+
+    // --- Add Website Context Field ---
+    add_settings_field(
+        'website_context',
+        'Website Context',
+        function () {
+            $settings = get_option('ai_translate_settings');
+            $value = isset($settings['website_context']) ? $settings['website_context'] : '';
+            echo '<textarea name="ai_translate_settings[website_context]" id="website_context_field" rows="5" class="large-text" placeholder="Describe your website, business, or organization. For example:&#10;&#10;We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe.&#10;&#10;Or:&#10;&#10;This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden.">' . esc_textarea($value) . '</textarea>';
+            echo '<p class="description">' . esc_html(__('Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. ', 'ai-translate')) . '</p>';
+            echo '<button type="button" class="button" id="generate-context-btn" style="margin-top: 10px;">Generate Context from Homepage</button>';
+            echo '<span id="generate-context-status" style="margin-left: 10px;"></span>';
+            
+            // Debug: Show current prompt with context
+            if (class_exists('AI_Translate_Core')) {
+                $core = AI_Translate_Core::get_instance();
+                $debug_prompt = $core->debug_prompt_with_context();
+                if (strpos($debug_prompt, 'WEBSITE CONTEXT:') !== false) {
+                    echo '<p style="color: green; margin-top: 10px;"><strong>✓ Context is active and will be used in translations</strong></p>';
+                } else {
+                    echo '<p style="color: orange; margin-top: 10px;"><strong>⚠ No context found - translations will use default prompts</strong></p>';
+                }
+            }
+        },
+        'ai-translate',
+        'ai_translate_advanced'
+    );
+    // --- End Website Context Field ---
 
 });
 
