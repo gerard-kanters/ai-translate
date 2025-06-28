@@ -200,14 +200,14 @@ class AI_Translate_Core
     }
 
     /**
-     * Generate a consistent cache key for translations based on type.
+     * Generate cache key for different cache types.
      *
-     * @param string $identifier Unique identifier (often a hash of the content).
-     * @param string $target_language Target language code.
-     * @param string $type Cache type ('mem', 'trans', 'disk', 'batch_mem', 'batch_trans').
-     * @return string The generated cache key.
+     * @param string $identifier The identifier for the content
+     * @param string $target_language The target language
+     * @param string $type The type of cache (mem, trans, disk, batch_mem, batch_trans, slug_trans)
+     * @return string The generated cache key
      */
-    private function generate_cache_key(string $identifier, string $target_language, string $type): string
+    public function generate_cache_key(string $identifier, string $target_language, string $type): string
     {
         $lang = sanitize_key($target_language); // Ensure language code is safe
         $id = sanitize_key($identifier); // Ensure identifier is safe (though often already a hash)
@@ -2490,13 +2490,9 @@ class AI_Translate_Core
             return self::$translation_memory[$cache_key];
         }
 
-        // Check custom database table first
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
+        // Check custom database table first - dit is nu de primaire bron
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
         $db_cached_slug = $wpdb->get_var($wpdb->prepare(
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
             "SELECT translated_slug FROM {$table_name} WHERE original_slug = %s AND language_code = %s AND post_id = %d",
             $original_slug,
             $target_language,
@@ -2508,18 +2504,46 @@ class AI_Translate_Core
             return $db_cached_slug;
         }
 
-        // Check transient cache
+        // Check transient cache (alleen als fallback)
         $transient_key = $this->generate_cache_key($cache_key, $target_language, 'slug_trans');
         $cached_slug = get_transient($transient_key);
         if ($cached_slug !== false) {
+            // Als er een transient is, migreer deze naar de database voor permanente opslag
+            if ($post_id !== null) {
+                // Gebruik INSERT IGNORE om te voorkomen dat bestaande vertalingen worden overschreven
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $wpdb->insert is an acceptable method for database interaction and does not require caching.
+                $insert_result = $wpdb->insert(
+                    $table_name,
+                    [
+                        'post_id' => $post_id,
+                        'original_slug' => $original_slug,
+                        'translated_slug' => $cached_slug,
+                        'language_code' => $target_language,
+                    ],
+                    ['%d', '%s', '%s', '%s']
+                );
+                
+                // Als insert mislukt door duplicate key, haal dan de bestaande vertaling op
+                if ($insert_result === false && $wpdb->last_error && strpos($wpdb->last_error, 'Duplicate entry') !== false) {
+                    $existing_slug = $wpdb->get_var($wpdb->prepare(
+                        "SELECT translated_slug FROM {$table_name} WHERE original_slug = %s AND language_code = %s AND post_id = %d",
+                        $original_slug,
+                        $target_language,
+                        $post_id
+                    ));
+                    if ($existing_slug !== null) {
+                        $cached_slug = $existing_slug;
+                    }
+                }
+            }
             self::$translation_memory[$cache_key] = $cached_slug;
             return $cached_slug;
         }
 
+        // Alleen vertalen als er nog geen permanente vertaling bestaat
         // Convert slug to readable text for translation
         $readable_text = str_replace(['-', '_'], ' ', $original_slug);
         $readable_text = ucwords($readable_text);
-
 
         try {
             // Translate the readable text
@@ -2537,33 +2561,58 @@ class AI_Translate_Core
             // Convert back to slug format
             $translated_slug = $this->text_to_slug($translated_text);
 
-
             // Cache the result in memory
             self::$translation_memory[$cache_key] = $translated_slug;
 
-            // Save to custom database table
+            // Save to custom database table - gebruik INSERT om te voorkomen dat bestaande vertalingen worden overschreven
             if ($post_id !== null) {
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $wpdb->replace is an acceptable method for database interaction and does not require caching.
-                $replace_result = $wpdb->replace(
-                    $table_name,
-                    [
-                        'post_id' => $post_id,
-                        'original_slug' => $original_slug,
-                        'translated_slug' => $translated_slug,
-                        'language_code' => $target_language,
-                    ],
-                    ['%d', '%s', '%s', '%s']
-                );
-                if ($replace_result === false) {
-                    $this->log_event("Failed to save translated slug to DB: {$wpdb->last_error}", 'error');
+                // Controleer nogmaals of er al een vertaling bestaat (race condition voorkomen)
+                $existing_slug = $wpdb->get_var($wpdb->prepare(
+                    "SELECT translated_slug FROM {$table_name} WHERE original_slug = %s AND language_code = %s AND post_id = %d",
+                    $original_slug,
+                    $target_language,
+                    $post_id
+                ));
+                
+                if ($existing_slug === null) {
+                    // Alleen inserten als er nog geen vertaling bestaat
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $wpdb->insert is an acceptable method for database interaction and does not require caching.
+                    $insert_result = $wpdb->insert(
+                        $table_name,
+                        [
+                            'post_id' => $post_id,
+                            'original_slug' => $original_slug,
+                            'translated_slug' => $translated_slug,
+                            'language_code' => $target_language,
+                        ],
+                        ['%d', '%s', '%s', '%s']
+                    );
+                    
+                    if ($insert_result === false) {
+                        $this->log_event("Failed to save translated slug to DB: {$wpdb->last_error}", 'error');
+                        
+                        // Als insert mislukt door duplicate key, haal dan de bestaande vertaling op
+                        if ($wpdb->last_error && strpos($wpdb->last_error, 'Duplicate entry') !== false) {
+                            $existing_slug = $wpdb->get_var($wpdb->prepare(
+                                "SELECT translated_slug FROM {$table_name} WHERE original_slug = %s AND language_code = %s AND post_id = %d",
+                                $original_slug,
+                                $target_language,
+                                $post_id
+                            ));
+                            if ($existing_slug !== null) {
+                                $translated_slug = $existing_slug;
+                                self::$translation_memory[$cache_key] = $translated_slug;
+                            }
+                        }
+                    }
                 } else {
-                    // Successfully saved, no need to log debug
+                    // Gebruik de bestaande vertaling
+                    $translated_slug = $existing_slug;
+                    self::$translation_memory[$cache_key] = $translated_slug;
                 }
-            } else {
-                // Not saving to DB because post_id is null, no need to log debug
             }
 
-            // Save to transient cache
+            // Save to transient cache als backup
             set_transient($transient_key, $translated_slug, $this->expiration_hours * 3600);
 
             return $translated_slug;
@@ -3485,4 +3534,30 @@ class AI_Translate_Core
     {
         return $this->build_translation_prompt($source_language, $target_language, false);
     }
+
+    /**
+     * Clear slug cache for a specific post.
+     * Used when the original slug changes.
+     *
+     * @param int $post_id The post ID
+     * @return int Number of deleted records
+     */
+    public function clear_slug_cache_for_post(int $post_id): int
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_translate_slugs';
+        
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct query is necessary, and table name is safely prefixed.
+        $deleted = $wpdb->delete(
+            $table_name,
+            ['post_id' => $post_id],
+            ['%d']
+        );
+        
+        return $deleted !== false ? $deleted : 0;
+    }
+
+    /**
+     * Clear zowel file cache als transients en de slug cache tabel.
+     */
 }

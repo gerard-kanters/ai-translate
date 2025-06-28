@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.24');
+define('AI_TRANSLATE_VERSION', '1.25');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -460,6 +460,35 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             return $permalink;
         }, 10, 3);
     }); // End of init action
+
+    // Hook om slug vertalingen te resetten wanneer de originele slug verandert
+    add_action('wp_insert_post', function ($post_id, $post, $update) {
+        // Alleen uitvoeren bij updates (niet bij nieuwe posts)
+        if (!$update) {
+            return;
+        }
+        
+        $core = AI_Translate_Core::get_instance();
+        
+        // Haal de oude post data op
+        $old_post = get_post($post_id);
+        if (!$old_post) {
+            return;
+        }
+        
+        // Check of de slug is veranderd
+        $old_slug = get_post_meta($post_id, '_ai_translate_original_slug', true);
+        if ($old_slug && $old_slug !== $post->post_name) {
+            // Slug is veranderd, verwijder alle vertaalde slugs voor deze post
+            $core->clear_slug_cache_for_post($post_id);
+            
+            // Update de opgeslagen originele slug
+            update_post_meta($post_id, '_ai_translate_original_slug', $post->post_name);
+        } elseif (!$old_slug) {
+            // Eerste keer, sla de originele slug op
+            update_post_meta($post_id, '_ai_translate_original_slug', $post->post_name);
+        }
+    }, 10, 3);
 }); // End of plugins_loaded action
 
 // Start output buffering voor volledige HTML vertaling (page builder support)
@@ -521,15 +550,21 @@ function plugin_activate(): void
         translated_slug varchar(200) NOT NULL,
         language_code varchar(10) NOT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        UNIQUE KEY unique_translation (post_id, language_code),
-        KEY idx_translated_slug (translated_slug, language_code),
-        KEY idx_original_slug (original_slug)
+        UNIQUE KEY unique_slug_translation (post_id, language_code),
+        KEY original_slug (original_slug),
+        KEY translated_slug (translated_slug),
+        KEY language_code (language_code)
     ) $charset_collate;";
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
+
+    // Initialiseer bestaande posts met hun originele slug metadata
+    initialize_existing_posts_slug_metadata();
+    
+    // Migreer bestaande vertaalde URLs van transients naar database voor backwards compatibility
+    migrate_existing_translated_urls();
 }
 
 function plugin_deactivate(): void
@@ -1036,5 +1071,120 @@ add_filter('get_the_excerpt', function($excerpt, $post) {
 //     $core->log_event("wp_action: is_404=" . (is_404() ? 'true' : 'false') . ", is_page=" . (is_page() ? 'true' : 'false') . ", is_singular=" . (is_singular() ? 'true' : 'false'), 'debug');
 //     $core->log_event("wp_action: query_vars=" . print_r(get_query_var('pagename'), true), 'debug');
 // }, 1);
+
+/**
+ * Initialize existing posts with their original slug metadata.
+ * This ensures the slug tracking system works for existing content.
+ */
+function initialize_existing_posts_slug_metadata(): void
+{
+    global $wpdb;
+    
+    // Haal alle published posts en pages op die nog geen slug metadata hebben
+    $posts = $wpdb->get_results(
+        "SELECT p.ID, p.post_name, p.post_type 
+         FROM {$wpdb->posts} p 
+         LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_ai_translate_original_slug'
+         WHERE p.post_status = 'publish' 
+         AND p.post_type IN ('post', 'page') 
+         AND pm.meta_id IS NULL
+         ORDER BY p.post_date DESC"
+    );
+    
+    if (!empty($posts)) {
+        foreach ($posts as $post) {
+            update_post_meta($post->ID, '_ai_translate_original_slug', $post->post_name);
+        }
+    }
+}
+
+/**
+ * Migrate existing translated URLs from transients to database for backwards compatibility.
+ * This ensures that URLs that were already translated before the database implementation
+ * remain stable and don't change when the LLM provides different translations.
+ */
+function migrate_existing_translated_urls(): void
+{
+    global $wpdb;
+    $core = AI_Translate_Core::get_instance();
+    $settings = $core->get_settings();
+    
+    // Haal alle enabled en detectable talen op
+    $enabled_languages = $settings['enabled_languages'] ?? [];
+    $detectable_languages = $settings['detectable_languages'] ?? [];
+    $all_languages = array_unique(array_merge($enabled_languages, $detectable_languages));
+    $default_language = $settings['default_language'] ?? 'nl';
+    
+    // Filter de default taal eruit (die hoeven we niet te migreren)
+    $languages_to_migrate = array_diff($all_languages, [$default_language]);
+    
+    if (empty($languages_to_migrate)) {
+        return; // Geen talen om te migreren
+    }
+    
+    // Haal alle published posts en pages op
+    $posts = $wpdb->get_results(
+        "SELECT ID, post_name, post_type 
+         FROM {$wpdb->posts} 
+         WHERE post_status = 'publish' 
+         AND post_type IN ('post', 'page') 
+         ORDER BY post_date DESC"
+    );
+    
+    if (empty($posts)) {
+        return;
+    }
+    
+    $table_name = $wpdb->prefix . 'ai_translate_slugs';
+    $migrated_count = 0;
+    
+    foreach ($posts as $post) {
+        foreach ($languages_to_migrate as $target_language) {
+            // Controleer of er al een database entry bestaat
+            $existing_entry = $wpdb->get_var($wpdb->prepare(
+                "SELECT translated_slug FROM {$table_name} WHERE original_slug = %s AND language_code = %s AND post_id = %d",
+                $post->post_name,
+                $target_language,
+                $post->ID
+            ));
+            
+            // Als er al een database entry bestaat, sla over
+            if ($existing_entry !== null) {
+                continue;
+            }
+            
+            // Probeer transient cache te vinden voor deze slug vertaling
+            $cache_key = "slug_{$post->post_name}_{$post->post_type}_{$default_language}_{$target_language}";
+            $transient_key = $core->generate_cache_key($cache_key, $target_language, 'slug_trans');
+            $cached_slug = get_transient($transient_key);
+            
+            if ($cached_slug !== false) {
+                // Migreer van transient naar database
+                $insert_result = $wpdb->insert(
+                    $table_name,
+                    [
+                        'post_id' => $post->ID,
+                        'original_slug' => $post->post_name,
+                        'translated_slug' => $cached_slug,
+                        'language_code' => $target_language,
+                    ],
+                    ['%d', '%s', '%s', '%s']
+                );
+                
+                if ($insert_result !== false) {
+                    $migrated_count++;
+                    
+                    // Verwijder de transient na succesvolle migratie
+                    delete_transient($transient_key);
+                }
+            }
+        }
+    }
+    
+    // Log de migratie resultaten
+    if ($migrated_count > 0) {
+        $core->log_event("Migrated {$migrated_count} translated URLs from transients to database for backwards compatibility", 'info');
+    }
+}
 
 

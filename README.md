@@ -1,17 +1,17 @@
 === AI Translate ===
 Contributors: gkanters
-Tags: translation, ai, artificial intelligence, multilingual, translate, ai translate, seo
+Tags: translation, artificial intelligence, seo, translate, ai translate
 Requires at least: 5.0
 Tested up to: 6.8
 Stable tag: 1.24
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-= A powerful WordPress plugin for automatically translating your website using AI supporting 21 languages. This plugin will increase your website traffic and improves the SEO  =
+= AI-powered WordPress plugin for automatic website translation in 21 languages. Boosts traffic and improves your SEO.  =
 
 ## Short Description
 
-A powerful WordPress plugin for automatically translating your website using AI supporting 21 languages.
+AI-powered WordPress plugin for automatic website translation in 21 languages. Boosts traffic and improves your SEO.
 
 ## Description
 
@@ -129,6 +129,14 @@ This plugin connects to external AI translation services to provide automatic tr
 
 ## Changelog
 ### 1.24
+- **Stabiele vertaalde URLs**: Eenmaal vertaalde URLs veranderen nooit meer door nieuwe LLM vertalingen, cruciaal voor SEO en social media links
+- **Backwards compatibility**: Automatische migratie van bestaande vertaalde URLs van transients naar database bij plugin activatie
+- **API call besparing**: Geen onnodige API calls meer voor bestaande vertalingen, significante kostenreductie
+- **Automatische slug update**: Vertalingen worden automatisch bijgewerkt wanneer de originele slug verandert
+- **Verbeterde database opslag**: Permanente opslag van vertaalde URLs in custom database tabel
+- **Reverse translate functionaliteit**: Correcte afhandeling van inkomende vertaalde URLs voor 404 preventie
+
+### 1.25
 - Improved translation by providing better site specific context andmore freedom to translate to the AI
 - Improved caching and translateion performance.
 - Added Greek and Romanian
