@@ -859,3 +859,5 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         wp_send_json_error(['message' => 'API validatie mislukt: ' . $e->getMessage()]);
     }
 });
+
+add_action('update_option_ai_translate_settings', 'AITranslate\\maybe_flush_rules_on_settings_update', 20, 2);
