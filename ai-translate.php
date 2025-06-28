@@ -1030,4 +1030,11 @@ add_filter('get_the_excerpt', function($excerpt, $post) {
     return $translated;
 }, 20, 2);
 
+// Debug: WordPress query state logging (uitgeschakeld)
+// add_action('wp', function() {
+//     $core = \AITranslate\AI_Translate_Core::get_instance();
+//     $core->log_event("wp_action: is_404=" . (is_404() ? 'true' : 'false') . ", is_page=" . (is_page() ? 'true' : 'false') . ", is_singular=" . (is_singular() ? 'true' : 'false'), 'debug');
+//     $core->log_event("wp_action: query_vars=" . print_r(get_query_var('pagename'), true), 'debug');
+// }, 1);
+
 

@@ -1022,16 +1022,16 @@ class AI_Translate_Core
             if ($context_json !== false) {
                 // Remove the outer quotes from JSON encoding since we're embedding it
                 $context_json = substr($context_json, 1, -1);
-                $website_context = "\n\nWEBSITE CONTEXT:\n" . $context_json . "\n\nUse this context to provide more accurate and contextually appropriate translations. Consider the industry, tone, and terminology relevant to this website when translating. Adapt the translation style to match the business context and target audience.";
+                $website_context = "\n\nWEBSITE CONTEXT:\n" . $context_json . "\n\nUse this context to provide more accurate and contextually appropriate translations for longer content. For single words, short phrases, or slugs, translate literally and directly without applying contextual interpretation to avoid confusion.";
             } else {
                 // Fallback: use basic escaping if JSON encoding fails
                 $context_text = str_replace(['"', "'"], ['\"', "\\'"], $context_text);
-                $website_context = "\n\nWEBSITE CONTEXT:\n" . $context_text . "\n\nUse this context to provide more accurate and contextually appropriate translations. Consider the industry, tone, and terminology relevant to this website when translating. Adapt the translation style to match the business context and target audience.";
+                $website_context = "\n\nWEBSITE CONTEXT:\n" . $context_text . "\n\nUse this context to provide more accurate and contextually appropriate translations for longer content. For single words, short phrases, or slugs, translate literally and directly without applying contextual interpretation to avoid confusion.";
             }
         }
         
         $system_prompt = sprintf(
-            'You are a professional translation engine. Translate the following text from %s to %s.%s\n\nTRANSLATION STYLE:\n- Make the translation sound natural and professional, as if written by a native speaker\n- Adapt phrasing slightly to make it sound more persuasive and aligned with standard language on a website\n- Avoid literal translations that sound awkward or robotic\n- Use idiomatic expressions and natural word choices appropriate for the target language\n- Maintain the original tone and intent while ensuring the text flows naturally\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_PLACEHOLDER_X__ stays __AITRANSLATE_PLACEHOLDER_X__ and __AITRANSLATE_SC_PLACEHOLDER_X__ stays __AITRANSLATE_SC_PLACEHOLDER_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_PLACEHOLDER_X__ or __AITRANSLATE_SC_PLACEHOLDER_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.',
+            'You are a professional translation engine. Translate the following text from %s to %s.%s\n\nTRANSLATION STYLE:\n- Make the translation sound natural and professional, as if written by a native speaker\n- Adapt phrasing slightly to make it sound more persuasive and aligned with standard language on a website\n- Avoid literal translations that sound awkward or robotic\n- Use idiomatic expressions and natural word choices appropriate for the target language\n- Maintain the original tone and intent while ensuring the text flows naturally\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_PLACEHOLDER_X__ stays __AITRANSLATE_PLACEHOLDER_X__ and __AITRANSLATE_SC_PLACEHOLDER_X__ stays __AITRANSLATE_SC_PLACEHOLDER_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_PLACEHOLDER_X__ or __AITRANSLATE_SC_PLACEHOLDER_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.\n9. For single words, short phrases, or slugs (especially for URLs), translate literally and directly without applying contextual interpretation.',
             $this->get_language_name($source_language),
             $this->get_language_name($target_language),
             $website_context
@@ -1206,13 +1206,10 @@ class AI_Translate_Core
      */
     public function log_event(string $message, string $level = 'debug'): void
     {
-        if (in_array($level, ['error', 'warning'], true)) {
-            $timestamp = current_time('mysql');
-            $log_entry = sprintf('[%s] [%s] %s', $timestamp, strtoupper($level), $message);
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log($log_entry);
-        }
-        // Debug/info logging is uitgeschakeld en wordt genegeerd
+        $timestamp = current_time('mysql');
+        $log_entry = sprintf('[%s] [%s] %s', $timestamp, strtoupper($level), $message);
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+        error_log($log_entry);
     }
 
     /**
@@ -1295,6 +1292,27 @@ class AI_Translate_Core
         $table_name = $wpdb->prefix . 'ai_translate_slugs';
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct query is necessary for table truncation, and table name is safely prefixed.
         $wpdb->query("TRUNCATE TABLE $table_name");
+    }
+
+    /**
+     * Clear slug cache for a specific language.
+     *
+     * @param string $language_code The language code to clear slug cache for.
+     * @return int Number of deleted records.
+     */
+    public function clear_slug_cache_for_language(string $language_code): int
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_translate_slugs';
+        
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Direct query is necessary, and table name is safely prefixed.
+        $deleted = $wpdb->delete(
+            $table_name,
+            ['language_code' => $language_code],
+            ['%s']
+        );
+        
+        return $deleted !== false ? $deleted : 0;
     }
 
     /**
@@ -2971,10 +2989,9 @@ class AI_Translate_Core
     public function reverse_translate_slug(string $translated_slug, string $source_language, string $target_language): ?array
     {
         global $wpdb;
-        // Log the raw translated_slug before any processing
-        // No explicit urldecode() here, let WordPress handle it or rely on database matching
         $settings = $this->get_settings();
         $default_language = $settings['default_language'] ?? 'nl';
+        
         // Skip if same language
         if ($source_language === $target_language) {
             // Try to find the post_type for the translated_slug
@@ -2992,15 +3009,30 @@ class AI_Translate_Core
             }
             return ['slug' => $translated_slug, 'post_type' => null]; // Fallback if post_type not found
         }
+        
         $table_name_slugs = $wpdb->prefix . 'ai_translate_slugs';
+        
+        // Apply URL decoding for UTF-8 character handling
+        $decoded_translated_slug = urldecode($translated_slug);
+        
         // 1. Check custom slug translation table first (exact match)
-        $decoded_translated_slug = $translated_slug; // Verwijder urldecode, gebruik de raw URL-encoded slug
-
+        // Try with decoded version first (most likely to match UTF-8 in database)
         $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
             "SELECT post_id, original_slug FROM {$table_name_slugs} WHERE translated_slug = %s AND language_code = %s",
             $decoded_translated_slug,
             $source_language
         ));
+        
+        // If not found, try with original encoded version
+        if (!$cached_original_slug_data) {
+            $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
+                "SELECT post_id, original_slug FROM {$table_name_slugs} WHERE translated_slug = %s AND language_code = %s",
+                $translated_slug,
+                $source_language
+            ));
+        }
+        
+        // If still not found, try LIKE match with decoded version
         if (!$cached_original_slug_data) {
             $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
                 "SELECT post_id, original_slug FROM {$table_name_slugs} WHERE translated_slug LIKE %s AND language_code = %s ORDER BY LENGTH(translated_slug) ASC LIMIT 1",
@@ -3008,46 +3040,61 @@ class AI_Translate_Core
                 $source_language
             ));
         }
+        
         if ($cached_original_slug_data) {
             $post = get_post($cached_original_slug_data->post_id);
             if ($post) {
                 return ['slug' => $cached_original_slug_data->original_slug, 'post_type' => $post->post_type];
-            } else {
-                $this->log_event("reverse_translate_slug: Post not found for ID {$cached_original_slug_data->post_id} from custom slug table.", 'warning');
             }
         }
+        
         // 2. Fallback: Try to find a post with this exact slug (might be already in target language or default)
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely prefixed.
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name is safely prefixed, and direct query is necessary here.
+        // Try with decoded version first
         $post = $wpdb->get_row($wpdb->prepare(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_name = %s
              AND post_status = 'publish'
              ORDER BY post_type = 'page' DESC, post_date DESC
              LIMIT 1",
-            $decoded_translated_slug // Gebruik de gedecodeerde versie
+            $decoded_translated_slug
         ));
+        
+        // If not found, try with original encoded version
         if (!$post) {
-            // Try fuzzy match if exact match fails     
+            $post = $wpdb->get_row($wpdb->prepare(
+                "SELECT ID, post_name, post_type FROM {$wpdb->posts}
+                 WHERE post_name = %s
+                 AND post_status = 'publish'
+                 ORDER BY post_type = 'page' DESC, post_date DESC
+                 LIMIT 1",
+                $translated_slug
+            ));
+        }
+        
+        // If still not found, try fuzzy match with decoded version
+        if (!$post) {
             $post = $wpdb->get_row($wpdb->prepare(
                 "SELECT ID, post_name, post_type FROM {$wpdb->posts}
                  WHERE post_name LIKE %s
                  AND post_status = 'publish'
                  ORDER BY post_type = 'page' DESC, post_date DESC, LENGTH(post_name) ASC
-                 LIMIT 1", // Prefer kortere match
-                $wpdb->esc_like($decoded_translated_slug) . '%' // Gebruik de gedecodeerde versie
+                 LIMIT 1",
+                $wpdb->esc_like($decoded_translated_slug) . '%'
             ));
         }
+        
         if ($post) {
             return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Found exact match
         }
 
+        // 3. Try to find by generating potential translated slugs
         $posts = $wpdb->get_results(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_status = 'publish'
              AND post_name != ''
              ORDER BY post_type = 'page' DESC, post_date DESC"
         );
+        
         foreach ($posts as $post) {
             // Get what this post's slug would be when translated
             $potential_translated_slug = $this->get_translated_slug(
@@ -3057,27 +3104,40 @@ class AI_Translate_Core
                 $source_language,   // Doel is de taal van de inkomende slug
                 (int)$post->ID // Pass post ID for database lookup in get_translated_slug
             );
-            // If the translated version matches what we're looking for
-            if ($potential_translated_slug === $translated_slug) {
+            
+            // If the translated version matches what we're looking for (try both versions)
+            if ($potential_translated_slug === $translated_slug || $potential_translated_slug === $decoded_translated_slug) {
                 return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Return the original slug
             }
         }
+        
+        // 4. Final fallback: try to find post in default language
         $post_in_default_lang = $wpdb->get_row($wpdb->prepare(
             "SELECT ID, post_name, post_type FROM {$wpdb->posts}
              WHERE post_name = %s
              AND post_status = 'publish'
              ORDER BY post_type = 'page' DESC, post_date DESC
              LIMIT 1",
-            $decoded_translated_slug // Gebruik de gedecodeerde versie
+            $decoded_translated_slug
         ));
+        
+        if (!$post_in_default_lang) {
+            $post_in_default_lang = $wpdb->get_row($wpdb->prepare(
+                "SELECT ID, post_name, post_type FROM {$wpdb->posts}
+                 WHERE post_name = %s
+                 AND post_status = 'publish'
+                 ORDER BY post_type = 'page' DESC, post_date DESC
+                 LIMIT 1",
+                $translated_slug
+            ));
+        }
 
         if ($post_in_default_lang) {
             return ['slug' => $post_in_default_lang->post_name, 'post_type' => $post_in_default_lang->post_type];
         }
 
-        return ['slug' => $decoded_translated_slug, 'post_type' => null]; // Gebruik de gedecodeerde versie
+        return ['slug' => $decoded_translated_slug, 'post_type' => null]; // Gebruik de gedecodeerde versie als fallback
     }
-
 
     /**
      * Conditionally adds the filter for Fluent Form output if on the contact page and translation is needed.
@@ -3134,10 +3194,21 @@ class AI_Translate_Core
             $current_lang = $this->get_current_language();
             $default_lang = $this->default_language;
 
-            // Alleen redirecten naar de default language homepage om loops te voorkomen
+            // Redirect naar de homepage van de huidige taal
             if ($current_lang !== $default_lang) {
-                $home_url = home_url('/');
+                // Gebruik translate_url om de juiste homepage URL te krijgen voor de huidige taal
+                $home_url = $this->translate_url(home_url('/'), $current_lang);
+                
                 // Controleer of we al op de homepage zijn (voorkom loop)
+                $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
+                $home_path = wp_parse_url($home_url, PHP_URL_PATH);
+                if ($request_uri !== $home_path && rtrim($request_uri, '/') !== rtrim($home_path, '/')) {
+                    wp_redirect($home_url, 302);
+                    exit;
+                }
+            } else {
+                // Voor de standaard taal, redirect naar de normale homepage
+                $home_url = home_url('/');
                 $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
                 $home_path = wp_parse_url($home_url, PHP_URL_PATH);
                 if ($request_uri !== $home_path && rtrim($request_uri, '/') !== rtrim($home_path, '/')) {

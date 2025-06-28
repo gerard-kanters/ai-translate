@@ -132,10 +132,11 @@ This plugin connects to external AI translation services to provide automatic tr
 - Improved translation by providing better site specific context andmore freedom to translate to the AI
 - Improved caching and translateion performance.
 - Added Greek and Romanian
-- Fix redirect issue to translated homepage.
+- Fix 404 redirect to redirect to homepage of current language instead of default language homepage.
 - Fix issue with language specific clear cache.
 - Fix issue with non roman languages and translated URL's.
 - Better AI prompting to avoid confusion with some tags and placeholders.
+- Improved translation prompt to prevent contextual misinterpretation of single words and slugs.
 
 ### 1.2
 - Reduced API calls.
