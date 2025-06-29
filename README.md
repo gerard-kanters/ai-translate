@@ -1,13 +1,13 @@
 === AI Translate ===
-Contributors: gkanters
-Tags: translation, artificial intelligence, seo, translate, ai translate
-Requires at least: 5.0
-Tested up to: 6.8
-Stable tag: 1.24
-Requires PHP: 7.4
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
-= AI-powered WordPress plugin for automatic website translation in 21 languages. Boosts traffic and improves your SEO.  =
+Contributors: gkanters  
+Tags: translation, artificial intelligence, seo, translate, ai translate  
+Requires at least: 5.0  
+Tested up to: 6.8  
+Stable tag: 1.24  
+Requires PHP: 7.4  
+License: GPLv2 or later  
+License URI: https://www.gnu.org/licenses/gpl-2.0.html  
+= AI-powered WordPress plugin for automatic website translation in 21 languages. Boosts traffic and improves your SEO. =
 
 ## Short Description
 
@@ -15,159 +15,143 @@ AI-powered WordPress plugin for automatic website translation in 21 languages. B
 
 ## Description
 
-This plugin leverages the power of Artificial Intelligence to provide seamless, automatic translation for your WordPress website's content, including posts, pages, titles, taglines, and even menu items and widget titles. It supports multiple languages and includes intelligent caching for improved performance.
+AI Translate leverages advanced AI to provide seamless, automatic translation of your WordPress website content—including posts, pages, titles, taglines, menus, and widget titles. Translations are fast, SEO-friendly, and highly customizable. Intelligent caching ensures top performance. The plugin generates a smart summary of your website and provides it to itself while translating, so translations are always tailored to your brand, terminology, and topic.
 
 ## Features
 
-- Automatic translation of pages and posts
-- Support custom post types
-- Support all major languages of the world
-- Intelligent caching for better performance
-- Simple language switcher interface
-- Customizable translation models
-- Translates URLs (e.g., `/over-ons` to `/en/about-us` )
+- Automatic translation of pages, posts, and custom post types.  
+- AI generates summary of your site for itself to understand the goal of the website.
+- Support for all major languages of the world.  
+- Intelligent caching for better performance.  
+- Automatic re-translation when original content changes.  
+- Remembers each visitor’s language preference.  
+- Simple language switcher interface.  
+- Customizable translation models (OpenAI, Deepseek, or compatible API).  
+- Translates URLs for SEO (e.g., `/over-ons` to `/en/about-us`).  
 
 ## Installation
 
-1. Upload the plugin files to the `/wp-content/plugins/ai-translate/` directory, or install the plugin through the WordPress plugins screen directly.
-2. Activate the plugin through the 'Plugins' menu in WordPress.
-3. Navigate to 'Admin > AI Translate' to configure the plugin settings.
-4. Add your OpenAI API key (or compatible API key) and select the desired languages.
-5. It is strongly advised to use memcached or redis to improve performance. This plugin heavilly caches data and makes use of these engines. After initial translation the performance of translated pages is as good as non translated pages.
+1. Upload the plugin files to `/wp-content/plugins/ai-translate/` or install directly via the WordPress plugin screen.
+2. Activate the plugin via the 'Plugins' menu.
+3. Go to 'Admin > AI Translate' to configure settings.
+4. Add your API key and select languages.
+5. For best performance, use memcached or Redis (plugin uses heavy caching).
 
 ## Configuration
 
-Access the plugin settings via the WordPress admin menu under 'AI Translate'.
+Find all plugin settings under 'AI Translate' in your WordPress admin menu.
 
 ### API Settings
 
-- **API URL**: The endpoint URL of the AI translation API you are using (e.g., `https://api.openai.com/v1/`).
-- **API Key**: Your secret API key for authentication with the translation service.
-- **Translation Model**: Select the specific AI model you want to use for translations.
+- **API URL**: Endpoint for your AI translation API (e.g., `https://api.openai.com/v1/`)
+- **API Key**: Your API authentication key
+- **Translation Model**: Choose your preferred AI model
 
 ### Language Settings
 
-- **Default Language**: The primary language of your website.
-- **Enabled Languages (in Switcher)**: Select the languages that will be available for visitors to choose from in the language switcher.
-- **Detectable Languages (Auto-Translate)**: Select languages for which the site will be automatically translated if a visitor's browser preference matches, but these won't appear in the switcher.
+- **Default Language**: Main language of your website  
+- **Enabled Languages**: Languages shown in the language switcher  
+- **Detectable Languages**: Auto-translate if visitor's browser matches, but not in switcher
 
 ### Cache Settings
 
-- **Cache Duration (days)**: How long translated content is stored in the cache before being refreshed.
-- **Cache Management**: Options to clear the entire cache, transient cache only, or cache per language.
+- **Cache Duration (days)**: How long translated content stays cached  
+- **Cache Management**: Clear all cache, only transient cache, or cache per language  
+- **Automatic cache invalidation**: Cache refreshes only when original content changes
 
 ### Advanced Settings
 
-- **Homepage Meta Description**: Set a specific meta description for the homepage (in the default language) to override the site tagline or generated excerpt. Will be translated to all languages
+- Homepage Meta Description: Set and auto-translate a custom meta description for your homepage
+- Generate context of site to be translated automatically and use it for translation "tone of voice and content"
 
 ## Usage
 
-Once configured, the plugin automatically adds a language switcher button to your website (by default, positioned at the bottom left). Visitors can click on it to select their preferred language, and the content will be translated on the fly (or served from cache if available).
+Once configured, AI Translate adds a language switcher button to your website (default: bottom left). Visitors can select their preferred language; content is translated instantly or loaded from cache.  
+Each visitor’s language choice is remembered for future visits.
 
 ## Cache
 
-Translations are cached to improve performance and reduce API calls:
+- Translations are cached in `/wp-content/uploads/ai-translate/cache/`
+- Expired cache is cleaned up automatically
+- Manual cache clearing via plugin settings
 
-- Cache files are stored in `/wp-content/uploads/ai-translate/cache/`.
-- Expired cache is automatically cleaned up periodically.
-- Cache can be manually cleared via the plugin's settings page in the WordPress admin area.
+### Note on dynamic content
 
-### Important Considerations
-- Dynamically generated content (e.g., forms with nonces, unique IDs, or timestamps) can lead to additional cache files and repeated API calls if not properly handled. The plugin attempts to mitigate this for known dynamic elements, but custom dynamic content may still impact caching efficiency.
+Dynamic elements (like forms with nonces or timestamps) may generate extra cache files. The plugin minimizes this for common cases, but custom dynamic code may need attention for best results.
 
-## Recommended Model selection
-- OpenAI - gpt-4.1-mini
-- Deepseek - deepseek-chat which is slower, but cheaper.
+## Recommended Model Selection
+
+- OpenAI: gpt-4.1-mini  
+- Deepseek: deepseek-chat (slower, but cost-effective)
 
 ## Development
 
-- Path-based language URLs are implemented.
-- Ongoing work to support more content types and improve translation accuracy.
-- Improve caching strategy to effectively reduce API calls and load pages fast without sacrificing real changes to content.
+- Path-based language URLs for SEO  
+- Support for more content types and translation improvements is ongoing  
+- Caching and API optimization are continuously improved
 
-## External services
+## External Services
 
-This plugin connects to external AI translation services to provide automatic translation functionality. The plugin requires an API key from one of the supported providers to function.
+AI Translate requires an API key for one of the supported providers:
 
 ### Supported AI Translation Services
 
 **OpenAI API**
-- **What it is**: OpenAI's GPT models for text translation
-- **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
-- **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
-- **Service provider**: OpenAI
-- **Terms of service**: https://openai.com/terms/
-- **Privacy policy**: https://openai.com/privacy/
+- What it is: OpenAI's GPT models for text translation
+- What data is sent: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
+- When data is sent: When a visitor accesses your website in a language different from the default language, and the content is not already cached
+- Service provider: OpenAI
+- Terms of service: https://openai.com/terms/
+- Privacy policy: https://openai.com/privacy/
 
-**Deepseek API**
-- **What it is**: Deepseek's AI models for text translation
-- **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
-- **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
-- **Service provider**: Deepseek
-- **Terms of service**: https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html
-- **Privacy policy**: https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html
- 
-**Custom API Services**
-- **What it is**: Any OpenAI-compatible API service that you configure
-- **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
-- **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
-- **Service provider**: Varies depending on your custom API configuration
-- **Terms and privacy**: Please refer to your custom API provider's terms of service and privacy policy
 
-### Data Handling
-
-- All translations are cached locally to minimize API calls and improve performance
-- No personal visitor data (IP addresses, cookies, etc.) is sent to the translation services
-- Only the website content that needs translation is transmitted
-- Cached translations are stored on your server and are not shared with external services
+**Data Handling:**  
+- Only website content for translation is sent—no visitor IP or personal data  
+- All translations cached locally; nothing is shared externally
 
 ## Requirements
 
-- WordPress 5.0 or higher
-- PHP 7.4 or higher
-- API key from one of the supported AI translation services (OpenAI, Deepseek, or compatible custom API)
+- WordPress 5.0 or higher  
+- PHP 7.4 or higher  
+- API key for OpenAI, Deepseek, or compatible service
 
 ## Changelog
-### 1.24
-- **Stabiele vertaalde URLs**: Eenmaal vertaalde URLs veranderen nooit meer door nieuwe LLM vertalingen, cruciaal voor SEO en social media links
-- **Backwards compatibility**: Automatische migratie van bestaande vertaalde URLs van transients naar database bij plugin activatie
-- **API call besparing**: Geen onnodige API calls meer voor bestaande vertalingen, significante kostenreductie
-- **Automatische slug update**: Vertalingen worden automatisch bijgewerkt wanneer de originele slug verandert
-- **Verbeterde database opslag**: Permanente opslag van vertaalde URLs in custom database tabel
-- **Reverse translate functionaliteit**: Correcte afhandeling van inkomende vertaalde URLs voor 404 preventie
 
-### 1.25
-- Improved translation by providing better site specific context andmore freedom to translate to the AI
-- Improved caching and translateion performance.
+### 1.24
+- Improved translation context and freedom for AI
+- Improved caching and translation performance
+- Stable translated URLs: slugs only change if original changes
 - Added Greek and Romanian
-- Fix 404 redirect to redirect to homepage of current language instead of default language homepage.
-- Fix issue with language specific clear cache.
-- Fix issue with non roman languages and translated URL's.
-- Better AI prompting to avoid confusion with some tags and placeholders.
-- Improved translation prompt to prevent contextual misinterpretation of single words and slugs.
+- Fixed 404 redirects to correct language homepage
+- Fixed cache clearing by language
+- Fixed non-Latin language URL translations
+- Better AI prompting for tags/placeholders
+- Improved contextual translation for single words/slugs
 
 ### 1.2
-- Reduced API calls.
-- Added some dynamic content support without invalidating caching.
-- Added hreflang tags. 
-- Fix issue with lang code versus country code for Ukrain
-- More user friendly API settings options. 
-- Added custom post type support.
-- Improved url translation for Non Latin scripts.
+- Reduced API calls
+- Dynamic content support without breaking cache
+- Added hreflang tags
+- Automatic re-translation when original content changes
+- Fixed language code issues for Ukrainian
+- Improved API settings UI
+- Custom post type support
+- Improved non-Latin script URL translation
 
 ### 1.1
-- Implemented path-based language URLs for better SEO and user experience.
-- Added option to clear transient cache separately.
-- Improved handling of widget text translation and link translation within widgets.
-- Added homepage meta description setting.
-- Enhanced API error handling with backoff mechanism.
-- Added detectable languages feature for auto-translation without switcher visibility.
-- Improved cache statistics display in admin.
-- Fixed various minor bugs and code style issues.
-- Improved logic for determining original URL in default language for hreflang tags.
+- Path-based language URLs for SEO
+- Transient cache clearing option
+- Better widget and link translation
+- Homepage meta description option
+- API error handling with backoff
+- Detectable (auto-detect, no switcher) languages
+- Improved cache statistics in admin
+- Remembers each visitor’s language preference
+- Bugfixes and style improvements
+- Improved hreflang original URL logic
 
 ### 1.0
-- Initial release with basic AI translation functionality.
+- Initial release with basic AI translation
 
 ## Provided by
 

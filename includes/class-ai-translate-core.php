@@ -1108,6 +1108,11 @@ class AI_Translate_Core
             $use_disk_cache
         );
 
+        // Strip HTML tags from titles to prevent <p> tags in page titles
+        if ($is_title || in_array($type, ['site_title', 'tagline'], true)) {
+            $translated = wp_strip_all_tags($translated);
+        }
+
         // ALWAYS update memory cache with the result (with or without marker)
         // This ensures that on subsequent calls within this request, the cache hit above works.
         self::$translation_memory[$memory_key] = $translated;
@@ -2307,10 +2312,39 @@ class AI_Translate_Core
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
 
+        // Skip if we're already on the default language
+        if ($current_language === $default_language) {
+            return $query_vars;
+        }
+
         // Check if a 'name' (post slug) is present in the query vars
         if (isset($query_vars['name']) && !empty($query_vars['name'])) {
             $incoming_slug = $query_vars['name'];
 
+            // Skip processing for common non-post URLs and system paths
+            $skip_patterns = [
+                'wp-admin', 'wp-login', 'wp-content', 'wp-includes',
+                'feed', 'comments', 'trackback', 'xmlrpc',
+                'robots.txt', 'sitemap', '.htaccess', 'favicon',
+                'admin', 'login', 'register', 'lost-password',
+                'cron', 'cron.php', 'wp-cron.php'
+            ];
+            
+            foreach ($skip_patterns as $pattern) {
+                if (strpos($incoming_slug, $pattern) !== false) {
+                    return $query_vars;
+                }
+            }
+
+            // Skip very short or very long slugs (likely not valid posts)
+            if (strlen($incoming_slug) < 2 || strlen($incoming_slug) > 200) {
+                return $query_vars;
+            }
+
+            // Skip slugs that contain only numbers or special characters
+            if (preg_match('/^[0-9\-_\.]+$/', $incoming_slug)) {
+                return $query_vars;
+            }
 
             // Attempt to reverse translate the slug
             $original_slug_data = $this->reverse_translate_slug($incoming_slug, $current_language, $default_language);
@@ -2332,14 +2366,8 @@ class AI_Translate_Core
                     if (isset($query_vars['pagename'])) {
                         unset($query_vars['pagename']);
                     }
-                } else {
-                    $this->log_event("parse_translated_request: Incoming slug '{$incoming_slug}' is already the original slug or no translation found.", 'debug');
                 }
-            } else {
-                $this->log_event("parse_translated_request: No original slug found for '{$incoming_slug}'.", 'debug');
             }
-        } else {
-            $this->log_event("parse_translated_request: No 'name' (post slug) found in query_vars.", 'debug');
         }
 
         return $query_vars;

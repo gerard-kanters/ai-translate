@@ -29,10 +29,6 @@
             return;
         }
 
-        if (aiTranslateAsync.debug) {
-            console.log('AI Translate: Initializing async translation with', aiTranslateAsync.queueCount, 'items');
-        }
-
         // Find and process all async translation elements
         processAsyncTranslations();
     });
@@ -54,14 +50,7 @@
         const totalItems = spanPlaceholders.length + htmlComments.length;
 
         if (totalItems === 0) {
-            if (aiTranslateAsync.debug) {
-                console.log('AI Translate: No async translation items found');
-            }
             return;
-        }
-
-        if (aiTranslateAsync.debug) {
-            console.log('AI Translate: Found', totalItems, 'items to translate');
         }
 
         // Process in batches
@@ -140,18 +129,11 @@
      */
     function processBatch(allItems, startIndex) {
         if (startIndex >= allItems.length) {
-            if (aiTranslateAsync.debug) {
-                console.log('AI Translate: All batches processed');
-            }
             return;
         }
 
         isProcessing = true;
         const batch = allItems.slice(startIndex, startIndex + config.batchSize);
-        
-        if (aiTranslateAsync.debug) {
-            console.log('AI Translate: Processing batch', Math.floor(startIndex / config.batchSize) + 1, 'with', batch.length, 'items');
-        }
 
         // Show loading indicators
         batch.forEach(function(item) {
@@ -239,10 +221,6 @@
                 }
                 
                 processedItems.add(item.id);
-                
-                if (aiTranslateAsync.debug) {
-                    console.log('AI Translate: Translated item', item.id);
-                }
             }
         });
     }

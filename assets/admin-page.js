@@ -65,46 +65,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (apiProviderSelect && customApiUrlDiv) {
             if (apiProviderSelect.value === 'custom') {
                 customApiUrlDiv.style.display = 'block';
-                // Fetch custom URL when 'Custom URL' provider is selected
-                var data = new FormData();
-                data.append('action', 'ai_translate_get_custom_url');
-                data.append('nonce', aiTranslateAdmin.getCustomUrlNonce); // Assuming a nonce is available
-                
-                fetch(ajaxurl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    body: data
-                })
-                    .then(r => {                        
-                        if (!r.ok) {
-                            throw new Error('Network response was not ok ' + r.statusText);
-                        }
-                        return r.json();
-                    })
-                    .then(function (resp) {
-                        if (resp.success && resp.data && resp.data.settings !== undefined) {
-                            var customApiUrl = resp.data.settings.custom_api_url;
-                            if (customApiUrlInput) {
-                                customApiUrlInput.value = customApiUrl !== undefined ? customApiUrl : ''; // Vul veld in, leeg als undefined
-                            } else {
-                                console.error('Custom API URL input field not found.'); 
-                            }
-                        } else {
-                            console.error('Fout bij ophalen custom URL of settings ontbreken:', resp.data && resp.data.message ? resp.data.message : 'Onbekende fout'); 
-                            if (customApiUrlInput) customApiUrlInput.value = ''; // Clear on error
-                        }
-                    })
-                    .catch(function (e) {
-                        console.error('AJAX Fout bij ophalen custom URL:', e.message); 
-                        if (customApiUrlInput) customApiUrlInput.value = ''; // Clear on error
-                    });
-
             } else {
                 customApiUrlDiv.style.display = 'none';
-                console.log('Provider is not custom. Hiding custom URL field.'); 
             }
-        } else {
-            console.error('apiProviderSelect or customApiUrlDiv not found.'); 
         }
     }
 

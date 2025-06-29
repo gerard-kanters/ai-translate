@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.25');
+define('AI_TRANSLATE_VERSION', '1.24');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -586,8 +586,6 @@ function init_plugin(): void
     // Basic init - enqueue scripts/styles
     $core = AI_Translate_Core::get_instance();
     $settings = $core->get_settings();
-    if (!empty($settings['debug_mode'])) {
-    }
     wp_enqueue_script('jquery');
     // Enqueue switcher JS only if needed (moved from core class potentially)
     if (!is_admin()) {

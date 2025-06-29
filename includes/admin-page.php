@@ -474,17 +474,6 @@ add_action('admin_init', function () {
             echo '<p class="description">' . esc_html(__('Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. ', 'ai-translate')) . '</p>';
             echo '<button type="button" class="button" id="generate-context-btn" style="margin-top: 10px;">Generate Context from Homepage</button>';
             echo '<span id="generate-context-status" style="margin-left: 10px;"></span>';
-            
-            // Debug: Show current prompt with context
-            if (class_exists('AI_Translate_Core')) {
-                $core = AI_Translate_Core::get_instance();
-                $debug_prompt = $core->debug_prompt_with_context();
-                if (strpos($debug_prompt, 'WEBSITE CONTEXT:') !== false) {
-                    echo '<p style="color: green; margin-top: 10px;"><strong>✓ Context is active and will be used in translations</strong></p>';
-                } else {
-                    echo '<p style="color: orange; margin-top: 10px;"><strong>⚠ No context found - translations will use default prompts</strong></p>';
-                }
-            }
         },
         'ai-translate',
         'ai_translate_advanced'
@@ -793,7 +782,6 @@ add_action('wp_ajax_ai_translate_get_custom_url', function () {
     }
 
     $settings = get_option('ai_translate_settings', []);
-    // Stuur de volledige settings array terug voor debugging in de browserconsole
     wp_send_json_success(['settings' => $settings]);
 });
 
