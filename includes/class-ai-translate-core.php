@@ -3221,13 +3221,16 @@ class AI_Translate_Core
      */
     public function conditionally_add_fluentform_filter(): void
     {
+        // Alleen op de contact pagina en als vertaling nodig is
         if (is_page('contact') && $this->needs_translation()) {
-            add_filter('do_shortcode_tag', [$this, 'filter_fluentform_shortcode_output'], 10, 3); // 3 i.p.v. 4 argumenten voor WP < 5.4
+            // Voeg de filter toe met een hogere prioriteit om ervoor te zorgen dat het wordt uitgevoerd
+            add_filter('do_shortcode_tag', [$this, 'filter_fluentform_shortcode_output'], 10, 3);
         }
     }
 
     /**
      * Filters the output of the [fluentform] shortcode to translate it.
+     * Optimized version with better caching and selective translation.
      *
      * @param string $output The shortcode output.
      * @param string $tag    The shortcode tag name.
@@ -3236,29 +3239,36 @@ class AI_Translate_Core
      */
     public function filter_fluentform_shortcode_output(string $output, string $tag, array $attr): string
     {
-        // De $m parameter (4e argument) is pas vanaf WP 5.4. Voor bredere compatibiliteit gebruiken we 3 argumenten.
-        // Als $m nodig is, moet de add_filter call ook 4 hebben en de PHP versie check.
-
-        if ('fluentform' === $tag) {
-            if (empty(trim($output))) {
-                return $output; // Geen HTML om te vertalen
-            }
-
-            $source_language = $this->default_language;
-            $target_language = $this->get_current_language();
-
-            $translated_output = $this->translate_text(
-                $output,
-                $source_language,
-                $target_language,
-                false, // is_title
-                true  // use_disk_cache (true to allow caching for Fluent Forms)
-            );
-
-            return $translated_output;
+        if ('fluentform' !== $tag) {
+            return $output;
         }
 
-        return $output;
+        if (empty(trim($output))) {
+            return $output; // Geen HTML om te vertalen
+        }
+
+        // Alleen vertalen als er geen cache is
+        $form_id = isset($attr['id']) ? $attr['id'] : 'unknown';
+        $cache_key = 'fluentform_' . $form_id . '_' . $this->get_current_language() . '_' . md5($output);
+        $cached = $this->get_cached_content($cache_key);
+        
+        if ($cached !== false) {
+            return $cached;
+        }
+
+        // Voor Fluent Forms, vertaal de hele output maar met betere caching
+        $translated_output = $this->translate_text(
+            $output,
+            $this->default_language,
+            $this->get_current_language(),
+            false,
+            true
+        );
+        
+        // Cache het resultaat
+        $this->save_to_cache($cache_key, $translated_output);
+        
+        return $translated_output;
     }
 
     /**
