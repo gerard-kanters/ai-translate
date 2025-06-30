@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
-Version: 1.24
+Version: 1.25
 Author: NetCare
 Author URI: https://netcare.nl/
 License: GPL2
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.24');
+define('AI_TRANSLATE_VERSION', '1.25');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -500,10 +500,28 @@ add_filter('template_include', function ($template) {
 
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), __NAMESPACE__ . '\\ai_translate_settings_link');
 
+// Add 5-star rating link to plugin row meta
+add_filter('plugin_row_meta', __NAMESPACE__ . '\\ai_translate_plugin_row_meta', 10, 2);
+
 function ai_translate_settings_link($links): array
 {
     $settings_link = '<a href="admin.php?page=ai-translate">Settings</a>';
     array_unshift($links, $settings_link);
+    return $links;
+}
+
+function ai_translate_plugin_row_meta($links, $file): array
+{
+    if (plugin_basename(__FILE__) === $file) {
+        $rating_link = '<a href="https://wordpress.org/support/plugin/ai-translate/reviews/" target="_blank" rel="noopener noreferrer" title="Rate AI Translate on WordPress.org" style="color: #ffb900">' .
+            '<span class="dashicons dashicons-star-filled" style="font-size: 16px; width:16px; height: 16px"></span>' .
+            '<span class="dashicons dashicons-star-filled" style="font-size: 16px; width:16px; height: 16px"></span>' .
+            '<span class="dashicons dashicons-star-filled" style="font-size: 16px; width:16px; height: 16px"></span>' .
+            '<span class="dashicons dashicons-star-filled" style="font-size: 16px; width:16px; height: 16px"></span>' .
+            '<span class="dashicons dashicons-star-filled" style="font-size: 16px; width:16px; height: 16px"></span>' .
+            '</a>';
+        $links[] = $rating_link;
+    }
     return $links;
 }
 

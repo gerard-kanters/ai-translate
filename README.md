@@ -3,15 +3,15 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.8  
-Stable tag: 1.24  
+Stable tag: 1.25  
 Requires PHP: 7.4  
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
-= AI-powered WordPress plugin for automatic website translation in 21 languages. Boosts traffic and improves your SEO. =
+= AI-powered WordPress plugin for automatic website translation in 23 languages. Boosts traffic and improves your SEO. =
 
 ## Short Description
 
-AI-powered WordPress plugin for automatic website translation in 21 languages. Boosts traffic and improves your SEO.
+AI-powered WordPress plugin for automatic website translation in 23 languages. Boosts traffic and improves your SEO.
 
 ## Description
 
@@ -36,6 +36,48 @@ AI Translate leverages advanced AI to provide seamless, automatic translation of
 3. Go to 'Admin > AI Translate' to configure settings.
 4. Add your API key and select languages.
 5. For best performance, use memcached or Redis (plugin uses heavy caching).
+
+== Frequently Asked Questions ==
+
+= What are the costs for using AI Translate? =
+AI Translate is free to use, but you need an API key from an AI service provider like OpenAI or Deepseek. Costs depend on your usage and chosen provider. OpenAI charges approximately €0.0015 per 1K tokens, meaning an average 500-word page costs about €0.01 to translate.
+
+= Which languages are supported? =
+AI Translate supports 23+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Vietnamese, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian and more.
+
+= How does caching work? =
+AI Translate uses an intelligent caching system that stores translations in WordPress transients and files. Translations are only regenerated when the original content changes, which saves API costs and improves performance.
+
+= Does AI Translate work with all themes? =
+Yes, AI Translate is designed to work with all WordPress themes. The plugin uses standard WordPress hooks and filters, so it should be compatible with most themes.
+
+= How is my privacy protected? =
+AI Translate only sends website content for translation to the AI service. No visitor personal data, IP addresses, or other privacy-sensitive information is shared. All translations are cached locally.
+
+= What happens if the AI service is unavailable? =
+If the AI service is temporarily unavailable, AI Translate displays the original content in the default language. Cached translations remain available and the website continues to function.
+
+= How can I optimize performance? =
+For optimal performance, we recommend:
+* Using a caching plugin like Jetpack, WP Rocket or W3 Total Cache
+* Configuring Memcached or Redis for database caching
+* Adjusting cache duration based on your content update frequency
+
+= Can I use AI Translate for a multilingual webshop? =
+Yes, AI Translate works with WooCommerce and other e-commerce plugins. Product titles, descriptions, and categories are automatically translated. Note that prices and technical specifications are not translated.
+
+= How often are translations updated? =
+Translations are only updated when the original content changes. This happens automatically and prevents unnecessary API costs. You can also manually clear the cache via admin settings.
+
+= Is AI Translate SEO-friendly? =
+Yes, AI Translate is fully SEO-friendly. It automatically generates hreflang tags, translates URL slugs, and ensures search engines can properly index the different language versions.
+
+= Can I customize the AI prompts? =
+Currently, the AI prompts are optimized for the best translations. You can improve influence the prompt in the admin settings providing more context about your site.
+
+= What's the difference between "Enabled Languages" and "Detectable Languages"? =
+"Enabled Languages" are languages visible in the language switcher. "Detectable Languages" are automatically detected based on the visitor's browser language, but are not visible in the switcher.
+
 
 ## Configuration
 
@@ -74,10 +116,6 @@ Each visitor’s language choice is remembered for future visits.
 - Translations are cached in `/wp-content/uploads/ai-translate/cache/`
 - Expired cache is cleaned up automatically
 - Manual cache clearing via plugin settings
-
-### Note on dynamic content
-
-Dynamic elements (like forms with nonces or timestamps) may generate extra cache files. The plugin minimizes this for common cases, but custom dynamic code may need attention for best results.
 
 ## Recommended Model Selection
 
