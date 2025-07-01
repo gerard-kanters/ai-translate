@@ -93,8 +93,6 @@ class AI_Translate_Core
     {
         $this->init();
         add_action('plugins_loaded', [$this, 'schedule_cleanup']);
-        // add_filter('the_content', [$this, 'translate_fluent_form_on_contact_page'], 9); // Removed, replaced by new approach
-        // The logic for Fluent Forms has been generalized in translate_text, so this hook is no longer needed.
         add_action('wp', [$this, 'conditionally_add_fluentform_filter']);
         add_action('wp_head', function () {
             echo '<!-- Begin AI-Translate rel-tag -->' . "\n";
@@ -3595,7 +3593,150 @@ class AI_Translate_Core
         return $deleted !== false ? $deleted : 0;
     }
 
+
+
     /**
-     * Clear zowel file cache als transients en de slug cache tabel.
+     * Translate plugin-generated content safely.
+     * This function handles various types of plugin content with proper caching and safety checks.
+     *
+     * @param string $content The content to translate.
+     * @param string $plugin_type The type of plugin content (e.g., 'woocommerce', 'elementor', 'contact_form_7').
+     * @param array $options Additional options for translation.
+     * @return string The translated content.
      */
+    public function translate_plugin_content(string $content, string $plugin_type = 'generic', array $options = []): string
+    {
+        // Skip if translation not needed
+        if (!$this->needs_translation() || is_admin()) {
+            return $content;
+        }
+        
+        // Skip empty content
+        if (empty(trim($content))) {
+            return $content;
+        }
+        
+        // Skip if already translated
+        if (strpos($content, self::TRANSLATION_MARKER) !== false) {
+            return $content;
+        }
+        
+        // Prevent recursion
+        static $processing_plugin_content = false;
+        if ($processing_plugin_content) {
+            return $content;
+        }
+        $processing_plugin_content = true;
+        
+        // Generate cache key
+        $cache_key = 'plugin_' . $plugin_type . '_' . $this->get_current_language() . '_' . md5($content);
+        $cached = $this->get_cached_content($cache_key);
+        
+        if ($cached !== false) {
+            $processing_plugin_content = false;
+            return $cached;
+        }
+        
+        // Check if content contains HTML that should be preserved
+        $contains_html = strpos($content, '<') !== false && strpos($content, '>') !== false;
+        
+        // For HTML content, use translate_template_part which handles HTML properly
+        if ($contains_html) {
+            $translated = $this->translate_template_part($content, 'plugin_' . $plugin_type);
+        } else {
+            // For plain text, use translate_text directly
+            $translated = $this->translate_text(
+                $content,
+                $this->default_language,
+                $this->get_current_language(),
+                false,
+                true
+            );
+        }
+        
+        // Cache the result
+        $this->save_to_cache($cache_key, $translated);
+        
+        $processing_plugin_content = false;
+        return $translated;
+    }
+
+    /**
+     * Get list of supported plugins for translation.
+     *
+     * @return array List of supported plugins with their detection methods.
+     */
+    public static function get_supported_plugins(): array
+    {
+        return [
+            'woocommerce' => [
+                'class' => 'WooCommerce',
+                'filters' => [
+                    'woocommerce_product_title',
+                    'woocommerce_product_description',
+                    'woocommerce_product_short_description',
+                    'woocommerce_cart_item_name'
+                ]
+            ],
+            'contact_form_7' => [
+                'class' => 'WPCF7',
+                'filters' => [
+                    'wpcf7_form_elements'
+                ]
+            ],
+            'elementor' => [
+                'class' => 'Elementor\\Plugin',
+                'filters' => [
+                    'elementor/frontend/the_content'
+                ]
+            ],
+            'divi' => [
+                'function' => 'et_setup_theme',
+                'filters' => [
+                    'et_pb_all_fields_unprocessed'
+                ]
+            ],
+            'beaver_builder' => [
+                'class' => 'FLBuilder',
+                'filters' => [
+                    'fl_builder_render_module_content'
+                ]
+            ],
+            'fluentform' => [
+                'class' => 'FluentForm\\Framework\\Foundation\\Application',
+                'filters' => [
+                    'do_shortcode_tag'
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * Check if a specific plugin is active and supported.
+     *
+     * @param string $plugin_name The plugin name to check.
+     * @return bool True if plugin is active and supported.
+     */
+    public static function is_plugin_supported(string $plugin_name): bool
+    {
+        $supported_plugins = self::get_supported_plugins();
+        
+        if (!isset($supported_plugins[$plugin_name])) {
+            return false;
+        }
+        
+        $plugin_info = $supported_plugins[$plugin_name];
+        
+        // Check by class
+        if (isset($plugin_info['class']) && class_exists($plugin_info['class'])) {
+            return true;
+        }
+        
+        // Check by function
+        if (isset($plugin_info['function']) && function_exists($plugin_info['function'])) {
+            return true;
+        }
+        
+        return false;
+    }
 }

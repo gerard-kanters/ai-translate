@@ -133,50 +133,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             }, 10); // Prioriteit 10 is standaard
 
                    
-            // 2. Widget text filter (voor oudere text widgets)
-            add_filter('widget_text', function ($text) use ($core) {
-                // Skip in admin
-                if (is_admin() && !wp_doing_ajax()) {
-                    return $text;
-                }
 
-                // NIEUWE CHECK: Zorg ervoor dat $text een string is voordat we trim() gebruiken
-                if (!is_string($text)) {
-                    // Als $text geen string is (bijv. null), retourneer direct.
-                    // Dit voorkomt de TypeError bij trim() en verdere verwerking.
-                    return $text;
-                }
-
-                // Skip empty content (nu veilig om trim te gebruiken)
-                if (empty(trim($text))) {
-                    return $text;
-                }
-
-                // Voorkom recursie
-                static $processing_widget_text = false;
-                if ($processing_widget_text) {
-                    return $text;
-                }
-                $processing_widget_text = true;
-
-                // First, clean up any existing multiple markers
-                // Controleer of de marker aanwezig is in de string $text
-                if (strpos($text, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
-                    // Strip all instances of the marker to prevent accumulation
-                    $clean_text = str_replace(AI_Translate_Core::TRANSLATION_MARKER, '', $text);
-
-                    // Translate the cleaned text as a whole
-                    $result = $core->translate_template_part($clean_text, 'widget_text');
-                } else {
-                    // Normal case - translate everything
-                    $result = $core->translate_template_part($text, 'widget_text');
-                }
-
-                $processing_widget_text = false;
-                // Zorg ervoor dat het resultaat ook een string is (hoewel translate_template_part dat zou moeten doen)
-                // Als het geen string is, retourneer de originele $text om verdere fouten te voorkomen.
-                return is_string($result) ? $result : $text;
-            }, 10);
             
             // 2. Widget text filter (voor oudere text widgets)
             add_filter('widget_text', function ($text) use ($core, $current_language) {
@@ -310,6 +267,98 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         }, 10, 4);
     });
 
+    // Comment form translation filter - comprehensive approach
+    add_filter('comment_form_defaults', function ($defaults) use ($core) {
+        // Skip in admin
+        if (is_admin() && !wp_doing_ajax()) {
+            return $defaults;
+        }
+        
+        // Skip if translation not needed
+        if (!$core->needs_translation()) {
+            return $defaults;
+        }
+        
+        // Prevent recursion
+        static $processing_comment_form = false;
+        if ($processing_comment_form) {
+            return $defaults;
+        }
+        $processing_comment_form = true;
+        
+        // Translate standard text fields
+        $text_fields = [
+            'title_reply', 'title_reply_to', 'cancel_reply_link', 'label_submit',
+            'comment_notes_before', 'comment_notes_after'
+        ];
+        
+        foreach ($text_fields as $field) {
+            if (!empty($defaults[$field])) {
+                $translated = $core->translate_template_part($defaults[$field], 'comment_form');
+                $defaults[$field] = $core->clean_html_string($translated);
+            }
+        }
+        
+        // Translate individual input fields (Name, Email, Website)
+        if (!empty($defaults['fields']) && is_array($defaults['fields'])) {
+            foreach ($defaults['fields'] as $key => $field_html) {
+                // Translate label text
+                $defaults['fields'][$key] = preg_replace_callback(
+                    '/(<label[^>]*>)(.*?)(<\/label>)/i',
+                    function ($matches) use ($core) {
+                        $label_text = $matches[2];
+                        $translated_label = $core->translate_template_part($label_text, 'comment_form');
+                        $translated_label = \AITranslate\AI_Translate_Core::remove_translation_marker($translated_label);
+                        return $matches[1] . $translated_label . $matches[3];
+                    },
+                    $field_html
+                );
+                
+                // Translate placeholder attributes
+                $defaults['fields'][$key] = preg_replace_callback(
+                    '/placeholder=[\'"]([^\'"]+)[\'"]/i',
+                    function ($matches) use ($core) {
+                        $placeholder = $matches[1];
+                        $translated_placeholder = $core->translate_template_part($placeholder, 'comment_form');
+                        $translated_placeholder = \AITranslate\AI_Translate_Core::remove_translation_marker($translated_placeholder);
+                        return 'placeholder="' . esc_attr($translated_placeholder) . '"';
+                    },
+                    $defaults['fields'][$key]
+                );
+            }
+        }
+        
+        // Translate the comment field (textarea)
+        if (!empty($defaults['comment_field'])) {
+            // Translate label text
+            $defaults['comment_field'] = preg_replace_callback(
+                '/(<label[^>]*>)(.*?)(<\/label>)/i',
+                function ($matches) use ($core) {
+                    $label_text = $matches[2];
+                    $translated_label = $core->translate_template_part($label_text, 'comment_form');
+                    $translated_label = $core->clean_html_string($translated_label);
+                    return $matches[1] . $translated_label . $matches[3];
+                },
+                $defaults['comment_field']
+            );
+            
+            // Translate placeholder attributes
+            $defaults['comment_field'] = preg_replace_callback(
+                '/placeholder=[\'"]([^\'"]+)[\'"]/i',
+                function ($matches) use ($core) {
+                    $placeholder = $matches[1];
+                    $translated_placeholder = $core->translate_template_part($placeholder, 'comment_form');
+                    $translated_placeholder = $core->clean_html_string($translated_placeholder);
+                    return 'placeholder="' . esc_attr($translated_placeholder) . '"';
+                },
+                $defaults['comment_field']
+            );
+        }
+        
+        $processing_comment_form = false;
+        return $defaults;
+    }, 20);
+
     add_filter('the_title', function ($title, $id = null) use ($core) {
         if (is_admin() && !wp_doing_ajax()) {
             return $title;
@@ -420,6 +469,178 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         return $core->translate_template_part($author_description, 'author_description');
     }, 10);
     
+    // --- Plugin Content Translation ---
+    // Veilige manier om plugin-gegenereerde content te vertalen
+    add_filter('do_shortcode_tag', function ($output, $tag, $attr) use ($core) {
+        // Skip in admin
+        if (is_admin() && !wp_doing_ajax()) {
+            return $output;
+        }
+        
+        // Skip if translation not needed
+        if (!$core->needs_translation()) {
+            return $output;
+        }
+        
+        // Skip empty output
+        if (!is_string($output)) {
+            return $output;
+        }
+        
+        if (empty(trim($output))) {
+            return $output;
+        }
+        
+        // Skip if already translated (contains marker)
+        if (strpos($output, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+            return $output;
+        }
+        
+        // Prevent recursion
+        static $processing_shortcode = false;
+        if ($processing_shortcode) {
+            return $output;
+        }
+        $processing_shortcode = true;
+        
+        // Skip specific shortcodes that should not be translated
+        $excluded_shortcodes = [
+            'contact-form-7', 'wpcf7', 'fluentform', // Already handled separately
+            'gallery', 'audio', 'video', 'playlist', // Media shortcodes
+            'embed', 'wp_embed', // Embed shortcodes
+            'code', 'pre', // Code blocks
+            'script', 'style', // Script/style tags
+        ];
+        
+        if (in_array($tag, $excluded_shortcodes, true)) {
+            $processing_shortcode = false;
+            return $output;
+        }
+        
+        // Generate cache key for this shortcode output
+        $form_id = isset($attr['id']) ? $attr['id'] : 'unknown';
+        $cache_key = 'shortcode_' . $tag . '_' . $form_id . '_' . $core->get_current_language() . '_' . md5($output);
+        $cached = $core->get_cached_content($cache_key);
+        
+        if ($cached !== false) {
+            $processing_shortcode = false;
+            return $cached;
+        }
+        
+        // Translate the output
+        $translated_output = $core->translate_template_part($output, 'plugin_content');
+        
+        // Cache the result
+        $core->save_to_cache($cache_key, $translated_output);
+        
+        $processing_shortcode = false;
+        return $translated_output;
+    }, 10, 3);
+    
+    // Filter voor plugin output die via wp_head of wp_footer wordt toegevoegd
+    add_action('wp_head', function () use ($core) {
+        if (!$core->needs_translation() || is_admin()) {
+            return;
+        }
+        
+        // Filter voor plugin output in head
+        add_filter('wp_head', function ($output) use ($core) {
+            // Check if output is a string before using trim()
+            if (!is_string($output)) {
+                return $output;
+            }
+            
+            if (empty(trim($output))) {
+                return $output;
+            }
+            
+            // Skip if already translated
+            if (strpos($output, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                return $output;
+            }
+            
+            // Skip script and style tags
+            if (preg_match('/<(script|style|link|meta)/i', $output)) {
+                return $output;
+            }
+            
+            return $core->translate_template_part($output, 'plugin_head');
+        }, 999);
+    }, 1);
+    
+    // Filter voor plugin output die via wp_footer wordt toegevoegd
+    add_action('wp_footer', function () use ($core) {
+        if (!$core->needs_translation() || is_admin()) {
+            return;
+        }
+        
+        // Filter voor plugin output in footer
+        add_filter('wp_footer', function ($output) use ($core) {
+            // Check if output is a string before using trim()
+            if (!is_string($output)) {
+                return $output;
+            }
+            
+            if (empty(trim($output))) {
+                return $output;
+            }
+            
+            // Skip if already translated
+            if (strpos($output, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                return $output;
+            }
+            
+            // Skip script and style tags
+            if (preg_match('/<(script|style|link|meta)/i', $output)) {
+                return $output;
+            }
+            
+            return $core->translate_template_part($output, 'plugin_footer');
+        }, 999);
+    }, 1);
+    
+    // Filter voor plugin output die via template hooks wordt toegevoegd
+    add_action('wp', function () use ($core) {
+        if (!$core->needs_translation() || is_admin()) {
+            return;
+        }
+        
+        // Filter voor plugin output via template hooks
+        $template_hooks = [
+            'wp_body_open',
+            'wp_footer',
+            'wp_head',
+            'get_header',
+            'get_footer',
+            'get_sidebar',
+        ];
+        
+        foreach ($template_hooks as $hook) {
+            add_filter($hook, function ($output) use ($core, $hook) {
+                // Check if output is a string before using trim()
+                if (!is_string($output)) {
+                    return $output;
+                }
+                
+                if (empty(trim($output))) {
+                    return $output;
+                }
+                
+                // Skip if already translated
+                if (strpos($output, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                    return $output;
+                }
+                
+                // Skip script and style tags
+                if (preg_match('/<(script|style|link|meta)/i', $output)) {
+                    return $output;
+                }
+                
+                return $core->translate_template_part($output, 'plugin_' . $hook);
+            }, 999);
+        }
+    });
+    
     // Haal de taalcode uit de cookie
     add_action('init', function () {
         $language_code = isset($_COOKIE['ai_translate_lang']) ? sanitize_text_field(wp_unslash($_COOKIE['ai_translate_lang'])) : '';
@@ -461,6 +682,65 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         }, 10, 3);
     }); // End of init action
 
+    // --- Algemene Plugin Output Translation via Output Buffering ---
+    // Deze methode vangt alle output op die door plugins wordt gegenereerd
+    add_action('template_redirect', function () use ($core) {
+        // Skip in admin
+        if (is_admin()) {
+            return;
+        }
+        
+        // Skip if translation not needed
+        if (!$core->needs_translation()) {
+            return;
+        }
+        
+        // Start output buffering to catch all plugin output
+        ob_start(function ($buffer) use ($core) {
+            // Check if buffer is a string before using trim()
+            if (!is_string($buffer)) {
+                return $buffer;
+            }
+            
+            if (empty(trim($buffer))) {
+                return $buffer;
+            }
+            
+            // Skip if already translated
+            if (strpos($buffer, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                return $buffer;
+            }
+            
+            // Skip if it's just HTML structure without translatable content
+            if (preg_match('/^<!DOCTYPE|<html|<head|<body|<script|<style|<link|<meta/i', $buffer)) {
+                return $buffer;
+            }
+            
+            // Generate cache key for this buffer
+            $cache_key = 'output_buffer_' . $core->get_current_language() . '_' . md5($buffer);
+            $cached = $core->get_cached_content($cache_key);
+            
+            if ($cached !== false) {
+                return $cached;
+            }
+            
+            // Translate the buffer
+            $translated_buffer = $core->translate_template_part($buffer, 'output_buffer');
+            
+            // Cache the result
+            $core->save_to_cache($cache_key, $translated_buffer);
+            
+            return $translated_buffer;
+        });
+    }, 1);
+    
+    // Clean up output buffer at the end
+    add_action('shutdown', function () {
+        if (ob_get_level() > 0) {
+            ob_end_flush();
+        }
+    }, 999);
+
     // Hook om slug vertalingen te resetten wanneer de originele slug verandert
     add_action('wp_insert_post', function ($post_id, $post, $update) {
         // Alleen uitvoeren bij updates (niet bij nieuwe posts)
@@ -489,6 +769,107 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             update_post_meta($post_id, '_ai_translate_original_slug', $post->post_name);
         }
     }, 10, 3);
+
+    // --- Specifieke Plugin Filters ---
+    // WooCommerce filters
+    if (class_exists('WooCommerce')) {
+        add_filter('woocommerce_product_title', function ($title) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($title)) {
+                return $title;
+            }
+            return $core->translate_template_part($title, 'woocommerce_title');
+        }, 10);
+        
+        add_filter('woocommerce_product_description', function ($description) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($description)) {
+                return $description;
+            }
+            return $core->translate_template_part($description, 'woocommerce_description');
+        }, 10);
+        
+        add_filter('woocommerce_product_short_description', function ($short_description) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($short_description)) {
+                return $short_description;
+            }
+            return $core->translate_template_part($short_description, 'woocommerce_short_description');
+        }, 10);
+        
+        add_filter('woocommerce_cart_item_name', function ($name) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($name)) {
+                return $name;
+            }
+            return $core->translate_template_part($name, 'woocommerce_cart_item');
+        }, 10);
+    }
+    
+    // Contact Form 7 filters (als Fluent Forms niet wordt gebruikt)
+    if (class_exists('WPCF7')) {
+        add_filter('wpcf7_form_elements', function ($content) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($content)) {
+                return $content;
+            }
+            
+            // Skip if already translated
+            if (strpos($content, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                return $content;
+            }
+            
+            return $core->translate_template_part($content, 'contact_form_7');
+        }, 10);
+    }
+    
+    // Elementor filters
+    if (class_exists('Elementor\Plugin')) {
+        add_filter('elementor/frontend/the_content', function ($content) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($content)) {
+                return $content;
+            }
+            
+            // Skip if already translated
+            if (strpos($content, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                return $content;
+            }
+            
+            return $core->translate_template_part($content, 'elementor_content');
+        }, 10);
+    }
+    
+    // Divi filters
+    if (function_exists('et_setup_theme')) {
+        add_filter('et_pb_all_fields_unprocessed', function ($fields) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($fields)) {
+                return $fields;
+            }
+            
+            // Translate text fields in Divi modules
+            $text_fields = ['title', 'content', 'description', 'subtitle'];
+            foreach ($text_fields as $field) {
+                if (isset($fields[$field]) && !empty($fields[$field])) {
+                    $fields[$field] = $core->translate_template_part($fields[$field], 'divi_' . $field);
+                }
+            }
+            
+            return $fields;
+        }, 10);
+    }
+    
+    // Beaver Builder filters
+    if (class_exists('FLBuilder')) {
+        add_filter('fl_builder_render_module_content', function ($content, $module) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($content)) {
+                return $content;
+            }
+            
+            // Skip if already translated
+            if (strpos($content, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                return $content;
+            }
+            
+            return $core->translate_template_part($content, 'beaver_builder');
+        }, 10, 2);
+    }
+    
+
 }); // End of plugins_loaded action
 
 // Start output buffering voor volledige HTML vertaling (page builder support)
@@ -853,8 +1234,6 @@ if (
     $marker_removal_priority = 99; // Hoge prioriteit
 
     // --- Standaard WordPress Filters ---
-    // add_filter('get_the_excerpt', [$class_name_for_filters, 'remove_translation_marker'], $marker_removal_priority); // VERWIJDERD
-    // add_filter('the_excerpt', [$class_name_for_filters, 'remove_translation_marker'], $marker_removal_priority); // VERWIJDERD
 
     // Specifieke check voor bloginfo methode
     if (method_exists($class_name_for_filters, 'remove_marker_from_bloginfo')) {

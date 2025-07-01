@@ -1,0 +1,125 @@
+/**
+ * AI Translate Async CSS
+ * Styling for asynchronous translation loading indicators and placeholders
+ */
+
+/* Loading spinner animation */
+@keyframes ai-translate-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes ai-translate-shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+}
+
+@keyframes ai-translate-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Async placeholder styling */
+.ai-translate-async-placeholder {
+    position: relative;
+    display: inline;
+}
+
+/* Processing state */
+.ai-translate-async-placeholder.ai-translate-processing {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    background-size: 200px 100%;
+    animation: ai-translate-shimmer 1.5s infinite;
+    border-radius: 2px;
+}
+
+/* Loading spinner */
+.ai-translate-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 4px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: ai-translate-spin 1s linear infinite;
+    vertical-align: middle;
+}
+
+/* Error state */
+.ai-translate-async-placeholder.ai-translate-error {
+    background-color: rgba(255, 0, 0, 0.1);
+    border-radius: 2px;
+    position: relative;
+}
+
+.ai-translate-async-placeholder.ai-translate-error::after {
+    content: "⚠";
+    color: #ff0000;
+    font-size: 0.8em;
+    margin-left: 2px;
+}
+
+/* Loaded state */
+.ai-translate-async-placeholder.ai-translate-loaded {
+    animation: ai-translate-pulse 0.5s ease-in-out;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .ai-translate-async-placeholder.ai-translate-processing {
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    }
+    
+    .ai-translate-spinner {
+        border-color: #444;
+        border-top-color: #3498db;
+    }
+    
+    .ai-translate-async-placeholder.ai-translate-error {
+        background-color: rgba(255, 0, 0, 0.2);
+    }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .ai-translate-spinner {
+        width: 10px;
+        height: 10px;
+        border-width: 1px;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .ai-translate-spinner,
+    .ai-translate-async-placeholder.ai-translate-processing,
+    .ai-translate-async-placeholder.ai-translate-loaded {
+        animation: none;
+    }
+    
+    .ai-translate-async-placeholder.ai-translate-processing {
+        background: rgba(0, 0, 0, 0.05);
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .ai-translate-async-placeholder.ai-translate-processing {
+        background: #000;
+        color: #fff;
+    }
+    
+    .ai-translate-spinner {
+        border-color: #000;
+        border-top-color: #fff;
+    }
+}
+
+/* Print styles */
+@media print {
+    .ai-translate-spinner,
+    .ai-translate-async-placeholder.ai-translate-processing {
+        display: none;
+    }
+}
