@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
-Version: 1.25
+Version: 1.3
 Author: NetCare
 Author URI: https://netcare.nl/
 License: GPL2
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.25');
+define('AI_TRANSLATE_VERSION', '1.3');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -33,6 +33,41 @@ register_deactivation_hook(__FILE__, __NAMESPACE__ . '\\plugin_deactivate');
 // AJAX handlers (legacy)
 add_action('wp_ajax_ai_translate_clear_logs', [AI_Translate_Core::get_instance(), 'clear_logs']);
 
+// Zoekquery vertaling - moet vroeg geladen worden
+add_filter('pre_get_posts', function($query) {
+    $core = AI_Translate_Core::get_instance();
+    
+    // Alleen voor zoekopdrachten
+    if (!$query->is_search() || empty($query->get('s'))) {
+        return $query;
+    }
+    
+    $settings = $core->get_settings();
+    
+    // Alleen vertalen als meertalige zoekfunctionaliteit is ingeschakeld
+    if (!empty($settings['enable_multilingual_search'])) {
+        $current_language = $core->get_current_language();
+        $default_language = $settings['default_language'] ?? 'nl';
+        
+        // Skip als we al in de standaardtaal zijn
+        if ($current_language === $default_language) {
+            return $query;
+        }
+        
+        // Haal de zoekterm op
+        $search_terms = $query->get('s');
+        
+        // Vertaal de zoekterm naar de standaardtaal
+        $translated_search_terms = $core->translate_search_terms($search_terms, $current_language, $default_language);
+        
+        // Vervang de zoekterm in de query
+        if (!empty($translated_search_terms) && $translated_search_terms !== $search_terms) {
+            $query->set('s', $translated_search_terms);
+        }
+    }
+    
+    return $query;
+}, 10, 1);
 
 add_action('plugins_loaded', function () { // Keep this hook for loading core
     // Plugin initialisatie
@@ -101,6 +136,16 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
     // Voeg de home_url filter pas toe via de wp actie zodat de globale query beschikbaar is
     add_action('wp', function () {
+        $core = AI_Translate_Core::get_instance();
+        $settings = $core->get_settings();
+        
+        // Voeg meertalige zoekfunctionaliteit toe
+        if (!empty($settings['enable_multilingual_search'])) {
+            // Filter voor zoekresultaten vertaling
+            add_filter('the_title', [$core, 'translate_search_result_title'], 10, 1);
+            add_filter('the_excerpt', [$core, 'translate_search_result_excerpt'], 10, 1);
+        }
+        
         add_filter('home_url', function ($url, $path, $orig_scheme, $blog_id) {
             if (is_admin()) {
                 return $url;
@@ -266,6 +311,55 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             return $url;
         }, 10, 4);
     });
+
+    // Zoekformulier vertaling - altijd laden
+    add_filter('get_search_form', function($form) use ($core) {
+        $settings = $core->get_settings();
+        
+        // Alleen vertalen als meertalige zoekfunctionaliteit is ingeschakeld
+        if (!empty($settings['enable_multilingual_search'])) {
+            $form = $core->translate_search_form($form);
+            $form = $core->translate_search_placeholders($form);
+        }
+        
+        return $form;
+    }, 10, 1);
+
+    // Zoekresultaten teksten vertaling - altijd laden
+    add_filter('get_search_query', function($query) use ($core) {
+        $settings = $core->get_settings();
+        
+        // Alleen vertalen als meertalige zoekfunctionaliteit is ingeschakeld
+        if (!empty($settings['enable_multilingual_search'])) {
+            $query = $core->translate_search_query($query);
+        }
+        
+        return $query;
+    }, 10, 1);
+
+    // Zoekpagina titel vertaling - altijd laden
+    add_filter('the_title', function($title, $post_id = null) use ($core) {
+        $settings = $core->get_settings();
+        
+        // Alleen vertalen als meertalige zoekfunctionaliteit is ingeschakeld
+        if (!empty($settings['enable_multilingual_search'])) {
+            $title = $core->translate_search_page_title($title);
+        }
+        
+        return $title;
+    }, 10, 2);
+
+    // Zoekresultaten content vertaling - altijd laden
+    add_filter('the_content', function($content) use ($core) {
+        $settings = $core->get_settings();
+        
+        // Alleen vertalen als meertalige zoekfunctionaliteit is ingeschakeld
+        if (!empty($settings['enable_multilingual_search'])) {
+            $content = $core->translate_search_content($content);
+        }
+        
+        return $content;
+    }, 10, 1);
 
     // Comment form translation filter - comprehensive approach
     add_filter('comment_form_defaults', function ($defaults) use ($core) {
@@ -1459,13 +1553,6 @@ add_filter('get_the_excerpt', function($excerpt, $post) {
     $translated = $core::remove_translation_marker($translated);
     return $translated;
 }, 20, 2);
-
-// Debug: WordPress query state logging (uitgeschakeld)
-// add_action('wp', function() {
-//     $core = \AITranslate\AI_Translate_Core::get_instance();
-//     $core->log_event("wp_action: is_404=" . (is_404() ? 'true' : 'false') . ", is_page=" . (is_page() ? 'true' : 'false') . ", is_singular=" . (is_singular() ? 'true' : 'false'), 'debug');
-//     $core->log_event("wp_action: query_vars=" . print_r(get_query_var('pagename'), true), 'debug');
-// }, 1);
 
 /**
  * Initialize existing posts with their original slug metadata.

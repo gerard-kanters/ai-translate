@@ -155,7 +155,8 @@ AI Translate requires an API key for one of the supported providers:
 
 ## Changelog
 
-### 1.24
+### 1.3
+- Added translation of (standard wordpress) translation functionality.
 - Improved translation context and freedom for AI
 - Improved caching and translation performance
 - Stable translated URLs: slugs only change if original changes

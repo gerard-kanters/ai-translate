@@ -3739,4 +3739,344 @@ class AI_Translate_Core
         
         return false;
     }
+
+    /**
+     * Enhance search query to translate search terms to default language
+     *
+     * @param string $search SQL search clause
+     * @param \WP_Query $wp_query WordPress query object
+     * @return string Modified search clause
+     */
+    public function enhance_search_query(string $search, \WP_Query $wp_query): string
+    {
+        // Only enhance search queries
+        if (!$wp_query->is_search() || empty($wp_query->get('s'))) {
+            return $search;
+        }
+
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $search;
+        }
+
+        // Get the search terms
+        $search_terms = $wp_query->get('s');
+        
+        // Translate search terms to default language
+        $translated_search_terms = $this->translate_search_terms($search_terms, $current_language, $default_language);
+        
+        if (empty($translated_search_terms) || $translated_search_terms === $search_terms) {
+            return $search;
+        }
+
+        global $wpdb;
+        
+        // Replace the search query with translated terms
+        // This searches in Dutch content using translated search terms
+        $escaped_terms = $wpdb->esc_like($translated_search_terms);
+        $search = $wpdb->prepare(
+            " AND ((p.post_title LIKE %s OR p.post_content LIKE %s))",
+            '%' . $escaped_terms . '%',
+            '%' . $escaped_terms . '%'
+        );
+        
+        return $search;
+    }
+
+    /**
+     * Translate search terms from current language to default language
+     *
+     * @param string $search_terms Search terms in current language
+     * @param string $current_language Current language code
+     * @param string $default_language Default language code
+     * @return string Translated search terms
+     */
+    public function translate_search_terms(string $search_terms, string $current_language, string $default_language): string
+    {
+        if (empty($search_terms) || $current_language === $default_language) {
+            return $search_terms;
+        }
+
+        try {
+            // Direct API call voor zoektermen (omzeil de standaardtaal check)
+            $translated_terms = $this->do_translate(
+                $search_terms,
+                $current_language,
+                $default_language,
+                false, // Not a title
+                true   // Use disk cache
+            );
+            
+            // Remove translation marker
+            $translated_terms = self::remove_translation_marker($translated_terms);
+            
+            return $translated_terms;
+        } catch (\Exception $e) {
+            // If translation fails, return original terms
+            return $search_terms;
+        }
+    }
+
+    /**
+     * Translate search result titles
+     *
+     * @param string $title Post title
+     * @param int|null $post_id Post ID (optional)
+     * @return string Translated title
+     */
+    public function translate_search_result_title(string $title, $post_id = null): string
+    {
+        // Only translate on search pages
+        if (!is_search()) {
+            return $title;
+        }
+        
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $title;
+        }
+        
+        // Check if this is already translated
+        if (strpos($title, self::TRANSLATION_MARKER) !== false) {
+            return self::remove_translation_marker($title);
+        }
+        
+        // Translate the title
+        $translated_title = $this->translate_template_part($title, 'post_title');
+        return self::remove_translation_marker($translated_title);
+    }
+
+    /**
+     * Translate search result excerpts
+     *
+     * @param string $excerpt Post excerpt
+     * @param \WP_Post|null $post Post object (optional)
+     * @return string Translated excerpt
+     */
+    public function translate_search_result_excerpt(string $excerpt, $post = null): string
+    {
+        // Only translate on search pages
+        if (!is_search()) {
+            return $excerpt;
+        }
+        
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $excerpt;
+        }
+        
+        // Check if this is already translated
+        if (strpos($excerpt, self::TRANSLATION_MARKER) !== false) {
+            return self::remove_translation_marker($excerpt);
+        }
+        
+        // Translate the excerpt
+        $translated_excerpt = $this->translate_template_part($excerpt, 'post_excerpt');
+        return self::remove_translation_marker($translated_excerpt);
+    }
+
+    /**
+     * Translate search form
+     *
+     * @param string $form Search form HTML
+     * @return string Translated search form
+     */
+    public function translate_search_form(string $form): string
+    {
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $form;
+        }
+        
+        // Check if this is already translated
+        if (strpos($form, self::TRANSLATION_MARKER) !== false) {
+            return self::remove_translation_marker($form);
+        }
+        
+        // Translate placeholders in search form
+        $translated_form = preg_replace_callback(
+            '/placeholder=[\'"]([^\'"]+)[\'"]/i',
+            function ($matches) {
+                $placeholder = $matches[1];
+                $translated_placeholder = $this->translate_template_part($placeholder, 'search_form');
+                $translated_placeholder = self::remove_translation_marker($translated_placeholder);
+                return 'placeholder="' . esc_attr($translated_placeholder) . '"';
+            },
+            $form
+        );
+        
+        // Translate button text
+        $translated_form = preg_replace_callback(
+            '/<input[^>]*type=[\'"]submit[\'"][^>]*value=[\'"]([^\'"]+)[\'"][^>]*>/i',
+            function ($matches) {
+                $button_text = $matches[1];
+                $translated_button = $this->translate_template_part($button_text, 'search_form');
+                $translated_button = self::remove_translation_marker($translated_button);
+                return str_replace('value="' . $matches[1] . '"', 'value="' . esc_attr($translated_button) . '"', $matches[0]);
+            },
+            $translated_form
+        );
+        
+        // Translate label text
+        $translated_form = preg_replace_callback(
+            '/<label[^>]*>(.*?)<\/label>/i',
+            function ($matches) {
+                $label_text = $matches[1];
+                $translated_label = $this->translate_template_part($label_text, 'search_form');
+                $translated_label = self::remove_translation_marker($translated_label);
+                return str_replace($matches[1], $translated_label, $matches[0]);
+            },
+            $translated_form
+        );
+        
+        return $translated_form;
+    }
+
+    /**
+     * Translate search query text
+     *
+     * @param string $query Search query text
+     * @return string Translated search query text
+     */
+    public function translate_search_query(string $query): string
+    {
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $query;
+        }
+        
+        // Check if this is already translated
+        if (strpos($query, self::TRANSLATION_MARKER) !== false) {
+            return self::remove_translation_marker($query);
+        }
+        
+        // Translate the search query text
+        $translated_query = $this->translate_template_part($query, 'search_query');
+        return self::remove_translation_marker($translated_query);
+    }
+
+    /**
+     * Translate search page title
+     *
+     * @param string $title Page title
+     * @return string Translated page title
+     */
+    public function translate_search_page_title(string $title): string
+    {
+        // Only translate on search pages
+        if (!is_search()) {
+            return $title;
+        }
+        
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $title;
+        }
+        
+        // Check if this is already translated
+        if (strpos($title, self::TRANSLATION_MARKER) !== false) {
+            return self::remove_translation_marker($title);
+        }
+        
+        // Translate the title using the normal translation function
+        $translated_title = $this->translate_template_part($title, 'search_page_title');
+        return self::remove_translation_marker($translated_title);
+    }
+
+    /**
+     * Translate search content
+     *
+     * @param string $content Page content
+     * @return string Translated content
+     */
+    public function translate_search_content(string $content): string
+    {
+        // Only translate on search pages
+        if (!is_search()) {
+            return $content;
+        }
+        
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $content;
+        }
+        
+        // Check if this is already translated
+        if (strpos($content, self::TRANSLATION_MARKER) !== false) {
+            return self::remove_translation_marker($content);
+        }
+        
+        // Translate the content using the normal translation function
+        $translated_content = $this->translate_template_part($content, 'search_content');
+        return self::remove_translation_marker($translated_content);
+    }
+
+    /**
+     * Translate search form placeholders
+     *
+     * @param string $form Search form HTML
+     * @return string Translated search form
+     */
+    public function translate_search_placeholders(string $form): string
+    {
+        // Skip if we're already on the default language
+        $current_language = $this->get_current_language();
+        $default_language = $this->default_language;
+        
+        if ($current_language === $default_language) {
+            return $form;
+        }
+        
+        // Check if this is already translated
+        if (strpos($form, self::TRANSLATION_MARKER) !== false) {
+            return self::remove_translation_marker($form);
+        }
+        
+        // Translate placeholders in the form using the normal translation function
+        $translated_form = preg_replace_callback(
+            '/placeholder=[\'"]([^\'"]+)[\'"]/i',
+            function ($matches) {
+                $placeholder = $matches[1];
+                $translated_placeholder = $this->translate_template_part($placeholder, 'search_form');
+                $translated_placeholder = self::remove_translation_marker($translated_placeholder);
+                return 'placeholder="' . esc_attr($translated_placeholder) . '"';
+            },
+            $form
+        );
+        
+        // Translate value attributes
+        $translated_form = preg_replace_callback(
+            '/value=[\'"]([^\'"]+)[\'"]/i',
+            function ($matches) {
+                $value = $matches[1];
+                $translated_value = $this->translate_template_part($value, 'search_form');
+                $translated_value = self::remove_translation_marker($translated_value);
+                return 'value="' . esc_attr($translated_value) . '"';
+            },
+            $translated_form
+        );
+        
+        return $translated_form;
+    }
 }
