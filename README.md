@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.8  
-Stable tag: 1.25  
+Stable tag: 1.30  
 Requires PHP: 7.4  
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
@@ -155,7 +155,7 @@ AI Translate requires an API key for one of the supported providers:
 
 ## Changelog
 
-### 1.3
+### 1.30
 - Added translation of (standard wordpress) translation functionality.
 - Improved translation context and freedom for AI
 - Improved caching and translation performance
