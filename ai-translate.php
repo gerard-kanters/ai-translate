@@ -1668,3 +1668,5 @@ function migrate_existing_translated_urls(): void
         $core->log_event("Migrated {$migrated_count} translated URLs from transients to database for backwards compatibility", 'info');
     }
 }
+
+
