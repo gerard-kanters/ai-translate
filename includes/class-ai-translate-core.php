@@ -248,6 +248,7 @@ class AI_Translate_Core
             'enabled_languages' => ['en', 'de', 'nl'],
             'cache_expiration'  => 336, // hours
             'exclude_pages'     => [],
+            'exclude_shortcodes' => [],
             'homepage_meta_description' => '',
             'website_context'   => '',
             'detectable_languages' => ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'uk'], // Default detectable
@@ -416,7 +417,9 @@ class AI_Translate_Core
     {
         // Normalize the path with directory separator
         $cache_file = rtrim($this->cache_dir, '/\\') . DIRECTORY_SEPARATOR . $cache_key . '.cache';
-        if (file_exists($cache_file) && !$this->is_cache_expired($cache_file)) {
+        // Haal het type op uit de context als beschikbaar
+        $type = $this->last_translate_type ?? null;
+        if (file_exists($cache_file) && !$this->is_cache_expired($cache_file, $type)) {
             $cached = file_get_contents($cache_file);
             if (!empty($cached)) {
                 return $cached;
@@ -486,15 +489,27 @@ class AI_Translate_Core
     }
 
     /**
-     * Check if cache is expired.
-     *
+     * Check if cache is expired, met uitzondering voor permanente types.
      * @param string $cache_file
+     * @param string|null $type
      * @return bool
      */
-    private function is_cache_expired(string $cache_file): bool
+    private function is_cache_expired(string $cache_file, ?string $type = null): bool
     {
         if (!file_exists($cache_file)) {
             return true;
+        }
+
+        // Types die NIET permanent zijn (dus wel verlopen):
+        $non_permanent_types = [
+            'post_content',
+            'post_title',
+            'post_excerpt',
+            'search_content',
+        ];
+        if ($type !== null && !in_array($type, $non_permanent_types, true)) {
+            // Permanent: nooit verlopen
+            return false;
         }
 
         $cache_time = filemtime($cache_file);
@@ -537,6 +552,8 @@ class AI_Translate_Core
         $maxRetries = 3; // Retries specifically for 429 or temporary network issues
         $backoff = 1; // Initial backoff delay in seconds for retries
         $attempt = 0;
+
+
 
         while ($attempt < $maxRetries) {
             $response = wp_remote_request($url, $args);
@@ -623,8 +640,10 @@ class AI_Translate_Core
         string $source_language,
         string $target_language,
         bool $is_title = false,
-        bool $use_disk_cache = true
+        bool $use_disk_cache = true,
+        ?string $type = null
     ): string {
+        $this->last_translate_type = $type;
         // --- Essential Checks ---
         // 0. AJAX request check as the absolute first rule
         if (wp_doing_ajax()) {
@@ -736,19 +755,12 @@ class AI_Translate_Core
 
         // --- END GUARD WITH LOGGING ---
 
-
-
         // --- Exclude shortcodes specified in admin ---
         $shortcodes_to_exclude = self::get_always_excluded_shortcodes();
         $extracted_shortcode_pairs = [];
 
-
-
         // Extract shortcode pairs and replace with placeholders
         $text_with_placeholders = $this->extract_shortcode_pairs($text, $shortcodes_to_exclude, $extracted_shortcode_pairs);
-
-        // --- Exclude rendered HTML from shortcodes that should not be translated ---
-        $text_with_placeholders = $this->exclude_rendered_shortcode_html($text_with_placeholders, $extracted_shortcode_pairs);
 
         $text_to_translate = $text_with_placeholders;
         $shortcodes = $extracted_shortcode_pairs; // Rename for consistency with existing code
@@ -804,17 +816,17 @@ class AI_Translate_Core
             // get_cached_content expects the key WITHOUT .cache suffix
             $disk_cached = $this->get_cached_content($disk_cache_key);
             if ($disk_cached !== false) {
-                                    if (strpos($disk_cached, self::TRANSLATION_MARKER) !== false) {
-                        $result = $disk_cached;
-                        if (!empty($shortcodes)) {
-                            $result = $this->restore_shortcode_pairs($result, $shortcodes);
-                        }
-                        self::$translation_memory[$memory_key] = $result; // Update memory cache
-                        // Also save to transient for faster access on subsequent requests (if object cache is active)
-                        $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
-                        set_transient($transient_key, $result, $this->expiration_hours * 3600);
-                        return $result;
+                if (strpos($disk_cached, self::TRANSLATION_MARKER) !== false) {
+                    $result = $disk_cached;
+                    if (!empty($shortcodes)) {
+                        $result = $this->restore_excluded_shortcodes($result, $shortcodes);
                     }
+                    self::$translation_memory[$memory_key] = $result; // Update memory cache
+                    // Also save to transient for faster access on subsequent requests (if object cache is active)
+                    $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
+                    set_transient($transient_key, $result, $this->expiration_hours * 3600);
+                    return $result;
+                }
             }
         }
 
@@ -825,7 +837,7 @@ class AI_Translate_Core
             if (strpos($cached, self::TRANSLATION_MARKER) !== false) {
                 $result = $cached;
                 if (!empty($shortcodes)) {
-                    $result = $this->restore_shortcode_pairs($result, $shortcodes);
+                    $result = $this->restore_excluded_shortcodes($result, $shortcodes);
                 }
                 self::$translation_memory[$memory_key] = $result;
                 // If it comes from transient, also save it to disk cache (if allowed)
@@ -877,7 +889,7 @@ class AI_Translate_Core
                 }
             }
             if (!empty($shortcodes)) {
-                return $this->restore_shortcode_pairs($text, $shortcodes);
+                return $this->restore_excluded_shortcodes($text, $shortcodes);
             }
             return $text; // Return original text
         }
@@ -904,7 +916,6 @@ class AI_Translate_Core
         if (!empty($shortcodes)) {
             $final_translated_text = $this->restore_shortcode_pairs($final_translated_text, $shortcodes); // Use new restore function
         }
-
 
         // --- Sanity check: If translation resulted in empty text but original wasn't, log critical error ---
         // This check remains important, but we return $text instead of $final_translated_text if the marker is missing.
@@ -987,8 +998,7 @@ class AI_Translate_Core
             return $result_with_marker; // Return translated or original text with marker
         } else {
             // API returned empty or invalid content.
-            // Fallback: return original text with marker to prevent infinite loops
-            return $text . self::TRANSLATION_MARKER;
+            throw new \Exception("API returned empty or invalid content.");
         }
     }
 
@@ -1806,7 +1816,30 @@ class AI_Translate_Core
     }
 
 
+    /**
+     * Zet shortcodes terug in tekst na vertaling.
+     *
+     * @param string $text
+     * @param array $shortcodes
+     * @return string
+     */
+    public function restore_excluded_shortcodes($text, $shortcodes)
+    {
+        if (empty($shortcodes)) {
+            return $text;
+        }
+        // Sort shortcodes by length in descending order to prevent partial matches
+        uksort($shortcodes, function ($a, $b) {
+            return strlen($b) <=> strlen($a);
+        });
 
+        foreach ($shortcodes as $placeholder => $original_shortcode) {
+            // Escape placeholder for regex, and allow for potential whitespace/newlines around it
+            $escaped_placeholder = preg_quote($placeholder, '/');
+            $text = preg_replace('/' . $escaped_placeholder . '\s*/', $original_shortcode, $text);
+        }
+        return $text;
+    }
 
 
     /**
@@ -1857,15 +1890,6 @@ class AI_Translate_Core
      * @param array<string, string> $extracted_shortcodes Reference to an array to store extracted shortcodes.
      * @return string The text with shortcodes replaced by placeholders.
      */
-    /**
-     * Extracts shortcode pairs from text and replaces them with placeholders.
-     * This prevents shortcodes from being translated while preserving their structure.
-     *
-     * @param string $text The text containing shortcodes to extract
-     * @param array<string> $shortcodes_to_exclude Array of shortcode names to exclude from translation
-     * @param array<string, string> $extracted_shortcodes Reference to array that will store extracted shortcodes (placeholder => original_shortcode)
-     * @return string Text with shortcodes replaced by placeholders
-     */
     private function extract_shortcode_pairs(string $text, array $shortcodes_to_exclude, array &$extracted_shortcodes): string
     {
         $placeholder_index = 0;
@@ -1882,7 +1906,6 @@ class AI_Translate_Core
                 $text
             );
         }
-        
         return $text;
     }
 
@@ -1898,7 +1921,6 @@ class AI_Translate_Core
         if (empty($extracted_shortcodes)) {
             return $text;
         }
-        
         uksort($extracted_shortcodes, function ($a, $b) {
             return strlen($b) <=> strlen($a);
         });
@@ -2835,12 +2857,6 @@ class AI_Translate_Core
      * Lijst met shortcodes die altijd uitgesloten moeten worden van vertaling (hardcoded, niet wijzigbaar via admin).
      * @return array
      */
-    /**
-     * Returns shortcodes that should always be excluded from translation.
-     * These shortcodes (including their content) will be preserved exactly as-is.
-     * 
-     * @return array<string> Array of shortcode names to exclude
-     */
     public static function get_always_excluded_shortcodes(): array
     {
         return [
@@ -2853,11 +2869,8 @@ class AI_Translate_Core
             'mb_section',
             'mb_space',
             'mb_text',
-            'bws_google_captcha', // Contact form captcha - must not be translated
         ];
     }
-
-
 
     /**
      * Verzamelt statistieken over de cache bestanden.
@@ -4085,54 +4098,7 @@ class AI_Translate_Core
         return $translated_form;
     }
 
-    /**
-     * Excludeert uitgevoerde HTML van shortcodes die niet vertaald mogen worden.
-     * Dit is nodig omdat shortcodes vaak al uitgevoerd zijn voordat ze bij onze vertaling komen.
-     *
-     * @param string $text De tekst met shortcode placeholders
-     * @param array<string, string> $extracted_shortcodes Referentie naar de extracted shortcodes array
-     * @return string Tekst met uitgevoerde HTML vervangen door placeholders
-     */
-    private function exclude_rendered_shortcode_html(string $text, array &$extracted_shortcodes): string
-    {
-        $placeholder_index = count($extracted_shortcodes);
-        
-        // Excludeer uitgevoerde HTML van shortcodes die niet vertaald mogen worden
-        $excluded_shortcodes = self::get_always_excluded_shortcodes();
-        
-        foreach ($excluded_shortcodes as $shortcode) {
-            // Speciale behandeling voor bws_google_captcha
-            if ($shortcode === 'bws_google_captcha') {
-                // Zoek naar de specifieke captcha HTML
-                $captcha_pattern = '/<div[^>]*class="gglcptch[^"]*"[^>]*>.*?<\/div>/is';
-                $text = preg_replace_callback(
-                    $captcha_pattern,
-                    function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
-                        $placeholder = '__AITRANSLATE_RENDERED_HTML_' . $placeholder_index . '__';
-                        $extracted_shortcodes[$placeholder] = $matches[0];
-                        $placeholder_index++;
-                        return $placeholder;
-                    },
-                    $text
-                );
-            } else {
-                // Zoek naar uitgevoerde HTML van andere shortcodes
-                $html_pattern = '/<div[^>]*class="[^"]*' . preg_quote($shortcode, '/') . '[^"]*"[^>]*>.*?<\/div>/is';
-                $text = preg_replace_callback(
-                    $html_pattern,
-                    function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
-                        $placeholder = '__AITRANSLATE_RENDERED_HTML_' . $placeholder_index . '__';
-                        $extracted_shortcodes[$placeholder] = $matches[0];
-                        $placeholder_index++;
-                        return $placeholder;
-                    },
-                    $text
-                );
-            }
-        }
-        
-        return $text;
-    }
-
-
+    // Houd het laatst gebruikte type bij voor cache expiry logica
+    private $last_translate_type = null;
 }
+
