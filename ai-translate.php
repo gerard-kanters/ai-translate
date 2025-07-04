@@ -1669,4 +1669,26 @@ function migrate_existing_translated_urls(): void
     }
 }
 
+/**
+ * Migreer API keys van oude structuur naar nieuwe per-provider structuur.
+ */
+function ai_translate_migrate_api_keys_to_array(): void
+{
+    $settings = get_option('ai_translate_settings');
+
+    // Controleer of de oude 'api_key' bestaat en de nieuwe 'api_keys' nog niet
+    if (isset($settings['api_key']) && !isset($settings['api_keys'])) {
+        $current_provider = $settings['api_provider'] ?? 'openai'; // Gebruik de huidige provider als default
+        $settings['api_keys'] = [$current_provider => $settings['api_key']];
+        unset($settings['api_key']); // Verwijder de oude single key
+
+        update_option('ai_translate_settings', $settings);
+        // Optioneel: log de migratie
+        // error_log('AI Translate: Migrated single API key to per-provider array.');
+    }
+}
+
+// Voer migratie uit bij admin init
+add_action('admin_init', __NAMESPACE__ . '\\ai_translate_migrate_api_keys_to_array');
+
 

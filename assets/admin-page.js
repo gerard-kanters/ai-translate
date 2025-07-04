@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var apiKeyRequestLinkSpan = document.getElementById('api-key-request-link-span');
     var customApiUrlDiv = document.getElementById('custom_api_url_div');
     var customApiUrlInput = document.querySelector('input[name="ai_translate_settings[custom_api_url]"]');
+    
+    // Haal de opgeslagen API-sleutels op
+    var apiKeys = aiTranslateAdmin.apiKeys || {};
 
     // API Provider data (mirrors PHP for client-side use)
     const apiProvidersData = {
@@ -74,15 +77,17 @@ document.addEventListener('DOMContentLoaded', function () {
     if (apiProviderSelect) {
         apiProviderSelect.addEventListener('change', updateApiKeyRequestLink);
         apiProviderSelect.addEventListener('change', toggleCustomApiUrlField);
-        apiProviderSelect.addEventListener('change', clearApiKeyField); // Voeg deze regel toe
+        apiProviderSelect.addEventListener('change', updateApiKeyField); // Update API key field when provider changes
         updateApiKeyRequestLink();
         toggleCustomApiUrlField();
+        updateApiKeyField(); // Trigger initial update
     }
 
-    // Nieuwe functie om het API-sleutelveld te legen
-    function clearApiKeyField() {
-        if (apiKeyInput) {
-            apiKeyInput.value = ''; // Leeg het API-sleutelveld
+    // Functie om het API-sleutelveld bij te werken
+    function updateApiKeyField() {
+        if (apiProviderSelect && apiKeyInput) {
+            var selectedProvider = apiProviderSelect.value;
+            apiKeyInput.value = apiKeys[selectedProvider] || ''; // Update het veld met de opgeslagen sleutel
         }
         if (apiStatusSpan) {
             apiStatusSpan.textContent = ''; // Leeg de API-status melding
@@ -218,6 +223,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(r => r.json())
                 .then(function (resp) {
                     if (resp.success) {
+                        // Update de lokaal opgeslagen apiKeys object na succesvolle validatie
+                        if (apiProviderSelect) {
+                            var selectedProvider = apiProviderSelect.value;
+                            apiKeys[selectedProvider] = apiKey;
+                        }
                         if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connectie en model OK. API instellingen opgeslagen.</span>';
                     } else {
                         if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +

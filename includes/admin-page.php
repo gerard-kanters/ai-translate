@@ -173,7 +173,8 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'getModelsNonce' => wp_create_nonce('ai_translate_get_models_nonce'),
         'validateApiNonce' => wp_create_nonce('ai_translate_validate_api_nonce'),
         'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce'), // Added nonce for fetching custom URL
-        'generateContextNonce' => wp_create_nonce('generate_website_context_nonce') // Added nonce for generating website context
+        'generateContextNonce' => wp_create_nonce('generate_website_context_nonce'), // Added nonce for generating website context
+        'apiKeys' => get_option('ai_translate_settings')['api_keys'] ?? [], // Voeg deze regel toe
     ));
 });
 
@@ -227,9 +228,28 @@ add_action('admin_init', function () {
                 }
             }
 
-            if (isset($input['api_key'])) {
-                $input['api_key'] = trim($input['api_key']);
+            // Haal de huidige opgeslagen instellingen op om de 'api_keys' array te behouden
+            $current_settings = get_option('ai_translate_settings', []);
+
+            // Initialiseer de 'api_keys' array als deze nog niet bestaat
+            if (!isset($current_settings['api_keys']) || !is_array($current_settings['api_keys'])) {
+                $current_settings['api_keys'] = [
+                    'openai' => '',
+                    'deepseek' => '',
+                    'custom' => '',
+                ];
             }
+
+            // Verwerk de API-sleutel voor de geselecteerde provider
+            if (isset($input['api_key'])) {
+                $selected_provider = $input['api_provider'] ?? 'openai'; // Gebruik de geselecteerde provider
+                $current_settings['api_keys'][$selected_provider] = trim($input['api_key']);
+                // Verwijder de tijdelijke 'api_key' uit de $input array, zodat deze niet op het topniveau wordt opgeslagen
+                unset($input['api_key']);
+            }
+
+            // Zorg ervoor dat de bijgewerkte 'api_keys' array wordt opgenomen in de $input die wordt opgeslagen
+            $input['api_keys'] = $current_settings['api_keys'];
             if (isset($input['custom_model'])) {
                 $input['custom_model'] = trim($input['custom_model']);
             }
@@ -304,7 +324,10 @@ add_action('admin_init', function () {
         'API Key',
         function () {
             $settings = get_option('ai_translate_settings');
-            $value = isset($settings['api_key']) ? $settings['api_key'] : '';
+            $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : 'openai';
+            // Haal de API-sleutel op uit de nieuwe 'api_keys' array
+            $api_keys = $settings['api_keys'] ?? [];
+            $value = $api_keys[$current_provider_key] ?? ''; // Toon de sleutel voor de geselecteerde provider
             echo '<input type="password" name="ai_translate_settings[api_key]" value="' . esc_attr($value) . '" class="regular-text">';
             echo ' <span id="api-key-request-link-span" style="margin-left:10px;"></span>';
         },
@@ -755,7 +778,8 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         $settings = get_option('ai_translate_settings');
         $provider_key = $settings['api_provider'] ?? 'openai'; // Default
         if (empty($api_key)) { // Als API key ook niet in POST zat, haal uit settings
-             $api_key = $settings['api_key'] ?? '';
+             $api_keys = $settings['api_keys'] ?? [];
+             $api_key = $api_keys[$provider_key] ?? '';
         }
     }
     
@@ -828,7 +852,10 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     if (!$provider_key) {
         $settings = get_option('ai_translate_settings');
         $provider_key = $settings['api_provider'] ?? 'openai'; // Default
-        if (empty($api_key)) { $api_key = $settings['api_key'] ?? ''; }
+        if (empty($api_key)) { 
+            $api_keys = $settings['api_keys'] ?? [];
+            $api_key = $api_keys[$provider_key] ?? '';
+        }
         if (empty($model)) { $model = $settings['selected_model'] ?? ''; }
         if (empty($custom_api_url_value)) { $custom_api_url_value = $settings['custom_api_url'] ?? ''; }
     }
@@ -847,8 +874,18 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                 $current_settings['cache_expiration'] = intval($current_settings['cache_expiration']) / 24;
             }
             
-            $current_settings['api_provider'] = $provider_key;
-            $current_settings['api_key'] = $api_key;
+            // Zorg ervoor dat 'api_keys' array bestaat
+            if (!isset($current_settings['api_keys']) || !is_array($current_settings['api_keys'])) {
+                $current_settings['api_keys'] = [
+                    'openai' => '',
+                    'deepseek' => '',
+                    'custom' => '',
+                ];
+            }
+
+            // Sla de gevalideerde API-sleutel op voor de geselecteerde provider
+            $current_settings['api_keys'][$provider_key] = $api_key;
+            $current_settings['api_provider'] = $provider_key; // Zorg dat de provider ook wordt opgeslagen
             $current_settings['selected_model'] = $model;
             
             if (isset($_POST['custom_model_value'])) {

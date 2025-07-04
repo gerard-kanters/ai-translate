@@ -133,7 +133,6 @@ class AI_Translate_Core
 
         $this->default_language = $this->settings['default_language'] ?? 'nl';
         $this->api_endpoint = self::get_api_url_for_provider($this->settings['api_provider']);
-        $this->api_key = $this->settings['api_key'];
         $this->cache_dir = $this->get_cache_dir();
         $this->expiration_hours = $this->settings['cache_expiration'];
         $this->excluded_posts = $this->settings['exclude_pages'] ?? []; // Ensure it's an array
@@ -245,7 +244,11 @@ class AI_Translate_Core
     {
         return [
             'api_provider'      => 'openai',
-            'api_key'           => '',
+            'api_keys'          => [
+                'openai' => '',
+                'deepseek' => '',
+                'custom' => '',
+            ],
             'selected_model'    => 'gpt-4.1-mini',
             'default_language'  => 'nl',
             'enabled_languages' => ['en', 'de', 'nl'],
@@ -280,17 +283,28 @@ class AI_Translate_Core
      */
     private function validate_settings(array $settings): array
     {
-        $required = ['api_key', 'default_language', 'api_provider'];
+        $required = ['default_language', 'api_provider'];
         foreach ($required as $key) {
             if (empty($settings[$key])) {
                 // Consider logging an error or handling this more gracefully
                 // For now, we assume defaults or sanitize_callback handles it.
             }
         }
+        
         // Ensure api_provider is valid
         if (!array_key_exists($settings['api_provider'], self::get_api_providers())) {
             $settings['api_provider'] = 'openai'; // Fallback to default
         }
+        
+        // Ensure api_keys array exists and is valid
+        if (!isset($settings['api_keys']) || !is_array($settings['api_keys'])) {
+            $settings['api_keys'] = [
+                'openai' => '',
+                'deepseek' => '',
+                'custom' => '',
+            ];
+        }
+        
         return $settings;
     }
 
@@ -580,9 +594,15 @@ class AI_Translate_Core
         // --- End Backoff Check ---
 
         $url = $this->api_endpoint . $endpoint;
+        // Haal de API-sleutel dynamisch op uit de settings array
+        $current_api_key = $this->settings['api_keys'][$this->settings['api_provider']] ?? '';
+        if (empty($current_api_key)) {
+            throw new \Exception('API Key is niet geconfigureerd voor de geselecteerde provider.');
+        }
+        
         $args = [
             'headers' => [
-                'Authorization' => 'Bearer ' . $this->api_key,
+                'Authorization' => 'Bearer ' . $current_api_key,
                 'Content-Type'  => 'application/json'
             ],
             'body'    => json_encode($data),
@@ -974,7 +994,7 @@ class AI_Translate_Core
         }
 
         // Generate optimized system prompt with proper validation
-        $system_prompt = $this->build_translation_prompt($source_language, $target_language, $is_title);
+        $system_prompt = $this->build_translation_prompt($source_language, $target_language, $is_title, $text);
 
         $data = [
             'model'             => $this->settings['selected_model'],
@@ -1017,15 +1037,21 @@ class AI_Translate_Core
      * @param bool $is_title Whether the text is a title.
      * @return string The system prompt for translation.
      */
-    private function build_translation_prompt(string $source_language, string $target_language, bool $is_title = false): string
+    private function build_translation_prompt(string $source_language, string $target_language, bool $is_title = false, string $text_to_translate = ''): string
     {
+        // Determine if this is a short menu item (less than 50 characters)
+        $text_length = strlen(trim($text_to_translate));
+        $is_short_menu_item = $text_length <= 50 && $is_title;
+        
         $context_instructions = $is_title
             ? 'Focus on translating titles and headings accurately while maintaining their impact and meaning. NEVER add HTML tags to plain text titles - if the input has no HTML tags, the output should also have no HTML tags. NEVER wrap output in <p>, <span>, <div> of andere HTML-tags als de input geen HTML bevat.'
             : 'Translate the content while preserving its original meaning, tone, and structure. NEVER add HTML tags to plain text - if the input has no HTML tags, the output must also have no HTML tags. NEVER wrap output in <p>, <span>, <div> or any other HTML tags if the input does not contain HTML.';
         
         // Get website context if available - properly escape and handle UTF-8
         $website_context = '';
-        if (!empty($this->settings['website_context'])) {
+        $should_use_context = $text_length > 50 && !empty($this->settings['website_context']);
+        
+        if ($should_use_context) {
             // Ensure proper UTF-8 encoding and escape any problematic characters
             $context_text = $this->settings['website_context'];
             
@@ -1053,11 +1079,18 @@ class AI_Translate_Core
             }
         }
         
+        // Special instructions for short menu items
+        $menu_instructions = '';
+        if ($is_short_menu_item) {
+            $menu_instructions = "\n\nMENU ITEM TRANSLATION RULES:\n- Translate ONLY the short menu text (1-3 words maximum)\n- Do NOT include any website context in the translation\n- Do NOT add explanations or additional text\n- Keep the translation concise and direct\n- Return ONLY the translated menu text, nothing else\n- If the input is 'Contact', translate to the equivalent short word in the target language\n- If the input is 'About', translate to the equivalent short word in the target language\n- If the input is 'Home', translate to the equivalent short word in the target language\n- For navigation items, use the most common and direct translation";
+        }
+        
         $system_prompt = sprintf(
-            'You are a professional translation engine. Translate the following text from %s to %s.%s\n\nTRANSLATION STYLE:\n- Make the translation sound natural and professional, as if written by a native speaker\n- Adapt phrasing slightly to make it sound more persuasive and aligned with standard language on a website\n- Avoid literal translations that sound awkward or robotic\n- Use idiomatic expressions and natural word choices appropriate for the target language\n- Maintain the original tone and intent while ensuring the text flows naturally\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_PLACEHOLDER_X__ stays __AITRANSLATE_PLACEHOLDER_X__ and __AITRANSLATE_SC_PLACEHOLDER_X__ stays __AITRANSLATE_SC_PLACEHOLDER_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_PLACEHOLDER_X__ or __AITRANSLATE_SC_PLACEHOLDER_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.\n9. For single words, short phrases, or slugs (especially for URLs), translate literally and directly without applying contextual interpretation.',
+            'You are a professional translation engine. Translate the following text from %s to %s.%s%s\n\nTRANSLATION STYLE:\n- Make the translation sound natural and professional, as if written by a native speaker\n- Adapt phrasing slightly to make it sound more persuasive and aligned with standard language on a website\n- Avoid literal translations that sound awkward or robotic\n- Use idiomatic expressions and natural word choices appropriate for the target language\n- Maintain the original tone and intent while ensuring the text flows naturally\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_PLACEHOLDER_X__ stays __AITRANSLATE_PLACEHOLDER_X__ and __AITRANSLATE_SC_PLACEHOLDER_X__ stays __AITRANSLATE_SC_PLACEHOLDER_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_PLACEHOLDER_X__ or __AITRANSLATE_SC_PLACEHOLDER_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.\n9. For single words, short phrases, or slugs (especially for URLs), translate literally and directly without applying contextual interpretation.',
             $this->get_language_name($source_language),
             $this->get_language_name($target_language),
-            $website_context
+            $website_context,
+            $menu_instructions
         );
         
         return $system_prompt;
@@ -1646,9 +1679,42 @@ class AI_Translate_Core
             return $items;
         }
 
+        // Validate input array structure
+        if (!is_array($items) || count($items) === 0) {
+            return $items;
+        }
+
+        // Ensure all items are strings
+        $valid_items = [];
+        foreach ($items as $key => $item) {
+            if (is_string($item) && !empty(trim($item))) {
+                $valid_items[$key] = trim($item);
+            } else {
+                // Keep original item if it's not a valid string
+                $valid_items[$key] = is_string($item) ? $item : (string)$item;
+            }
+        }
+
+        if (empty($valid_items)) {
+            return $items;
+        }
+
+        // Ensure we have at least one valid item to translate
+        $has_valid_items = false;
+        foreach ($valid_items as $item) {
+            if (!empty(trim($item))) {
+                $has_valid_items = true;
+                break;
+            }
+        }
+        
+        if (!$has_valid_items) {
+            return $items;
+        }
+
         // --- Start Batch Processing ---
-        $original_keys = array_keys($items); // Bewaar originele keys
-        $items_to_translate = array_values($items); // Werk met numerieke array voor API
+        $original_keys = array_keys($valid_items); // Bewaar originele keys
+        $items_to_translate = array_values($valid_items); // Werk met numerieke array voor API
 
         // Gebruik hash van items + type + target_language als identifier
         $cache_identifier = md5(json_encode($items_to_translate) . $type . $target_language); // Hash van values + taal
@@ -1691,7 +1757,23 @@ class AI_Translate_Core
 
         // Use the same optimized prompt builder for consistency
         $is_title_batch = in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
-        $system_prompt = $this->build_translation_prompt($source_language, $target_language, $is_title_batch);
+        
+        // For batch translation, use the longest text to determine if context should be included
+        $longest_text = '';
+        $is_menu_batch = ($type === 'menu_item');
+        foreach ($items_to_translate as $item) {
+            if (strlen($item) > strlen($longest_text)) {
+                $longest_text = $item;
+            }
+        }
+        
+        // For menu items, always use the first item to determine if it's a short menu item
+        if ($is_menu_batch && !empty($items_to_translate)) {
+            $first_item = $items_to_translate[0];
+            $system_prompt = $this->build_translation_prompt($source_language, $target_language, $is_title_batch, $first_item);
+        } else {
+            $system_prompt = $this->build_translation_prompt($source_language, $target_language, $is_title_batch, $longest_text);
+        }
 
         $data = [
             'model' => $this->settings['selected_model'],
@@ -1744,10 +1826,32 @@ class AI_Translate_Core
                 }
 
                 if ($translated_array !== null && count($translated_array) === count($items_to_translate)) {
+                    // Validate and clean each translated item
                     foreach ($translated_array as $index => $value) {
                         if (!is_string($value)) {
-                            $translated_array[$index] = isset($items_to_translate[$index]) && is_string($items_to_translate[$index]) ? $items_to_translate[$index] : '';
+                            // If translation is not a string, use original item
+                            $translated_array[$index] = $items_to_translate[$index] ?? '';
+                        } else {
+                            // For menu items, enforce short translations (max 50 characters)
+                            if ($is_menu_batch && strlen(trim($value)) > 50) {
+                                // If translation is too long, use original or create a shorter version
+                                $original = $items_to_translate[$index] ?? '';
+                                $words = explode(' ', trim($value));
+                                if (count($words) > 3) {
+                                    // Take only first 3 words for menu items
+                                    $translated_array[$index] = implode(' ', array_slice($words, 0, 3));
+                                } else {
+                                    // If still too long, use original
+                                    $translated_array[$index] = $original;
+                                }
+                            }
                         }
+                    }
+
+                    // Final validation: ensure we have exactly the same number of items
+                    if (count($translated_array) !== count($items_to_translate)) {
+                        // If count doesn't match, return original items
+                        return $valid_items;
                     }
 
                     set_transient($transient_key, $translated_array, $this->expiration_hours * 3600);
@@ -1781,7 +1885,7 @@ class AI_Translate_Core
             }
         }
 
-        return $items;
+        return $valid_items;
     }
 
     /**
@@ -3362,6 +3466,32 @@ class AI_Translate_Core
         // Also clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
+    }
+
+    /**
+     * Clear menu cache and force regeneration with new prompt logic.
+     * This ensures menu items are translated without website context for short texts.
+     */
+    public function force_menu_cache_clear(): void
+    {
+        $this->clear_menu_cache();
+        
+        // Also clear any cached menu items in WordPress object cache
+        if (function_exists('wp_cache_flush_group')) {
+            wp_cache_flush_group('nav_menu');
+        }
+        
+        // Clear WordPress menu cache
+        delete_transient('nav_menu');
+        delete_transient('nav_menu_items');
+        
+        // Force regeneration of menu items
+        if (function_exists('wp_get_nav_menu_items')) {
+            $menus = wp_get_nav_menus();
+            foreach ($menus as $menu) {
+                wp_cache_delete($menu->term_id, 'nav_menu');
+            }
+        }
     }
 
     /**
