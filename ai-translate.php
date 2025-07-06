@@ -97,28 +97,10 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
     add_action('wp_footer', [$core, 'hook_display_language_switcher']);
 
     add_filter('wp_nav_menu_objects', [$core, 'translate_menu_items'], 999, 2);
+    
 
-    // Extra filter voor menu vertaling via wp_nav_menu
-    add_filter('wp_nav_menu', function($nav_menu, $args) use ($core) {
-        if (!$core->needs_translation() || is_admin()) {
-            return $nav_menu;
-        }
-        
-        // Parse de HTML en vertaal de menu items
-        $dom = new \DOMDocument();
-        @$dom->loadHTML(mb_convert_encoding($nav_menu, 'HTML-ENTITIES', 'UTF-8'), LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        
-        $links = $dom->getElementsByTagName('a');
-        foreach ($links as $link) {
-            $text = $link->textContent;
-            if (!empty(trim($text))) {
-                $translated_text = $core->translate_template_part($text, 'menu_item');
-                $link->textContent = $core->clean_html_string($translated_text);
-            }
-        }
-        
-        return $dom->saveHTML();
-    }, 999, 2);
+
+
 
     add_filter('option_blogname', function ($value) use ($core) {
         $translated_value = $core->translate_template_part($value, 'site_title');
@@ -139,10 +121,56 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         $core = AI_Translate_Core::get_instance();
         $settings = $core->get_settings();
         
+        // Gecombineerde the_title filter - vervangt beide bestaande filters
+        add_filter('the_title', function ($title, $post_id = null) use ($core) {
+            // Standaard checks
+            if (!$core->needs_translation() || is_admin() || empty($title)) {
+                return $title;
+            }
+            if (empty(trim($title))) {
+                return $title;
+            }
+            
+            // Skip nav_menu_item posts - these are handled by batch translation
+            if ($post_id && get_post_type($post_id) === 'nav_menu_item') {
+                return $title;
+            }
+            
+            // Skip if we're in a menu context - menu items are handled by wp_nav_menu_objects filter
+            if (doing_action('wp_nav_menu') || did_action('wp_nav_menu')) {
+                return $title;
+            }
+            
+            // Skip menu items completely - they should only be translated by wp_nav_menu_objects filter
+            if (strpos($title, 'nav_menu_item') !== false || strpos($title, 'menu-item') !== false) {
+                return $title;
+            }
+            
+            // Skip language switcher - check if we're in the footer context
+            if (did_action('wp_footer') || doing_action('wp_footer')) {
+                return $title;
+            }
+            
+            // Check if this is already translated
+            if (strpos($title, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
+                return AI_Translate_Core::remove_translation_marker($title);
+            }
+            
+            // Vertaal de titel
+            $translated = $core->translate_template_part($title, 'post_title');
+            
+            // Voor zoekresultaten: verwijder marker en return
+            if (is_search()) {
+                return AI_Translate_Core::remove_translation_marker($translated);
+            }
+            
+            // Voor andere pagina's: schoon HTML op en return
+            return AI_Translate_Core::get_instance()->clean_html_string($translated);
+        }, 10, 2);
+        
         // Voeg meertalige zoekfunctionaliteit toe
         if (!empty($settings['enable_multilingual_search'])) {
-            // Filter voor zoekresultaten vertaling
-            add_filter('the_title', [$core, 'translate_search_result_title'], 10, 1);
+            // Filter voor zoekresultaten excerpt vertaling
             add_filter('the_excerpt', [$core, 'translate_search_result_excerpt'], 10, 1);
         }
         
@@ -191,6 +219,8 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 if (empty(trim($text))) {
                     return $text;
                 }
+                
+
 
                 // Voorkom recursie
                 static $processing_widget_text = false;
@@ -337,17 +367,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         return $query;
     }, 10, 1);
 
-    // Zoekpagina titel vertaling - altijd laden
-    add_filter('the_title', function($title, $post_id = null) use ($core) {
-        $settings = $core->get_settings();
-        
-        // Alleen vertalen als meertalige zoekfunctionaliteit is ingeschakeld
-        if (!empty($settings['enable_multilingual_search'])) {
-            $title = $core->translate_search_page_title($title);
-        }
-        
-        return $title;
-    }, 10, 2);
+
 
     // Zoekresultaten content vertaling - altijd laden
     add_filter('the_content', function($content) use ($core) {
@@ -360,6 +380,9 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         
         return $content;
     }, 10, 1);
+
+
+    
 
     // Comment form translation filter - comprehensive approach
     add_filter('comment_form_defaults', function ($defaults) use ($core) {
@@ -453,18 +476,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         return $defaults;
     }, 20);
 
-    add_filter('the_title', function ($title, $id = null) use ($core) {
-        if (is_admin() && !wp_doing_ajax()) {
-            return $title;
-        }
-        if (empty(trim($title))) {
-            return $title;
-        }
-        // Vertaal de titel
-        $translated = $core->translate_template_part($title, 'post_title');
-        // Schoon de output op zodat er nooit HTML in de paginatitel komt
-        return AI_Translate_Core::get_instance()->clean_html_string($translated);
-    }, 10, 2);
+
 
     add_filter('the_content', function ($content) use ($core) {
         // Controleer of de marker al aanwezig is
@@ -493,6 +505,8 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             },
             $content
         );
+        
+
 
         // Finally translate the content and add marker
         $translated = $core->translate_template_part($content, 'post_content');
@@ -563,73 +577,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         return $core->translate_template_part($author_description, 'author_description');
     }, 10);
     
-    // --- Plugin Content Translation ---
-    // Veilige manier om plugin-gegenereerde content te vertalen
-    add_filter('do_shortcode_tag', function ($output, $tag, $attr) use ($core) {
-        // Skip in admin
-        if (is_admin() && !wp_doing_ajax()) {
-            return $output;
-        }
-        
-        // Skip if translation not needed
-        if (!$core->needs_translation()) {
-            return $output;
-        }
-        
-        // Skip empty output
-        if (!is_string($output)) {
-            return $output;
-        }
-        
-        if (empty(trim($output))) {
-            return $output;
-        }
-        
-        // Skip if already translated (contains marker)
-        if (strpos($output, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
-            return $output;
-        }
-        
-        // Prevent recursion
-        static $processing_shortcode = false;
-        if ($processing_shortcode) {
-            return $output;
-        }
-        $processing_shortcode = true;
-        
-        // Skip specific shortcodes that should not be translated
-        $excluded_shortcodes = [
-            'contact-form-7', 'wpcf7', 'fluentform', // Already handled separately
-            'gallery', 'audio', 'video', 'playlist', // Media shortcodes
-            'embed', 'wp_embed', // Embed shortcodes
-            'code', 'pre', // Code blocks
-            'script', 'style', // Script/style tags
-        ];
-        
-        if (in_array($tag, $excluded_shortcodes, true)) {
-            $processing_shortcode = false;
-            return $output;
-        }
-        
-        // Generate cache key for this shortcode output
-        $form_id = isset($attr['id']) ? $attr['id'] : 'unknown';
-        $cache_key = 'shortcode_' . $tag . '_' . $form_id . '_' . $core->get_current_language() . '_' . md5($output);
-        $cached = $core->get_cached_content($cache_key);
-        
-        if ($cached !== false) {
-            $processing_shortcode = false;
-            return $cached;
-        }
-        
-        // Translate the output
-        $translated_output = $core->translate_template_part($output, 'plugin_content');
-        
-        // Cache the result
-        $core->save_to_cache($cache_key, $translated_output);
-        
-        $processing_shortcode = false;
-        return $translated_output;
-    }, 10, 3);
+
     
     // Filter voor plugin output die via wp_head of wp_footer wordt toegevoegd
     add_action('wp_head', function () use ($core) {
@@ -908,6 +856,52 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 return $content;
             }
             
+            // Extract form fields for batch translation
+            $form_fields = [];
+            $field_patterns = [
+                'label' => '/<label[^>]*>(.*?)<\/label>/i',
+                'placeholder' => '/placeholder=["\']([^"\']+)["\']/i',
+                'title' => '/title=["\']([^"\']+)["\']/i',
+                'alt' => '/alt=["\']([^"\']+)["\']/i',
+                'value' => '/value=["\']([^"\']+)["\']/i'
+            ];
+            
+            foreach ($field_patterns as $type => $pattern) {
+                if (preg_match_all($pattern, $content, $matches)) {
+                    foreach ($matches[1] as $match) {
+                        if (!empty(trim($match))) {
+                            $form_fields[] = trim($match);
+                        }
+                    }
+                }
+            }
+            
+            // If we found form fields, use batch translation
+            if (!empty($form_fields)) {
+                $target_language = $core->get_current_language();
+                $default_language = $core->get_settings()['default_language'];
+                
+                // Use batch translation for form fields
+                $translated_fields = $core->batch_translate_items($form_fields, $default_language, $target_language, 'contact_form_7');
+                
+                // Replace original fields with translated ones
+                $i = 0;
+                foreach ($field_patterns as $type => $pattern) {
+                    if (preg_match_all($pattern, $content, $matches)) {
+                        foreach ($matches[0] as $match) {
+                            if (isset($translated_fields[$i])) {
+                                $translated_match = str_replace($matches[1][$i], $translated_fields[$i], $match);
+                                $content = str_replace($match, $translated_match, $content);
+                                $i++;
+                            }
+                        }
+                    }
+                }
+                
+                return $content;
+            }
+            
+            // Fallback to individual translation if no fields found
             return $core->translate_template_part($content, 'contact_form_7');
         }, 10);
     }
@@ -1177,6 +1171,18 @@ function translate_post_field($value, string $field, \WP_Post $post): string
     return $value;
 }
 
+/**
+ * Translate taxonomy terms for a post to the target language.
+ *
+ * This function is used to translate the names of taxonomy terms (e.g., categories, tags)
+ * for a given post and taxonomy, using the plugin's translation logic. It checks if translation
+ * is needed based on the current language and settings, and only translates if required.
+ *
+ * @param array|null $terms Array of WP_Term objects or null.
+ * @param int $post_id The post ID for context.
+ * @param string $taxonomy The taxonomy type (e.g., 'category', 'post_tag').
+ * @return array|null Translated terms array or null if input was null or error.
+ */
 function translate_terms(?array $terms, int $post_id, string $taxonomy): ?array
 {
     if (empty($terms) || is_wp_error($terms)) {
@@ -1213,6 +1219,7 @@ function translate_text(string $text, string $source_language, string $target_la
 
 function translate_menu_items(array $items): array
 {
+    // This function is deprecated - use the batch translation in AI_Translate_Core instead
     if (empty($items)) {
         return $items;
     }
@@ -1221,10 +1228,9 @@ function translate_menu_items(array $items): array
     if (!should_translate($settings)) {
         return $items;
     }
-    foreach ($items as $item) {
-        $item->title = translate_text($item->title, $settings['default_language'], get_target_language($settings), true);
-    }
-    return $items;
+    
+    // Use the proper batch translation method instead of individual translation
+    return $core->translate_menu_items($items);
 }
 
 function register_rewrite_rules(): void

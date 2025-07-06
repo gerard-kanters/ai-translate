@@ -1,4 +1,6 @@
 jQuery(document).ready(function($) {
+
+    
     // Zorg ervoor dat de taalcode uit de cookie wordt geladen
     function getLanguageFromCookie() {
         var name = "ai_translate_lang=";

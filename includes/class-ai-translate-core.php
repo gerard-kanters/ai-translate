@@ -230,8 +230,8 @@ class AI_Translate_Core
                 // Prefix for slug translation transients
                 return 'ai_translate_slug_cache_' . $id . '_' . $lang;
             default:
-                // Fallback or error? For now a generic key.
-                return 'unknown_' . $id . '_' . $lang;
+                // Fallback to disk format for unknown types
+                return $lang . '_' . $id;
         }
     }
 
@@ -542,22 +542,6 @@ class AI_Translate_Core
             'plugin_beaver_builder',
             'plugin_fluentform',
             'fluentform',
-            'menu_item_description',
-            'search_form',
-            'search_query',
-            'search_page_title',
-            'search_content',
-            'search_placeholders',
-            'search_result_title',
-            'search_result_excerpt',
-            'plugin_generic',
-            'plugin_woocommerce',
-            'plugin_contact_form_7',
-            'plugin_elementor',
-            'plugin_divi',
-            'plugin_beaver_builder',
-            'plugin_fluentform',
-            'fluentform',
             'menu_item_description'
         ];
 
@@ -701,6 +685,7 @@ class AI_Translate_Core
         bool $is_title = false,
         bool $use_disk_cache = true
     ): string {
+
         // --- Essential Checks ---
         // 0. AJAX request check as the absolute first rule
         if (wp_doing_ajax()) {
@@ -776,7 +761,7 @@ class AI_Translate_Core
 
 
         // --- Exclude shortcodes specified in admin ---
-        $shortcodes_to_exclude = self::get_always_excluded_shortcodes();
+        $shortcodes_to_exclude = self::get_extractable_shortcodes();
         $extracted_shortcode_pairs = [];
 
 
@@ -790,15 +775,9 @@ class AI_Translate_Core
         $text_to_translate = $text_with_placeholders;
         $shortcodes = $extracted_shortcode_pairs; // Rename for consistency with existing code
 
-        // Detect: text consists only of excluded shortcodes?
-        $only_excluded = false;
-        if (!empty($shortcodes)) {
-            // Strip placeholders for this check
-            $stripped = trim(wp_strip_all_tags(str_replace(array_keys($shortcodes), '', $text_to_translate)));
-            if ($stripped === '') {
-                $only_excluded = true;
-            }
-        }
+        // Detect: text consists only of truly excluded shortcodes?
+        $truly_excluded_shortcodes = self::get_truly_excluded_shortcodes();
+        $only_excluded = $this->is_only_excluded_shortcodes($text, $truly_excluded_shortcodes);
 
         // --- Strip all shortcodes before calculating the cache-key and before translation ---
         // strip_all_shortcodes_for_cache will now see the placeholders and strip them as well.
@@ -819,7 +798,7 @@ class AI_Translate_Core
             }
             // Use original text with excluded shortcodes restored
             $result = $text; // Start with original text
-            self::$translation_memory[$memory_key] = $text; // Cache original text
+            self::$translation_memory[$memory_key] = $text; // Cache original text in memory only
             return $text;
         }
 
@@ -877,6 +856,9 @@ class AI_Translate_Core
         $placeholders = [];
         $placeholder_index = 0;
         $text_processed = $text_to_translate; // Start with text after excluded shortcodes
+
+        // Extract nonces and tokens to prevent translation
+        $text_processed = $this->extract_security_tokens($text_processed, $placeholders, $placeholder_index);
 
         // Remove all placeholders of the type __AITRANSLATE_PLACEHOLDER_X__ from the text and remember their positions
         $placeholder_pattern = '/__AITRANSLATE_PLACEHOLDER_\d+__/';
@@ -937,6 +919,17 @@ class AI_Translate_Core
         }
         $final_translated_text = $translated_text_with_placeholders;
 
+        // --- Restore security tokens and other placeholders ---
+        if (!empty($placeholders)) {
+            // Sort placeholders by length in descending order to prevent partial matches
+            uksort($placeholders, function ($a, $b) {
+                return strlen($b) <=> strlen($a);
+            });
+            foreach ($placeholders as $placeholder => $original_value) {
+                $final_translated_text = str_replace($placeholder, $original_value, $final_translated_text);
+            }
+        }
+
         // --- Restore excluded shortcodes ---
         if (!empty($shortcodes)) {
             $final_translated_text = $this->restore_shortcode_pairs($final_translated_text, $shortcodes); // Use new restore function
@@ -996,13 +989,16 @@ class AI_Translate_Core
         // Generate optimized system prompt with proper validation
         $system_prompt = $this->build_translation_prompt($source_language, $target_language, $is_title, $text);
 
+        // Use zero temperature for slug translations to ensure consistency
+        $temperature = 0.0; // Zero temperature for maximum consistency
+        
         $data = [
             'model'             => $this->settings['selected_model'],
             'messages'          => [
                 ['role' => 'system', 'content' => $system_prompt],
                 ['role' => 'user', 'content' => $text]
             ],
-            'temperature'       => 0.2,
+            'temperature'       => $temperature,
             'frequency_penalty' => 0,
             'presence_penalty'  => 0
         ];
@@ -1115,14 +1111,31 @@ class AI_Translate_Core
      * @param string $type Type of content (e.g., 'post_title', 'post_content').
      * @return string Translated content or original if no translation needed/failed.
      */
+    /**
+     * Generic entry point for translating content parts (string or array).
+     *
+     * - For batch types (menu_item, post_title[], widget_title[]), this function delegates to batch_translate_items.
+     * - For single strings, this function uses translate_text (with all cache layers).
+     * - For menu_item: individual translation is explicitly skipped; only batch is allowed.
+     *
+     * Do NOT call this for individual menu items or FluentForm field names; always use the batch variant.
+     *
+     * @param string|array $content Content to translate (string or array)
+     * @param string $type Type of content (e.g. 'post_title', 'menu_item', 'widget_title', etc.)
+     * @return string|array Translated content (same type as input)
+     */
     public function translate_template_part($content, string $type)
     {
+        // Als het al vertaald is, niet opnieuw vertalen of cachen
+        if (is_string($content) && strpos($content, '<!--aitranslate:translated-->') !== false) {
+            return $content;
+        }
         if (!$this->needs_translation() || is_admin() || empty($content)) {
             return is_array($content) ? array_values($content) : (string)$content;
         }
 
         // Batch handling for specific types
-        if (in_array($type, ['post_title', 'menu_item', 'widget_title'], true) && is_array($content)) {
+        if (in_array($type, ['post_title', 'widget_title'], true) && is_array($content)) {
             $target_language_batch = $this->get_current_language();
             $translated_batch = $this->batch_translate_items($content, $this->default_language, $target_language_batch, $type);
 
@@ -1132,6 +1145,11 @@ class AI_Translate_Core
             }
             return $translated_batch;
         }
+        
+        // Skip individual translation for menu_item - should only be handled by batch functions
+        if ($type === 'menu_item') {
+            return $content;
+        }
 
         // Ensure content is a string
         if (is_array($content)) {
@@ -1140,22 +1158,37 @@ class AI_Translate_Core
 
         $target_language = $this->get_current_language();
         $default_language = $this->default_language ?: ($this->settings['default_language'] ?? 'nl');
-        $cache_identifier = md5($content . $type . $target_language);
+        
+        // Check of content alleen uit echt uitgesloten shortcodes bestaat
+        $shortcodes_to_exclude = self::get_truly_excluded_shortcodes();
+        $only_excluded = $this->is_only_excluded_shortcodes($content, $shortcodes_to_exclude);
+        
+        // For widget content, use a consistent cache key regardless of type
+        if (in_array($type, ['widget_title', 'widget_text'])) {
+            // Strip HTML tags and normalize content for consistent caching
+            $normalized_content = wp_strip_all_tags($content);
+            $cache_identifier = md5($normalized_content . 'widget' . $target_language);
+        } else {
+            $cache_identifier = md5($content . $type . $target_language);
+        }
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
         // --- CUSTOM Memory Cache Check ---
-        // If the item is in the memory cache for this request, always return it.
-        // This prevents the loop if the API returns the original text.
         if (isset(self::$translation_memory[$memory_key])) {
             return self::$translation_memory[$memory_key];
         }
         // --- END CUSTOM Memory Cache Check ---
 
-        // Houd het type bij voor cache expiry logica
         $this->last_translate_type = $type;
 
-        $use_disk_cache = !in_array($type, ['post_title', 'menu_item', 'widget_title', 'site_title', 'tagline'], true);
+        $use_disk_cache = !in_array($type, ['site_title', 'tagline'], true);
         $is_title = in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
+
+        // SHORTCODE-ONLY: alleen in memory cache!
+        if ($only_excluded) {
+            self::$translation_memory[$memory_key] = $content;
+            return $content;
+        }
 
         // Call translate_text, which uses do_translate and handles persistent caching
         $translated = $this->translate_text(
@@ -1567,8 +1600,7 @@ class AI_Translate_Core
         if (isset($languages[$current_lang])) {
             printf(
                 // Geen inline onclick meer, alleen HTML
-                '<button class="current-lang" title="%s">%s %s <span class="arrow">&#9662;</span></button>',
-                esc_attr__('Choose language', 'ai-translate'),
+                '<button class="current-lang" title="Choose language">%s %s <span class="arrow">&#9662;</span></button>',
                 // phpcs:disable PluginCheck.CodeAnalysis.ImageFunctions.NonEnqueuedImage -- Flags are directly linked assets, not attachments.
                 sprintf('<img src="%s" alt="%s" width="20" height="15" />', esc_url(plugins_url("assets/flags/{$current_lang}.png", AI_TRANSLATE_FILE)), \esc_attr($languages[$current_lang])),
                 // phpcs:enable PluginCheck.CodeAnalysis.ImageFunctions.NonEnqueuedImage
@@ -1664,15 +1696,23 @@ class AI_Translate_Core
     }
 
     /**
-     * Batch vertaal items (bijv. titels, menu-items).
-     * Gebruikt API alleen bij cache miss en meer dan 1 item.
-     * @param array $items Associative array (key => text) or simple array (text).
-     * @param string $source_language
-     * @param string $target_language
-     * @param string $type Type (e.g., 'post_title', 'menu_item'). Used for logging and context.
-     * @return array Original array structure with translated values.
+     * Batch translate an array of items (e.g. menu items, form field labels).
+     *
+     * This function MUST be used for all cases where multiple short strings need to be translated at once,
+     * such as menu items and FluentForm field names. The cache is always stored as a JSON array, never as individual strings.
+     *
+     * - Do NOT call this for single strings; use translate_text or translate_template_part for that.
+     * - The input array should be numerically indexed for best results.
+     * - The output is always an array with the same keys as the input.
+     * - Persistent cache (disk/transient) is always a JSON array, never a single string.
+     *
+     * @param array $items Array of strings to translate (numeric or associative keys)
+     * @param string $source_language Source language code
+     * @param string $target_language Target language code
+     * @param string $type Type of content (e.g. 'menu_item', 'fluentform_field', 'post_title')
+     * @return array Array of translated strings, same keys as input
      */
-    public function batch_translate_items(array $items, string $source_language, string $target_language, string $type): array
+    public function batch_translate_items(array $items, string $source_language, string $target_language, string $type, array $original_items_for_cache = []): array
     {
         // Guard: niet vertalen in admin of als doeltaal de standaardtaal is of lege input
         if (is_admin() || $target_language === $this->default_language || empty($items)) {
@@ -1716,8 +1756,27 @@ class AI_Translate_Core
         $original_keys = array_keys($valid_items); // Bewaar originele keys
         $items_to_translate = array_values($valid_items); // Werk met numerieke array voor API
 
+        // Check of alle items alleen uit echt uitgesloten shortcodes bestaan
+        $truly_excluded_shortcodes = self::get_truly_excluded_shortcodes();
+        $all_items_excluded = true;
+        foreach ($items_to_translate as $item) {
+            if (!$this->is_only_excluded_shortcodes($item, $truly_excluded_shortcodes)) {
+                $all_items_excluded = false;
+                break;
+            }
+        }
+
         // Gebruik hash van items + type + target_language als identifier
-        $cache_identifier = md5(json_encode($items_to_translate) . $type . $target_language); // Hash van values + taal
+        // Sort items to ensure consistent cache keys regardless of input order
+        // For menu items, use original items for cache key generation if provided
+        if ($type === 'menu_item' && !empty($original_items_for_cache)) {
+            $sorted_items = $original_items_for_cache;
+            sort($sorted_items);
+        } else {
+            $sorted_items = $items_to_translate;
+            sort($sorted_items);
+        }
+        $cache_identifier = md5(json_encode($sorted_items) . $type . $source_language . $target_language);
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_mem');
 
         // Memory Cache Check
@@ -1730,30 +1789,54 @@ class AI_Translate_Core
             unset(self::$translation_memory[$memory_key]);
         }
 
-        // Transient Cache Check
-        $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
-        $cached = get_transient($transient_key);
-        // Moet een numerieke array zijn met correct aantal items
-        if ($cached !== false && is_array($cached) && count($cached) === count($items_to_translate) && array_keys($cached) === range(0, count($cached) - 1)) {
-            self::$translation_memory[$memory_key] = $cached; // Update memory cache
-            return array_combine($original_keys, $cached); // Combineer met originele keys
+        // SHORTCODE-ONLY: alleen in memory cache!
+        if ($all_items_excluded) {
+            // Cache original items in memory only
+            self::$translation_memory[$memory_key] = $items_to_translate;
+            return array_combine($original_keys, $items_to_translate);
         }
 
-        // --- NIEUWE LOGICA: Disk Cache Check ---
-        $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
-        $disk_cached = $this->get_cached_content($disk_cache_key);
-        if ($disk_cached !== false) {
-            $decoded_disk_cached = json_decode($disk_cached, true);
-            if (is_array($decoded_disk_cached) && count($decoded_disk_cached) === count($items_to_translate) && array_keys($decoded_disk_cached) === range(0, count($decoded_disk_cached) - 1)) {
-                self::$translation_memory[$memory_key] = $decoded_disk_cached;
-                set_transient($transient_key, $decoded_disk_cached, $this->expiration_hours * 3600); // Ook in transient zetten voor snelle toegang
-                return array_combine($original_keys, $decoded_disk_cached);
+        // Transient Cache Check (alleen als niet alle items uitgesloten zijn)
+        if (!$all_items_excluded) {
+            $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
+            $cached = get_transient($transient_key);
+            // Moet een numerieke array zijn met correct aantal items
+            if ($cached !== false && is_array($cached) && count($cached) === count($items_to_translate) && array_keys($cached) === range(0, count($cached) - 1)) {
+                self::$translation_memory[$memory_key] = $cached; // Update memory cache
+                // If it comes from transient, also save it to disk cache
+                $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+                $this->save_to_cache($disk_cache_key, json_encode($cached));
+                return array_combine($original_keys, $cached); // Combineer met originele keys
             }
         }
-        // --- EINDE NIEUWE LOGICA ---
+
+        // Disk Cache Check (alleen als niet alle items uitgesloten zijn)
+        if (!$all_items_excluded) {
+            $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+            $disk_cached = $this->get_cached_content($disk_cache_key);
+            if ($disk_cached !== false) {
+                $decoded = json_decode($disk_cached, true);
+                if (is_array($decoded) && count($decoded) === count($items_to_translate) && array_keys($decoded) === range(0, count($decoded) - 1)) {
+                    self::$translation_memory[$memory_key] = $decoded; // Update memory cache
+                    // Also save to transient for faster access on subsequent requests
+                    $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
+                    set_transient($transient_key, $decoded, $this->expiration_hours * 3600);
+                    return array_combine($original_keys, $decoded); // Combineer met originele keys
+                }
+            }
+        }
+
+
+
+
 
         // --- Cache miss ---
         // Log alleen bij cache miss
+
+        // Skip API call if all items are excluded
+        if ($all_items_excluded) {
+            return array_combine($original_keys, $items_to_translate);
+        }
 
         // Use the same optimized prompt builder for consistency
         $is_title_batch = in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
@@ -1854,12 +1937,14 @@ class AI_Translate_Core
                         return $valid_items;
                     }
 
-                    set_transient($transient_key, $translated_array, $this->expiration_hours * 3600);
+                    // Alleen transient en disk cache maken als niet alle items uitgesloten zijn
+                    if (!$all_items_excluded) {
+                        set_transient($transient_key, $translated_array, $this->expiration_hours * 3600);
+                        // Also save to disk cache for persistence
+                        $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+                        $this->save_to_cache($disk_cache_key, json_encode($translated_array));
+                    }
                     self::$translation_memory[$memory_key] = $translated_array;
-
-                    // --- NIEUWE LOGICA: Save to Disk Cache ---
-                    $this->save_to_cache($disk_cache_key, json_encode($translated_array, JSON_UNESCAPED_UNICODE));
-                    // --- EINDE NIEUWE LOGICA ---
 
                     return array_combine($original_keys, $translated_array);
                 }
@@ -2334,6 +2419,17 @@ class AI_Translate_Core
         return $new_permalink;
     }
 
+    /**
+     * Translate a URL to the target language, including slug translation and language prefix.
+     *
+     * This function generates a translated URL for a given post or page, using the default language
+     * slug as the source and adding the appropriate language prefix. Used for SEO-friendly multilingual URLs.
+     *
+     * @param string $url The original URL.
+     * @param string $language The target language code.
+     * @param int|null $post_id Optional post ID for context.
+     * @return string The translated URL.
+     */
     public function translate_url(string $url, string $language, ?int $post_id = null): string
     {
         // Als we in de admin zijn, of als de URL een admin-pad bevat, retourneer de originele URL.
@@ -2691,7 +2787,7 @@ class AI_Translate_Core
         $readable_text = ucwords($readable_text);
 
         try {
-            // Translate the readable text
+            // Translate the readable text with zero temperature for consistency
             $translated_text = $this->translate_text(
                 $readable_text,
                 $source_language,
@@ -2709,7 +2805,7 @@ class AI_Translate_Core
             // Cache the result in memory
             self::$translation_memory[$cache_key] = $translated_slug;
 
-            // Save to custom database table - gebruik INSERT om te voorkomen dat bestaande vertalingen worden overschreven
+            // Save to custom database table - gebruik INSERT IGNORE om te voorkomen dat bestaande vertalingen worden overschreven
             if ($post_id !== null) {
                 // Controleer nogmaals of er al een vertaling bestaat (race condition voorkomen)
                 $existing_slug = $wpdb->get_var($wpdb->prepare(
@@ -2757,8 +2853,8 @@ class AI_Translate_Core
                 }
             }
 
-            // Save to transient cache als backup
-            set_transient($transient_key, $translated_slug, $this->expiration_hours * 3600);
+            // Save to transient cache als backup met langere expiratie (30 dagen)
+            set_transient($transient_key, $translated_slug, 30 * 24 * 3600);
 
             return $translated_slug;
         } catch (\Exception $e) {
@@ -2829,6 +2925,25 @@ class AI_Translate_Core
      * @param ?object $menu Optional menu object (niet gebruikt in deze implementatie).
      * @return array Modified array of menu item objects.
      */
+    /**
+     * Batch translate all navigation menu items to the current language with URL-based title generation.
+     *
+     * Flow:
+     * 1. First translate URLs using translate_url()
+     * 2. For non-homepage items: generate title from URL path
+     *    - Roman languages: "/en/about-us/" → "About Us"
+     *    - Non-Roman languages: "/ru/функционал/" → "функционал"
+     * 3. For homepage items: translate title normally via API
+     * 4. Translate descriptions via API
+     *
+     * This function is hooked to the 'wp_nav_menu_objects' filter and is the only correct way
+     * to translate menu items. It collects all titles and descriptions, translates them in batch,
+     * and updates the menu item objects. Never translate menu items individually; always use this batch function.
+     *
+     * @param array $items Array of WP_Nav_Menu_Item objects.
+     * @param object|null $menu Optional menu object.
+     * @return array Modified array of menu item objects with translated titles and descriptions.
+     */
     public function translate_menu_items(array $items, ?object $menu = null): array
     {
         // Skip if no translation needed, in admin, or items array is empty
@@ -2842,20 +2957,53 @@ class AI_Translate_Core
         // Verzamel alle titels en descriptions om te vertalen, met behoud van originele index
         $titles_to_translate = [];
         $descriptions_to_translate = [];
+        $original_titles = []; // Store original Dutch titles for cache key generation
 
         foreach ($items as $index => $item) {
-            // Voeg alleen niet-lege titels toe
-            if (!empty($item->title)) {
-                $titles_to_translate[$index] = $item->title;
-            }
             // Voeg alleen niet-lege descriptions toe
             if (!empty($item->description)) {
                 $descriptions_to_translate[$index] = $item->description;
             }
-            // Vertaal URL direct (dit is geen API call en kan geen loop veroorzaken)
+            
+            // Vertaal URL eerst (dit is geen API call en kan geen loop veroorzaken)
             if (isset($item->url)) {
                 $item->url = $this->translate_url($item->url, $target_language);
             }
+            
+            // Check of dit een homepage item is
+            $is_homepage = false;
+            if (isset($item->url)) {
+                $parsed_url = wp_parse_url($item->url);
+                $path = $parsed_url['path'] ?? '/';
+                $is_homepage = ($path === '/' || $path === '/'.$target_language.'/' || $path === '/'.$target_language);
+            }
+            
+            // Voor homepage items: voeg titel toe voor normale vertaling
+            if ($is_homepage && !empty($item->title)) {
+                $titles_to_translate[$index] = $item->title;
+                $original_titles[$index] = $item->title;
+            }
+            // Voor niet-homepage items: genereer titel uit URL
+            elseif (!$is_homepage && isset($item->url)) {
+                $generated_title = $this->generate_title_from_url($item->url, $target_language);
+                if (!empty($generated_title)) {
+                    // Gebruik gegenereerde titel (werkt nu voor alle talen)
+                    $item->title = $generated_title;
+                } elseif (!empty($item->title)) {
+                    // Fallback: vertaal via API als geen titel gegenereerd kon worden
+                    $titles_to_translate[$index] = $item->title;
+                    $original_titles[$index] = $item->title;
+                }
+            }
+        }
+
+        // Sort titles and descriptions to ensure consistent cache keys
+        // We need to maintain the original keys for mapping back to items
+        if (!empty($titles_to_translate)) {
+            asort($titles_to_translate);
+        }
+        if (!empty($descriptions_to_translate)) {
+            asort($descriptions_to_translate);
         }
 
         $translated_titles = null; // Initialiseer als null om falen te detecteren
@@ -2863,12 +3011,53 @@ class AI_Translate_Core
 
         if (!empty($titles_to_translate)) {
             try {
-                // batch_translate_items geeft array terug met dezelfde keys als input
-                $translated_titles = $this->batch_translate_items($titles_to_translate, $default_language, $target_language, 'menu_item');
+                // EERST: Controleer cache voordat we vertalen
+                $original_titles_for_cache = array_values($original_titles);
+                sort($original_titles_for_cache);
+                
+                // Generate cache key based on original Dutch titles
+                $cache_identifier = md5(json_encode($original_titles_for_cache) . 'menu_item' . $default_language . $target_language);
+                $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_mem');
+                
+                // Check memory cache first
+                if (isset(self::$translation_memory[$memory_key])) {
+                    $cached = self::$translation_memory[$memory_key];
+                    if (is_array($cached) && count($cached) === count($titles_to_translate)) {
+                        $translated_titles = array_combine(array_keys($titles_to_translate), $cached);
+                    }
+                }
+                
+                // Check transient cache if not in memory
+                if (!isset($translated_titles)) {
+                    $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
+                    $cached = get_transient($transient_key);
+                    if ($cached !== false && is_array($cached) && count($cached) === count($titles_to_translate)) {
+                        self::$translation_memory[$memory_key] = $cached;
+                        $translated_titles = array_combine(array_keys($titles_to_translate), $cached);
+                    }
+                }
+                
+                // Check disk cache if not in transient
+                if (!isset($translated_titles)) {
+                    $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+                    $disk_cached = $this->get_cached_content($disk_cache_key);
+                    if ($disk_cached !== false) {
+                        $decoded = json_decode($disk_cached, true);
+                        if (is_array($decoded) && count($decoded) === count($titles_to_translate)) {
+                            self::$translation_memory[$memory_key] = $decoded;
+                            $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
+                            set_transient($transient_key, $decoded, $this->expiration_hours * 3600);
+                            $translated_titles = array_combine(array_keys($titles_to_translate), $decoded);
+                        }
+                    }
+                }
+                
+                // ALS GEEN CACHE: Vertaal via API
+                if (!isset($translated_titles)) {
+                    $translated_titles = $this->batch_translate_items($titles_to_translate, $default_language, $target_language, 'menu_item', $original_titles_for_cache);
+                }
 
                 // Validatie: Zorg dat het resultaat een array is met dezelfde keys als de input
-                // array_diff_key geeft keys terug die in de eerste array zitten maar niet in de tweede.
-                // Als dit niet leeg is, missen er keys in het resultaat.
                 if (!is_array($translated_titles) || count(array_diff_key($titles_to_translate, $translated_titles)) > 0) {
                     $translated_titles = null; // Zet terug naar null bij structuurfout
                 }
@@ -2893,14 +3082,15 @@ class AI_Translate_Core
 
         // Map de vertalingen terug naar de items, alleen als de respectievelijke batch succesvol was
         foreach ($items as $index => $item) {
-            // Verwerk titels: als vertaling beschikbaar en niet leeg, gebruik die en voeg marker toe.
-            // Anders, als de oorspronkelijke titel niet leeg was, voeg marker toe aan de oorspronkelijke titel.
-            $original_title = $titles_to_translate[$index] ?? $item->title;
-            $new_title = (isset($translated_titles[$index]) && !empty($translated_titles[$index])) ? (string)$translated_titles[$index] : $original_title;
-            if (!empty($new_title)) {
-                $item->title = $this->clean_html_string($new_title); // Apply cleaning
-            } else {
-                $item->title = ''; // Zorg dat het leeg is als er geen content is
+            // Verwerk titels: alleen voor homepage items die via API zijn vertaald
+            if (isset($titles_to_translate[$index])) {
+                $original_title = $titles_to_translate[$index];
+                $new_title = (isset($translated_titles[$index]) && !empty($translated_titles[$index])) ? (string)$translated_titles[$index] : $original_title;
+                if (!empty($new_title)) {
+                    $item->title = $this->clean_html_string($new_title); // Apply cleaning
+                } else {
+                    $item->title = ''; // Zorg dat het leeg is als er geen content is
+                }
             }
 
             // Verwerk descriptions: als vertaling beschikbaar en niet leeg, gebruik die.
@@ -2935,10 +3125,10 @@ class AI_Translate_Core
         $target_language = $this->get_current_language();
         $default_language = $this->default_language;
 
-        // Use a unique identifier for this specific title and language
-        $cache_identifier = md5($title . 'widget_title' . $target_language); // Add type context and language
+        // Use consistent cache identifier with widget text
+        $normalized_title = wp_strip_all_tags($title);
+        $cache_identifier = md5($normalized_title . 'widget' . $target_language);
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
-
 
         // Als het item in de memory cache zit voor dit request, geef het *altijd* terug.
         if (isset(self::$translation_memory[$memory_key])) {
@@ -2955,16 +3145,12 @@ class AI_Translate_Core
     }
 
     /**
-     * Lijst met shortcodes die altijd uitgesloten moeten worden van vertaling (hardcoded, niet wijzigbaar via admin).
-     * @return array
-     */
-    /**
-     * Returns shortcodes that should always be excluded from translation.
-     * These shortcodes (including their content) will be preserved exactly as-is.
+     * Lijst met shortcodes die geëxtraheerd moeten worden tijdens vertaling om hun structuur te behouden.
+     * Deze shortcodes worden tijdelijk vervangen door placeholders tijdens vertaling en daarna hersteld.
      * 
-     * @return array<string> Array of shortcode names to exclude
+     * @return array<string> Array van shortcode namen die geëxtraheerd moeten worden
      */
-    public static function get_always_excluded_shortcodes(): array
+    public static function get_extractable_shortcodes(): array
     {
         return [
             'mb_btn',
@@ -2976,6 +3162,16 @@ class AI_Translate_Core
             'mb_section',
             'mb_space',
             'mb_text',
+        ];
+    }
+
+    /**
+     * Lijst met shortcodes die echt uitgesloten moeten worden van vertaling (niet vertaald, geen cache).
+     * @return array
+     */
+    public static function get_truly_excluded_shortcodes(): array
+    {
+        return [
             'bws_google_captcha', // Contact form captcha - must not be translated
             'chatbot', // Chatbot scripts - must not be translated
         ];
@@ -3344,58 +3540,201 @@ class AI_Translate_Core
     }
 
     /**
-     * Conditionally adds the filter for Fluent Form output if on the contact page and translation is needed.
+     * Conditionally adds the filter for Fluent Form output if translation is needed.
      */
     public function conditionally_add_fluentform_filter(): void
     {
-        // Alleen op de contact pagina en als vertaling nodig is
-        if (is_page('contact') && $this->needs_translation()) {
-            // Voeg de filter toe met een hogere prioriteit om ervoor te zorgen dat het wordt uitgevoerd
-            add_filter('do_shortcode_tag', [$this, 'filter_fluentform_shortcode_output'], 10, 3);
+        // Alleen als vertaling nodig is
+        if ($this->needs_translation()) {
+            // Voeg de filter toe voor het vertalen van FluentForm velden met hoge prioriteit
+            add_filter('the_content', [$this, 'translate_fluentform_fields'], 999);
         }
     }
 
     /**
-     * Filters the output of the [fluentform] shortcode to translate it.
-     * Optimized version with better caching and selective translation.
+     * Translate FluentForm fields after rendering.
      *
-     * @param string $output The shortcode output.
-     * @param string $tag    The shortcode tag name.
-     * @param array  $attr   The shortcode attributes.
-     * @return string The (potentially) translated shortcode output.
+     * @param string $content The page content.
+     * @return string Content with translated FluentForm fields.
      */
-    public function filter_fluentform_shortcode_output(string $output, string $tag, array $attr): string
+    public function translate_fluentform_fields(string $content): string
     {
-        if ('fluentform' !== $tag) {
-            return $output;
+        // Check if this is a FluentForm by looking for common FluentForm elements
+        if (strpos($content, 'fluentform') === false && 
+            strpos($content, 'ff-el-form') === false && 
+            strpos($content, 'data-name=') === false) {
+            return $content;
         }
 
-        if (empty(trim($output))) {
-            return $output; // Geen HTML om te vertalen
+        // Extract all translatable fields from FluentForm
+        $fields_to_translate = [];
+        $field_mappings = [];
+
+        // Extract placeholders
+        preg_match_all('/placeholder=[\'"]([^\'"]+)[\'"]/i', $content, $placeholder_matches, PREG_OFFSET_CAPTURE);
+        foreach ($placeholder_matches[1] as $index => $match) {
+            $placeholder = $match[0];
+            $position = $placeholder_matches[0][$index][1];
+            $key = 'placeholder_' . $index;
+            $fields_to_translate[$key] = $placeholder;
+            $field_mappings[$key] = [
+                'type' => 'placeholder',
+                'original' => $placeholder,
+                'position' => $position,
+                'full_match' => $placeholder_matches[0][$index][0]
+            ];
         }
 
-        // Alleen vertalen als er geen cache is
-        $form_id = isset($attr['id']) ? $attr['id'] : 'unknown';
-        $cache_key = 'fluentform_' . $form_id . '_' . $this->get_current_language() . '_' . md5($output);
-        $cached = $this->get_cached_content($cache_key);
-        
-        if ($cached !== false) {
-            return $cached;
+        // Extract labels
+        preg_match_all('/<label[^>]*>(.*?)<\/label>/i', $content, $label_matches, PREG_OFFSET_CAPTURE);
+        foreach ($label_matches[1] as $index => $match) {
+            $label_text = $match[0];
+            $position = $label_matches[0][$index][1];
+            $key = 'label_' . $index;
+            $fields_to_translate[$key] = $label_text;
+            $field_mappings[$key] = [
+                'type' => 'label',
+                'original' => $label_text,
+                'position' => $position,
+                'full_match' => $label_matches[0][$index][0]
+            ];
         }
 
-        // Voor Fluent Forms, vertaal de hele output maar met betere caching
-        $translated_output = $this->translate_text(
-            $output,
-            $this->default_language,
-            $this->get_current_language(),
-            false,
-            true
-        );
+        // Extract button text
+        preg_match_all('/<button[^>]*>(.*?)<\/button>/i', $content, $button_matches, PREG_OFFSET_CAPTURE);
+        foreach ($button_matches[1] as $index => $match) {
+            $button_text = $match[0];
+            $position = $button_matches[0][$index][1];
+            $key = 'button_' . $index;
+            $fields_to_translate[$key] = $button_text;
+            $field_mappings[$key] = [
+                'type' => 'button',
+                'original' => $button_text,
+                'position' => $position,
+                'full_match' => $button_matches[0][$index][0]
+            ];
+        }
+
+        // Extract submit button values
+        preg_match_all('/<input[^>]*type=[\'"]submit[\'"][^>]*value=[\'"]([^\'"]+)[\'"][^>]*>/i', $content, $submit_matches, PREG_OFFSET_CAPTURE);
+        foreach ($submit_matches[1] as $index => $match) {
+            $submit_text = $match[0];
+            $position = $submit_matches[0][$index][1];
+            $key = 'submit_' . $index;
+            $fields_to_translate[$key] = $submit_text;
+            $field_mappings[$key] = [
+                'type' => 'submit',
+                'original' => $submit_text,
+                'position' => $position,
+                'full_match' => $submit_matches[0][$index][0]
+            ];
+        }
+
+        // If no fields to translate, return original content
+        if (empty($fields_to_translate)) {
+            return $content;
+        }
+
+        // Batch translate all fields
+        $current_language = $this->get_current_language();
+        $source_language = $this->default_language;
         
-        // Cache het resultaat
-        $this->save_to_cache($cache_key, $translated_output);
-        
-        return $translated_output;
+        if ($current_language !== $source_language) {
+            // EERST: Controleer cache voordat we vertalen
+            $original_fields_for_cache = array_values($fields_to_translate);
+            sort($original_fields_for_cache);
+            
+            // Generate cache key based on current fields (which may already be translated)
+            $cache_identifier = md5(json_encode($original_fields_for_cache) . 'fluentform_field' . $source_language . $current_language);
+            $memory_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_mem');
+            
+            // Check memory cache first
+            $translated_fields = null;
+            if (isset(self::$translation_memory[$memory_key])) {
+                $cached = self::$translation_memory[$memory_key];
+                if (is_array($cached) && count($cached) === count($fields_to_translate)) {
+                    $translated_fields = array_combine(array_keys($fields_to_translate), $cached);
+                }
+            }
+            
+            // Check transient cache if not in memory
+            if (!isset($translated_fields)) {
+                $transient_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_trans');
+                $cached = get_transient($transient_key);
+                if ($cached !== false && is_array($cached) && count($cached) === count($fields_to_translate)) {
+                    self::$translation_memory[$memory_key] = $cached;
+                    $translated_fields = array_combine(array_keys($fields_to_translate), $cached);
+                }
+            }
+            
+            // Check disk cache if not in transient
+            if (!isset($translated_fields)) {
+                $disk_cache_key = $this->generate_cache_key($cache_identifier, $current_language, 'disk');
+                $disk_cached = $this->get_cached_content($disk_cache_key);
+                if ($disk_cached !== false) {
+                    $decoded = json_decode($disk_cached, true);
+                    if (is_array($decoded) && count($decoded) === count($fields_to_translate)) {
+                        self::$translation_memory[$memory_key] = $decoded;
+                        $transient_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_trans');
+                        set_transient($transient_key, $decoded, $this->expiration_hours * 3600);
+                        $translated_fields = array_combine(array_keys($fields_to_translate), $decoded);
+                    }
+                }
+            }
+            
+            // ALS GEEN CACHE: Vertaal via API
+            if (!isset($translated_fields)) {
+                $translated_fields = $this->batch_translate_items($fields_to_translate, $source_language, $current_language, 'fluentform_field', $original_fields_for_cache);
+            }
+            
+            // Apply translations back to content
+            if (isset($translated_fields) && is_array($translated_fields)) {
+                foreach ($field_mappings as $key => $mapping) {
+                    if (isset($translated_fields[$key])) {
+                        $translated_text = self::remove_translation_marker($translated_fields[$key]);
+                        
+                        switch ($mapping['type']) {
+                            case 'placeholder':
+                                $content = str_replace(
+                                    'placeholder="' . $mapping['original'] . '"',
+                                    'placeholder="' . esc_attr($translated_text) . '"',
+                                    $content
+                                );
+                                break;
+                                
+                            case 'label':
+                                $content = str_replace(
+                                    $mapping['full_match'],
+                                    str_replace($mapping['original'], $translated_text, $mapping['full_match']),
+                                    $content
+                                );
+                                break;
+                                
+                            case 'button':
+                                $content = str_replace(
+                                    $mapping['full_match'],
+                                    str_replace($mapping['original'], $translated_text, $mapping['full_match']),
+                                    $content
+                                );
+                                break;
+                                
+                            case 'submit':
+                                $content = str_replace(
+                                    'value="' . $mapping['original'] . '"',
+                                    'value="' . esc_attr($translated_text) . '"',
+                                    $content
+                                );
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Remove loose data-name="message" text that appears in the content
+        $content = preg_replace('/\s*data-name="message"\s*/i', '', $content);
+
+        return $content;
     }
 
     /**
@@ -3436,12 +3775,13 @@ class AI_Translate_Core
     /**
      * Clear menu item cache specifically.
      * This is needed to fix issues with memcached where menu items are cached in wrong language.
+     * Slug cache wordt NIET gewist om consistentie te behouden.
      */
     public function clear_menu_cache(): void
     {
         global $wpdb;
         
-        // Clear menu-related transients (both old and new format)
+        // Clear menu-related transients, maar NIET slug cache
         $wpdb->query(
             $wpdb->prepare(
                 "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
@@ -3455,14 +3795,6 @@ class AI_Translate_Core
         // Clear ALL memory cache (not just menu-related)
         self::$translation_memory = [];
         
-        // Clear all disk cache files (since we changed the cache key format)
-        $files = glob($this->cache_dir . '/*.cache');
-        if (is_array($files)) {
-            foreach ($files as $file) {
-                wp_delete_file($file);
-            }
-        }
-        
         // Also clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
@@ -3471,6 +3803,7 @@ class AI_Translate_Core
     /**
      * Clear menu cache and force regeneration with new prompt logic.
      * This ensures menu items are translated without website context for short texts.
+     * Slug cache wordt NIET gewist om consistentie te behouden.
      */
     public function force_menu_cache_clear(): void
     {
@@ -3494,9 +3827,14 @@ class AI_Translate_Core
         }
     }
 
+
+
+
+
     /**
      * Clear alleen memory cache en alle transients (database).
      * Disk cache blijft staan.
+     * Slug cache wordt NIET gewist om consistentie te behouden.
      */
     public function clear_memory_and_transients(): void
     {
@@ -3505,20 +3843,16 @@ class AI_Translate_Core
         // Leeg memory cache
         self::$translation_memory = [];
         
-        // Verwijder alle relevante transients
+        // Verwijder alle relevante transients, maar NIET slug cache
         $wpdb->query(
             $wpdb->prepare(
-                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
                 '_transient_ai_translate_%',
                 '_transient_timeout_ai_translate_%',
                 '_transient_ai_translate_batch_trans_%',
                 '_transient_timeout_ai_translate_batch_trans_%',
                 '_transient_ai_translate_trans_%',
-                '_transient_timeout_ai_translate_trans_%',
-                '_transient_ai_translate_slug_%',
-                '_transient_timeout_ai_translate_slug_%',
-                '_transient_ai_translate_slug_cache_%',
-                '_transient_timeout_ai_translate_slug_cache_%'
+                '_transient_timeout_ai_translate_trans_%'
             )
         );
         
@@ -3783,15 +4117,6 @@ class AI_Translate_Core
         }
         $processing_plugin_content = true;
         
-        // Generate cache key
-        $cache_key = 'plugin_' . $plugin_type . '_' . $this->get_current_language() . '_' . md5($content);
-        $cached = $this->get_cached_content($cache_key);
-        
-        if ($cached !== false) {
-            $processing_plugin_content = false;
-            return $cached;
-        }
-        
         // Check if content contains HTML that should be preserved
         $contains_html = strpos($content, '<') !== false && strpos($content, '>') !== false;
         
@@ -3808,9 +4133,6 @@ class AI_Translate_Core
                 true
             );
         }
-        
-        // Cache the result
-        $this->save_to_cache($cache_key, $translated);
         
         $processing_plugin_content = false;
         return $translated;
@@ -3994,6 +4316,11 @@ class AI_Translate_Core
         $default_language = $this->default_language;
         
         if ($current_language === $default_language) {
+            return $title;
+        }
+        
+        // Skip language switcher - check if we're in the footer context
+        if (did_action('wp_footer') || doing_action('wp_footer')) {
             return $title;
         }
         
@@ -4248,7 +4575,7 @@ class AI_Translate_Core
         $placeholder_index = count($extracted_shortcodes);
         
         // Excludeer uitgevoerde HTML van shortcodes die niet vertaald mogen worden
-        $excluded_shortcodes = self::get_always_excluded_shortcodes();
+        $excluded_shortcodes = self::get_extractable_shortcodes();
         
         foreach ($excluded_shortcodes as $shortcode) {
             // Speciale behandeling voor bws_google_captcha
@@ -4310,6 +4637,226 @@ class AI_Translate_Core
         
         return $text;
     }
+
+    /**
+     * Extract security tokens (nonces, tokens, etc.) to prevent translation.
+     *
+     * @param string $text
+     * @param array $placeholders
+     * @param int $placeholder_index
+     * @return string
+     */
+    private function extract_security_tokens(string $text, array &$placeholders, int &$placeholder_index): string
+    {
+        // Extract WordPress nonces
+        $nonce_pattern = '/name=["\']_wpnonce["\'][^>]*value=["\']([^"\']+)["\']/i';
+        $text = preg_replace_callback($nonce_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+            $placeholder = '__AITRANSLATE_PLACEHOLDER_' . $placeholder_index . '__';
+            $placeholders[$placeholder] = $matches[0];
+            $placeholder_index++;
+            return $placeholder;
+        }, $text);
+
+        // Extract other common security tokens
+        $token_patterns = [
+            // CSRF tokens
+            '/name=["\']_token["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']csrf_token["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']security["\'][^>]*value=["\']([^"\']+)["\']/i',
+            
+            // Contact Form 7 tokens
+            '/name=["\']_wpcf7["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']_wpcf7_version["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']_wpcf7_locale["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']_wpcf7_unit_tag["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']_wpcf7_container_post["\'][^>]*value=["\']([^"\']+)["\']/i',
+            
+            // WooCommerce tokens
+            '/name=["\']woocommerce-process-checkout-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']woocommerce-login-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/name=["\']woocommerce-register-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
+            
+            // Generic token patterns
+            '/value=["\']([a-zA-Z0-9]{32,})["\']/i', // 32+ character alphanumeric tokens
+            '/value=["\']([a-f0-9]{32,})["\']/i',    // 32+ character hex tokens
+        ];
+
+        foreach ($token_patterns as $pattern) {
+            $text = preg_replace_callback($pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '__AITRANSLATE_PLACEHOLDER_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            }, $text);
+        }
+
+        // Extract dynamic content that should not be translated
+        $dynamic_patterns = [
+            // IP addresses
+            '/value=["\'](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})["\']/i',
+            
+            // Email addresses
+            '/value=["\']([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})["\']/i',
+            
+            // URLs
+            '/value=["\'](https?:\/\/[^\s"\'<>]+)["\']/i',
+            
+            // Timestamps and dates
+            '/value=["\'](\d{4}-\d{2}-\d{2})["\']/i',
+            '/value=["\'](\d{2}:\d{2}:\d{2})["\']/i',
+            
+            // Session IDs and dynamic IDs
+            '/value=["\']([a-f0-9]{8,})["\']/i',
+            
+            // JavaScript event handlers
+            '/on\w+=["\'][^"\']*["\']/i',
+            
+            // Data attributes with dynamic values
+            '/data-\w+=["\'][^"\']*["\']/i',
+        ];
+
+        foreach ($dynamic_patterns as $pattern) {
+            $text = preg_replace_callback($pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '__AITRANSLATE_PLACEHOLDER_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            }, $text);
+        }
+
+        // Extract script tags and their content
+        $script_pattern = '/<script[^>]*>.*?<\/script>/is';
+        $text = preg_replace_callback($script_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+            $placeholder = '__AITRANSLATE_PLACEHOLDER_' . $placeholder_index . '__';
+            $placeholders[$placeholder] = $matches[0];
+            $placeholder_index++;
+            return $placeholder;
+        }, $text);
+
+        // Extract style tags and their content
+        $style_pattern = '/<style[^>]*>.*?<\/style>/is';
+        $text = preg_replace_callback($style_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+            $placeholder = '__AITRANSLATE_PLACEHOLDER_' . $placeholder_index . '__';
+            $placeholders[$placeholder] = $matches[0];
+            $placeholder_index++;
+            return $placeholder;
+        }, $text);
+
+        // Extract forms with dynamic content
+        $form_pattern = '/<form[^>]*>.*?<\/form>/is';
+        $text = preg_replace_callback($form_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+            $form_content = $matches[0];
+            
+            // Check if form contains dynamic content (nonces, tokens, etc.)
+            if (preg_match('/(value=["\'][^"\']*["\']|on\w+=["\'][^"\']*["\']|data-\w+=["\'][^"\']*["\'])/i', $form_content)) {
+                $placeholder = '__AITRANSLATE_PLACEHOLDER_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $form_content;
+                $placeholder_index++;
+                return $placeholder;
+            }
+            
+            return $form_content; // Return unchanged if no dynamic content
+        }, $text);
+
+        return $text;
+    }
+
+    /**
+     * Check of de tekst uitsluitend bestaat uit echt uitgesloten shortcodes (en whitespace).
+     * Controleert zowel shortcodes als gerenderde HTML van shortcodes.
+     *
+     * @param string $text
+     * @param array $excluded_shortcodes
+     * @return bool
+     */
+    private function is_only_excluded_shortcodes(string $text, array $excluded_shortcodes): bool
+    {
+        // Eerst shortcodes verwijderen
+        foreach ($excluded_shortcodes as $shortcode) {
+            $pattern = '/\[' . preg_quote($shortcode, '/') . '[^\]]*\](?:.*?\[\/' . preg_quote($shortcode, '/') . '\])?/is';
+            $text = preg_replace($pattern, '', $text);
+        }
+        
+        // Dan gerenderde HTML van uitgesloten shortcodes verwijderen
+        foreach ($excluded_shortcodes as $shortcode) {
+            // Speciale behandeling voor bws_google_captcha
+            if ($shortcode === 'bws_google_captcha') {
+                $captcha_pattern = '/<div[^>]*class="gglcptch[^"]*"[^>]*>.*?<\/div>/is';
+                $text = preg_replace($captcha_pattern, '', $text);
+            } elseif ($shortcode === 'chatbot') {
+                // Chatbot scripts
+                $chatbot_script_pattern = '/<script[^>]*>.*?kchat_settings.*?<\/script>/is';
+                $text = preg_replace($chatbot_script_pattern, '', $text);
+                
+                // Chatbot HTML divs
+                $chatbot_html_pattern = '/<div[^>]*id="chatbot-chatgpt[^"]*"[^>]*>.*?<\/div>/is';
+                $text = preg_replace($chatbot_html_pattern, '', $text);
+            } elseif ($shortcode === 'fluentform') {
+                // FluentForm content - don't exclude completely, just extract dynamic parts
+                // The form structure and labels should be translated
+                $text = $text; // Keep the content for translation
+            } else {
+                // Algemene HTML pattern voor andere shortcodes
+                $html_pattern = '/<div[^>]*class="[^"]*' . preg_quote($shortcode, '/') . '[^"]*"[^>]*>.*?<\/div>/is';
+                $text = preg_replace($html_pattern, '', $text);
+            }
+        }
+        
+        $text = trim(strip_tags($text));
+        return $text === '';
+    }
+
+    /**
+     * Generate a readable title from a URL path.
+     * Converts URL segments like "about-us" to "About Us".
+     * Handles both Roman and non-Roman languages with URL decoding.
+     *
+     * @param string $url The URL to extract title from
+     * @param string $language The target language
+     * @return string The generated title, or empty string if it's the homepage
+     */
+    private function generate_title_from_url(string $url, string $language): string
+    {
+        // Parse URL and get the path
+        $path = wp_parse_url($url, PHP_URL_PATH);
+        if (!$path || $path === '/') {
+            return ''; // Homepage will be handled differently
+        }
+        
+        // Get the last segment (e.g., "about-us" from "/en/about-us/")
+        $segments = array_filter(explode('/', trim($path, '/')));
+        if (empty($segments)) {
+            return '';
+        }
+        
+        $last_segment = end($segments);
+        
+        // Skip if it's just a language code
+        if (strlen($last_segment) <= 3 && preg_match('/^[a-z]{2,3}$/i', $last_segment)) {
+            return '';
+        }
+        
+        // URL decode the segment to handle non-Roman characters
+        $decoded_segment = urldecode($last_segment);
+        
+        // Check if the decoded segment contains non-Roman characters
+        $has_non_roman = preg_match('/[^\x00-\x7F]/', $decoded_segment);
+        
+        // For non-Roman languages with non-Roman characters in URL, use the decoded text
+        if ($has_non_roman) {
+            // Convert URL-encoded text to readable title
+            $title = str_replace(['-', '_'], ' ', $decoded_segment);
+            // Don't use ucwords for non-Roman languages as it may not work correctly
+            return $title;
+        }
+        
+        // For Roman languages or URLs with only Roman characters
+        $title = str_replace(['-', '_'], ' ', $decoded_segment);
+        $title = ucwords($title);
+        
+        return $title;
+    }
+
 
 
 }
