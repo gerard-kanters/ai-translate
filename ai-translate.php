@@ -121,52 +121,8 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         $core = AI_Translate_Core::get_instance();
         $settings = $core->get_settings();
         
-        // Gecombineerde the_title filter - vervangt beide bestaande filters
-        add_filter('the_title', function ($title, $post_id = null) use ($core) {
-            // Standaard checks
-            if (!$core->needs_translation() || is_admin() || empty($title)) {
-                return $title;
-            }
-            if (empty(trim($title))) {
-                return $title;
-            }
-            
-            // Skip nav_menu_item posts - these are handled by batch translation
-            if ($post_id && get_post_type($post_id) === 'nav_menu_item') {
-                return $title;
-            }
-            
-            // Skip if we're in a menu context - menu items are handled by wp_nav_menu_objects filter
-            if (doing_action('wp_nav_menu') || did_action('wp_nav_menu')) {
-                return $title;
-            }
-            
-            // Skip menu items completely - they should only be translated by wp_nav_menu_objects filter
-            if (strpos($title, 'nav_menu_item') !== false || strpos($title, 'menu-item') !== false) {
-                return $title;
-            }
-            
-            // Skip language switcher - check if we're in the footer context
-            if (did_action('wp_footer') || doing_action('wp_footer')) {
-                return $title;
-            }
-            
-            // Check if this is already translated
-            if (strpos($title, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
-                return AI_Translate_Core::remove_translation_marker($title);
-            }
-            
-            // Vertaal de titel
-            $translated = $core->translate_template_part($title, 'post_title');
-            
-            // Voor zoekresultaten: verwijder marker en return
-            if (is_search()) {
-                return AI_Translate_Core::remove_translation_marker($translated);
-            }
-            
-            // Voor andere pagina's: schoon HTML op en return
-            return AI_Translate_Core::get_instance()->clean_html_string($translated);
-        }, 10, 2);
+        // Filter voor titel vertaling (altijd actief voor menu items)
+        add_filter('the_title', [$core, 'translate_search_result_title'], 10, 1);
         
         // Voeg meertalige zoekfunctionaliteit toe
         if (!empty($settings['enable_multilingual_search'])) {
@@ -381,7 +337,30 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         return $content;
     }, 10, 1);
 
-
+        // Zoekpagina titel vertaling - altijd laden
+        add_filter('the_title', function ($title, $post_id = null) use ($core) {
+            if (!$core->needs_translation() || is_admin() || empty($title)) {
+                return $title;
+            }
+            if (empty(trim($title))) {
+                return $title;
+            }
+            
+            // Skip nav_menu_item posts - these are handled by batch translation
+            if ($post_id && get_post_type($post_id) === 'nav_menu_item') {
+                return $title;
+            }
+            
+            // Skip language switcher - check if we're in the footer context
+            if (did_action('wp_footer') || doing_action('wp_footer')) {
+                return $title;
+            }
+            
+            // Vertaal de titel
+            $translated = $core->translate_template_part($title, 'post_title');
+            // Schoon de output op zodat er nooit HTML in de paginatitel komt
+            return AI_Translate_Core::get_instance()->clean_html_string($translated);
+        }, 10, 2);
     
 
     // Comment form translation filter - comprehensive approach
@@ -856,52 +835,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 return $content;
             }
             
-            // Extract form fields for batch translation
-            $form_fields = [];
-            $field_patterns = [
-                'label' => '/<label[^>]*>(.*?)<\/label>/i',
-                'placeholder' => '/placeholder=["\']([^"\']+)["\']/i',
-                'title' => '/title=["\']([^"\']+)["\']/i',
-                'alt' => '/alt=["\']([^"\']+)["\']/i',
-                'value' => '/value=["\']([^"\']+)["\']/i'
-            ];
-            
-            foreach ($field_patterns as $type => $pattern) {
-                if (preg_match_all($pattern, $content, $matches)) {
-                    foreach ($matches[1] as $match) {
-                        if (!empty(trim($match))) {
-                            $form_fields[] = trim($match);
-                        }
-                    }
-                }
-            }
-            
-            // If we found form fields, use batch translation
-            if (!empty($form_fields)) {
-                $target_language = $core->get_current_language();
-                $default_language = $core->get_settings()['default_language'];
-                
-                // Use batch translation for form fields
-                $translated_fields = $core->batch_translate_items($form_fields, $default_language, $target_language, 'contact_form_7');
-                
-                // Replace original fields with translated ones
-                $i = 0;
-                foreach ($field_patterns as $type => $pattern) {
-                    if (preg_match_all($pattern, $content, $matches)) {
-                        foreach ($matches[0] as $match) {
-                            if (isset($translated_fields[$i])) {
-                                $translated_match = str_replace($matches[1][$i], $translated_fields[$i], $match);
-                                $content = str_replace($match, $translated_match, $content);
-                                $i++;
-                            }
-                        }
-                    }
-                }
-                
-                return $content;
-            }
-            
-            // Fallback to individual translation if no fields found
             return $core->translate_template_part($content, 'contact_form_7');
         }, 10);
     }
@@ -1097,40 +1030,21 @@ function add_language_rewrite_rules(): void
     }
     $lang_regex = '(' . implode('|', array_map('preg_quote', $lang_codes, ['/'])) . ')'; // e.g., (en|fr|de)
 
+    // BELANGRIJKE VOLGORDE: Specifieke regels eerst, algemene regels later
+    
+    // 1. Rule for homepage with language prefix (MOET EERST!)
+    add_rewrite_rule('^' . $lang_regex . '/?$', 'index.php?lang=$matches[1]', 'top');
+    
+    // 2. Rules for custom post types
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(product)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]', 'top');
+    
+    // 3. Rule for pages with language prefix
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)(.+?)/?$', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
+    
+    // 4. Rule for single posts with language prefix (LAATSTE!)
+    add_rewrite_rule('^' . $lang_regex . '/(?!wp-admin|wp-login.php)([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
 
-    
-    // VERWIJDER CONFLICTERENDE REWRITE RULES EN VOEG ONZE EIGEN TOE
-    add_filter('rewrite_rules_array', function($rules) use ($lang_regex) {
-        // Verwijder conflicterende regels die eerder matchen dan onze taalprefix regels
-        $conflicting_patterns = [
-            '(.?.+?)(?:/([0-9]+))?/?$',
-            '([^/]+)(?:/([0-9]+))?/?$',
-            '(.?.+?)/page/?([0-9]{1,})/?$',
-            '([^/]+)/page/?([0-9]{1,})/?$',
-            '[^/]+/([^/]+)/?$',
-            '[^/]+/([^/]+)/trackback/?$'
-        ];
-        
-        foreach ($conflicting_patterns as $pattern) {
-            unset($rules[$pattern]);
-        }
-        
-        // Voeg onze regels toe met hoge prioriteit
-        $our_rules = [
-            '^' . $lang_regex . '/?$' => 'index.php?lang=$matches[1]',
-            '^' . $lang_regex . '/(?!wp-admin|wp-login.php)(service)/([^/]+)/?$' => 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]',
-            '^' . $lang_regex . '/(?!wp-admin|wp-login.php)(product)/([^/]+)/?$' => 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]',
-            '^' . $lang_regex . '/(?!wp-admin|wp-login.php)(.+?)/?$' => 'index.php?lang=$matches[1]&pagename=$matches[2]',
-            '^' . $lang_regex . '/([^/]+)/?$' => 'index.php?lang=$matches[1]&name=$matches[2]'
-        ];
-        
-        // Combineer onze regels met de bestaande regels (onze regels eerst)
-        return $our_rules + $rules;
-    });
-    
-    // Force flush rewrite rules
-    flush_rewrite_rules();
-    
     // Add 'lang' to query vars so get_query_var works
     add_filter('query_vars', __NAMESPACE__ . '\\add_language_query_var');
 }
@@ -1254,9 +1168,19 @@ function translate_menu_items(array $items): array
 
 function register_rewrite_rules(): void
 {
-    // This function is deprecated - use add_language_rewrite_rules() instead
-    // The general rule was causing conflicts with specific post/page rules
-    return;
+    $core = AI_Translate_Core::get_instance();
+    $settings = $core->get_settings();
+    $languages = $settings['enabled_languages'] ?? [];
+    $default_lang = $settings['default_language'] ?? 'nl';
+
+    // Add default language to the list for rewrite rules if not present
+    $all_langs_for_rules = array_unique(array_merge([$default_lang], $languages));
+
+    if (!empty($all_langs_for_rules)) {
+        $lang_codes = implode('|', array_map('preg_quote', $all_langs_for_rules));
+        // Rule for language prefix - target includes 'lang' for WP core routing compatibility
+        add_rewrite_rule('^(' . $lang_codes . ')/?(.*)?', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
+    }
 }
 
 function add_query_vars(array $vars): array
@@ -1267,11 +1191,13 @@ function add_query_vars(array $vars): array
 
 function enqueue_switcher_assets(): void
 {
+    // ... existing code ...
     wp_enqueue_style('ai-translate-switcher', plugins_url('assets/css/language-switcher.css', AI_TRANSLATE_FILE), array(), filemtime(AI_TRANSLATE_DIR . 'assets/css/language-switcher.css'));
 }
 
 function set_language_cookie(): void
 {
+    // ... existing code ...
     $core = AI_Translate_Core::get_instance();
     $current_lang = $core->get_current_language();
     $cookie_name = 'ai_translate_lang';
@@ -1296,20 +1222,23 @@ function set_language_cookie(): void
 
 function activate_plugin(): void
 {
+    // ... existing code ...
     if (!class_exists(__NAMESPACE__ . '\\AI_Translate_Core')) {
         require_once AI_TRANSLATE_DIR . 'includes/class-ai-translate-core.php';
     }
-    add_language_rewrite_rules();
+    register_rewrite_rules();
     flush_rewrite_rules();
 }
 
 function deactivate_plugin(): void
 {
+    // ... existing code ...
     flush_rewrite_rules();
 }
 
 function maybe_flush_rules_on_settings_update($old_value, $value): void
 {
+    // ... existing code ...
     $old_sitemap_setting = isset($old_value['generate_sitemap']) ? (bool) $old_value['generate_sitemap'] : false;
     $new_sitemap_setting = isset($value['generate_sitemap']) ? (bool) $value['generate_sitemap'] : false;
 
@@ -1320,7 +1249,7 @@ function maybe_flush_rules_on_settings_update($old_value, $value): void
                 require_once AI_TRANSLATE_DIR . 'includes/class-ai-translate-core.php';
             }
             // Re-register rules based on the *new* setting before flushing
-            add_language_rewrite_rules();
+            register_rewrite_rules();
             flush_rewrite_rules();
         }, 99); // Run late in shutdown
     }
@@ -1364,6 +1293,8 @@ if (
     if (method_exists($class_name_for_filters, 'remove_marker_from_jetpack_og_tags')) {
         add_filter('jetpack_open_graph_tags', [$class_name_for_filters, 'remove_marker_from_jetpack_og_tags'], $marker_removal_priority);
     }
+} else {
+    // Log een fout als de class of methode niet gevonden wordt
 }
 // --- Einde marker verwijderingsfilters ---
 
@@ -1378,6 +1309,7 @@ add_filter('language_attributes', function($output) {
 
 // Forceer juiste homepage/blog query bij alleen taalprefix in de URL, maar alleen als er geen andere query_vars zijn
 add_action('parse_request', function ($wp) {
+    // Voeg een extra controle toe voor admin-gerelateerde URL's
     $request_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])) : '';
     if (
         is_admin() ||
@@ -1570,21 +1502,15 @@ function initialize_existing_posts_slug_metadata(): void
     global $wpdb;
     
     // Haal alle published posts en pages op die nog geen slug metadata hebben
-    // Use WordPress functions for safer database access
-    $posts = get_posts([
-        'post_status' => 'publish',
-        'post_type' => ['post', 'page'],
-        'posts_per_page' => -1,
-        'meta_query' => [
-            [
-                'key' => '_ai_translate_original_slug',
-                'compare' => 'NOT EXISTS'
-            ]
-        ],
-        'orderby' => 'post_date',
-        'order' => 'DESC',
-        'suppress_filters' => false,
-    ]);
+    $posts = $wpdb->get_results(
+        "SELECT p.ID, p.post_name, p.post_type 
+         FROM {$wpdb->posts} p 
+         LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_ai_translate_original_slug'
+         WHERE p.post_status = 'publish' 
+         AND p.post_type IN ('post', 'page') 
+         AND pm.meta_id IS NULL
+         ORDER BY p.post_date DESC"
+    );
     
     if (!empty($posts)) {
         foreach ($posts as $post) {
@@ -1618,15 +1544,13 @@ function migrate_existing_translated_urls(): void
     }
     
     // Haal alle published posts en pages op
-    // Use WordPress functions for safer database access
-    $posts = get_posts([
-        'post_status' => 'publish',
-        'post_type' => ['post', 'page'],
-        'posts_per_page' => -1,
-        'orderby' => 'post_date',
-        'order' => 'DESC',
-        'suppress_filters' => false,
-    ]);
+    $posts = $wpdb->get_results(
+        "SELECT ID, post_name, post_type 
+         FROM {$wpdb->posts} 
+         WHERE post_status = 'publish' 
+         AND post_type IN ('post', 'page') 
+         ORDER BY post_date DESC"
+    );
     
     if (empty($posts)) {
         return;
@@ -1638,7 +1562,6 @@ function migrate_existing_translated_urls(): void
     foreach ($posts as $post) {
         foreach ($languages_to_migrate as $target_language) {
             // Controleer of er al een database entry bestaat
-            // Use WordPress functions for safer database access
             $existing_entry = $wpdb->get_var($wpdb->prepare(
                 "SELECT translated_slug FROM {$table_name} WHERE original_slug = %s AND language_code = %s AND post_id = %d",
                 $post->post_name,
@@ -1699,8 +1622,8 @@ function ai_translate_migrate_api_keys_to_array(): void
         unset($settings['api_key']); // Verwijder de oude single key
 
         update_option('ai_translate_settings', $settings);
-
-
+        // Optioneel: log de migratie
+        // error_log('AI Translate: Migrated single API key to per-provider array.');
     }
 }
 

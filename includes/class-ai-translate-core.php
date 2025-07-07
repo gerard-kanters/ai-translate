@@ -2706,7 +2706,7 @@ class AI_Translate_Core
             }
         }
 
-        // Use WordPress get_posts() instead of direct SQL
+        // Use WordPress get_posts() 
         $args = [
             'name' => $slug,
             'post_status' => 'publish',
@@ -3856,7 +3856,7 @@ class AI_Translate_Core
             $current_lang = $this->get_current_language();
             $default_lang = $this->default_language;
 
-            // Redirect naar de homepage van de huidige taal
+            // Alleen redirect voor niet-standaardtalen
             if ($current_lang !== $default_lang) {
                 // Gebruik translate_url om de juiste homepage URL te krijgen voor de huidige taal
                 $home_url = $this->translate_url(home_url('/'), $current_lang);
@@ -3868,16 +3868,8 @@ class AI_Translate_Core
                     wp_redirect($home_url, 302);
                     exit;
                 }
-            } else {
-                // Voor de standaard taal, redirect naar de normale homepage
-                $home_url = home_url('/');
-                $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
-                $home_path = wp_parse_url($home_url, PHP_URL_PATH);
-                if ($request_uri !== $home_path && rtrim($request_uri, '/') !== rtrim($home_path, '/')) {
-                    wp_redirect($home_url, 302);
-                    exit;
-                }
             }
+            // Voor de standaard taal: laat WordPress zijn normale 404-gedrag behouden
         }
     }
 

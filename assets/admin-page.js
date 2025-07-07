@@ -529,7 +529,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (generateContextBtn && generateContextStatus && websiteContextField) {
         generateContextBtn.addEventListener('click', function () {
             // Check if API is configured
-            var apiKeyInput = document.querySelector('input[name="ai_translate_settings[api_key]"]');
             var apiKey = apiKeyInput ? apiKeyInput.value : '';
             if (!apiKey) {
                 generateContextStatus.innerHTML = '<span style="color:red;">Please configure API key first</span>';
