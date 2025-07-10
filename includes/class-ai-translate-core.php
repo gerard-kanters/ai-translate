@@ -1819,9 +1819,12 @@ class AI_Translate_Core
             // Moet een numerieke array zijn met correct aantal items
             if ($cached !== false && is_array($cached) && count($cached) === count($items_to_translate) && array_keys($cached) === range(0, count($cached) - 1)) {
                 self::$translation_memory[$memory_key] = $cached; // Update memory cache
-                // If it comes from transient, also save it to disk cache
+                // If it comes from transient, also save it to disk cache only if content changed
                 $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
-                $this->save_to_cache($disk_cache_key, json_encode($cached));
+                $existing_cache = $this->get_cached_content($disk_cache_key);
+                if ($existing_cache === false || $existing_cache !== json_encode($cached)) {
+                    $this->save_to_cache($disk_cache_key, json_encode($cached));
+                }
                 return array_combine($original_keys, $cached); // Combineer met originele keys
             }
         }
@@ -1956,9 +1959,12 @@ class AI_Translate_Core
                     // Alleen transient en disk cache maken als niet alle items uitgesloten zijn
                     if (!$all_items_excluded) {
                         set_transient($transient_key, $translated_array, $this->expiration_hours * 3600);
-                        // Also save to disk cache for persistence
+                        // Also save to disk cache for persistence only if content changed
                         $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
-                        $this->save_to_cache($disk_cache_key, json_encode($translated_array));
+                        $existing_cache = $this->get_cached_content($disk_cache_key);
+                        if ($existing_cache === false || $existing_cache !== json_encode($translated_array)) {
+                            $this->save_to_cache($disk_cache_key, json_encode($translated_array));
+                        }
                     }
                     self::$translation_memory[$memory_key] = $translated_array;
 
