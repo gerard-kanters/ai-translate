@@ -683,7 +683,8 @@ class AI_Translate_Core
         string $source_language,
         string $target_language,
         bool $is_title = false,
-        bool $use_disk_cache = true
+        bool $use_disk_cache = true,
+        string $context = ''
     ): string {
 
         // --- Essential Checks ---
@@ -782,6 +783,10 @@ class AI_Translate_Core
         // --- Strip all shortcodes before calculating the cache-key and before translation ---
         // strip_all_shortcodes_for_cache will now see the placeholders and strip them as well.
         $text_for_cache = $this->strip_all_shortcodes_for_cache($text_to_translate);
+        
+        // Determine caching strategy based on context
+        $caching_strategy = $this->get_caching_strategy($text_for_cache, $context);
+        
         // Use md5 of the original text + target language as the base identifier (not stripped text)
         $cache_identifier = md5($text . $target_language);
         // Generate keys with the central function
@@ -800,6 +805,17 @@ class AI_Translate_Core
             $result = $text; // Start with original text
             self::$translation_memory[$memory_key] = $text; // Cache original text in memory only
             return $text;
+        }
+
+        // For global UI elements, use special global cache
+        if ($caching_strategy === 'global_ui') {
+            $global_cached = $this->get_global_ui_element($text, $target_language);
+            if ($global_cached !== null) {
+                if (!empty($shortcodes)) {
+                    $global_cached = $this->restore_shortcode_pairs($global_cached, $shortcodes);
+                }
+                return $global_cached;
+            }
         }
 
         // Normal cache flow (also for mixed content)
@@ -948,12 +964,17 @@ class AI_Translate_Core
 
         // Store in persistent cache (transient/disk) only if the marker is present.
         if (strpos((string)$final_translated_text, self::TRANSLATION_MARKER) !== false) {
-            // Store in transient
-            set_transient($transient_key, $final_translated_text, $this->expiration_hours * 3600);
-            // Store in disk if enabled
-            if ($use_disk_cache) {
-                // save_to_cache expects the key WITHOUT .cache suffix
-                $this->save_to_cache($disk_cache_key, $final_translated_text);
+            // For global UI elements, use special global cache
+            if ($caching_strategy === 'global_ui') {
+                $this->cache_global_ui_element($text, $target_language, $final_translated_text);
+            } else {
+                // Store in transient
+                set_transient($transient_key, $final_translated_text, $this->expiration_hours * 3600);
+                // Store in disk if enabled
+                if ($use_disk_cache) {
+                    // save_to_cache expects the key WITHOUT .cache suffix
+                    $this->save_to_cache($disk_cache_key, $final_translated_text);
+                }
             }
         } else {
             // If the marker is missing (API returned original text), log this but DO NOT save to transient/disk again.
@@ -1196,7 +1217,8 @@ class AI_Translate_Core
             $default_language,
             $target_language,
             $is_title,
-            $use_disk_cache
+            $use_disk_cache,
+            $type // Pass type as context for caching strategy
         );
 
         // Strip HTML tags from titles to prevent <p> tags in page titles
@@ -1294,19 +1316,7 @@ class AI_Translate_Core
         return $terms;
     }
 
-    /**
-     * Log event.
-     *
-     * @param string $message
-     * @param string $level The log level (error, warning, info, debug).
-     */
-    public function log_event(string $message, string $level = 'debug'): void
-    {
-        $timestamp = current_time('mysql');
-        $log_entry = sprintf('[%s] [%s] %s', $timestamp, strtoupper($level), $message);
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log($log_entry);
-    }
+
 
     /**
      * Clear alleen de file cache.
@@ -1425,7 +1435,7 @@ class AI_Translate_Core
         $this->clear_translation_cache();
         $this->clear_transient_cache();
         $this->clear_slug_cache_table();
-        $this->clear_menu_cache(); // Also clear menu cache specifically
+        // Verwijderd: $this->clear_menu_cache(); // URL's moeten stabiel blijven
     }
 
 
@@ -2523,31 +2533,22 @@ class AI_Translate_Core
      */
     public function parse_translated_request(array $query_vars): array
     {
-        // Debug: log that the function is called
-        $this->log_event("parse_translated_request: function called with query_vars: " . json_encode($query_vars), 'debug');
-        
         // Only proceed if translation is needed and it's not an admin request
         if (!$this->needs_translation() || is_admin() || empty($query_vars)) {
-            $this->log_event("parse_translated_request: early return - needs_translation: " . ($this->needs_translation() ? 'true' : 'false') . ", is_admin: " . (is_admin() ? 'true' : 'false') . ", empty: " . (empty($query_vars) ? 'true' : 'false'), 'debug');
             return $query_vars;
         }
 
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
 
-        $this->log_event("parse_translated_request: current_language = '{$current_language}', default_language = '{$default_language}'", 'debug');
-
         // Skip if we're already on the default language
         if ($current_language === $default_language) {
-            $this->log_event("parse_translated_request: skipping - already on default language", 'debug');
             return $query_vars;
         }
 
         // Check if a 'name' (post slug) is present in the query vars
-        $this->log_event("parse_translated_request: checking for 'name' parameter in query_vars", 'debug');
         if (isset($query_vars['name']) && !empty($query_vars['name'])) {
             $incoming_slug = $query_vars['name'];
-            $this->log_event("parse_translated_request: found 'name' parameter: '{$incoming_slug}'", 'debug');
             
 
 
@@ -2581,9 +2582,6 @@ class AI_Translate_Core
             // $current_language = 'en', $default_language = 'nl'
             // We zoeken naar de originele Nederlandse slug die vertaald is naar 'online-violin-lessons'
             
-            // Debug: log that we're attempting reverse translation
-            $this->log_event("parse_translated_request: attempting reverse translation for slug '{$incoming_slug}' from '{$current_language}' to '{$default_language}'", 'debug');
-            
             $original_slug_data = $this->reverse_translate_slug($incoming_slug, $current_language, $default_language);
 
             if ($original_slug_data && isset($original_slug_data['slug'])) {
@@ -2605,8 +2603,6 @@ class AI_Translate_Core
                     }
                 }
             }
-        } else {
-            $this->log_event("parse_translated_request: no 'name' parameter found in query_vars", 'debug');
         }
 
         return $query_vars;
@@ -2892,7 +2888,7 @@ class AI_Translate_Core
                     ));
                     
                     if ($insert_result === false) {
-                        $this->log_event("Failed to save translated slug to DB: {$wpdb->last_error}", 'error');
+                
                         
                         // Als insert mislukt door duplicate key, haal dan de bestaande vertaling op
                         if ($wpdb->last_error && strpos($wpdb->last_error, 'Duplicate entry') !== false) {
@@ -2921,7 +2917,6 @@ class AI_Translate_Core
 
             return $translated_slug;
         } catch (\Exception $e) {
-            $this->log_event("AI Translate: Error translating slug '{$original_slug}': " . $e->getMessage(), 'error');
             return $original_slug; // Return original on failure
         }
     }
@@ -3007,6 +3002,14 @@ class AI_Translate_Core
      * @param object|null $menu Optional menu object.
      * @return array Modified array of menu item objects with translated titles and descriptions.
      */
+    /**
+     * Translate menu items using batching.
+     * Handles potential errors during batch translation.
+     *
+     * @param array $items Array of menu item objects.
+     * @param ?object $menu Optional menu object (niet gebruikt in deze implementatie).
+     * @return array Modified array of menu item objects.
+     */
     public function translate_menu_items(array $items, ?object $menu = null): array
     {
         // Skip if no translation needed, in admin, or items array is empty
@@ -3047,89 +3050,32 @@ class AI_Translate_Core
                 $original_titles[$index] = $item->title;
             }
             // Voor niet-homepage items: genereer titel uit URL
-            elseif (!$is_homepage && isset($item->url)) {
+            else if (!empty($item->title)) {
+                // Generate title from URL for non-homepage items
                 $generated_title = $this->generate_title_from_url($item->url, $target_language);
                 if (!empty($generated_title)) {
-                    // Gebruik gegenereerde titel (werkt nu voor alle talen)
                     $item->title = $generated_title;
-                } elseif (!empty($item->title)) {
-                    // Fallback: vertaal via API als geen titel gegenereerd kon worden
-                    $titles_to_translate[$index] = $item->title;
-                    $original_titles[$index] = $item->title;
                 }
             }
         }
 
-        // Sort titles and descriptions to ensure consistent cache keys
-        // We need to maintain the original keys for mapping back to items
-        if (!empty($titles_to_translate)) {
-            asort($titles_to_translate);
-        }
-        if (!empty($descriptions_to_translate)) {
-            asort($descriptions_to_translate);
-        }
-
-        $translated_titles = null; // Initialiseer als null om falen te detecteren
-        $translated_descriptions = null; // Initialiseer als null
-
+        // Batch translate titles (only for homepage items)
+        $translated_titles = null;
         if (!empty($titles_to_translate)) {
             try {
-                // EERST: Controleer cache voordat we vertalen
-                $original_titles_for_cache = array_values($original_titles);
-                sort($original_titles_for_cache);
-                
-                // Generate cache key based on original Dutch titles
-                $cache_identifier = md5(json_encode($original_titles_for_cache) . 'menu_item' . $default_language . $target_language);
-                $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_mem');
-                
-                // Check memory cache first
-                if (isset(self::$translation_memory[$memory_key])) {
-                    $cached = self::$translation_memory[$memory_key];
-                    if (is_array($cached) && count($cached) === count($titles_to_translate)) {
-                        $translated_titles = array_combine(array_keys($titles_to_translate), $cached);
-                    }
-                }
-                
-                // Check transient cache if not in memory
-                if (!isset($translated_titles)) {
-                    $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
-                    $cached = get_transient($transient_key);
-                    if ($cached !== false && is_array($cached) && count($cached) === count($titles_to_translate)) {
-                        self::$translation_memory[$memory_key] = $cached;
-                        $translated_titles = array_combine(array_keys($titles_to_translate), $cached);
-                    }
-                }
-                
-                // Check disk cache if not in transient
-                if (!isset($translated_titles)) {
-                    $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
-                    $disk_cached = $this->get_cached_content($disk_cache_key);
-                    if ($disk_cached !== false) {
-                        $decoded = json_decode($disk_cached, true);
-                        if (is_array($decoded) && count($decoded) === count($titles_to_translate)) {
-                            self::$translation_memory[$memory_key] = $decoded;
-                            $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
-                            set_transient($transient_key, $decoded, $this->expiration_hours * 3600);
-                            $translated_titles = array_combine(array_keys($titles_to_translate), $decoded);
-                        }
-                    }
-                }
-                
-                // ALS GEEN CACHE: Vertaal via API
-                if (!isset($translated_titles)) {
-                    $translated_titles = $this->batch_translate_items($titles_to_translate, $default_language, $target_language, 'menu_item', $original_titles_for_cache);
-                }
+                $translated_titles = $this->batch_translate_items($titles_to_translate, $default_language, $target_language, 'menu_item');
 
-                // Validatie: Zorg dat het resultaat een array is met dezelfde keys als de input
+                // Validatie
                 if (!is_array($translated_titles) || count(array_diff_key($titles_to_translate, $translated_titles)) > 0) {
-                    $translated_titles = null; // Zet terug naar null bij structuurfout
+                    $translated_titles = null;
                 }
             } catch (\Exception $e) {
-                $translated_titles = null; // Zet naar null bij exception
+                $translated_titles = null;
             }
         }
 
-        // Batch vertaal descriptions
+        // Batch translate descriptions
+        $translated_descriptions = null;
         if (!empty($descriptions_to_translate)) {
             try {
                 $translated_descriptions = $this->batch_translate_items($descriptions_to_translate, $default_language, $target_language, 'menu_item_description');
@@ -3167,7 +3113,6 @@ class AI_Translate_Core
             }
         }
 
-        // Geef altijd de (mogelijk deels vertaalde) items array terug
         return $items;
     }
 
@@ -3312,7 +3257,7 @@ class AI_Translate_Core
     }
 
     /**
-     * Get all memory cache (for debugging).
+     * Get all memory cache.
      *
      * @return array
      */
@@ -3513,19 +3458,14 @@ class AI_Translate_Core
             }
         }
         
-        // Debug: log what we're looking for
-        $this->log_event("Reverse translate: looking for translated_slug='{$translated_slug}' with language_code='{$source_language}'", 'debug');
-        
         // Test database connection and table using WordPress functions
         $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_name_slugs));
-        $this->log_event("Reverse translate: table exists = " . ($table_exists ? 'yes' : 'no'), 'debug');
         
         // Test query using WordPress functions
         $test_result = $wpdb->get_row($wpdb->prepare(
             "SELECT COUNT(*) as count FROM {$table_name_slugs} WHERE language_code = %s",
             $source_language
         ));
-        $this->log_event("Reverse translate: found " . ($test_result ? $test_result->count : 0) . " entries for language '{$source_language}'", 'debug');
         
         // Test specific entry using WordPress functions
         $specific_result = $wpdb->get_row($wpdb->prepare(
@@ -3533,7 +3473,6 @@ class AI_Translate_Core
             $translated_slug,
             $source_language
         ));
-        $this->log_event("Reverse translate: specific entry for '{$translated_slug}' = " . ($specific_result ? 'found' : 'not found'), 'debug');
         
         // 2. Fallback: Try to find a post with this exact slug (might be already in target language or default)
         // Try with decoded version first
@@ -3612,7 +3551,6 @@ class AI_Translate_Core
             
             // If the translated version matches what we're looking for (try both versions)
             if ($potential_translated_slug === $translated_slug || $potential_translated_slug === $decoded_translated_slug) {
-                $this->log_event("Reverse translate: found match via translation - post {$post->ID} slug '{$post->post_name}' translates to '{$potential_translated_slug}'", 'debug');
                 return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Return the original slug
             }
         }
@@ -3905,6 +3843,20 @@ class AI_Translate_Core
         // Also clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
+        
+        // Clear WordPress menu cache
+        wp_cache_delete('alloptions', 'options');
+        delete_transient('nav_menu_cache');
+        
+        // Clear all menu locations cache
+        $menu_locations = get_nav_menu_locations();
+        foreach ($menu_locations as $location => $menu_id) {
+            wp_cache_delete($menu_id, 'nav_menu');
+            wp_cache_delete($location, 'nav_menu_locations');
+        }
+        
+        // Clear global UI cache for menu items
+        $this->clear_global_ui_cache();
     }
 
     /**
@@ -3914,7 +3866,7 @@ class AI_Translate_Core
      */
     public function force_menu_cache_clear(): void
     {
-        $this->clear_menu_cache();
+        // Verwijderd: $this->clear_menu_cache();
         
         // Also clear any cached menu items in WordPress object cache
         if (function_exists('wp_cache_flush_group')) {
@@ -4165,8 +4117,7 @@ class AI_Translate_Core
     }
 
     /**
-     * Debug function to check if website context is being used in prompts.
-     * This can be called to verify the context is properly included.
+     * Get the current website context being used in prompts.
      */
 
 
@@ -4768,6 +4719,15 @@ class AI_Translate_Core
             return $placeholder;
         }, $text);
 
+        // Extract WordPress placeholders (like {{POSTTITLE}}, {{SITENAME}}, etc.)
+        $wordpress_placeholder_pattern = '/\{\{[A-Z_]+\}\}/i';
+        $text = preg_replace_callback($wordpress_placeholder_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+            $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
+            $placeholders[$placeholder] = $matches[0];
+            $placeholder_index++;
+            return $placeholder;
+        }, $text);
+
         // Extract other common security tokens
         $token_patterns = [
             // CSRF tokens
@@ -4968,6 +4928,431 @@ class AI_Translate_Core
         return $title;
     }
 
+    /**
+     * Voegt Open Graph meta tags toe aan de <head>.
+     * Deze functie voegt og:title, og:description, og:image en og:url toe.
+     */
+    public function add_open_graph_meta_tags(): void
+    {
+        // Niet uitvoeren in admin
+        if (is_admin()) {
+            return;
+        }
 
+        $current_lang = $this->get_current_language();
+        $default_lang = $this->default_language;
+        $needs_translation = $this->needs_translation();
+
+        // --- og:title ---
+        $og_title = '';
+        if (is_singular()) {
+            global $post;
+            if ($post) {
+                $og_title = get_the_title($post->ID);
+            }
+        } elseif (is_front_page() || is_home()) {
+            $og_title = get_bloginfo('description');
+        } elseif (is_archive()) {
+            $og_title = get_the_archive_title();
+        }
+
+        // Vertaal de titel indien nodig
+        if (!empty($og_title) && $needs_translation) {
+            $og_title = $this->translate_text(
+                $og_title,
+                $default_lang,
+                $current_lang,
+                true, // $is_title = true
+                true   // $use_disk_cache = true
+            );
+            $og_title = self::remove_translation_marker($og_title);
+        }
+
+        // --- og:description ---
+        $og_description = '';
+        if (is_singular()) {
+            global $post;
+            if ($post) {
+                $manual_excerpt = get_post_field('post_excerpt', $post->ID, 'raw');
+                if (!empty($manual_excerpt)) {
+                    $og_description = (string) $manual_excerpt;
+                } else {
+                    $content = get_post_field('post_content', $post->ID, 'raw');
+                    $og_description = wp_trim_words(wp_strip_all_tags(strip_shortcodes($content)), 55, '');
+                }
+            }
+        } elseif (is_front_page() || is_home()) {
+            $homepage_desc_setting = $this->settings['homepage_meta_description'] ?? '';
+            if (!empty($homepage_desc_setting)) {
+                $og_description = $homepage_desc_setting;
+            } else {
+                $og_description = (string) get_option('blogdescription', '');
+            }
+        }
+
+        // Vertaal de beschrijving indien nodig
+        if (!empty($og_description) && $needs_translation) {
+            $og_description = $this->translate_text(
+                $og_description,
+                $default_lang,
+                $current_lang,
+                false, // $is_title = false
+                true   // $use_disk_cache = true
+            );
+            $og_description = self::remove_translation_marker($og_description);
+        }
+
+        // Inkorten tot max 200 karakters
+        if (!empty($og_description)) {
+            $max_length = 200;
+            $suffix = '...';
+            if (mb_strlen($og_description) > $max_length) {
+                $truncated = mb_substr($og_description, 0, $max_length);
+                $last_space = mb_strrpos($truncated, ' ');
+                if ($last_space !== false) {
+                    $og_description = mb_substr($truncated, 0, $last_space) . $suffix;
+                } else {
+                    $og_description = mb_substr($og_description, 0, $max_length - mb_strlen($suffix)) . $suffix;
+                }
+            }
+        }
+
+        // --- og:image ---
+        $og_image = '';
+        if (is_singular()) {
+            global $post;
+            if ($post) {
+                // Probeer eerst featured image
+                if (has_post_thumbnail($post->ID)) {
+                    $image_id = get_post_thumbnail_id($post->ID);
+                    $image_url = wp_get_attachment_image_url($image_id, 'large');
+                    if ($image_url) {
+                        $og_image = $image_url;
+                    }
+                }
+                
+                // Fallback naar eerste afbeelding in content
+                if (empty($og_image)) {
+                    $content = get_post_field('post_content', $post->ID, 'raw');
+                    if (preg_match('/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $content, $matches)) {
+                        $og_image = $matches[1];
+                        // Zorg ervoor dat het een absolute URL is
+                        if (!preg_match('/^https?:\/\//', $og_image)) {
+                            $og_image = home_url($og_image);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback naar site logo of default image
+        if (empty($og_image)) {
+            $custom_logo_id = get_theme_mod('custom_logo');
+            if ($custom_logo_id) {
+                $og_image = wp_get_attachment_image_url($custom_logo_id, 'large');
+            }
+        }
+
+        // --- og:url ---
+        $og_url = '';
+        if (is_singular()) {
+            global $post;
+            if ($post) {
+                $og_url = get_permalink($post->ID);
+            }
+        } elseif (is_front_page() || is_home()) {
+            $og_url = home_url('/');
+        } elseif (is_archive()) {
+            $og_url = get_permalink();
+        }
+
+        // Vertaal de URL indien nodig
+        if (!empty($og_url) && $needs_translation) {
+            $og_url = $this->translate_url($og_url, $current_lang);
+        }
+
+        // Output de meta tags
+        if (!empty($og_title)) {
+            echo '<meta property="og:title" content="' . esc_attr(trim($og_title)) . '">' . "\n";
+        }
+        
+        if (!empty($og_description)) {
+            echo '<meta property="og:description" content="' . esc_attr(trim($og_description)) . '">' . "\n";
+        }
+        
+        if (!empty($og_image)) {
+            echo '<meta property="og:image" content="' . esc_url($og_image) . '">' . "\n";
+        }
+        
+        if (!empty($og_url)) {
+            echo '<meta property="og:url" content="' . esc_url($og_url) . '">' . "\n";
+        }
+    }
+
+    /**
+     * Update slug translations when a post is saved.
+     * This function is called by the 'save_post' hook.
+     *
+     * @param int $post_id The post ID
+     * @param \WP_Post $post The post object
+     * @return void
+     */
+    public function update_slug_translations_on_save(int $post_id, \WP_Post $post): void
+    {
+        // Skip if this is an autosave or revision
+        if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
+            return;
+        }
+        
+        // Skip if post is not published
+        if ($post->post_status !== 'publish') {
+            return;
+        }
+        
+        // Get the current slug from the post
+        $current_slug = $post->post_name;
+        
+        // Skip if slug is empty
+        if (empty($current_slug)) {
+            return;
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ai_translate_slugs';
+        
+        // Haal de oude slug uit de postmeta
+        $old_slug = get_post_meta($post_id, '_ai_translate_original_slug', true);
+        
+        // STEP 1: VERWIJDER ALLE RECORDS VOOR DEZE POST_ID
+        $wpdb->delete(
+            $table_name,
+            ['post_id' => $post_id],
+            ['%d']
+        );
+        $deleted_count = $wpdb->rows_affected;
+        
+        // STEP 2: VERWIJDER ALLE RECORDS MET DE OUDE SLUG (als original_slug)
+        if (!empty($old_slug) && $old_slug !== $current_slug) {
+            $wpdb->delete(
+                $table_name,
+                ['original_slug' => $old_slug],
+                ['%s']
+            );
+                    $deleted_count = $wpdb->rows_affected;
+        }
+        
+        // STEP 3: VERWIJDER ALLE RECORDS MET DE OUDE SLUG (als translated_slug)
+        if (!empty($old_slug) && $old_slug !== $current_slug) {
+            $wpdb->delete(
+                $table_name,
+                ['translated_slug' => $old_slug],
+                ['%s']
+            );
+                    $deleted_count = $wpdb->rows_affected;
+        }
+        
+        // STEP 4: VERWIJDER ALLE RECORDS MET DE NIEUWE SLUG (als translated_slug)
+        // Dit zorgt ervoor dat als we teruggaan naar een oude slug, alle records worden verwijderd
+        $wpdb->delete(
+            $table_name,
+            ['translated_slug' => $current_slug],
+            ['%s']
+        );
+        
+            $deleted_count = $wpdb->rows_affected;
+        
+        // Update de postmeta met de huidige slug
+        update_post_meta($post_id, '_ai_translate_original_slug', $current_slug);
+
+        // Clear all cache for this post
+        $settings = $this->get_settings();
+        $all_languages = array_keys($this->get_available_languages());
+        $default_language = $settings['default_language'] ?? 'nl';
+        
+        foreach ($all_languages as $language) {
+            if ($language === $default_language) {
+                continue;
+            }
+            
+            // Clear memory cache voor nieuwe slug
+            $cache_key = "slug_{$current_slug}_{$post->post_type}_{$default_language}_{$language}";
+            unset(self::$translation_memory[$cache_key]);
+            
+            // Clear memory cache voor oude slug (als die bestaat)
+            if (!empty($old_slug) && $old_slug !== $current_slug) {
+                $old_cache_key = "slug_{$old_slug}_{$post->post_type}_{$default_language}_{$language}";
+                unset(self::$translation_memory[$old_cache_key]);
+            }
+            
+            // Clear slug text cache
+            $readable_text = str_replace(['-', '_'], ' ', $current_slug);
+            $readable_text = ucwords($readable_text);
+            $slug_text_cache_key = "slug_text_{$readable_text}_{$default_language}_{$language}";
+            unset(self::$translation_memory[$slug_text_cache_key]);
+            
+            // Clear transient cache
+            $transient_key = "ai_translate_slug_{$current_slug}_{$post->post_type}_{$default_language}_{$language}";
+            delete_transient($transient_key);
+        }
+        
+    
+    }
+
+    /**
+     * Determine the caching strategy based on text size and context.
+     * This helps optimize cache usage while still preventing API calls.
+     *
+     * @param string $text The normalized text to check
+     * @param string $context The context of the text (e.g., 'widget_title', 'menu_item')
+     * @return string The caching strategy ('normal', 'memory_only', 'global_ui')
+     */
+    private function get_caching_strategy(string $text, string $context = ''): string
+    {
+        $length = strlen($text);
+        
+        // Voor UI elementen, gebruik globale UI cache
+        if (in_array($context, ['widget_title', 'menu_item', 'search_placeholder'])) {
+            return 'global_ui';
+        }
+        
+        // Voor zeer korte teksten, alleen memory cache (per request)
+        if ($length < 10) {
+            return 'memory_only';
+        }
+        
+        // Voor normale content, gebruik alle cache lagen
+        return 'normal';
+    }
+
+    /**
+     * Get global UI element from cache (menu items, search placeholders, etc.).
+     * These elements are the same across all pages and should be cached globally.
+     *
+     * @param string $text The text to look up
+     * @param string $target_language The target language
+     * @return string|null The cached translation or null if not found
+     */
+    private function get_global_ui_element(string $text, string $target_language): ?string
+    {
+        $normalized_text = $this->normalize_text_for_cache($text);
+        $cache_identifier = md5($normalized_text . $target_language);
+        
+        // 1. Check Memory Cache eerst
+        $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
+        if (isset(self::$translation_memory[$memory_key])) {
+            return self::$translation_memory[$memory_key];
+        }
+        
+        // 2. Check Transient Cache
+        $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
+        $cached = get_transient($transient_key);
+        if ($cached !== false) {
+            self::$translation_memory[$memory_key] = $cached; // Update memory cache
+            return $cached;
+        }
+        
+        // 3. Check Disk Cache
+        $disk_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+        $disk_cached = $this->get_cached_content($disk_key);
+        if ($disk_cached !== false) {
+            self::$translation_memory[$memory_key] = $disk_cached; // Update memory cache
+            set_transient($transient_key, $disk_cached, $this->expiration_hours * 3600); // Update transient
+            return $disk_cached;
+        }
+        
+        return null; // Niet gevonden in cache
+    }
+
+    /**
+     * Cache global UI element in all cache layers.
+     * These elements are the same across all pages and should be cached globally.
+     *
+     * @param string $text The text to cache
+     * @param string $target_language The target language
+     * @param string $translation The translated text
+     */
+    private function cache_global_ui_element(string $text, string $target_language, string $translation): void
+    {
+        $normalized_text = $this->normalize_text_for_cache($text);
+        $cache_identifier = md5($normalized_text . $target_language);
+        
+        // 1. Memory Cache (per request)
+        $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
+        self::$translation_memory[$memory_key] = $translation;
+        
+        // 2. Transient Cache (database)
+        $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
+        set_transient($transient_key, $translation, $this->expiration_hours * 3600);
+        
+        // 3. Disk Cache (bestanden)
+        $disk_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+        $this->save_to_cache($disk_key, $translation);
+    }
+
+    /**
+     * Normalize text for consistent cache key generation.
+     * This function ensures that the same text with different formatting
+     * generates the same cache key.
+     *
+     * @param string $text The text to normalize
+     * @return string The normalized text
+     */
+    private function normalize_text_for_cache(string $text): string
+    {
+        // HTML tags verwijderen
+        $text = wp_strip_all_tags($text);
+        
+        // Trim whitespace
+        $text = trim($text);
+        
+        return $text;
+    }
+
+    /**
+     * Clear global UI cache for all languages.
+     * This is called when slugs change to ensure menu items are updated.
+     */
+    public function clear_global_ui_cache(): void
+    {
+        global $wpdb;
+        
+        // Clear memory cache for global UI elements
+        $all_languages = array_keys($this->get_available_languages());
+        
+        foreach ($all_languages as $language) {
+            if ($language !== $this->default_language) {
+                // Clear memory cache for global UI elements
+                foreach (self::$translation_memory as $key => $value) {
+                    if (strpos($key, 'mem') !== false) {
+                        unset(self::$translation_memory[$key]);
+                    }
+                }
+                
+                // Clear transient cache for global UI elements
+                $transient_patterns = [
+                    '_transient_ai_translate_trans_%',
+                    '_transient_timeout_ai_translate_trans_%'
+                ];
+                
+                foreach ($transient_patterns as $pattern) {
+                    $wpdb->query($wpdb->prepare(
+                        "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+                        $pattern
+                    ));
+                }
+                
+                // Clear disk cache for global UI elements
+                $cache_dir = $this->get_cache_dir();
+                if (is_dir($cache_dir)) {
+                    $files = glob($cache_dir . '/*.cache');
+                    foreach ($files as $file) {
+                        if (strpos($file, 'ai_translate_trans_') !== false) {
+                            unlink($file);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 }

@@ -52,6 +52,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    var modelsPerProvider = aiTranslateAdmin.models || {};
+
     function updateApiKeyRequestLink() {
         if (apiProviderSelect && apiKeyRequestLinkSpan) {
             var selectedProviderKey = apiProviderSelect.value;
@@ -74,12 +76,121 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function updateModelField() {
+        if (!selectedModel) return;
+        var selectedProvider = apiProviderSelect.value;
+        var model = modelsPerProvider[selectedProvider] || '';
+        
+        // Leeg eerst de dropdown
+        selectedModel.innerHTML = '';
+        
+        // Voor OpenAI en Deepseek: laad modellen via AJAX
+        if (selectedProvider === 'openai' || selectedProvider === 'deepseek') {
+            loadModelsForProvider(selectedProvider, model);
+        } else {
+            // Voor custom provider: toon alleen het opgeslagen model
+            if (model) {
+                var opt = document.createElement('option');
+                opt.value = model;
+                opt.textContent = model + ' (custom)';
+                opt.selected = true;
+                selectedModel.appendChild(opt);
+            }
+            var customOpt = document.createElement('option');
+            customOpt.value = 'custom';
+            customOpt.textContent = 'Select...';
+            if (!model) customOpt.selected = true;
+            selectedModel.appendChild(customOpt);
+            
+            // Trigger change event
+            var event = new Event('change');
+            selectedModel.dispatchEvent(event);
+            
+            // Check of het model custom is en vul custom veld
+            var standardModels = ['gpt-4', 'gpt-3.5-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4.1', 'deepseek-chat', 'deepseek-coder'];
+            var isCustomModel = model && !standardModels.includes(model);
+            
+            if (isCustomModel && customModelInput) {
+                customModelInput.value = model;
+                if (customModelDiv) {
+                    customModelDiv.style.display = 'block';
+                }
+            } else if (customModelInput) {
+                // Als het geen custom model is, leeg het custom veld
+                customModelInput.value = '';
+                if (customModelDiv) {
+                    customModelDiv.style.display = 'none';
+                }
+            }
+        }
+    }
+
+    function loadModelsForProvider(provider, currentModel) {
+        var apiUrl = getSelectedApiUrl();
+        var apiKey = apiKeyInput ? apiKeyInput.value : '';
+
+        if (!apiUrl || !apiKey) {
+            if (apiStatusSpan) apiStatusSpan.textContent = 'Selecteer API Provider en vul API Key in.';
+            return;
+        }
+
+        if (apiStatusSpan) apiStatusSpan.textContent = 'Load models ...';
+
+        var data = new FormData();
+        data.append('action', 'ai_translate_get_models');
+        data.append('nonce', aiTranslateAdmin.getModelsNonce);
+        data.append('api_key', apiKey);
+        data.append('api_provider', provider);
+
+        if (provider === 'custom' && customApiUrlInput) {
+            data.append('custom_api_url_value', customApiUrlInput.value);
+        }
+
+        fetch(ajaxurl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: data
+        })
+            .then(r => r.json())
+            .then(function (resp) {
+                if (selectedModel) {
+                    if (resp.success && resp.data && resp.data.models) {
+                        // Leeg de dropdown opnieuw (voor de zekerheid)
+                        selectedModel.innerHTML = '';
+                        
+                        resp.data.models.forEach(function (modelId) {
+                            var opt = document.createElement('option');
+                            opt.value = modelId;
+                            opt.textContent = modelId;
+                            if (modelId === currentModel) opt.selected = true;
+                            selectedModel.appendChild(opt);
+                        });
+
+                        var customOpt = document.createElement('option');
+                        customOpt.value = 'custom';
+                        customOpt.textContent = 'Select...';
+                        if (currentModel === 'custom') customOpt.selected = true;
+                        selectedModel.appendChild(customOpt);
+                        
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
+                    } else {
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Geen modellen gevonden: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
+                    }
+                }
+            })
+            .catch(function (e) {
+                if (apiStatusSpan) apiStatusSpan.textContent = 'Fout bij laden modellen: ' + e.message;
+            });
+    }
+
     if (apiProviderSelect) {
         apiProviderSelect.addEventListener('change', updateApiKeyRequestLink);
         apiProviderSelect.addEventListener('change', toggleCustomApiUrlField);
+        apiProviderSelect.addEventListener('change', updateModelField);
         apiProviderSelect.addEventListener('change', updateApiKeyField); // Update API key field when provider changes
         updateApiKeyRequestLink();
         toggleCustomApiUrlField();
+        updateModelField(); // Initieel bij laden
         updateApiKeyField(); // Trigger initial update
     }
 

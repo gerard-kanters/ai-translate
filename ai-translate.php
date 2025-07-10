@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
-Version: 1.30
+Version: 1.31
 Author: NetCare
 Author URI: https://netcare.nl/
 License: GPL2
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.30');
+define('AI_TRANSLATE_VERSION', '1.31');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -94,13 +94,37 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
 
     $core = AI_Translate_Core::get_instance();
     add_action('wp_head', [$core, 'add_simple_meta_description'], 99);
+    add_action('wp_head', [$core, 'add_open_graph_meta_tags'], 100);
     add_action('wp_footer', [$core, 'hook_display_language_switcher']);
 
     add_filter('wp_nav_menu_objects', [$core, 'translate_menu_items'], 999, 2);
     
+    // Hook voor post save - wordt aangeroepen bij elke post save
+    add_action('save_post', function ($post_id, $post, $update) {
+        if ($post->post_status === 'publish') {
+            $core = AI_Translate_Core::get_instance();
+            $core->update_slug_translations_on_save($post_id, $post);
+        }
+    }, 10, 3);
 
+    // Hook voor slug wijzigingen - wordt aangeroepen bij elke post update
+    add_action('post_updated', function ($post_id, $post_after, $post_before) {
+        // Alleen actie ondernemen als slug is veranderd
+        if ($post_before->post_name !== $post_after->post_name) {
+            $core = AI_Translate_Core::get_instance();
+            $core->update_slug_translations_on_save($post_id, $post_after);
+        }
+    }, 10, 3);
 
-
+    // Hook voor transition_post_status - wordt aangeroepen bij status wijzigingen
+    add_action('transition_post_status', function ($new_status, $old_status, $post) {
+        // Alleen actie ondernemen als post wordt gepubliceerd of gedepubliceerd
+        if ((($new_status === 'publish' && $old_status !== 'publish') || 
+            ($old_status === 'publish' && $new_status !== 'publish'))) {
+            $core = AI_Translate_Core::get_instance();
+            $core->update_slug_translations_on_save($post->ID, $post);
+        }
+    }, 10, 3);
 
     add_filter('option_blogname', function ($value) use ($core) {
         $translated_value = $core->translate_template_part($value, 'site_title');
@@ -1604,7 +1628,7 @@ function migrate_existing_translated_urls(): void
     
     // Log de migratie resultaten
     if ($migrated_count > 0) {
-        $core->log_event("Migrated {$migrated_count} translated URLs from transients to database for backwards compatibility", 'info');
+
     }
 }
 

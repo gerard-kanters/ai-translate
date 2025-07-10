@@ -175,6 +175,8 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce'), // Added nonce for fetching custom URL
         'generateContextNonce' => wp_create_nonce('generate_website_context_nonce'), // Added nonce for generating website context
         'apiKeys' => get_option('ai_translate_settings')['api_keys'] ?? [], // Voeg deze regel toe
+        'models' => get_option('ai_translate_settings')['models'] ?? [], // Per-provider models
+        'customModel' => get_option('ai_translate_settings')['custom_model'] ?? '', // Custom model veld
     ));
 });
 
@@ -285,6 +287,19 @@ add_action('admin_init', function () {
                 $input['enable_multilingual_search'] = false;
             }
 
+            if (!isset($current_settings['models']) || !is_array($current_settings['models'])) {
+                $current_settings['models'] = [
+                    'openai' => '',
+                    'deepseek' => '',
+                    'custom' => '',
+                ];
+            }
+            if (isset($input['selected_model'])) {
+                $selected_provider = $input['api_provider'] ?? 'openai';
+                $current_settings['models'][$selected_provider] = trim($input['selected_model']);
+            }
+            $input['models'] = $current_settings['models'];
+
             return $input;
         }
     ]);
@@ -339,7 +354,9 @@ add_action('admin_init', function () {
         'Translation Model',
         function () {
             $settings = get_option('ai_translate_settings');
-            $selected_model = isset($settings['selected_model']) ? $settings['selected_model'] : '';
+            $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : 'openai';
+            $models = isset($settings['models']) ? $settings['models'] : [];
+            $selected_model = isset($models[$current_provider]) ? $models[$current_provider] : (isset($settings['selected_model']) ? $settings['selected_model'] : '');
             $custom_model = isset($settings['custom_model']) ? $settings['custom_model'] : '';
             $is_custom = $selected_model && !in_array($selected_model, ['gpt-4', 'gpt-3.5-turbo']);
             echo '<select name="ai_translate_settings[selected_model]" id="selected_model">';
