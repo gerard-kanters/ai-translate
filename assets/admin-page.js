@@ -186,12 +186,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (apiProviderSelect) {
         apiProviderSelect.addEventListener('change', updateApiKeyRequestLink);
         apiProviderSelect.addEventListener('change', toggleCustomApiUrlField);
-        apiProviderSelect.addEventListener('change', updateModelField);
         apiProviderSelect.addEventListener('change', updateApiKeyField); // Update API key field when provider changes
+        apiProviderSelect.addEventListener('change', updateModelField);
         updateApiKeyRequestLink();
         toggleCustomApiUrlField();
-        updateModelField(); // Initieel bij laden
         updateApiKeyField(); // Trigger initial update
+        updateModelField(); // Initieel bij laden
     }
 
     // Functie om het API-sleutelveld bij te werken
