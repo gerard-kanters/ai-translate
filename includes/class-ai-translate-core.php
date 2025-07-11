@@ -290,12 +290,12 @@ class AI_Translate_Core
                 // For now, we assume defaults or sanitize_callback handles it.
             }
         }
-        
+
         // Ensure api_provider is valid
         if (!array_key_exists($settings['api_provider'], self::get_api_providers())) {
             $settings['api_provider'] = 'openai'; // Fallback to default
         }
-        
+
         // Ensure api_keys array exists and is valid
         if (!isset($settings['api_keys']) || !is_array($settings['api_keys'])) {
             $settings['api_keys'] = [
@@ -304,7 +304,7 @@ class AI_Translate_Core
                 'custom' => '',
             ];
         }
-        
+
         return $settings;
     }
 
@@ -522,10 +522,6 @@ class AI_Translate_Core
         $non_permanent_types = [
             'post_content',
             'post_title',
-            'menu_item',
-            'widget_title',
-            'site_title',
-            'tagline',
             'post_excerpt',
             'search_form',
             'search_query',
@@ -583,7 +579,7 @@ class AI_Translate_Core
         if (empty($current_api_key)) {
             throw new \Exception('API Key is niet geconfigureerd voor de geselecteerde provider.');
         }
-        
+
         $args = [
             'headers' => [
                 'Authorization' => 'Bearer ' . $current_api_key,
@@ -762,17 +758,12 @@ class AI_Translate_Core
 
 
         // --- Exclude shortcodes specified in admin ---
-        $shortcodes_to_exclude = self::get_extractable_shortcodes();
+        $shortcodes_to_exclude = self::get_truly_excluded_shortcodes();
         $extracted_shortcode_pairs = [];
-
-
 
         // Extract shortcode pairs and replace with placeholders
         $text_with_placeholders = $this->extract_shortcode_pairs($text, $shortcodes_to_exclude, $extracted_shortcode_pairs);
-
-        // --- Exclude rendered HTML from shortcodes that should not be translated ---
-        $text_with_placeholders = $this->exclude_rendered_shortcode_html($text_with_placeholders, $extracted_shortcode_pairs);
-
+        
         $text_to_translate = $text_with_placeholders;
         $shortcodes = $extracted_shortcode_pairs; // Rename for consistency with existing code
 
@@ -783,10 +774,10 @@ class AI_Translate_Core
         // --- Strip all shortcodes before calculating the cache-key and before translation ---
         // strip_all_shortcodes_for_cache will now see the placeholders and strip them as well.
         $text_for_cache = $this->strip_all_shortcodes_for_cache($text_to_translate);
-        
+
         // Determine caching strategy based on context
         $caching_strategy = $this->get_caching_strategy($text_for_cache, $context);
-        
+
         // Use md5 of the original text + target language as the base identifier (not stripped text)
         $cache_identifier = md5($text . $target_language);
         // Generate keys with the central function
@@ -836,17 +827,17 @@ class AI_Translate_Core
             // get_cached_content expects the key WITHOUT .cache suffix
             $disk_cached = $this->get_cached_content($disk_cache_key);
             if ($disk_cached !== false) {
-                                    if (strpos($disk_cached, self::TRANSLATION_MARKER) !== false) {
-                        $result = $disk_cached;
-                        if (!empty($shortcodes)) {
-                            $result = $this->restore_shortcode_pairs($result, $shortcodes);
-                        }
-                        self::$translation_memory[$memory_key] = $result; // Update memory cache
-                        // Also save to transient for faster access on subsequent requests (if object cache is active)
-                        $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
-                        set_transient($transient_key, $result, $this->expiration_hours * 3600);
-                        return $result;
+                if (strpos($disk_cached, self::TRANSLATION_MARKER) !== false) {
+                    $result = $disk_cached;
+                    if (!empty($shortcodes)) {
+                        $result = $this->restore_shortcode_pairs($result, $shortcodes);
                     }
+                    self::$translation_memory[$memory_key] = $result; // Update memory cache
+                    // Also save to transient for faster access on subsequent requests (if object cache is active)
+                    $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
+                    set_transient($transient_key, $result, $this->expiration_hours * 3600);
+                    return $result;
+                }
             }
         }
 
@@ -1012,7 +1003,7 @@ class AI_Translate_Core
 
         // Use zero temperature for slug translations to ensure consistency
         $temperature = 0.0; // Zero temperature for maximum consistency
-        
+
         $data = [
             'model'             => $this->settings['selected_model'],
             'messages'          => [
@@ -1059,32 +1050,32 @@ class AI_Translate_Core
         // Determine if this is a short menu item (less than 50 characters)
         $text_length = strlen(trim($text_to_translate));
         $is_short_menu_item = $text_length <= 50 && $is_title;
-        
+
         $context_instructions = $is_title
             ? 'Focus on translating titles and headings accurately while maintaining their impact and meaning. NEVER add HTML tags to plain text titles - if the input has no HTML tags, the output should also have no HTML tags. NEVER wrap output in <p>, <span>, <div> of andere HTML-tags als de input geen HTML bevat.'
             : 'Translate the content while preserving its original meaning, tone, and structure. NEVER add HTML tags to plain text - if the input has no HTML tags, the output must also have no HTML tags. NEVER wrap output in <p>, <span>, <div> or any other HTML tags if the input does not contain HTML.';
-        
+
         // Get website context if available - properly escape and handle UTF-8
         $website_context = '';
         $should_use_context = $text_length > 50 && !empty($this->settings['website_context']);
-        
+
         if ($should_use_context) {
             // Ensure proper UTF-8 encoding and escape any problematic characters
             $context_text = $this->settings['website_context'];
-            
+
             // Convert to UTF-8 if not already
             if (!mb_check_encoding($context_text, 'UTF-8')) {
                 $context_text = mb_convert_encoding($context_text, 'UTF-8', 'auto');
             }
-            
+
             // Clean the text: remove any null bytes and normalize whitespace
             $context_text = str_replace("\0", '', $context_text);
             $context_text = preg_replace('/\s+/', ' ', trim($context_text));
-            
+
             // Escape any quotes that might break the prompt structure
             // Use JSON encoding for safe embedding in the prompt
             $context_json = json_encode($context_text, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            
+
             if ($context_json !== false) {
                 // Remove the outer quotes from JSON encoding since we're embedding it
                 $context_json = substr($context_json, 1, -1);
@@ -1095,21 +1086,43 @@ class AI_Translate_Core
                 $website_context = "\n\nWEBSITE CONTEXT:\n" . $context_text . "\n\nUse this context to provide more accurate and contextually appropriate translations for longer content. For single words, short phrases, or slugs, translate literally and directly without applying contextual interpretation to avoid confusion.";
             }
         }
-        
+
         // Special instructions for short menu items
         $menu_instructions = '';
         if ($is_short_menu_item) {
             $menu_instructions = "\n\nMENU ITEM TRANSLATION RULES:\n- Translate ONLY the short menu text (1-3 words maximum)\n- Do NOT include any website context in the translation\n- Do NOT add explanations or additional text\n- Keep the translation concise and direct\n- Return ONLY the translated menu text, nothing else\n- If the input is 'Contact', translate to the equivalent short word in the target language\n- If the input is 'About', translate to the equivalent short word in the target language\n- If the input is 'Home', translate to the equivalent short word in the target language\n- For navigation items, use the most common and direct translation";
         }
-        
+
         $system_prompt = sprintf(
-            'You are a professional translation engine. Translate the following text from %s to %s.%s%s\n\nTRANSLATION STYLE:\n- Make the translation sound natural and professional, as if written by a native speaker\n- Adapt phrasing slightly to make it sound more persuasive and aligned with standard language on a website\n- Avoid literal translations that sound awkward or robotic\n- Use idiomatic expressions and natural word choices appropriate for the target language\n- Maintain the original tone and intent while ensuring the text flows naturally\n\nCRITICAL REQUIREMENTS:\n1. Preserve ALL HTML tags and their exact structure. Do NOT add or remove HTML tags.\n2. If input has NO HTML tags, output must also have NO HTML tags.\n3. Placeholders must remain IDENTICAL in format:  __AITRANSLATE_X__ stays __AITRANSLATE_X__ and __AITRANSLATE_SC_X__ stays __AITRANSLATE_SC_X__.\n4. If the input contains any string matching the pattern __AITRANSLATE_X__ or __AITRANSLATE_SC_X__ where X is a number, this is a non-translatable placeholder and must remain 100%% unchanged in the output. Never translate, modify, wrap, or remove these placeholders.\n5. Keep line breaks and formatting intact.\n6. Do NOT escape quotes or special characters in HTML attributes.\n7. Return ONLY the translated text. You MUST provide the translation in the target language. NEVER return text in the source language unless the target language IS the source language. If the input is empty or cannot be translated meaningfully, you MUST still attempt a translation or return the closest possible equivalent in the target language. Do NOT provide explanations or markdown formatting.\n8. If the input text contains NO HTML tags, the output text MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.\n9. For single words, short phrases, or slugs (especially for URLs), translate literally and directly without applying contextual interpretation.',
+            'You are a professional translation engine. Translate the following text from %s to %s.%s%s
+        
+        TRANSLATION STYLE:
+        - Make the translation sound natural, fluent, and professional, as if written by a native speaker.
+        - Adapt phrasing slightly to ensure it is persuasive and consistent with standard website language in the target language.
+        - Avoid literal translations that sound awkward or robotic.
+        - Use idiomatic expressions and natural vocabulary appropriate for the audience and context.
+        - Maintain the original tone and intent while ensuring the text flows smoothly and is suitable for publication.
+        
+        CRITICAL REQUIREMENTS:
+        1. Preserve ALL HTML tags and their exact structure. Do NOT add, remove, move, or modify any HTML tags in any way.
+        2. If the input contains NO HTML tags, the output must also contain NO HTML tags.
+        3. Any string in the format __AITRANSLATE_X__ or __AITRANSLATE_SC_X__ (where X is any number or combination of letters, numbers, or underscores) is a SYSTEM TOKEN and must remain 100%% UNCHANGED in the output. NEVER translate, move, modify, wrap, remove, or reformat these tokens in any way. They are NOT placeholders for words or phrases, but reserved technical markers for system use.
+           - Example: __AITRANSLATE_42__ in input = __AITRANSLATE_42__ in output.
+           - Example: __AITRANSLATE_SC_8__ in input = __AITRANSLATE_SC_8__ in output.
+        4. Preserve all line breaks, paragraph breaks, and whitespace formatting as in the original. Do NOT escape or modify quotes or special characters in HTML attributes.
+        5. Return ONLY the translated text in the target language. Do NOT provide explanations, comments, or markdown formatting. NEVER return source language text unless the target language IS the source language.
+        6. If the input is empty, output must also be empty. If the input cannot be translated meaningfully, return the closest possible equivalent in the target language.
+        7. If the input contains NO HTML tags, the output MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.
+        8. For single words, short phrases, or slugs (especially for URLs), translate directly and literally, without contextual interpretation.
+        9. SYSTEM TOKENS (__AITRANSLATE_X__ and __AITRANSLATE_SC_X__) ARE NEVER TOUCHED, TRANSLATED, MOVED, OR MODIFIED FOR ANY REASON.
+        
+        Begin the translation below.',
             $this->get_language_name($source_language),
             $this->get_language_name($target_language),
             $website_context,
             $menu_instructions
         );
-        
+
         return $system_prompt;
     }
 
@@ -1166,7 +1179,7 @@ class AI_Translate_Core
             }
             return $translated_batch;
         }
-        
+
         // Skip individual translation for menu_item - should only be handled by batch functions
         if ($type === 'menu_item') {
             return $content;
@@ -1179,11 +1192,11 @@ class AI_Translate_Core
 
         $target_language = $this->get_current_language();
         $default_language = $this->default_language ?: ($this->settings['default_language'] ?? 'nl');
-        
+
         // Check of content alleen uit echt uitgesloten shortcodes bestaat
         $shortcodes_to_exclude = self::get_truly_excluded_shortcodes();
         $only_excluded = $this->is_only_excluded_shortcodes($content, $shortcodes_to_exclude);
-        
+
         // For widget content, use a consistent cache key regardless of type
         if (in_array($type, ['widget_title', 'widget_text'])) {
             // Strip HTML tags and normalize content for consistent caching
@@ -1361,7 +1374,7 @@ class AI_Translate_Core
                 '_transient_ai_translate_batch_trans_%',
                 '_transient_timeout_ai_translate_batch_trans_%'
             ];
-            
+
             $transients_to_delete = [];
             foreach ($transient_patterns as $pattern) {
                 $results = $wpdb->get_col($wpdb->prepare(
@@ -1416,14 +1429,14 @@ class AI_Translate_Core
     {
         global $wpdb;
         $table_name = $wpdb->prefix . 'ai_translate_slugs';
-        
+
         // Use WordPress functions for safer database access
         $deleted = $wpdb->delete(
             $table_name,
             ['language_code' => $language_code],
             ['%s']
         );
-        
+
         return $deleted !== false ? $deleted : 0;
     }
 
@@ -1763,7 +1776,7 @@ class AI_Translate_Core
                 break;
             }
         }
-        
+
         if (!$has_valid_items) {
             return $items;
         }
@@ -1859,7 +1872,7 @@ class AI_Translate_Core
 
         // Use the same optimized prompt builder for consistency
         $is_title_batch = in_array($type, ['post_title', 'menu_item', 'widget_title'], true);
-        
+
         // For batch translation, use the longest text to determine if context should be included
         $longest_text = '';
         $is_menu_batch = ($type === 'menu_item');
@@ -1868,7 +1881,7 @@ class AI_Translate_Core
                 $longest_text = $item;
             }
         }
-        
+
         // For menu items, always use the first item to determine if it's a short menu item
         if ($is_menu_batch && !empty($items_to_translate)) {
             $first_item = $items_to_translate[0];
@@ -2055,7 +2068,7 @@ class AI_Translate_Core
     }
 
     /**
-     * Cleans an HTML string by decoding entities, removing <p> tags, and stripping the translation marker.
+     * Cleans an HTML string by decoding entities, removing tags, and stripping the translation marker.
      * This method is designed to be used on final output strings before display.
      *
      * @param string $html_string The HTML string to clean.
@@ -2066,15 +2079,20 @@ class AI_Translate_Core
         // 1. Decode HTML entities (e.g., <p> to <p>)
         $cleaned_string = html_entity_decode($html_string, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // 2. Remove <p> and </p> tags
-        $cleaned_string = preg_replace('/<\/?p[^>]*>/i', '', $cleaned_string);
+        // 2. Remove problematic data attributes that confuse the LLM
+        $cleaned_string = preg_replace('/\s*data-(start|end)=["\'][^"\']*["\']/', '', $cleaned_string);
+        $cleaned_string = preg_replace('#/data-(start|end)/"?\d+"?#', '', $cleaned_string);
+        $cleaned_string = preg_replace('#data-(start|end)/"?\d+"?#', '', $cleaned_string);
 
-        // 3. Remove the translation marker
+        // 3. Remove the translation marker and other placeholders
         $cleaned_string = str_replace(self::TRANSLATION_MARKER, '', $cleaned_string);
+        $cleaned_string = preg_replace('/__AITRANSLATE[^_]*?[^_]*?__/', '', $cleaned_string);
+        $cleaned_string = preg_replace('/__AITRANSLATE_SC_[0-9]+__/', '', $cleaned_string);
 
         // 4. Use wp_kses_post for safety and to re-encode valid HTML entities
         // This ensures proper HTML structure and prevents XSS, and re-encodes if necessary
         $cleaned_string = wp_kses_post($cleaned_string);
+       
 
         return $cleaned_string;
     }
@@ -2112,7 +2130,7 @@ class AI_Translate_Core
                 $text
             );
         }
-        
+
         return $text;
     }
 
@@ -2128,7 +2146,7 @@ class AI_Translate_Core
         if (empty($extracted_shortcodes)) {
             return $text;
         }
-        
+
         uksort($extracted_shortcodes, function ($a, $b) {
             return strlen($b) <=> strlen($a);
         });
@@ -2555,18 +2573,32 @@ class AI_Translate_Core
         // Check if a 'name' (post slug) is present in the query vars
         if (isset($query_vars['name']) && !empty($query_vars['name'])) {
             $incoming_slug = $query_vars['name'];
-            
+
 
 
             // Skip processing for common non-post URLs and system paths
             $skip_patterns = [
-                'wp-admin', 'wp-login', 'wp-content', 'wp-includes',
-                'feed', 'comments', 'trackback', 'xmlrpc',
-                'robots.txt', 'sitemap', '.htaccess', 'favicon',
-                'admin', 'login', 'register', 'lost-password',
-                'cron', 'cron.php', 'wp-cron.php'
+                'wp-admin',
+                'wp-login',
+                'wp-content',
+                'wp-includes',
+                'feed',
+                'comments',
+                'trackback',
+                'xmlrpc',
+                'robots.txt',
+                'sitemap',
+                '.htaccess',
+                'favicon',
+                'admin',
+                'login',
+                'register',
+                'lost-password',
+                'cron',
+                'cron.php',
+                'wp-cron.php'
             ];
-            
+
             foreach ($skip_patterns as $pattern) {
                 if (strpos($incoming_slug, $pattern) !== false) {
                     return $query_vars;
@@ -2587,7 +2619,7 @@ class AI_Translate_Core
             // Voor een Engelse URL /en/online-violin-lessons/ willen we van Engels naar Nederlands zoeken
             // $current_language = 'en', $default_language = 'nl'
             // We zoeken naar de originele Nederlandse slug die vertaald is naar 'online-violin-lessons'
-            
+
             $original_slug_data = $this->reverse_translate_slug($incoming_slug, $current_language, $default_language);
 
             if ($original_slug_data && isset($original_slug_data['slug'])) {
@@ -2720,13 +2752,13 @@ class AI_Translate_Core
         ];
 
         // Custom ordering to prioritize pages over posts
-        add_filter('posts_orderby', function($orderby, $query) {
+        add_filter('posts_orderby', function ($orderby, $query) {
             global $wpdb;
             return "CASE WHEN {$wpdb->posts}.post_type = 'page' THEN 0 ELSE 1 END, {$wpdb->posts}.post_date DESC";
         }, 10, 2);
 
         $posts = get_posts($args);
-        
+
         // Remove the filter
         remove_all_filters('posts_orderby');
 
@@ -2738,20 +2770,20 @@ class AI_Translate_Core
         $settings = $this->get_settings();
         $default_language = $settings['default_language'] ?? 'nl';
         $current_language = $this->get_current_language();
-        
+
         // Only try reverse translation if we're not in the default language
         if ($current_language !== $default_language) {
             // Direct database lookup for reverse translation
             global $wpdb;
             $table_name = $wpdb->prefix . 'ai_translate_slugs';
-            
+
             // Look for the translated slug in the database using WordPress functions
             $original_slug_data = $wpdb->get_row($wpdb->prepare(
                 "SELECT post_id, original_slug FROM {$table_name} WHERE translated_slug = %s AND language_code = %s",
                 $slug,
                 $current_language
             ));
-            
+
             if ($original_slug_data) {
                 // Try to find a post with the original slug
                 $args = [
@@ -2765,7 +2797,7 @@ class AI_Translate_Core
                 ];
 
                 $posts = get_posts($args);
-                
+
                 if (!empty($posts)) {
                     return (int)$posts[0]->ID;
                 }
@@ -2819,16 +2851,16 @@ class AI_Translate_Core
             // Als er een transient is, migreer deze naar de database voor permanente opslag
             if ($post_id !== null) {
                 // Gebruik INSERT IGNORE om te voorkomen dat bestaande vertalingen worden overschreven
-                                    // Gebruik INSERT IGNORE om duplicate key errors te voorkomen
-                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $wpdb->query is necessary for INSERT IGNORE
-                    $insert_result = $wpdb->query($wpdb->prepare(
-                        "INSERT IGNORE INTO {$table_name} (post_id, original_slug, translated_slug, language_code) VALUES (%d, %s, %s, %s)",
-                        $post_id,
-                        $original_slug,
-                        $cached_slug,
-                        $target_language
-                    ));
-                
+                // Gebruik INSERT IGNORE om duplicate key errors te voorkomen
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $wpdb->query is necessary for INSERT IGNORE
+                $insert_result = $wpdb->query($wpdb->prepare(
+                    "INSERT IGNORE INTO {$table_name} (post_id, original_slug, translated_slug, language_code) VALUES (%d, %s, %s, %s)",
+                    $post_id,
+                    $original_slug,
+                    $cached_slug,
+                    $target_language
+                ));
+
                 // Als insert mislukt door duplicate key, haal dan de bestaande vertaling op
                 if ($insert_result === false && $wpdb->last_error && strpos($wpdb->last_error, 'Duplicate entry') !== false) {
                     // Use WordPress functions for safer database access
@@ -2881,7 +2913,7 @@ class AI_Translate_Core
                     $target_language,
                     $post_id
                 ));
-                
+
                 if ($existing_slug === null) {
                     // Gebruik INSERT IGNORE om duplicate key errors te voorkomen
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $wpdb->query is necessary for INSERT IGNORE
@@ -2892,10 +2924,10 @@ class AI_Translate_Core
                         $translated_slug,
                         $target_language
                     ));
-                    
+
                     if ($insert_result === false) {
-                
-                        
+
+
                         // Als insert mislukt door duplicate key, haal dan de bestaande vertaling op
                         if ($wpdb->last_error && strpos($wpdb->last_error, 'Duplicate entry') !== false) {
                             // Use WordPress functions for safer database access
@@ -3036,20 +3068,20 @@ class AI_Translate_Core
             if (!empty($item->description)) {
                 $descriptions_to_translate[$index] = $item->description;
             }
-            
+
             // Vertaal URL eerst (dit is geen API call en kan geen loop veroorzaken)
             if (isset($item->url)) {
                 $item->url = $this->translate_url($item->url, $target_language);
             }
-            
+
             // Check of dit een homepage item is
             $is_homepage = false;
             if (isset($item->url)) {
                 $parsed_url = wp_parse_url($item->url);
                 $path = $parsed_url['path'] ?? '/';
-                $is_homepage = ($path === '/' || $path === '/'.$target_language.'/' || $path === '/'.$target_language);
+                $is_homepage = ($path === '/' || $path === '/' . $target_language . '/' || $path === '/' . $target_language);
             }
-            
+
             // Voor homepage items: voeg titel toe voor normale vertaling
             if ($is_homepage && !empty($item->title)) {
                 $titles_to_translate[$index] = $item->title;
@@ -3158,26 +3190,7 @@ class AI_Translate_Core
         return $this->clean_html_string($translated); // Apply cleaning after translation
     }
 
-    /**
-     * Lijst met shortcodes die geëxtraheerd moeten worden tijdens vertaling om hun structuur te behouden.
-     * Deze shortcodes worden tijdelijk vervangen door placeholders tijdens vertaling en daarna hersteld.
-     * 
-     * @return array<string> Array van shortcode namen die geëxtraheerd moeten worden
-     */
-    public static function get_extractable_shortcodes(): array
-    {
-        return [
-            'mb_btn',
-            'mb_col',
-            'mb_heading',
-            'mb_img',
-            'mb_oembed',
-            'mb_row',
-            'mb_section',
-            'mb_space',
-            'mb_text',
-        ];
-    }
+
 
     /**
      * Lijst met shortcodes die echt uitgesloten moeten worden van vertaling (niet vertaald, geen cache).
@@ -3405,7 +3418,7 @@ class AI_Translate_Core
         global $wpdb;
         $settings = $this->get_settings();
         $default_language = $settings['default_language'] ?? 'nl';
-        
+
         // Skip if same language
         if ($source_language === $target_language) {
             // Try to find the post_type for the translated_slug using WordPress functions
@@ -3417,19 +3430,19 @@ class AI_Translate_Core
                 'orderby' => ['post_type' => 'DESC', 'post_date' => 'DESC'],
                 'suppress_filters' => false,
             ]);
-            
+
             if (!empty($posts)) {
                 $post = $posts[0];
                 return ['slug' => $translated_slug, 'post_type' => $post->post_type];
             }
             return ['slug' => $translated_slug, 'post_type' => null]; // Fallback if post_type not found
         }
-        
+
         $table_name_slugs = $wpdb->prefix . 'ai_translate_slugs';
-        
+
         // Apply URL decoding for UTF-8 character handling
         $decoded_translated_slug = urldecode($translated_slug);
-        
+
         // 1. Check custom slug translation table first (exact match)
         // In de database staat language_code = doeltaal (bijv. 'en' voor Engelse vertalingen)
         // Voor reverse lookup: zoek naar translated_slug = 'packages' met language_code = 'en'
@@ -3438,7 +3451,7 @@ class AI_Translate_Core
             $decoded_translated_slug,
             $source_language
         ));
-        
+
         // If not found, try with original encoded version
         if (!$cached_original_slug_data) {
             $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
@@ -3447,7 +3460,7 @@ class AI_Translate_Core
                 $source_language
             ));
         }
-        
+
         // If still not found, try LIKE match with decoded version
         if (!$cached_original_slug_data) {
             $cached_original_slug_data = $wpdb->get_row($wpdb->prepare(
@@ -3456,30 +3469,30 @@ class AI_Translate_Core
                 $source_language
             ));
         }
-        
+
         if ($cached_original_slug_data) {
             $post = get_post($cached_original_slug_data->post_id);
             if ($post) {
                 return ['slug' => $cached_original_slug_data->original_slug, 'post_type' => $post->post_type];
             }
         }
-        
+
         // Test database connection and table using WordPress functions
         $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_name_slugs));
-        
+
         // Test query using WordPress functions
         $test_result = $wpdb->get_row($wpdb->prepare(
             "SELECT COUNT(*) as count FROM {$table_name_slugs} WHERE language_code = %s",
             $source_language
         ));
-        
+
         // Test specific entry using WordPress functions
         $specific_result = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$table_name_slugs} WHERE translated_slug = %s AND language_code = %s",
             $translated_slug,
             $source_language
         ));
-        
+
         // 2. Fallback: Try to find a post with this exact slug (might be already in target language or default)
         // Try with decoded version first
         $posts = get_posts([
@@ -3490,9 +3503,9 @@ class AI_Translate_Core
             'orderby' => ['post_type' => 'DESC', 'post_date' => 'DESC'],
             'suppress_filters' => false,
         ]);
-        
+
         $post = !empty($posts) ? $posts[0] : null;
-        
+
         // If not found, try with original encoded version
         if (!$post) {
             $posts = get_posts([
@@ -3505,7 +3518,7 @@ class AI_Translate_Core
             ]);
             $post = !empty($posts) ? $posts[0] : null;
         }
-        
+
         // If still not found, try fuzzy match with decoded version
         if (!$post) {
             // Use WordPress search functionality instead of LIKE query
@@ -3517,7 +3530,7 @@ class AI_Translate_Core
                 'orderby' => ['post_type' => 'DESC', 'post_date' => 'DESC'],
                 'suppress_filters' => false,
             ]);
-            
+
             // Find the best match
             foreach ($search_posts as $search_post) {
                 if (strpos($search_post->post_name, $decoded_translated_slug) === 0) {
@@ -3526,7 +3539,7 @@ class AI_Translate_Core
                 }
             }
         }
-        
+
         if ($post) {
             return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Found exact match
         }
@@ -3539,12 +3552,12 @@ class AI_Translate_Core
             'orderby' => ['post_type' => 'DESC', 'post_date' => 'DESC'],
             'suppress_filters' => false,
         ]);
-        
+
         // Filter out posts with empty slugs
-        $posts = array_filter($posts, function($post) {
+        $posts = array_filter($posts, function ($post) {
             return !empty($post->post_name);
         });
-        
+
         foreach ($posts as $post) {
             // Get what this post's slug would be when translated from default to current language
             $potential_translated_slug = $this->get_translated_slug(
@@ -3554,13 +3567,13 @@ class AI_Translate_Core
                 $source_language,   // Doel is de taal van de inkomende slug (en)
                 (int)$post->ID // Pass post ID for database lookup in get_translated_slug
             );
-            
+
             // If the translated version matches what we're looking for (try both versions)
             if ($potential_translated_slug === $translated_slug || $potential_translated_slug === $decoded_translated_slug) {
                 return ['slug' => $post->post_name, 'post_type' => $post->post_type]; // Return the original slug
             }
         }
-        
+
         // 4. Final fallback: try to find post in default language
         $posts_in_default_lang = get_posts([
             'name' => $decoded_translated_slug,
@@ -3570,9 +3583,9 @@ class AI_Translate_Core
             'orderby' => ['post_type' => 'DESC', 'post_date' => 'DESC'],
             'suppress_filters' => false,
         ]);
-        
+
         $post_in_default_lang = !empty($posts_in_default_lang) ? $posts_in_default_lang[0] : null;
-        
+
         if (!$post_in_default_lang) {
             $posts_in_default_lang = get_posts([
                 'name' => $translated_slug,
@@ -3613,9 +3626,11 @@ class AI_Translate_Core
     public function translate_fluentform_fields(string $content): string
     {
         // Check if this is a FluentForm by looking for common FluentForm elements
-        if (strpos($content, 'fluentform') === false && 
-            strpos($content, 'ff-el-form') === false && 
-            strpos($content, 'data-name=') === false) {
+        if (
+            strpos($content, 'fluentform') === false &&
+            strpos($content, 'ff-el-form') === false &&
+            strpos($content, 'data-name=') === false
+        ) {
             return $content;
         }
 
@@ -3691,16 +3706,16 @@ class AI_Translate_Core
         // Batch translate all fields
         $current_language = $this->get_current_language();
         $source_language = $this->default_language;
-        
+
         if ($current_language !== $source_language) {
             // EERST: Controleer cache voordat we vertalen
             $original_fields_for_cache = array_values($fields_to_translate);
             sort($original_fields_for_cache);
-            
+
             // Generate cache key based on current fields (which may already be translated)
             $cache_identifier = md5(json_encode($original_fields_for_cache) . 'fluentform_field' . $source_language . $current_language);
             $memory_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_mem');
-            
+
             // Check memory cache first
             $translated_fields = null;
             if (isset(self::$translation_memory[$memory_key])) {
@@ -3709,7 +3724,7 @@ class AI_Translate_Core
                     $translated_fields = array_combine(array_keys($fields_to_translate), $cached);
                 }
             }
-            
+
             // Check transient cache if not in memory
             if (!isset($translated_fields)) {
                 $transient_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_trans');
@@ -3719,7 +3734,7 @@ class AI_Translate_Core
                     $translated_fields = array_combine(array_keys($fields_to_translate), $cached);
                 }
             }
-            
+
             // Check disk cache if not in transient
             if (!isset($translated_fields)) {
                 $disk_cache_key = $this->generate_cache_key($cache_identifier, $current_language, 'disk');
@@ -3734,18 +3749,18 @@ class AI_Translate_Core
                     }
                 }
             }
-            
+
             // ALS GEEN CACHE: Vertaal via API
             if (!isset($translated_fields)) {
                 $translated_fields = $this->batch_translate_items($fields_to_translate, $source_language, $current_language, 'fluentform_field', $original_fields_for_cache);
             }
-            
+
             // Apply translations back to content
             if (isset($translated_fields) && is_array($translated_fields)) {
                 foreach ($field_mappings as $key => $mapping) {
                     if (isset($translated_fields[$key])) {
                         $translated_text = self::remove_translation_marker($translated_fields[$key]);
-                        
+
                         switch ($mapping['type']) {
                             case 'placeholder':
                                 $content = str_replace(
@@ -3754,7 +3769,7 @@ class AI_Translate_Core
                                     $content
                                 );
                                 break;
-                                
+
                             case 'label':
                                 $content = str_replace(
                                     $mapping['full_match'],
@@ -3762,7 +3777,7 @@ class AI_Translate_Core
                                     $content
                                 );
                                 break;
-                                
+
                             case 'button':
                                 $content = str_replace(
                                     $mapping['full_match'],
@@ -3770,7 +3785,7 @@ class AI_Translate_Core
                                     $content
                                 );
                                 break;
-                                
+
                             case 'submit':
                                 $content = str_replace(
                                     'value="' . $mapping['original'] . '"',
@@ -3804,7 +3819,7 @@ class AI_Translate_Core
             if ($current_lang !== $default_lang) {
                 // Gebruik translate_url om de juiste homepage URL te krijgen voor de huidige taal
                 $home_url = $this->translate_url(home_url('/'), $current_lang);
-                
+
                 // Controleer of we al op de homepage zijn (voorkom loop)
                 $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
                 $home_path = wp_parse_url($home_url, PHP_URL_PATH);
@@ -3825,7 +3840,7 @@ class AI_Translate_Core
     public function clear_menu_cache(): void
     {
         global $wpdb;
-        
+
         // Clear menu-related transients, maar NIET slug cache
         // Use WordPress functions for safer transient deletion
         global $wpdb;
@@ -3835,32 +3850,32 @@ class AI_Translate_Core
             '_transient_ai_translate_trans_%',
             '_transient_timeout_ai_translate_trans_%'
         ];
-        
+
         foreach ($transient_patterns as $pattern) {
             $wpdb->query($wpdb->prepare(
                 "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
                 $pattern
             ));
         }
-        
+
         // Clear ALL memory cache (not just menu-related)
         self::$translation_memory = [];
-        
+
         // Also clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
-        
+
         // Clear WordPress menu cache
         wp_cache_delete('alloptions', 'options');
         delete_transient('nav_menu_cache');
-        
+
         // Clear all menu locations cache
         $menu_locations = get_nav_menu_locations();
         foreach ($menu_locations as $location => $menu_id) {
             wp_cache_delete($menu_id, 'nav_menu');
             wp_cache_delete($location, 'nav_menu_locations');
         }
-        
+
         // Clear global UI cache for menu items
         $this->clear_global_ui_cache();
     }
@@ -3873,16 +3888,16 @@ class AI_Translate_Core
     public function force_menu_cache_clear(): void
     {
         // Verwijderd: $this->clear_menu_cache();
-        
+
         // Also clear any cached menu items in WordPress object cache
         if (function_exists('wp_cache_flush_group')) {
             wp_cache_flush_group('nav_menu');
         }
-        
+
         // Clear WordPress menu cache
         delete_transient('nav_menu');
         delete_transient('nav_menu_items');
-        
+
         // Force regeneration of menu items
         if (function_exists('wp_get_nav_menu_items')) {
             $menus = wp_get_nav_menus();
@@ -3904,10 +3919,10 @@ class AI_Translate_Core
     public function clear_memory_and_transients(): void
     {
         global $wpdb;
-        
+
         // Leeg memory cache
         self::$translation_memory = [];
-        
+
         // Verwijder alle relevante transients, maar NIET slug cache
         // Use WordPress functions for safer transient deletion
         $transient_patterns = [
@@ -3918,14 +3933,14 @@ class AI_Translate_Core
             '_transient_ai_translate_trans_%',
             '_transient_timeout_ai_translate_trans_%'
         ];
-        
+
         foreach ($transient_patterns as $pattern) {
             $wpdb->query($wpdb->prepare(
                 "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
                 $pattern
             ));
         }
-        
+
         // Clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
@@ -4005,7 +4020,6 @@ class AI_Translate_Core
             }
 
             return $generated_context;
-
         } catch (\Exception $e) {
             throw new \Exception('Failed to generate context: ' . $e->getMessage());
         }
@@ -4024,7 +4038,7 @@ class AI_Translate_Core
         // Get site title and tagline
         $site_title = get_bloginfo('name');
         $site_tagline = get_bloginfo('description');
-        
+
         // Ensure proper UTF-8 encoding
         if (!mb_check_encoding($site_title, 'UTF-8')) {
             $site_title = mb_convert_encoding($site_title, 'UTF-8', 'auto');
@@ -4032,7 +4046,7 @@ class AI_Translate_Core
         if (!mb_check_encoding($site_tagline, 'UTF-8')) {
             $site_tagline = mb_convert_encoding($site_tagline, 'UTF-8', 'auto');
         }
-        
+
         if (!empty($site_title)) {
             $content_parts[] = 'Site Title: ' . $site_title;
         }
@@ -4052,7 +4066,7 @@ class AI_Translate_Core
 
         // Get homepage post/page content
         $homepage_id = get_option('page_on_front') ?: (get_option('show_on_front') === 'posts' ? 0 : get_option('page_for_posts'));
-        
+
         if ($homepage_id) {
             $homepage_post = get_post($homepage_id);
             if ($homepage_post) {
@@ -4065,7 +4079,7 @@ class AI_Translate_Core
                     }
                     $content_parts[] = 'Page Title: ' . $title;
                 }
-                
+
                 // Get content (first 500 characters)
                 $content = wp_strip_all_tags($homepage_post->post_content);
                 if (!empty($content)) {
@@ -4085,7 +4099,7 @@ class AI_Translate_Core
                 'numberposts' => 3,
                 'post_status' => 'publish'
             ]);
-            
+
             foreach ($recent_posts as $post) {
                 $content = wp_strip_all_tags($post->post_content);
                 if (!empty($content)) {
@@ -4099,12 +4113,12 @@ class AI_Translate_Core
         }
 
         $combined_content = implode("\n\n", $content_parts);
-        
+
         // Final UTF-8 check and cleaning
         if (!mb_check_encoding($combined_content, 'UTF-8')) {
             $combined_content = mb_convert_encoding($combined_content, 'UTF-8', 'auto');
         }
-        
+
         // Remove any null bytes and normalize whitespace
         $combined_content = str_replace("\0", '', $combined_content);
         $combined_content = preg_replace('/\s+/', ' ', trim($combined_content));
@@ -4138,14 +4152,14 @@ class AI_Translate_Core
     {
         global $wpdb;
         $table_name = $wpdb->prefix . 'ai_translate_slugs';
-        
+
         // Use WordPress functions for safer database access
         $deleted = $wpdb->delete(
             $table_name,
             ['post_id' => $post_id],
             ['%d']
         );
-        
+
         return $deleted !== false ? $deleted : 0;
     }
 
@@ -4166,27 +4180,27 @@ class AI_Translate_Core
         if (!$this->needs_translation() || is_admin()) {
             return $content;
         }
-        
+
         // Skip empty content
         if (empty(trim($content))) {
             return $content;
         }
-        
+
         // Skip if already translated
         if (strpos($content, self::TRANSLATION_MARKER) !== false) {
             return $content;
         }
-        
+
         // Prevent recursion
         static $processing_plugin_content = false;
         if ($processing_plugin_content) {
             return $content;
         }
         $processing_plugin_content = true;
-        
+
         // Check if content contains HTML that should be preserved
         $contains_html = strpos($content, '<') !== false && strpos($content, '>') !== false;
-        
+
         // For HTML content, use translate_template_part which handles HTML properly
         if ($contains_html) {
             $translated = $this->translate_template_part($content, 'plugin_' . $plugin_type);
@@ -4200,7 +4214,7 @@ class AI_Translate_Core
                 true
             );
         }
-        
+
         $processing_plugin_content = false;
         return $translated;
     }
@@ -4264,23 +4278,23 @@ class AI_Translate_Core
     public static function is_plugin_supported(string $plugin_name): bool
     {
         $supported_plugins = self::get_supported_plugins();
-        
+
         if (!isset($supported_plugins[$plugin_name])) {
             return false;
         }
-        
+
         $plugin_info = $supported_plugins[$plugin_name];
-        
+
         // Check by class
         if (isset($plugin_info['class']) && class_exists($plugin_info['class'])) {
             return true;
         }
-        
+
         // Check by function
         if (isset($plugin_info['function']) && function_exists($plugin_info['function'])) {
             return true;
         }
-        
+
         return false;
     }
 
@@ -4301,23 +4315,23 @@ class AI_Translate_Core
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $search;
         }
 
         // Get the search terms
         $search_terms = $wp_query->get('s');
-        
+
         // Translate search terms to default language
         $translated_search_terms = $this->translate_search_terms($search_terms, $current_language, $default_language);
-        
+
         if (empty($translated_search_terms) || $translated_search_terms === $search_terms) {
             return $search;
         }
 
         global $wpdb;
-        
+
         // Replace the search query with translated terms
         // This searches in Dutch content using translated search terms
         // Use WordPress functions for safer database access
@@ -4327,7 +4341,7 @@ class AI_Translate_Core
             '%' . $escaped_terms . '%',
             '%' . $escaped_terms . '%'
         );
-        
+
         return $search;
     }
 
@@ -4354,10 +4368,10 @@ class AI_Translate_Core
                 false, // Not a title
                 true   // Use disk cache
             );
-            
+
             // Remove translation marker
             $translated_terms = self::remove_translation_marker($translated_terms);
-            
+
             return $translated_terms;
         } catch (\Exception $e) {
             // If translation fails, return original terms
@@ -4378,25 +4392,25 @@ class AI_Translate_Core
         if (!is_search()) {
             return $title;
         }
-        
+
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $title;
         }
-        
+
         // Skip language switcher - check if we're in the footer context
         if (did_action('wp_footer') || doing_action('wp_footer')) {
             return $title;
         }
-        
+
         // Check if this is already translated
         if (strpos($title, self::TRANSLATION_MARKER) !== false) {
             return self::remove_translation_marker($title);
         }
-        
+
         // Translate the title
         $translated_title = $this->translate_template_part($title, 'post_title');
         return self::remove_translation_marker($translated_title);
@@ -4415,20 +4429,20 @@ class AI_Translate_Core
         if (!is_search()) {
             return $excerpt;
         }
-        
+
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $excerpt;
         }
-        
+
         // Check if this is already translated
         if (strpos($excerpt, self::TRANSLATION_MARKER) !== false) {
             return self::remove_translation_marker($excerpt);
         }
-        
+
         // Translate the excerpt
         $translated_excerpt = $this->translate_template_part($excerpt, 'post_excerpt');
         return self::remove_translation_marker($translated_excerpt);
@@ -4445,16 +4459,16 @@ class AI_Translate_Core
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $form;
         }
-        
+
         // Check if this is already translated
         if (strpos($form, self::TRANSLATION_MARKER) !== false) {
             return self::remove_translation_marker($form);
         }
-        
+
         // Translate placeholders in search form
         $translated_form = preg_replace_callback(
             '/placeholder=[\'"]([^\'"]+)[\'"]/i',
@@ -4466,7 +4480,7 @@ class AI_Translate_Core
             },
             $form
         );
-        
+
         // Translate button text
         $translated_form = preg_replace_callback(
             '/<input[^>]*type=[\'"]submit[\'"][^>]*value=[\'"]([^\'"]+)[\'"][^>]*>/i',
@@ -4478,7 +4492,7 @@ class AI_Translate_Core
             },
             $translated_form
         );
-        
+
         // Translate label text
         $translated_form = preg_replace_callback(
             '/<label[^>]*>(.*?)<\/label>/i',
@@ -4490,7 +4504,7 @@ class AI_Translate_Core
             },
             $translated_form
         );
-        
+
         return $translated_form;
     }
 
@@ -4505,16 +4519,16 @@ class AI_Translate_Core
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $query;
         }
-        
+
         // Check if this is already translated
         if (strpos($query, self::TRANSLATION_MARKER) !== false) {
             return self::remove_translation_marker($query);
         }
-        
+
         // Translate the search query text
         $translated_query = $this->translate_template_part($query, 'search_query');
         return self::remove_translation_marker($translated_query);
@@ -4532,20 +4546,20 @@ class AI_Translate_Core
         if (!is_search()) {
             return $title;
         }
-        
+
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $title;
         }
-        
+
         // Check if this is already translated
         if (strpos($title, self::TRANSLATION_MARKER) !== false) {
             return self::remove_translation_marker($title);
         }
-        
+
         // Translate the title using the normal translation function
         $translated_title = $this->translate_template_part($title, 'search_page_title');
         return self::remove_translation_marker($translated_title);
@@ -4563,20 +4577,20 @@ class AI_Translate_Core
         if (!is_search()) {
             return $content;
         }
-        
+
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $content;
         }
-        
+
         // Check if this is already translated
         if (strpos($content, self::TRANSLATION_MARKER) !== false) {
             return self::remove_translation_marker($content);
         }
-        
+
         // Translate the content using the normal translation function
         $translated_content = $this->translate_template_part($content, 'search_content');
         return self::remove_translation_marker($translated_content);
@@ -4593,16 +4607,16 @@ class AI_Translate_Core
         // Skip if we're already on the default language
         $current_language = $this->get_current_language();
         $default_language = $this->default_language;
-        
+
         if ($current_language === $default_language) {
             return $form;
         }
-        
+
         // Check if this is already translated
         if (strpos($form, self::TRANSLATION_MARKER) !== false) {
             return self::remove_translation_marker($form);
         }
-        
+
         // Translate placeholders in the form using the normal translation function
         $translated_form = preg_replace_callback(
             '/placeholder=[\'"]([^\'"]+)[\'"]/i',
@@ -4614,7 +4628,7 @@ class AI_Translate_Core
             },
             $form
         );
-        
+
         // Translate value attributes
         $translated_form = preg_replace_callback(
             '/value=[\'"]([^\'"]+)[\'"]/i',
@@ -4626,97 +4640,62 @@ class AI_Translate_Core
             },
             $translated_form
         );
-        
+
         return $translated_form;
     }
 
+    
     /**
-     * Excludeert uitgevoerde HTML van shortcodes die niet vertaald mogen worden.
-     * Dit is nodig omdat shortcodes vaak al uitgevoerd zijn voordat ze bij onze vertaling komen.
-     *
-     * @param string $text De tekst met shortcode placeholders
-     * @param array<string, string> $extracted_shortcodes Referentie naar de extracted shortcodes array
-     * @return string Tekst met uitgevoerde HTML vervangen door placeholders
-     */
-    private function exclude_rendered_shortcode_html(string $text, array &$extracted_shortcodes): string
-    {
-        $placeholder_index = count($extracted_shortcodes);
-        
-        // Excludeer uitgevoerde HTML van shortcodes die niet vertaald mogen worden
-        $excluded_shortcodes = self::get_extractable_shortcodes();
-        
-        foreach ($excluded_shortcodes as $shortcode) {
-            // Speciale behandeling voor bws_google_captcha
-            if ($shortcode === 'bws_google_captcha') {
-                // Zoek naar de specifieke captcha HTML
-                $captcha_pattern = '/<div[^>]*class="gglcptch[^"]*"[^>]*>.*?<\/div>/is';
-                $text = preg_replace_callback(
-                    $captcha_pattern,
-                    function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
-                        $placeholder = '__AITRANSLATE_RENDERED_HTML_' . $placeholder_index . '__';
-                        $extracted_shortcodes[$placeholder] = $matches[0];
-                        $placeholder_index++;
-                        return $placeholder;
-                    },
-                    $text
-                );
-            } elseif ($shortcode === 'chatbot') {
-                // Speciale behandeling voor chatbot scripts en HTML
-                // Zoek naar chatbot script tags
-                $chatbot_script_pattern = '/<script[^>]*>.*?kchat_settings.*?<\/script>/is';
-                $text = preg_replace_callback(
-                    $chatbot_script_pattern,
-                    function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
-                        $placeholder = '__AITRANSLATE_RENDERED_HTML_' . $placeholder_index . '__';
-                        $extracted_shortcodes[$placeholder] = $matches[0];
-                        $placeholder_index++;
-                        return $placeholder;
-                    },
-                    $text
-                );
-                
-                // Zoek naar chatbot HTML divs
-                $chatbot_html_pattern = '/<div[^>]*id="chatbot-chatgpt[^"]*"[^>]*>.*?<\/div>/is';
-                $text = preg_replace_callback(
-                    $chatbot_html_pattern,
-                    function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
-                        $placeholder = '__AITRANSLATE_RENDERED_HTML_' . $placeholder_index . '__';
-                        $extracted_shortcodes[$placeholder] = $matches[0];
-                        $placeholder_index++;
-                        return $placeholder;
-                    },
-                    $text
-                );
-            } else {
-                // Zoek naar uitgevoerde HTML van andere shortcodes
-                $html_pattern = '/<div[^>]*class="[^"]*' . preg_quote($shortcode, '/') . '[^"]*"[^>]*>.*?<\/div>/is';
-                $text = preg_replace_callback(
-                    $html_pattern,
-                    function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
-                        $placeholder = '__AITRANSLATE_RENDERED_HTML_' . $placeholder_index . '__';
-                        $extracted_shortcodes[$placeholder] = $matches[0];
-                        $placeholder_index++;
-                        return $placeholder;
-                    },
-                    $text
-                );
-            }
-        }
-        
-        return $text;
-    }
-
-    /**
-     * Extract security tokens (nonces, tokens, etc.) to prevent translation.
-     *
-     * @param string $text
-     * @param array $placeholders
-     * @param int $placeholder_index
-     * @return string
+     * Extract security tokens and dynamic content to prevent translation.
+     * This function is called BEFORE translation to mask problematic elements.
+     * 
+     * @param string $text The text to process
+     * @param array $placeholders Reference to array that stores extracted elements
+     * @param int $placeholder_index Reference to placeholder counter
+     * @return string Text with problematic elements replaced by placeholders
      */
     private function extract_security_tokens(string $text, array &$placeholders, int &$placeholder_index): string
     {
-        // Extract WordPress nonces
+        // 1. Quotes normaliseren
+        $text = str_replace(['&#8221;', '&#8243;', '&quot;', '&#34;'], '"', $text);
+
+        // 2. Masker markers (__AITRANSLATE_XX__ etc.), ook kapotte/incomplete markers
+        $text = preg_replace_callback(
+            '/__AITRANSLATE(?:_SC)?(_[0-9]+)?(__)?/',
+            function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '__AITRANSLATE_MASKED_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $text
+        );
+
+        // 3. Masker data-start / data-end attributen (ook als quotes niet kloppen)
+        $text = preg_replace_callback(
+            '/data-(start|end)\s*=\s*["\']?[^"\'>\s]+["\']?/i',
+            function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '__AIDATA_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $text
+        );
+
+        // 4. Masker alle Mighty Builder shortcodes (openend, sluitend, met/zonder params)
+        $text = preg_replace_callback(
+            '/\[(\/?mb_\w+)([^\]]*)\]/i',
+            function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '__AISHORTCODE_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            },
+            $text
+        );
+
+        // 5. Mask WordPress nonces
         $nonce_pattern = '/name=["\']_wpnonce["\'][^>]*value=["\']([^"\']+)["\']/i';
         $text = preg_replace_callback($nonce_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
             $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
@@ -4725,7 +4704,7 @@ class AI_Translate_Core
             return $placeholder;
         }, $text);
 
-        // Extract WordPress placeholders (like {{POSTTITLE}}, {{SITENAME}}, etc.)
+        // 6. Mask WordPress placeholders (zoals {{POSTTITLE}})
         $wordpress_placeholder_pattern = '/\{\{[A-Z_]+\}\}/i';
         $text = preg_replace_callback($wordpress_placeholder_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
             $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
@@ -4734,25 +4713,25 @@ class AI_Translate_Core
             return $placeholder;
         }, $text);
 
-        // Extract other common security tokens
+        // 7. Mask overige bekende security/dynamic tokens
         $token_patterns = [
             // CSRF tokens
             '/name=["\']_token["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']csrf_token["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']security["\'][^>]*value=["\']([^"\']+)["\']/i',
-            
+
             // Contact Form 7 tokens
             '/name=["\']_wpcf7["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']_wpcf7_version["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']_wpcf7_locale["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']_wpcf7_unit_tag["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']_wpcf7_container_post["\'][^>]*value=["\']([^"\']+)["\']/i',
-            
+
             // WooCommerce tokens
             '/name=["\']woocommerce-process-checkout-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']woocommerce-login-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
             '/name=["\']woocommerce-register-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
-            
+
             // Generic token patterns
             '/value=["\']([a-zA-Z0-9]{32,})["\']/i', // 32+ character alphanumeric tokens
             '/value=["\']([a-f0-9]{32,})["\']/i',    // 32+ character hex tokens
@@ -4767,27 +4746,27 @@ class AI_Translate_Core
             }, $text);
         }
 
-        // Extract dynamic content that should not be translated
+        // 8. Mask dynamische patronen (IP, email, url, timestamp, sessie-id, JS events, data-attribs)
         $dynamic_patterns = [
             // IP addresses
             '/value=["\'](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})["\']/i',
-            
+
             // Email addresses
             '/value=["\']([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})["\']/i',
-            
+
             // URLs
             '/value=["\'](https?:\/\/[^\s"\'<>]+)["\']/i',
-            
+
             // Timestamps and dates
             '/value=["\'](\d{4}-\d{2}-\d{2})["\']/i',
             '/value=["\'](\d{2}:\d{2}:\d{2})["\']/i',
-            
+
             // Session IDs and dynamic IDs
             '/value=["\']([a-f0-9]{8,})["\']/i',
-            
+
             // JavaScript event handlers
             '/on\w+=["\'][^"\']*["\']/i',
-            
+
             // Data attributes with dynamic values
             '/data-\w+=["\'][^"\']*["\']/i',
         ];
@@ -4801,42 +4780,33 @@ class AI_Translate_Core
             }, $text);
         }
 
-        // Extract script tags and their content
-        $script_pattern = '/<script[^>]*>.*?<\/script>/is';
-        $text = preg_replace_callback($script_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
-            $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
-            $placeholders[$placeholder] = $matches[0];
-            $placeholder_index++;
-            return $placeholder;
-        }, $text);
+        // 9. Mask script/style tags
+        foreach (['script', 'style'] as $tag) {
+            $pattern = '/<' . $tag . '[^>]*>.*?<\/' . $tag . '>/is';
+            $text = preg_replace_callback($pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '__AICODE_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            }, $text);
+        }
 
-        // Extract style tags and their content
-        $style_pattern = '/<style[^>]*>.*?<\/style>/is';
-        $text = preg_replace_callback($style_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
-            $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
-            $placeholders[$placeholder] = $matches[0];
-            $placeholder_index++;
-            return $placeholder;
-        }, $text);
-
-        // Extract forms with dynamic content
+        // 10. Mask form met dynamische inhoud
         $form_pattern = '/<form[^>]*>.*?<\/form>/is';
         $text = preg_replace_callback($form_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
             $form_content = $matches[0];
-            
-            // Check if form contains dynamic content (nonces, tokens, etc.)
             if (preg_match('/(value=["\'][^"\']*["\']|on\w+=["\'][^"\']*["\']|data-\w+=["\'][^"\']*["\'])/i', $form_content)) {
-                $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
+                $placeholder = '__AIFORM_' . $placeholder_index . '__';
                 $placeholders[$placeholder] = $form_content;
                 $placeholder_index++;
                 return $placeholder;
             }
-            
-            return $form_content; // Return unchanged if no dynamic content
+            return $form_content;
         }, $text);
 
         return $text;
     }
+
 
     /**
      * Check of de tekst uitsluitend bestaat uit echt uitgesloten shortcodes (en whitespace).
@@ -4853,7 +4823,7 @@ class AI_Translate_Core
             $pattern = '/\[' . preg_quote($shortcode, '/') . '[^\]]*\](?:.*?\[\/' . preg_quote($shortcode, '/') . '\])?/is';
             $text = preg_replace($pattern, '', $text);
         }
-        
+
         // Dan gerenderde HTML van uitgesloten shortcodes verwijderen
         foreach ($excluded_shortcodes as $shortcode) {
             // Speciale behandeling voor bws_google_captcha
@@ -4864,7 +4834,7 @@ class AI_Translate_Core
                 // Chatbot scripts
                 $chatbot_script_pattern = '/<script[^>]*>.*?kchat_settings.*?<\/script>/is';
                 $text = preg_replace($chatbot_script_pattern, '', $text);
-                
+
                 // Chatbot HTML divs
                 $chatbot_html_pattern = '/<div[^>]*id="chatbot-chatgpt[^"]*"[^>]*>.*?<\/div>/is';
                 $text = preg_replace($chatbot_html_pattern, '', $text);
@@ -4878,7 +4848,7 @@ class AI_Translate_Core
                 $text = preg_replace($html_pattern, '', $text);
             }
         }
-        
+
         $text = trim(strip_tags($text));
         return $text === '';
     }
@@ -4899,26 +4869,26 @@ class AI_Translate_Core
         if (!$path || $path === '/') {
             return ''; // Homepage will be handled differently
         }
-        
+
         // Get the last segment (e.g., "about-us" from "/en/about-us/")
         $segments = array_filter(explode('/', trim($path, '/')));
         if (empty($segments)) {
             return '';
         }
-        
+
         $last_segment = end($segments);
-        
+
         // Skip if it's just a language code
         if (strlen($last_segment) <= 3 && preg_match('/^[a-z]{2,3}$/i', $last_segment)) {
             return '';
         }
-        
+
         // URL decode the segment to handle non-Roman characters
         $decoded_segment = urldecode($last_segment);
-        
+
         // Check if the decoded segment contains non-Roman characters
         $has_non_roman = preg_match('/[^\x00-\x7F]/', $decoded_segment);
-        
+
         // For non-Roman languages with non-Roman characters in URL, use the decoded text
         if ($has_non_roman) {
             // Convert URL-encoded text to readable title
@@ -4926,11 +4896,11 @@ class AI_Translate_Core
             // Don't use ucwords for non-Roman languages as it may not work correctly
             return $title;
         }
-        
+
         // For Roman languages or URLs with only Roman characters
         $title = str_replace(['-', '_'], ' ', $decoded_segment);
         $title = ucwords($title);
-        
+
         return $title;
     }
 
@@ -5036,7 +5006,7 @@ class AI_Translate_Core
                         $og_image = $image_url;
                     }
                 }
-                
+
                 // Fallback naar eerste afbeelding in content
                 if (empty($og_image)) {
                     $content = get_post_field('post_content', $post->ID, 'raw');
@@ -5081,15 +5051,15 @@ class AI_Translate_Core
         if (!empty($og_title)) {
             echo '<meta property="og:title" content="' . esc_attr(trim($og_title)) . '">' . "\n";
         }
-        
+
         if (!empty($og_description)) {
             echo '<meta property="og:description" content="' . esc_attr(trim($og_description)) . '">' . "\n";
         }
-        
+
         if (!empty($og_image)) {
             echo '<meta property="og:image" content="' . esc_url($og_image) . '">' . "\n";
         }
-        
+
         if (!empty($og_url)) {
             echo '<meta property="og:url" content="' . esc_url($og_url) . '">' . "\n";
         }
@@ -5109,26 +5079,26 @@ class AI_Translate_Core
         if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
             return;
         }
-        
+
         // Skip if post is not published
         if ($post->post_status !== 'publish') {
             return;
         }
-        
+
         // Get the current slug from the post
         $current_slug = $post->post_name;
-        
+
         // Skip if slug is empty
         if (empty($current_slug)) {
             return;
         }
-        
+
         global $wpdb;
         $table_name = $wpdb->prefix . 'ai_translate_slugs';
-        
+
         // Haal de oude slug uit de postmeta
         $old_slug = get_post_meta($post_id, '_ai_translate_original_slug', true);
-        
+
         // STEP 1: VERWIJDER ALLE RECORDS VOOR DEZE POST_ID
         $wpdb->delete(
             $table_name,
@@ -5136,7 +5106,7 @@ class AI_Translate_Core
             ['%d']
         );
         $deleted_count = $wpdb->rows_affected;
-        
+
         // STEP 2: VERWIJDER ALLE RECORDS MET DE OUDE SLUG (als original_slug)
         if (!empty($old_slug) && $old_slug !== $current_slug) {
             $wpdb->delete(
@@ -5144,9 +5114,9 @@ class AI_Translate_Core
                 ['original_slug' => $old_slug],
                 ['%s']
             );
-                    $deleted_count = $wpdb->rows_affected;
+            $deleted_count = $wpdb->rows_affected;
         }
-        
+
         // STEP 3: VERWIJDER ALLE RECORDS MET DE OUDE SLUG (als translated_slug)
         if (!empty($old_slug) && $old_slug !== $current_slug) {
             $wpdb->delete(
@@ -5154,9 +5124,9 @@ class AI_Translate_Core
                 ['translated_slug' => $old_slug],
                 ['%s']
             );
-                    $deleted_count = $wpdb->rows_affected;
+            $deleted_count = $wpdb->rows_affected;
         }
-        
+
         // STEP 4: VERWIJDER ALLE RECORDS MET DE NIEUWE SLUG (als translated_slug)
         // Dit zorgt ervoor dat als we teruggaan naar een oude slug, alle records worden verwijderd
         $wpdb->delete(
@@ -5164,9 +5134,9 @@ class AI_Translate_Core
             ['translated_slug' => $current_slug],
             ['%s']
         );
-        
-            $deleted_count = $wpdb->rows_affected;
-        
+
+        $deleted_count = $wpdb->rows_affected;
+
         // Update de postmeta met de huidige slug
         update_post_meta($post_id, '_ai_translate_original_slug', $current_slug);
 
@@ -5174,34 +5144,32 @@ class AI_Translate_Core
         $settings = $this->get_settings();
         $all_languages = array_keys($this->get_available_languages());
         $default_language = $settings['default_language'] ?? 'nl';
-        
+
         foreach ($all_languages as $language) {
             if ($language === $default_language) {
                 continue;
             }
-            
+
             // Clear memory cache voor nieuwe slug
             $cache_key = "slug_{$current_slug}_{$post->post_type}_{$default_language}_{$language}";
             unset(self::$translation_memory[$cache_key]);
-            
+
             // Clear memory cache voor oude slug (als die bestaat)
             if (!empty($old_slug) && $old_slug !== $current_slug) {
                 $old_cache_key = "slug_{$old_slug}_{$post->post_type}_{$default_language}_{$language}";
                 unset(self::$translation_memory[$old_cache_key]);
             }
-            
+
             // Clear slug text cache
             $readable_text = str_replace(['-', '_'], ' ', $current_slug);
             $readable_text = ucwords($readable_text);
             $slug_text_cache_key = "slug_text_{$readable_text}_{$default_language}_{$language}";
             unset(self::$translation_memory[$slug_text_cache_key]);
-            
+
             // Clear transient cache
             $transient_key = "ai_translate_slug_{$current_slug}_{$post->post_type}_{$default_language}_{$language}";
             delete_transient($transient_key);
         }
-        
-    
     }
 
     /**
@@ -5215,17 +5183,17 @@ class AI_Translate_Core
     private function get_caching_strategy(string $text, string $context = ''): string
     {
         $length = strlen($text);
-        
+
         // Voor UI elementen, gebruik globale UI cache
         if (in_array($context, ['widget_title', 'menu_item', 'search_placeholder'])) {
             return 'global_ui';
         }
-        
+
         // Voor zeer korte teksten, alleen memory cache (per request)
         if ($length < 10) {
             return 'memory_only';
         }
-        
+
         // Voor normale content, gebruik alle cache lagen
         return 'normal';
     }
@@ -5242,13 +5210,13 @@ class AI_Translate_Core
     {
         $normalized_text = $this->normalize_text_for_cache($text);
         $cache_identifier = md5($normalized_text . $target_language);
-        
+
         // 1. Check Memory Cache eerst
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
         if (isset(self::$translation_memory[$memory_key])) {
             return self::$translation_memory[$memory_key];
         }
-        
+
         // 2. Check Transient Cache
         $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
         $cached = get_transient($transient_key);
@@ -5256,7 +5224,7 @@ class AI_Translate_Core
             self::$translation_memory[$memory_key] = $cached; // Update memory cache
             return $cached;
         }
-        
+
         // 3. Check Disk Cache
         $disk_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
         $disk_cached = $this->get_cached_content($disk_key);
@@ -5265,7 +5233,7 @@ class AI_Translate_Core
             set_transient($transient_key, $disk_cached, $this->expiration_hours * 3600); // Update transient
             return $disk_cached;
         }
-        
+
         return null; // Niet gevonden in cache
     }
 
@@ -5281,15 +5249,15 @@ class AI_Translate_Core
     {
         $normalized_text = $this->normalize_text_for_cache($text);
         $cache_identifier = md5($normalized_text . $target_language);
-        
+
         // 1. Memory Cache (per request)
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
         self::$translation_memory[$memory_key] = $translation;
-        
+
         // 2. Transient Cache (database)
         $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
         set_transient($transient_key, $translation, $this->expiration_hours * 3600);
-        
+
         // 3. Disk Cache (bestanden)
         $disk_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
         $this->save_to_cache($disk_key, $translation);
@@ -5307,10 +5275,10 @@ class AI_Translate_Core
     {
         // HTML tags verwijderen
         $text = wp_strip_all_tags($text);
-        
+
         // Trim whitespace
         $text = trim($text);
-        
+
         return $text;
     }
 
@@ -5321,10 +5289,10 @@ class AI_Translate_Core
     public function clear_global_ui_cache(): void
     {
         global $wpdb;
-        
+
         // Clear memory cache for global UI elements
         $all_languages = array_keys($this->get_available_languages());
-        
+
         foreach ($all_languages as $language) {
             if ($language !== $this->default_language) {
                 // Clear memory cache for global UI elements
@@ -5333,20 +5301,20 @@ class AI_Translate_Core
                         unset(self::$translation_memory[$key]);
                     }
                 }
-                
+
                 // Clear transient cache for global UI elements
                 $transient_patterns = [
                     '_transient_ai_translate_trans_%',
                     '_transient_timeout_ai_translate_trans_%'
                 ];
-                
+
                 foreach ($transient_patterns as $pattern) {
                     $wpdb->query($wpdb->prepare(
                         "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
                         $pattern
                     ));
                 }
-                
+
                 // Clear disk cache for global UI elements
                 $cache_dir = $this->get_cache_dir();
                 if (is_dir($cache_dir)) {
@@ -5360,5 +5328,4 @@ class AI_Translate_Core
             }
         }
     }
-
 }
