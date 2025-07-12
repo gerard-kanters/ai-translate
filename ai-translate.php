@@ -727,64 +727,7 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         }, 10, 3);
     }); // End of init action
 
-    // --- Algemene Plugin Output Translation via Output Buffering ---
-    // Deze methode vangt alle output op die door plugins wordt gegenereerd
-    add_action('template_redirect', function () use ($core) {
-        // Skip in admin
-        if (is_admin()) {
-            return;
-        }
-        
-        // Skip if translation not needed
-        if (!$core->needs_translation()) {
-            return;
-        }
-        
-        // Start output buffering to catch all plugin output
-        ob_start(function ($buffer) use ($core) {
-            // Check if buffer is a string before using trim()
-            if (!is_string($buffer)) {
-                return $buffer;
-            }
-            
-            if (empty(trim($buffer))) {
-                return $buffer;
-            }
-            
-            // Skip if already translated
-            if (strpos($buffer, AI_Translate_Core::TRANSLATION_MARKER) !== false) {
-                return $buffer;
-            }
-            
-            // Skip if it's just HTML structure without translatable content
-            if (preg_match('/^<!DOCTYPE|<html|<head|<body|<script|<style|<link|<meta/i', $buffer)) {
-                return $buffer;
-            }
-            
-            // Generate cache key for this buffer
-            $cache_key = 'output_buffer_' . $core->get_current_language() . '_' . md5($buffer);
-            $cached = $core->get_cached_content($cache_key);
-            
-            if ($cached !== false) {
-                return $cached;
-            }
-            
-            // Translate the buffer
-            $translated_buffer = $core->translate_template_part($buffer, 'output_buffer');
-            
-            // Cache the result
-            $core->save_to_cache($cache_key, $translated_buffer);
-            
-            return $translated_buffer;
-        });
-    }, 1);
-    
-    // Clean up output buffer at the end
-    add_action('shutdown', function () {
-        if (ob_get_level() > 0) {
-            ob_end_flush();
-        }
-    }, 999);
+    // OUTPUT BUFFERING VERWIJDERD - Werkt niet goed met WordPress filters
 
     // Hook om slug vertalingen te resetten wanneer de originele slug verandert
     add_action('wp_insert_post', function ($post_id, $post, $update) {

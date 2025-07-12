@@ -51,9 +51,6 @@ class AI_Translate_Core
     /** @var array<int> Excluded post IDs */
     private $excluded_posts = [];
 
-    /** @var array<string,string> Cache voor vertalingen binnen hetzelfde request */
-    private static $translation_memory = [];
-
     /** @var string|null Cached current language */
     private $current_language = null;
 
@@ -785,16 +782,6 @@ class AI_Translate_Core
 
         // SHORTCODE-ONLY: only in memory cache!
         if ($only_excluded) {
-            if (isset(self::$translation_memory[$memory_key])) {
-                $result = self::$translation_memory[$memory_key];
-                if (!empty($shortcodes)) {
-                    $result = $this->restore_shortcode_pairs($result, $shortcodes); // Use new restore function
-                }
-                return $result;
-            }
-            // Use original text with excluded shortcodes restored
-            $result = $text; // Start with original text
-            self::$translation_memory[$memory_key] = $text; // Cache original text in memory only
             return $text;
         }
 
@@ -803,20 +790,14 @@ class AI_Translate_Core
             $global_cached = $this->get_global_ui_element($text, $target_language);
             if ($global_cached !== null) {
                 if (!empty($shortcodes)) {
-                    $global_cached = $this->restore_shortcode_pairs($global_cached, $shortcodes);
+                    $global_cached = $this->restore_shortcode_pairs($global_cached, $shortcodes); // Use new restore function
                 }
                 return $global_cached;
             }
         }
 
         // Normal cache flow (also for mixed content)
-        if (isset(self::$translation_memory[$memory_key])) {
-            $result = self::$translation_memory[$memory_key];
-            if (!empty($shortcodes)) {
-                $result = $this->restore_shortcode_pairs($result, $shortcodes); // Use new restore function
-            }
-            return $result;
-        }
+        // MEMORY CACHE VERWIJDERD
 
         // --- Disk Cache Key ---
         $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
@@ -832,8 +813,7 @@ class AI_Translate_Core
                     if (!empty($shortcodes)) {
                         $result = $this->restore_shortcode_pairs($result, $shortcodes);
                     }
-                    self::$translation_memory[$memory_key] = $result; // Update memory cache
-                    // Also save to transient for faster access on subsequent requests (if object cache is active)
+                    // Opslaan in transient voor snellere toegang
                     $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
                     set_transient($transient_key, $result, $this->expiration_hours * 3600);
                     return $result;
@@ -850,8 +830,7 @@ class AI_Translate_Core
                 if (!empty($shortcodes)) {
                     $result = $this->restore_shortcode_pairs($result, $shortcodes);
                 }
-                self::$translation_memory[$memory_key] = $result;
-                // If it comes from transient, also save it to disk cache (if allowed)
+                // Als het uit transient komt, ook opslaan in disk cache (indien toegestaan)
                 if ($use_disk_cache) {
                     $this->save_to_cache($disk_cache_key, $result);
                 }
@@ -950,8 +929,7 @@ class AI_Translate_Core
         }
 
         // --- Cache the translated text ---
-        // ALWAYS store the result in memory cache for this request.
-        self::$translation_memory[$memory_key] = $final_translated_text;
+        // MEMORY CACHE VERWIJDERD
 
         // Store in persistent cache (transient/disk) only if the marker is present.
         if (strpos((string)$final_translated_text, self::TRANSLATION_MARKER) !== false) {
@@ -967,9 +945,6 @@ class AI_Translate_Core
                     $this->save_to_cache($disk_cache_key, $final_translated_text);
                 }
             }
-        } else {
-            // If the marker is missing (API returned original text), log this but DO NOT save to transient/disk again.
-            // The memory cache has already been updated.
         }
 
         // Return the final text (translated or original)
@@ -1208,9 +1183,7 @@ class AI_Translate_Core
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
         // --- CUSTOM Memory Cache Check ---
-        if (isset(self::$translation_memory[$memory_key])) {
-            return self::$translation_memory[$memory_key];
-        }
+        // MEMORY CACHE VERWIJDERD
         // --- END CUSTOM Memory Cache Check ---
 
         $this->last_translate_type = $type;
@@ -1220,7 +1193,6 @@ class AI_Translate_Core
 
         // SHORTCODE-ONLY: alleen in memory cache!
         if ($only_excluded) {
-            self::$translation_memory[$memory_key] = $content;
             return $content;
         }
 
@@ -1241,7 +1213,7 @@ class AI_Translate_Core
 
         // ALWAYS update memory cache with the result (with or without marker)
         // This ensures that on subsequent calls within this request, the cache hit above works.
-        self::$translation_memory[$memory_key] = $translated;
+        // MEMORY CACHE VERWIJDERD
 
 
         return $translated;
@@ -1273,19 +1245,12 @@ class AI_Translate_Core
         $target_language = $this->get_current_language();
         // Use 'post_' + ID as identifier for post content memory cache
         $cache_identifier = 'post_' . $post_id;
-        $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
-
-        if (isset(self::$translation_memory[$memory_key])) {
-            return self::$translation_memory[$memory_key];
-        }
+        // MEMORY CACHE VERWIJDERD
 
         // Call translate_template_part (which uses translate_text with disk cache)
         $translated = $this->translate_template_part((string)$content, 'post_content');
 
-        // Only set in memory cache if marker is present or target language is default
-        if (strpos($translated, self::TRANSLATION_MARKER) !== false || $target_language === $this->default_language) {
-            self::$translation_memory[$memory_key] = $translated;
-        }
+        return $translated;
 
         return $translated;
     }
@@ -1808,20 +1773,10 @@ class AI_Translate_Core
         $cache_identifier = md5(json_encode($sorted_items) . $type . $source_language . $target_language);
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_mem');
 
-        // Memory Cache Check
-        if (isset(self::$translation_memory[$memory_key])) {
-            $cached = self::$translation_memory[$memory_key];
-            // Moet een numerieke array zijn met correct aantal items
-            if (is_array($cached) && count($cached) === count($items_to_translate) && array_keys($cached) === range(0, count($cached) - 1)) {
-                return array_combine($original_keys, $cached); // Combineer met originele keys
-            }
-            unset(self::$translation_memory[$memory_key]);
-        }
+        // MEMORY CACHE VERWIJDERD
 
         // SHORTCODE-ONLY: alleen in memory cache!
         if ($all_items_excluded) {
-            // Cache original items in memory only
-            self::$translation_memory[$memory_key] = $items_to_translate;
             return array_combine($original_keys, $items_to_translate);
         }
 
@@ -1830,16 +1785,15 @@ class AI_Translate_Core
             $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
             $cached = get_transient($transient_key);
             // Moet een numerieke array zijn met correct aantal items
-            if ($cached !== false && is_array($cached) && count($cached) === count($items_to_translate) && array_keys($cached) === range(0, count($cached) - 1)) {
-                self::$translation_memory[$memory_key] = $cached; // Update memory cache
-                // If it comes from transient, also save it to disk cache only if content changed
-                $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
-                $existing_cache = $this->get_cached_content($disk_cache_key);
-                if ($existing_cache === false || $existing_cache !== json_encode($cached)) {
-                    $this->save_to_cache($disk_cache_key, json_encode($cached));
+                            if ($cached !== false && is_array($cached) && count($cached) === count($items_to_translate) && array_keys($cached) === range(0, count($cached) - 1)) {
+                    // If it comes from transient, also save it to disk cache only if content changed
+                    $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+                    $existing_cache = $this->get_cached_content($disk_cache_key);
+                    if ($existing_cache === false || $existing_cache !== json_encode($cached)) {
+                        $this->save_to_cache($disk_cache_key, json_encode($cached));
+                    }
+                    return array_combine($original_keys, $cached); // Combineer met originele keys
                 }
-                return array_combine($original_keys, $cached); // Combineer met originele keys
-            }
         }
 
         // Disk Cache Check (alleen als niet alle items uitgesloten zijn)
@@ -1849,7 +1803,7 @@ class AI_Translate_Core
             if ($disk_cached !== false) {
                 $decoded = json_decode($disk_cached, true);
                 if (is_array($decoded) && count($decoded) === count($items_to_translate) && array_keys($decoded) === range(0, count($decoded) - 1)) {
-                    self::$translation_memory[$memory_key] = $decoded; // Update memory cache
+                    // MEMORY CACHE VERWIJDERD
                     // Also save to transient for faster access on subsequent requests
                     $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
                     set_transient($transient_key, $decoded, $this->expiration_hours * 3600);
@@ -1979,7 +1933,7 @@ class AI_Translate_Core
                             $this->save_to_cache($disk_cache_key, json_encode($translated_array));
                         }
                     }
-                    self::$translation_memory[$memory_key] = $translated_array;
+                    // MEMORY CACHE VERWIJDERD
 
                     return array_combine($original_keys, $translated_array);
                 }
@@ -2825,10 +2779,7 @@ class AI_Translate_Core
         // Generate cache key for slug translation
         $cache_key = "slug_{$original_slug}_{$post_type}_{$source_language}_{$target_language}";
 
-        // Check memory cache first
-        if (isset(self::$translation_memory[$cache_key])) {
-            return self::$translation_memory[$cache_key];
-        }
+        // MEMORY CACHE VERWIJDERD
 
         // Check custom database table first - dit is nu de primaire bron
         // Use WordPress functions for safer database access
@@ -2840,7 +2791,7 @@ class AI_Translate_Core
         ));
 
         if ($db_cached_slug !== null) {
-            self::$translation_memory[$cache_key] = $db_cached_slug;
+            // MEMORY CACHE VERWIJDERD
             return $db_cached_slug;
         }
 
@@ -2875,7 +2826,7 @@ class AI_Translate_Core
                     }
                 }
             }
-            self::$translation_memory[$cache_key] = $cached_slug;
+            // MEMORY CACHE VERWIJDERD
             return $cached_slug;
         }
 
@@ -2900,8 +2851,7 @@ class AI_Translate_Core
             // Convert back to slug format
             $translated_slug = $this->text_to_slug($translated_text);
 
-            // Cache the result in memory
-            self::$translation_memory[$cache_key] = $translated_slug;
+            // MEMORY CACHE VERWIJDERD
 
             // Save to custom database table - gebruik INSERT IGNORE om te voorkomen dat bestaande vertalingen worden overschreven
             if ($post_id !== null) {
@@ -2939,14 +2889,14 @@ class AI_Translate_Core
                             ));
                             if ($existing_slug !== null) {
                                 $translated_slug = $existing_slug;
-                                self::$translation_memory[$cache_key] = $translated_slug;
+                                // MEMORY CACHE VERWIJDERD
                             }
                         }
                     }
                 } else {
                     // Gebruik de bestaande vertaling
                     $translated_slug = $existing_slug;
-                    self::$translation_memory[$cache_key] = $translated_slug;
+                    // MEMORY CACHE VERWIJDERD
                 }
             }
 
@@ -3176,10 +3126,7 @@ class AI_Translate_Core
         $cache_identifier = md5($normalized_title . 'widget' . $target_language);
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
-        // Als het item in de memory cache zit voor dit request, geef het *altijd* terug.
-        if (isset(self::$translation_memory[$memory_key])) {
-            return self::$translation_memory[$memory_key];
-        }
+        // MEMORY CACHE VERWIJDERD
 
         // Roep translate_template_part aan, die de volledige cache- en vertaallogica bevat
         // Geef 'widget_title' mee als type voor context en correcte cache-instellingen (geen disk cache)
@@ -3280,10 +3227,7 @@ class AI_Translate_Core
      *
      * @return array
      */
-    public static function get_all_memory_cache(): array
-    {
-        return self::$translation_memory;
-    }
+    // MEMORY CACHE FUNCTIES VERWIJDERD
 
     /**
      * Check if a key exists in the memory cache.
@@ -3291,33 +3235,7 @@ class AI_Translate_Core
      * @param string $key
      * @return bool
      */
-    public static function is_in_memory_cache(string $key): bool
-    {
-        return isset(self::$translation_memory[$key]);
-    }
-
-    /**
-     * Get a value from the memory cache.
-     *
-     * @param string $key
-     * @return mixed|null
-     */
-    public static function get_from_memory_cache(string $key)
-    {
-        return self::$translation_memory[$key] ?? null;
-    }
-
-    /**
-     * Set a value in the memory cache.
-     *
-     * @param string $key
-     * @param mixed $value
-     * @return void
-     */
-    public static function set_in_memory_cache(string $key, $value): void
-    {
-        self::$translation_memory[$key] = $value;
-    }
+    // MEMORY CACHE FUNCTIES VERWIJDERD
 
     /**
      * Validate API settings by attempting to fetch models
@@ -3716,21 +3634,13 @@ class AI_Translate_Core
             $cache_identifier = md5(json_encode($original_fields_for_cache) . 'fluentform_field' . $source_language . $current_language);
             $memory_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_mem');
 
-            // Check memory cache first
-            $translated_fields = null;
-            if (isset(self::$translation_memory[$memory_key])) {
-                $cached = self::$translation_memory[$memory_key];
-                if (is_array($cached) && count($cached) === count($fields_to_translate)) {
-                    $translated_fields = array_combine(array_keys($fields_to_translate), $cached);
-                }
-            }
+            // MEMORY CACHE VERWIJDERD
 
             // Check transient cache if not in memory
             if (!isset($translated_fields)) {
                 $transient_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_trans');
                 $cached = get_transient($transient_key);
                 if ($cached !== false && is_array($cached) && count($cached) === count($fields_to_translate)) {
-                    self::$translation_memory[$memory_key] = $cached;
                     $translated_fields = array_combine(array_keys($fields_to_translate), $cached);
                 }
             }
@@ -3742,7 +3652,6 @@ class AI_Translate_Core
                 if ($disk_cached !== false) {
                     $decoded = json_decode($disk_cached, true);
                     if (is_array($decoded) && count($decoded) === count($fields_to_translate)) {
-                        self::$translation_memory[$memory_key] = $decoded;
                         $transient_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_trans');
                         set_transient($transient_key, $decoded, $this->expiration_hours * 3600);
                         $translated_fields = array_combine(array_keys($fields_to_translate), $decoded);
@@ -3858,8 +3767,7 @@ class AI_Translate_Core
             ));
         }
 
-        // Clear ALL memory cache (not just menu-related)
-        self::$translation_memory = [];
+        // MEMORY CACHE VERWIJDERD
 
         // Also clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
@@ -3920,8 +3828,7 @@ class AI_Translate_Core
     {
         global $wpdb;
 
-        // Leeg memory cache
-        self::$translation_memory = [];
+        // MEMORY CACHE VERWIJDERD
 
         // Verwijder alle relevante transients, maar NIET slug cache
         // Use WordPress functions for safer transient deletion
@@ -4767,8 +4674,8 @@ class AI_Translate_Core
             // JavaScript event handlers
             '/on\w+=["\'][^"\']*["\']/i',
 
-            // Data attributes with dynamic values
-            '/data-\w+=["\'][^"\']*["\']/i',
+            // Data attributes with dynamic values (exclude FluentForm data attributes)
+            '/data-(?!form_id|form_instance|name|type|required|placeholder|value|form)\w+=["\'][^"\']*["\']/i',
         ];
 
         foreach ($dynamic_patterns as $pattern) {
@@ -5211,17 +5118,12 @@ class AI_Translate_Core
         $normalized_text = $this->normalize_text_for_cache($text);
         $cache_identifier = md5($normalized_text . $target_language);
 
-        // 1. Check Memory Cache eerst
-        $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
-        if (isset(self::$translation_memory[$memory_key])) {
-            return self::$translation_memory[$memory_key];
-        }
+        // MEMORY CACHE VERWIJDERD
 
         // 2. Check Transient Cache
         $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
         $cached = get_transient($transient_key);
         if ($cached !== false) {
-            self::$translation_memory[$memory_key] = $cached; // Update memory cache
             return $cached;
         }
 
@@ -5229,7 +5131,6 @@ class AI_Translate_Core
         $disk_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
         $disk_cached = $this->get_cached_content($disk_key);
         if ($disk_cached !== false) {
-            self::$translation_memory[$memory_key] = $disk_cached; // Update memory cache
             set_transient($transient_key, $disk_cached, $this->expiration_hours * 3600); // Update transient
             return $disk_cached;
         }
@@ -5250,9 +5151,7 @@ class AI_Translate_Core
         $normalized_text = $this->normalize_text_for_cache($text);
         $cache_identifier = md5($normalized_text . $target_language);
 
-        // 1. Memory Cache (per request)
-        $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
-        self::$translation_memory[$memory_key] = $translation;
+        // MEMORY CACHE VERWIJDERD
 
         // 2. Transient Cache (database)
         $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
@@ -5295,12 +5194,7 @@ class AI_Translate_Core
 
         foreach ($all_languages as $language) {
             if ($language !== $this->default_language) {
-                // Clear memory cache for global UI elements
-                foreach (self::$translation_memory as $key => $value) {
-                    if (strpos($key, 'mem') !== false) {
-                        unset(self::$translation_memory[$key]);
-                    }
-                }
+                        // MEMORY CACHE VERWIJDERD
 
                 // Clear transient cache for global UI elements
                 $transient_patterns = [

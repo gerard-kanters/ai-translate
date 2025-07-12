@@ -658,14 +658,14 @@ function render_admin_page()
 
                 <!-- Clear memory cache -->
                 <h3>Clear memory cache</h3>
-                <p>Clear only memory cache and all transients (database). Disk cache will remain and be used to refill memory/transients.</p>
+                <p>Clear only memory cache and all transients (database). Disk cache will remain and be used to refill memory cache.</p>
                 <?php
                 $memory_cache_message = '';
                 if (isset($_POST['clear_memory_cache']) && check_admin_referer('clear_memory_cache_action', 'clear_memory_cache_nonce')) {
                     if (class_exists('AI_Translate_Core')) {
                         $core = AI_Translate_Core::get_instance();
                         $core->clear_memory_and_transients();
-                        $memory_cache_message = '<div class="notice notice-success"><p>Memory cache and transients successfully cleared.</p></div>';
+                        $memory_cache_message = '<div class="notice notice-success"><p>Memory cache successfully cleared.</p></div>';
                     }
                 }
                 if (!empty($memory_cache_message)) {
