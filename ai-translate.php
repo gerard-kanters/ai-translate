@@ -3,7 +3,7 @@
 Plugin Name: AI Translate
 Plugin URI: https://netcare.nl/product/ai-translate-voor-wordpress/
 Description: Translate your wordpress site with AI 🤖
-Version: 1.31
+Version: 1.32
 Author: NetCare
 Author URI: https://netcare.nl/
 License: GPL2
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('AI_TRANSLATE_VERSION', '1.31');
+define('AI_TRANSLATE_VERSION', '1.32');
 define('AI_TRANSLATE_FILE', __FILE__);
 define('AI_TRANSLATE_DIR', plugin_dir_path(__FILE__));
 define('AI_TRANSLATE_URL', plugin_dir_url(__FILE__));
@@ -347,8 +347,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         return $query;
     }, 10, 1);
 
-
-
     // Zoekresultaten content vertaling - altijd laden
     add_filter('the_content', function($content) use ($core) {
         $settings = $core->get_settings();
@@ -478,8 +476,6 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
         $processing_comment_form = false;
         return $defaults;
     }, 20);
-
-
 
     add_filter('the_content', function ($content) use ($core) {
         // Controleer of de marker al aanwezig is
@@ -1596,5 +1592,3 @@ function ai_translate_migrate_api_keys_to_array(): void
 
 // Voer migratie uit bij admin init
 add_action('admin_init', __NAMESPACE__ . '\\ai_translate_migrate_api_keys_to_array');
-
-

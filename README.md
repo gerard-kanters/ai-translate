@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.8  
-Stable tag: 1.31  
+Stable tag: 1.32 
 Requires PHP: 7.4  
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
@@ -155,7 +155,7 @@ AI Translate requires an API key for one of the supported providers:
 
 ## Changelog
 
-### 1.31
+### 1.32
 - Fix menu issues with translated URLs  
 - imnplemented translated open graph tags
 - Better prompting and reduced placeholder translation issues. 
