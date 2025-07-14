@@ -1028,7 +1028,7 @@ class AI_Translate_Core
      */
     private function build_translation_prompt(string $source_language, string $target_language, bool $is_title = false, string $text_to_translate = ''): string
     {
-        // Determine if this is a short menu item (less than 50 characters)
+        // Determine if this is a menu item (less than 50 characters)
         $text_length = strlen(trim($text_to_translate));
         $is_short_menu_item = $text_length <= 50 && $is_title;
 
@@ -1068,10 +1068,10 @@ class AI_Translate_Core
             }
         }
 
-        // Special instructions for short menu items
+        // Special instructions for menu items
         $menu_instructions = '';
         if ($is_short_menu_item) {
-            $menu_instructions = "\n\nMENU ITEM TRANSLATION RULES:\n- Translate ONLY the short menu text (1-3 words maximum)\n- Do NOT include any website context in the translation\n- Do NOT add explanations or additional text\n- Keep the translation concise and direct\n- Return ONLY the translated menu text, nothing else\n- If the input is 'Contact', translate to the equivalent short word in the target language\n- If the input is 'About', translate to the equivalent short word in the target language\n- If the input is 'Home', translate to the equivalent short word in the target language\n- For navigation items, use the most common and direct translation";
+            $menu_instructions = "\n\nMENU ITEM TRANSLATION RULES:\n- Translate the menu text completely and accurately\n- Do NOT include any website context in the translation\n- Do NOT add explanations or additional text\n- Return ONLY the translated menu text, nothing else\n- If the input is 'Contact', translate to the equivalent word in the target language\n- If the input is 'About', translate to the equivalent word in the target language\n- If the input is 'Home', translate to the equivalent word in the target language\n- For navigation items, use the most common and direct translation\n- Provide the full translation - display shortening will be handled separately";
         }
 
         $system_prompt = sprintf(
@@ -1911,19 +1911,8 @@ class AI_Translate_Core
                             // If translation is not a string, use original item
                             $translated_array[$index] = $items_to_translate[$index] ?? '';
                         } else {
-                            // For menu items, enforce short translations (max 50 characters)
-                            if ($is_menu_batch && strlen(trim($value)) > 50) {
-                                // If translation is too long, use original or create a shorter version
-                                $original = $items_to_translate[$index] ?? '';
-                                $words = explode(' ', trim($value));
-                                if (count($words) > 3) {
-                                    // Take only first 3 words for menu items
-                                    $translated_array[$index] = implode(' ', array_slice($words, 0, 3));
-                                } else {
-                                    // If still too long, use original
-                                    $translated_array[$index] = $original;
-                                }
-                            }
+                            // No length restrictions for translations - we'll handle display shortening later
+                            // The full translation is preserved for use in title attributes
                         }
                     }
 
@@ -3045,6 +3034,9 @@ class AI_Translate_Core
                 // Generate title from URL for non-homepage items
                 $generated_title = $this->generate_title_from_url($item->url, $target_language);
                 if (!empty($generated_title)) {
+                    // Store full title in attr_title for tooltip
+                    $item->attr_title = $generated_title;
+                    // Use generated title for display (will be shortened later)
                     $item->title = $generated_title;
                 }
             }
@@ -3085,12 +3077,27 @@ class AI_Translate_Core
             // Verwerk titels: alleen voor homepage items die via API zijn vertaald
             if (isset($titles_to_translate[$index])) {
                 $original_title = $titles_to_translate[$index];
-                $new_title = (isset($translated_titles[$index]) && !empty($translated_titles[$index])) ? (string)$translated_titles[$index] : $original_title;
-                if (!empty($new_title)) {
-                    $item->title = $this->clean_html_string($new_title); // Apply cleaning
+                $full_translated_title = (isset($translated_titles[$index]) && !empty($translated_titles[$index])) ? (string)$translated_titles[$index] : $original_title;
+                
+                if (!empty($full_translated_title)) {
+                    // Clean the full translation
+                    $full_translated_title = $this->clean_html_string($full_translated_title);
+                    
+                    // Create short version for menu display (max 2 words)
+                    $short_title = $this->create_short_menu_title($full_translated_title);
+                    
+                    // Store full translation in title attribute and short version in visible text
+                    $item->title = $short_title;
+                    $item->attr_title = $full_translated_title; // Full translation for tooltip
                 } else {
                     $item->title = ''; // Zorg dat het leeg is als er geen content is
                 }
+            }
+            // Voor niet-homepage items: pas korte titel toe
+            else if (!empty($item->title)) {
+                // Create short version for menu display (max 2 words)
+                $short_title = $this->create_short_menu_title($item->title);
+                $item->title = $short_title;
             }
 
             // Verwerk descriptions: als vertaling beschikbaar en niet leeg, gebruik die.
@@ -3105,6 +3112,30 @@ class AI_Translate_Core
         }
 
         return $items;
+    }
+
+    /**
+     * Create a short version of a menu title for display purposes.
+     * Limits to max 3 words and 50 characters for clean menu display.
+     *
+     * @param string $full_title The full translated title
+     * @return string Short version for menu display
+     */
+    private function create_short_menu_title(string $full_title): string
+    {
+        // Split into words
+        $words = explode(' ', trim($full_title));
+        
+        // Always take first 2 words maximum for menu items
+        $short_words = array_slice($words, 0, 2);
+        $short_title = implode(' ', $short_words);
+        
+        // If still too long, truncate to 50 characters
+        if (strlen($short_title) > 50) {
+            $short_title = substr($short_title, 0, 47) . '...';
+        }
+        
+        return $short_title;
     }
 
     /**

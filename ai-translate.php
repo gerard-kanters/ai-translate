@@ -556,9 +556,55 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
             }
         }
 
+        // Translate alt and title attributes of images in content
+        $translated = preg_replace_callback(
+            '/(alt|title)\s*=\s*[\'\"]([^\'\"]+)[\'\"]/i',
+            function ($matches) use ($core, $current_language, $default_language) {
+                $attribute = $matches[1]; // 'alt' or 'title'
+                $text = html_entity_decode($matches[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $translated_text = $core->translate_text($text, $default_language, $current_language, false, true);
+                $translated_text = html_entity_decode($translated_text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $translated_text = \AITranslate\AI_Translate_Core::remove_translation_marker($translated_text);
+                return $attribute . '="' . esc_attr($translated_text) . '"';
+            },
+            $translated
+        );
+
+
         $processing_content = false;
         return $translated;
     }, 1);
+
+    // Translate alt and title attributes in wp_get_attachment_image output
+    add_filter('wp_get_attachment_image', function ($html, $attachment_id, $size, $icon, $attr) use ($core) {
+        if (!$core->needs_translation() || is_admin() || empty($html)) {
+            return $html;
+        }
+
+        $current_language = $core->get_current_language();
+        $default_language = $core->get_settings()['default_language'];
+
+        if ($current_language !== $default_language) {
+            $html = preg_replace_callback(
+                '/(alt|title)\s*=\s*[\'"]([^\'"]+)[\'"]/i',
+                function ($matches) use ($core, $current_language, $default_language) {
+                    $attribute = $matches[1];
+                    $text = html_entity_decode($matches[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $translated_text = $core->translate_text($text, $default_language, $current_language, false, true);
+                    $translated_text = html_entity_decode($translated_text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $translated_text = \AITranslate\AI_Translate_Core::remove_translation_marker($translated_text);
+                    return $attribute . '="' . esc_attr($translated_text) . '"';
+                },
+                $html
+            );
+        }
+
+        return $html;
+    }, 10, 5);
+
+
+
+
 
     // Add filter for author name
     add_filter('the_author', function ($author_name) use ($core) {
