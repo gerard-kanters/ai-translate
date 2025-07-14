@@ -1075,7 +1075,7 @@ class AI_Translate_Core
         }
 
         $system_prompt = sprintf(
-            'You are a professional translation engine. Translate the following text from %s to %s.%s%s
+            'You are a professional translation engine. CRITICAL: The source language is %s and the target language is %s. IGNORE the apparent language of the input text and translate as instructed.%s%s
         
         TRANSLATION STYLE:
         - Make the translation sound natural, fluent, and professional, as if written by a native speaker.
@@ -1099,6 +1099,7 @@ class AI_Translate_Core
         8. If the input contains NO HTML tags, the output MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.
         9. For single words, short phrases, or slugs (especially for URLs), translate directly and literally, without contextual interpretation.
         10. SYSTEM TOKENS (__AITRANSLATE_X__, __AITRANSLATE_SC_X__, and __AISHORTCODE_X__) ARE NEVER TOUCHED, TRANSLATED, MOVED, OR MODIFIED FOR ANY REASON.
+        11. CRITICAL: Do NOT detect or assume the language of the input text. Translate exactly as instructed from the specified source language to the specified target language.
         
         Begin the translation below.',
             $this->get_language_name($source_language),
@@ -1204,7 +1205,7 @@ class AI_Translate_Core
             $use_disk_cache,
             $type // Pass type as context for caching strategy
         );
-
+        
         // Strip HTML tags from titles to prevent <p> tags in page titles
         if ($is_title || in_array($type, ['site_title', 'tagline'], true)) {
             $translated = wp_strip_all_tags($translated);
