@@ -638,15 +638,15 @@ function render_admin_page()
                 
                 <!-- Clear all caches -->
                 <h3>Clear all caches</h3>
-                <p>Clear all translation caches (disk, memory, transients, menu, slugs).</p>
+                <p>Clear all translation caches (disk, memory, transients, menu). <strong>Slug cache is preserved to maintain URL stability.</strong></p>
                 <?php
                 if (isset($_POST['clear_cache']) && check_admin_referer('clear_cache_action', 'clear_cache_nonce')) {
                     if (!class_exists('AI_Translate_Core')) {
                         require_once __DIR__ . '/class-ai-translate-core.php';
                     }
                     $core = AI_Translate_Core::get_instance();
-                    $core->clear_all_cache();
-                    echo '<div class="notice notice-success"><p>All caches successfully cleared.</p></div>';
+                    $core->clear_all_cache_except_slugs();
+                    echo '<div class="notice notice-success"><p>All caches successfully cleared (except slug cache).</p></div>';
                 }
                 ?>
                 <form method="post">
@@ -658,14 +658,14 @@ function render_admin_page()
 
                 <!-- Clear memory cache -->
                 <h3>Clear memory cache</h3>
-                <p>Clear only memory cache and all transients (database). Disk cache will remain and be used to refill memory cache.</p>
+                <p>Clear only memory cache and all transients (database). Disk cache will remain and be used to refill memory cache. <strong>Slug cache is preserved to maintain URL stability.</strong></p>
                 <?php
                 $memory_cache_message = '';
                 if (isset($_POST['clear_memory_cache']) && check_admin_referer('clear_memory_cache_action', 'clear_memory_cache_nonce')) {
                     if (class_exists('AI_Translate_Core')) {
                         $core = AI_Translate_Core::get_instance();
-                        $core->clear_memory_and_transients();
-                        $memory_cache_message = '<div class="notice notice-success"><p>Memory cache successfully cleared.</p></div>';
+                        $core->clear_memory_and_transients_except_slugs();
+                        $memory_cache_message = '<div class="notice notice-success"><p>Memory cache successfully cleared (except slug cache).</p></div>';
                     }
                 }
                 if (!empty($memory_cache_message)) {

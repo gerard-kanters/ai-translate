@@ -1377,26 +1377,7 @@ class AI_Translate_Core
         $wpdb->delete($table_name, [], []); // Delete all records safely
     }
 
-    /**
-     * Clear slug cache for a specific language.
-     *
-     * @param string $language_code The language code to clear slug cache for.
-     * @return int Number of deleted records.
-     */
-    public function clear_slug_cache_for_language(string $language_code): int
-    {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'ai_translate_slugs';
-
-        // Use WordPress functions for safer database access
-        $deleted = $wpdb->delete(
-            $table_name,
-            ['language_code' => $language_code],
-            ['%s']
-        );
-
-        return $deleted !== false ? $deleted : 0;
-    }
+    
 
     /**
      * Clear zowel file cache als transients en de slug cache tabel.
@@ -1407,6 +1388,47 @@ class AI_Translate_Core
         $this->clear_transient_cache();
         $this->clear_slug_cache_table();
         // Verwijderd: $this->clear_menu_cache(); // URL's moeten stabiel blijven
+    }
+
+    /**
+     * Clear all cache except slug cache (for admin cache management)
+     */
+    public function clear_all_cache_except_slugs(): void
+    {
+        $this->clear_translation_cache();
+        $this->clear_transient_cache();
+        $this->clear_menu_cache(); // Menu cache mag wel geleegd worden
+        // Verwijderd: $this->clear_slug_cache_table(); // Slug cache mag NOOIT leeggemaakt worden
+    }
+
+    /**
+     * Clear memory and transients except slug cache (for admin cache management)
+     */
+    public function clear_memory_and_transients_except_slugs(): void
+    {
+        global $wpdb;
+
+        // Verwijder alle relevante transients, maar NIET slug cache
+        // Use WordPress functions for safer transient deletion
+        $transient_patterns = [
+            '_transient_ai_translate_%',
+            '_transient_timeout_ai_translate_%',
+            '_transient_ai_translate_batch_trans_%',
+            '_transient_timeout_ai_translate_batch_trans_%',
+            '_transient_ai_translate_trans_%',
+            '_transient_timeout_ai_translate_trans_%'
+        ];
+
+        foreach ($transient_patterns as $pattern) {
+            $wpdb->query($wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+                $pattern
+            ));
+        }
+
+        // Clear API error/backoff transients
+        delete_transient(self::API_ERROR_COUNT_TRANSIENT);
+        delete_transient(self::API_BACKOFF_TRANSIENT);
     }
 
 
