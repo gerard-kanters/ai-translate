@@ -209,7 +209,7 @@ class AI_Translate_Core
         $lang = sanitize_key($target_language); // Ensure language code is safe
         $id = sanitize_key($identifier); // Ensure identifier is safe (though often already a hash)
 
-        switch ($type) {    
+        switch ($type) {
             case 'trans':
                 // Prefix for easy transient deletion
                 return 'ai_translate_trans_' . $id . '_' . $lang;
@@ -677,7 +677,6 @@ class AI_Translate_Core
         bool $use_disk_cache = true,
         string $context = ''
     ): string {
-
         // --- Essential Checks ---
         // 0. Check if already translated (absolute first check)
         if (strpos($text, '<!--aitranslate:translated-->') !== false) {
@@ -707,8 +706,6 @@ class AI_Translate_Core
 
         // 0d. Skip content that contains shortcode placeholders
         $trimmed_text = trim($text);
-        
-
 
         // Get the configured default language
         $default_language = $this->settings['default_language'] ?? null;
@@ -765,7 +762,7 @@ class AI_Translate_Core
 
         // Extract shortcode pairs and replace with placeholders
         $text_with_placeholders = $this->extract_shortcode_pairs($text, $shortcodes_to_exclude, $extracted_shortcode_pairs);
-        
+
         $text_to_translate = $text_with_placeholders;
         $shortcodes = $extracted_shortcode_pairs; // Rename for consistency with existing code
 
@@ -801,7 +798,7 @@ class AI_Translate_Core
             }
         }
 
-        
+
         // --- Disk Cache Key ---
         $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
 
@@ -847,10 +844,13 @@ class AI_Translate_Core
         $text_processed = $text_to_translate; // Start with text after excluded shortcodes
 
         // Extract nonces and tokens to prevent translation
-        $text_processed = $this->extract_security_tokens($text_processed, $placeholders, $placeholder_index);
+        // Skip security token extraction for FluentForm content to prevent HTML corruption
+        if (strpos($text_processed, 'fluentform') === false && strpos($text_processed, 'ff-') === false) {
+            $text_processed = $this->extract_security_tokens($text_processed, $placeholders, $placeholder_index);
+        }
 
-        // Remove all placeholders of the type __AITRANSLATE_X__ from the text and remember their positions
-        $placeholder_pattern = '/__AITRANSLATE_\d+__/';
+        // Remove all placeholders of the type __AITRANSLATE_X__, __AITRANSLATE_FF_X__, and __AITRANSLATE_SEC_X__ from the text and remember their positions
+        $placeholder_pattern = '/__AITRANSLATE(?:_FF|_SEC)?_\d+__/';
         $placeholder_positions = [];
         if (preg_match_all($placeholder_pattern, $text_processed, $matches, PREG_OFFSET_CAPTURE)) {
             foreach ($matches[0] as $match) {
@@ -865,7 +865,7 @@ class AI_Translate_Core
             $text_processed = preg_replace($placeholder_pattern, '', $text_processed);
         }
 
-        // --- Ensure there are now NO __AITRANSLATE_X__ placeholders left in the input ---
+        // --- Ensure there are now NO __AITRANSLATE_X__ or __AITRANSLATE_FF_X__ placeholders left in the input ---
         if (preg_match($placeholder_pattern, $text_processed)) {
             throw new \Exception('There is still a placeholder in the input for translation.');
         }
@@ -967,7 +967,7 @@ class AI_Translate_Core
      */
     private function do_translate(string $text, string $source_language, string $target_language, bool $is_title, bool $use_disk_cache): string
     {
-        
+
         if (strpos($text, self::TRANSLATION_MARKER) !== false) {
             return $text;
         }
@@ -1014,7 +1014,7 @@ class AI_Translate_Core
             // Fallback: return original text with marker to prevent infinite loops
             $result = $text . self::TRANSLATION_MARKER;
         }
-        
+
         return $result;
     }
 
@@ -1087,9 +1087,10 @@ class AI_Translate_Core
         CRITICAL REQUIREMENTS:
         1. Preserve ALL HTML tags and their exact structure. Do NOT add, remove, move, or modify any HTML tags in any way.
         2. If the input contains NO HTML tags, the output must also contain NO HTML tags.
-        3. Any string in the format __AITRANSLATE_X__ or __AITRANSLATE_SC_X__ (where X is any number or combination of letters, numbers, or underscores) is a SYSTEM TOKEN and must remain 100%% UNCHANGED in the output. NEVER translate, move, modify, wrap, remove, or reformat these tokens in any way. They are NOT placeholders for words or phrases, but reserved technical markers for system use.
+        3. Any string in the format __AITRANSLATE_X__, __AITRANSLATE_SC_X__, or __AITRANSLATE_FF_X__ (where X is any number or combination of letters, numbers, or underscores) is a SYSTEM TOKEN and must remain 100%% UNCHANGED in the output. NEVER translate, move, modify, wrap, remove, or reformat these tokens in any way. They are NOT placeholders for words or phrases, but reserved technical markers for system use.
            - Example: __AITRANSLATE_42__ in input = __AITRANSLATE_42__ in output.
            - Example: __AITRANSLATE_SC_8__ in input = __AITRANSLATE_SC_8__ in output.
+           - Example: __AITRANSLATE_FF_3__ in input = __AITRANSLATE_FF_3__ in output.
         4. Any string in the format __AISHORTCODE_X__ (where X is any number) is a SHORTCODE PLACEHOLDER and must remain 100%% UNCHANGED in the output. These are placeholders for WordPress shortcodes that should NOT be translated.
            - Example: __AISHORTCODE_1__ in input = __AISHORTCODE_1__ in output.
            - Example: __AISHORTCODE_5__ in input = __AISHORTCODE_5__ in output.
@@ -1098,7 +1099,7 @@ class AI_Translate_Core
         7. If the input is empty, output must also be empty. If the input cannot be translated meaningfully, return the closest possible equivalent in the target language.
         8. If the input contains NO HTML tags, the output MUST also contain NO HTML tags. NEVER wrap plain text in HTML tags like <p>, <div>, <span>, or any other tags.
         9. For single words, short phrases, or slugs (especially for URLs), translate directly and literally, without contextual interpretation.
-        10. SYSTEM TOKENS (__AITRANSLATE_X__, __AITRANSLATE_SC_X__, and __AISHORTCODE_X__) ARE NEVER TOUCHED, TRANSLATED, MOVED, OR MODIFIED FOR ANY REASON.
+        10. SYSTEM TOKENS (__AITRANSLATE_X__, __AITRANSLATE_SC_X__, __AITRANSLATE_FF_X__, and __AISHORTCODE_X__) ARE NEVER TOUCHED, TRANSLATED, MOVED, OR MODIFIED FOR ANY REASON.
         11. CRITICAL: Do NOT detect or assume the language of the input text. Translate exactly as instructed from the specified source language to the specified target language.
         
         Begin the translation below.',
@@ -1122,7 +1123,7 @@ class AI_Translate_Core
         $languages = $this->get_available_languages();
         return $languages[$language_code] ?? ucfirst($language_code);
     }
-    
+
     /**
      * Generic entry point for translating content parts (string or array).
      *
@@ -1138,7 +1139,7 @@ class AI_Translate_Core
      */
     public function translate_template_part($content, string $type)
     {
-        
+
         if (!$this->needs_translation() || is_admin() || empty($content)) {
             return is_array($content) ? array_values($content) : (string)$content;
         }
@@ -1205,7 +1206,7 @@ class AI_Translate_Core
             $use_disk_cache,
             $type // Pass type as context for caching strategy
         );
-        
+
         // Strip HTML tags from titles to prevent <p> tags in page titles
         if ($is_title || in_array($type, ['site_title', 'tagline'], true)) {
             $translated = wp_strip_all_tags($translated);
@@ -1306,7 +1307,7 @@ class AI_Translate_Core
         }
     }
 
-    
+
     /**
      * Clear transient cache entries using delete_transient.
      */
@@ -1377,7 +1378,7 @@ class AI_Translate_Core
         $wpdb->delete($table_name, [], []); // Delete all records safely
     }
 
-    
+
 
     /**
      * Clear zowel file cache als transients en de slug cache tabel.
@@ -1799,7 +1800,7 @@ class AI_Translate_Core
         if ($type === 'menu_item') {
             $translated_items = [];
             $all_cached = true;
-            
+
             foreach ($items_to_translate as $index => $item) {
                 $global_cached = $this->get_global_ui_element($item, $target_language);
                 if ($global_cached !== null) {
@@ -1809,7 +1810,7 @@ class AI_Translate_Core
                     break; // Stop als één item niet gecached is
                 }
             }
-            
+
             // Als alle items gecached zijn, return ze
             if ($all_cached) {
                 return array_combine($original_keys, $translated_items);
@@ -1964,7 +1965,7 @@ class AI_Translate_Core
                             }
                         }
                     }
-                    
+
 
                     return array_combine($original_keys, $translated_array);
                 }
@@ -2075,12 +2076,12 @@ class AI_Translate_Core
         // 4. Use wp_kses_post for safety and to re-encode valid HTML entities
         // This ensures proper HTML structure and prevents XSS, and re-encodes if necessary
         $cleaned_string = wp_kses_post($cleaned_string);
-       
+
 
         return $cleaned_string;
     }
 
-    
+
     /**
      * Extracts shortcode pairs from text and replaces them with placeholders.
      * This prevents shortcodes from being translated while preserving their structure.
@@ -2092,6 +2093,8 @@ class AI_Translate_Core
      */
     private function extract_shortcode_pairs(string $text, array $shortcodes_to_exclude, array &$extracted_shortcodes): string
     {
+
+
         $placeholder_index = 0;
         foreach ($shortcodes_to_exclude as $tagname) {
             $pattern = '/\\[(' . preg_quote($tagname, '/') . ')(?![a-zA-Z0-9_\-])([^\]]*?)(?:(\/\\])|\\](?:([^\[]*+(?:\\[(?!\/\\1\\])[^\[]*+)*+)\\[\/\\1\\]))?\\]/s';
@@ -2100,12 +2103,17 @@ class AI_Translate_Core
                 function ($matches) use (&$extracted_shortcodes, &$placeholder_index) {
                     $placeholder = '__AITRANSLATE_SC_' . $placeholder_index . '__';
                     $extracted_shortcodes[$placeholder] = $matches[0];
+
+
+
                     $placeholder_index++;
                     return $placeholder;
                 },
                 $text
             );
         }
+
+
 
         return $text;
     }
@@ -2119,6 +2127,8 @@ class AI_Translate_Core
      */
     private function restore_shortcode_pairs(string $text, array $extracted_shortcodes): string
     {
+
+
         if (empty($extracted_shortcodes)) {
             return $text;
         }
@@ -2129,7 +2139,12 @@ class AI_Translate_Core
         foreach ($extracted_shortcodes as $placeholder => $original_shortcode) {
             $escaped_placeholder = preg_quote($placeholder, '/');
             $text = preg_replace('/' . $escaped_placeholder . '/s', $original_shortcode, $text);
+
+
         }
+
+
+
         return $text;
     }
 
@@ -2985,7 +3000,7 @@ class AI_Translate_Core
         return '/' . implode('/', $translated_segments);
     }
 
-    
+
     /**
      * Batch translate all navigation menu items to the current language with URL-based title generation.
      *
@@ -3101,14 +3116,14 @@ class AI_Translate_Core
             if (isset($titles_to_translate[$index])) {
                 $original_title = $titles_to_translate[$index];
                 $full_translated_title = (isset($translated_titles[$index]) && !empty($translated_titles[$index])) ? (string)$translated_titles[$index] : $original_title;
-                
+
                 if (!empty($full_translated_title)) {
                     // Clean the full translation
                     $full_translated_title = $this->clean_html_string($full_translated_title);
-                    
+
                     // Create short version for menu display (max 2 words)
                     $short_title = $this->create_short_menu_title($full_translated_title);
-                    
+
                     // Store full translation in title attribute and short version in visible text
                     $item->title = $short_title;
                     $item->attr_title = $full_translated_title; // Full translation for tooltip
@@ -3148,16 +3163,16 @@ class AI_Translate_Core
     {
         // Split into words
         $words = explode(' ', trim($full_title));
-        
+
         // Always take first 2 words maximum for menu items
         $short_words = array_slice($words, 0, 2);
         $short_title = implode(' ', $short_words);
-        
+
         // If still too long, truncate to 50 characters
         if (strlen($short_title) > 50) {
             $short_title = substr($short_title, 0, 47) . '...';
         }
-        
+
         return $short_title;
     }
 
@@ -3587,8 +3602,9 @@ class AI_Translate_Core
     {
         // Alleen als vertaling nodig is
         if ($this->needs_translation()) {
-            // Voeg de filter toe voor het vertalen van FluentForm velden met hoge prioriteit
-            add_filter('the_content', [$this, 'translate_fluentform_fields'], 999);
+            // Voeg de filter toe voor het vertalen van FluentForm velden met zeer hoge prioriteit
+            // Dit zorgt ervoor dat FluentForm content wordt beschermd voordat het bij translate_text komt
+            add_filter('the_content', [$this, 'translate_fluentform_fields'], 9999);
         }
     }
 
@@ -3604,272 +3620,65 @@ class AI_Translate_Core
         if (
             strpos($content, 'fluentform') === false &&
             strpos($content, 'ff-el-form') === false &&
-            strpos($content, 'data-name=') === false
+            strpos($content, 'ff-el-input') === false
         ) {
             return $content;
         }
 
-        // Extract all translatable fields from FluentForm
-        $fields_to_translate = [];
-        $field_mappings = [];
-
-        // Extract placeholders (exclude reCAPTCHA elements)
-        preg_match_all('/placeholder=[\'"]([^\'"]+)[\'"]/i', $content, $placeholder_matches, PREG_OFFSET_CAPTURE);
-        foreach ($placeholder_matches[1] as $index => $match) {
-            $placeholder = $match[0];
-            $position = $placeholder_matches[0][$index][1];
-            
-            // Skip if this is part of a reCAPTCHA element
-            $full_match = $placeholder_matches[0][$index][0];
-            if (strpos($full_match, 'g-recaptcha') !== false || 
-                strpos($full_match, 'data-sitekey') !== false ||
-                strpos($full_match, 'data-callback') !== false ||
-                strpos($full_match, 'data-action') !== false) {
-                continue;
-            }
-            
-            $key = 'placeholder_' . $index;
-            $fields_to_translate[$key] = $placeholder;
-            $field_mappings[$key] = [
-                'type' => 'placeholder',
-                'original' => $placeholder,
-                'position' => $position,
-                'full_match' => $full_match
-            ];
+        // Extract translatable elements from FluentForm
+        $translatable_texts = [];
+        
+        // Extract labels
+        preg_match_all('/<label[^>]*class="[^"]*ff-el-input[^"]*"[^>]*>(.*?)<\/label>/is', $content, $label_matches);
+        if (!empty($label_matches[1])) {
+            $translatable_texts = array_merge($translatable_texts, $label_matches[1]);
         }
-
-        // Extract labels (exclude reCAPTCHA elements)
-        preg_match_all('/<label[^>]*>(.*?)<\/label>/i', $content, $label_matches, PREG_OFFSET_CAPTURE);
-        foreach ($label_matches[1] as $index => $match) {
-            $label_text = $match[0];
-            $position = $label_matches[0][$index][1];
-            $full_match = $label_matches[0][$index][0];
-            
-            // Skip if this is part of a reCAPTCHA element
-            if (strpos($full_match, 'g-recaptcha') !== false || 
-                strpos($full_match, 'data-sitekey') !== false ||
-                strpos($full_match, 'data-callback') !== false ||
-                strpos($full_match, 'data-action') !== false) {
-                continue;
-            }
-            
-            $key = 'label_' . $index;
-            $fields_to_translate[$key] = $label_text;
-            $field_mappings[$key] = [
-                'type' => 'label',
-                'original' => $label_text,
-                'position' => $position,
-                'full_match' => $full_match
-            ];
+        
+        // Extract placeholders
+        preg_match_all('/placeholder=["\']([^"\']+)["\']/i', $content, $placeholder_matches);
+        if (!empty($placeholder_matches[1])) {
+            $translatable_texts = array_merge($translatable_texts, $placeholder_matches[1]);
         }
-
-        // Extract button text (exclude reCAPTCHA elements)
-        preg_match_all('/<button[^>]*>(.*?)<\/button>/i', $content, $button_matches, PREG_OFFSET_CAPTURE);
-        foreach ($button_matches[1] as $index => $match) {
-            $button_text = $match[0];
-            $position = $button_matches[0][$index][1];
-            $full_match = $button_matches[0][$index][0];
-            
-            // Skip if this is part of a reCAPTCHA element
-            if (strpos($full_match, 'g-recaptcha') !== false || 
-                strpos($full_match, 'data-sitekey') !== false ||
-                strpos($full_match, 'data-callback') !== false ||
-                strpos($full_match, 'data-action') !== false) {
-                continue;
-            }
-            
-            $key = 'button_' . $index;
-            $fields_to_translate[$key] = $button_text;
-            $field_mappings[$key] = [
-                'type' => 'button',
-                'original' => $button_text,
-                'position' => $position,
-                'full_match' => $full_match
-            ];
+        
+        // Extract option texts
+        preg_match_all('/<option[^>]*value=["\'][^"\']*["\'][^>]*>([^<]+)<\/option>/is', $content, $option_matches);
+        if (!empty($option_matches[1])) {
+            $translatable_texts = array_merge($translatable_texts, $option_matches[1]);
         }
-
-        // Extract submit button values (exclude reCAPTCHA elements)
-        preg_match_all('/<input[^>]*type=[\'"]submit[\'"][^>]*value=[\'"]([^\'"]+)[\'"][^>]*>/i', $content, $submit_matches, PREG_OFFSET_CAPTURE);
-        foreach ($submit_matches[1] as $index => $match) {
-            $submit_text = $match[0];
-            $position = $submit_matches[0][$index][1];
-            $full_match = $submit_matches[0][$index][0];
-            
-            // Skip if this is part of a reCAPTCHA element
-            if (strpos($full_match, 'g-recaptcha') !== false || 
-                strpos($full_match, 'data-sitekey') !== false ||
-                strpos($full_match, 'data-callback') !== false ||
-                strpos($full_match, 'data-action') !== false) {
-                continue;
-            }
-            
-            $key = 'submit_' . $index;
-            $fields_to_translate[$key] = $submit_text;
-            $field_mappings[$key] = [
-                'type' => 'submit',
-                'original' => $submit_text,
-                'position' => $position,
-                'full_match' => $full_match
-            ];
+        
+        // Extract button texts
+        preg_match_all('/<button[^>]*class="[^"]*ff-btn[^"]*"[^>]*>(.*?)<\/button>/is', $content, $button_matches);
+        if (!empty($button_matches[1])) {
+            $translatable_texts = array_merge($translatable_texts, $button_matches[1]);
         }
-
-        // Extract dropdown options (exclude reCAPTCHA elements)
-        preg_match_all('/<option[^>]*>(.*?)<\/option>/i', $content, $option_matches, PREG_OFFSET_CAPTURE);
-        foreach ($option_matches[1] as $index => $match) {
-            $option_text = $match[0];
-            $position = $option_matches[0][$index][1];
-            $full_match = $option_matches[0][$index][0];
-            
-            // Skip empty options or options with only whitespace
-            if (trim($option_text) === '') {
-                continue;
-            }
-            
-            // Skip placeholder options (like "- Select -")
-            if (preg_match('/^[\s\-–—]*[Ss]elect[\s\-–—]*$/i', trim($option_text))) {
-                continue;
-            }
-            
-            // Skip if this is part of a reCAPTCHA element
-            if (strpos($full_match, 'g-recaptcha') !== false || 
-                strpos($full_match, 'data-sitekey') !== false ||
-                strpos($full_match, 'data-callback') !== false ||
-                strpos($full_match, 'data-action') !== false) {
-                continue;
-            }
-            
-            $key = 'option_' . $index;
-            $fields_to_translate[$key] = $option_text;
-            $field_mappings[$key] = [
-                'type' => 'option',
-                'original' => $option_text,
-                'position' => $position,
-                'full_match' => $full_match,
-                'option_text_only' => $option_text
-            ];
-        }
-
-        // If no fields to translate, return original content
-        if (empty($fields_to_translate)) {
+        
+        // Remove duplicates and empty strings
+        $translatable_texts = array_filter(array_unique($translatable_texts));
+        
+        if (empty($translatable_texts)) {
             return $content;
         }
-
-        // Batch translate all fields
-        $current_language = $this->get_current_language();
-        $source_language = $this->default_language;
-
-        if ($current_language !== $source_language) {
-            // EERST: Controleer cache voordat we vertalen
-            $original_fields_for_cache = array_values($fields_to_translate);
-            sort($original_fields_for_cache);
-
-            // Generate cache key based on current fields (which may already be translated)
-            $cache_identifier = md5(json_encode($original_fields_for_cache) . 'fluentform_field' . $source_language . $current_language);
-            $memory_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_mem');
-
-            // MEMORY CACHE VERWIJDERD
-
-            // Check transient cache if not in memory
-            if (!isset($translated_fields)) {
-                $transient_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_trans');
-                $cached = get_transient($transient_key);
-                if ($cached !== false && is_array($cached) && count($cached) === count($fields_to_translate)) {
-                    $translated_fields = array_combine(array_keys($fields_to_translate), $cached);
-                }
-            }
-
-            // Check disk cache if not in transient
-            if (!isset($translated_fields)) {
-                $disk_cache_key = $this->generate_cache_key($cache_identifier, $current_language, 'disk');
-                $disk_cached = $this->get_cached_content($disk_cache_key);
-                if ($disk_cached !== false) {
-                    $decoded = json_decode($disk_cached, true);
-                    if (is_array($decoded) && count($decoded) === count($fields_to_translate)) {
-                        $transient_key = $this->generate_cache_key($cache_identifier, $current_language, 'batch_trans');
-                        set_transient($transient_key, $decoded, $this->expiration_hours * 3600);
-                        $translated_fields = array_combine(array_keys($fields_to_translate), $decoded);
-                    }
-                }
-            }
-
-            // ALS GEEN CACHE: Vertaal via API
-            if (!isset($translated_fields)) {
-                $translated_fields = $this->batch_translate_items($fields_to_translate, $source_language, $current_language, 'fluentform_field', $original_fields_for_cache);
-            }
-
-            // Apply translations back to content
-            if (isset($translated_fields) && is_array($translated_fields)) {
-                foreach ($field_mappings as $key => $mapping) {
-                    if (isset($translated_fields[$key])) {
-                        $translated_text = self::remove_translation_marker($translated_fields[$key]);
-
-                        switch ($mapping['type']) {
-                            case 'placeholder':
-                                $content = str_replace(
-                                    'placeholder="' . $mapping['original'] . '"',
-                                    'placeholder="' . esc_attr($translated_text) . '"',
-                                    $content
-                                );
-                                break;
-
-                            case 'label':
-                                $content = str_replace(
-                                    $mapping['full_match'],
-                                    str_replace($mapping['original'], $translated_text, $mapping['full_match']),
-                                    $content
-                                );
-                                break;
-
-                            case 'button':
-                                $content = str_replace(
-                                    $mapping['full_match'],
-                                    str_replace($mapping['original'], $translated_text, $mapping['full_match']),
-                                    $content
-                                );
-                                break;
-
-                            case 'submit':
-                                $content = str_replace(
-                                    'value="' . $mapping['original'] . '"',
-                                    'value="' . esc_attr($translated_text) . '"',
-                                    $content
-                                );
-                                break;
-
-                            case 'option':
-                                // Only replace the text content within the option tag, not the entire tag
-                                // Use a more robust approach that handles different character encodings
-                                $pattern = '/<option[^>]*>' . preg_quote($mapping['original'], '/') . '<\/option>/i';
-                                $replacement = preg_replace('/<option([^>]*)>' . preg_quote($mapping['original'], '/') . '<\/option>/i', '<option$1>' . $translated_text . '</option>', $mapping['full_match']);
-                                $content = str_replace($mapping['full_match'], $replacement, $content);
-                                break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Remove loose data-name="message" text that appears in the content
-        $content = preg_replace('/\s*data-name="message"\s*/i', '', $content);
         
-        // Clear FluentForms cache to ensure fresh translations
-        if (function_exists('wp_cache_delete')) {
-            wp_cache_delete('fluentform_form_data', 'fluentform');
-        }
-
-        // Ensure reCAPTCHA elements are not translated by preserving their original structure
-        // This prevents the "No reCAPTCHA clients exist" error
-        $content = preg_replace_callback('/<div[^>]*class=[\'"][^\'"]*g-recaptcha[^\'"]*[\'"][^>]*>/i', function($matches) {
-            // Ensure the reCAPTCHA div has all necessary attributes
-            $div = $matches[0];
-            if (strpos($div, 'data-sitekey') === false) {
-                // If data-sitekey is missing, try to preserve the original structure
-                return $div;
+        // Batch translate the texts
+        $current_lang = $this->get_current_language();
+        $default_lang = $this->default_language;
+        
+        $translated_texts = $this->batch_translate_items(
+            $translatable_texts,
+            $default_lang,
+            $current_lang,
+            'fluentform'
+        );
+        
+        // Replace original texts with translated versions
+        $translated_content = $content;
+        foreach ($translatable_texts as $index => $original_text) {
+            if (isset($translated_texts[$index])) {
+                $translated_content = str_replace($original_text, $translated_texts[$index], $translated_content);
             }
-            return $div;
-        }, $content);
-
-        return $content;
+        }
+        
+        return $translated_content;
     }
 
     /**
@@ -3925,7 +3734,7 @@ class AI_Translate_Core
             ));
         }
 
-        
+
         // Also clear API error/backoff transients
         delete_transient(self::API_ERROR_COUNT_TRANSIENT);
         delete_transient(self::API_BACKOFF_TRANSIENT);
@@ -3982,7 +3791,7 @@ class AI_Translate_Core
     {
         global $wpdb;
 
-        
+
 
         // Verwijder alle relevante transients, maar NIET slug cache
         // Use WordPress functions for safer transient deletion
@@ -4705,7 +4514,7 @@ class AI_Translate_Core
         return $translated_form;
     }
 
-    
+
     /**
      * Extract security tokens and dynamic content to prevent translation.
      * This function is called BEFORE translation to mask problematic elements.
@@ -4717,17 +4526,21 @@ class AI_Translate_Core
      */
     private function extract_security_tokens(string $text, array &$placeholders, int &$placeholder_index): string
     {
+
         // 0. Vervang data-content attribuut door een standaard placeholder
         $data_content_placeholder = '__AITRANSLATE_SC_' . $placeholder_index . '__';
         $text = preg_replace('/\sdata-content=("[^"]*"|\'[^\']*\')/i', ' ' . $data_content_placeholder, $text);
         $placeholder_index++;
+
+        // Store the data-content placeholder for later restoration
+        $placeholders[$data_content_placeholder] = 'data-content';
 
         // 1. Quotes normaliseren
         $text = str_replace(['&#8221;', '&#8243;', '&quot;', '&#34;'], '"', $text);
 
         // 2. Masker markers (__AITRANSLATE_XX__ etc.), ook kapotte/incomplete markers
         $text = preg_replace_callback(
-            '/__AITRANSLATE(?:_SC)?(_[0-9]+)?(__)?/',
+            '/__AITRANSLATE(?:_SC|_FF|_SEC)?(_[0-9]+)?(__)?/',
             function ($matches) use (&$placeholders, &$placeholder_index) {
                 $placeholder = '__AITRANSLATE_MASKED_' . $placeholder_index . '__';
                 $placeholders[$placeholder] = $matches[0];
@@ -4770,6 +4583,7 @@ class AI_Translate_Core
             return $placeholder;
         }, $text);
 
+
         // 6. Mask WordPress placeholders (zoals {{POSTTITLE}})
         $wordpress_placeholder_pattern = '/\{\{[A-Z_]+\}\}/i';
         $text = preg_replace_callback($wordpress_placeholder_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
@@ -4779,28 +4593,24 @@ class AI_Translate_Core
             return $placeholder;
         }, $text);
 
-        // 7. Mask overige bekende security/dynamic tokens
+        // 7. Mask overige bekende security/dynamic tokens - PROTECT COMPLETE INPUT TAGS
         $token_patterns = [
             // CSRF tokens
-            '/name=["\']_token["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']csrf_token["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']security["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/<input[^>]*name=["\']_token["\'][^>]*>/i',
+            '/<input[^>]*name=["\']csrf_token["\'][^>]*>/i',
+            '/<input[^>]*name=["\']security["\'][^>]*>/i',
 
             // Contact Form 7 tokens
-            '/name=["\']_wpcf7["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']_wpcf7_version["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']_wpcf7_locale["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']_wpcf7_unit_tag["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']_wpcf7_container_post["\'][^>]*value=["\']([^"\']+)["\']/i',
+            '/<input[^>]*name=["\']_wpcf7["\'][^>]*>/i',
+            '/<input[^>]*name=["\']_wpcf7_version["\'][^>]*>/i',
+            '/<input[^>]*name=["\']_wpcf7_locale["\'][^>]*>/i',
+            '/<input[^>]*name=["\']_wpcf7_unit_tag["\'][^>]*>/i',
+            '/<input[^>]*name=["\']_wpcf7_container_post["\'][^>]*>/i',
 
             // WooCommerce tokens
-            '/name=["\']woocommerce-process-checkout-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']woocommerce-login-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
-            '/name=["\']woocommerce-register-nonce["\'][^>]*value=["\']([^"\']+)["\']/i',
-
-            // Generic token patterns
-            '/value=["\']([a-zA-Z0-9]{32,})["\']/i', // 32+ character alphanumeric tokens
-            '/value=["\']([a-f0-9]{32,})["\']/i',    // 32+ character hex tokens
+            '/<input[^>]*name=["\']woocommerce-process-checkout-nonce["\'][^>]*>/i',
+            '/<input[^>]*name=["\']woocommerce-login-nonce["\'][^>]*>/i',
+            '/<input[^>]*name=["\']woocommerce-register-nonce["\'][^>]*>/i',
         ];
 
         foreach ($token_patterns as $pattern) {
@@ -4838,14 +4648,8 @@ class AI_Translate_Core
                 $placeholder_index++;
                 return $placeholder;
             }, $text);
-            
-
         }
-
-        // 9. Zet de data-content placeholder terug
-        $text = str_replace($data_content_placeholder, 'data-content', $text);
-
-        // ... bestaande code ...
+        // 9. Data-content placeholder wordt nu automatisch teruggeplaatst via de placeholders array
 
         return $text;
     }
@@ -5330,7 +5134,7 @@ class AI_Translate_Core
 
         foreach ($all_languages as $language) {
             if ($language !== $this->default_language) {
-                        // MEMORY CACHE VERWIJDERD
+                // MEMORY CACHE VERWIJDERD
 
                 // Clear transient cache for global UI elements
                 $transient_patterns = [
