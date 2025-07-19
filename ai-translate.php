@@ -378,6 +378,8 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 return $title;
             }
             
+
+            
             // Vertaal de titel
             $translated = $core->translate_template_part($title, 'post_title');
             // Schoon de output op zodat er nooit HTML in de paginatitel komt

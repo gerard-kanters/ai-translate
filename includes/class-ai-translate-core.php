@@ -461,6 +461,7 @@ class AI_Translate_Core
             if (!$wp_filesystem->is_writable($this->cache_dir)) {
                 return false;
             }
+        
 
             // Write to a temporary file and then move (atomic write operation)
             $temp_file = $this->cache_dir . '/tmp_' . uniqid() . '.tmp';
@@ -703,6 +704,25 @@ class AI_Translate_Core
         if (strpos($text, 'kchat_settings') !== false || strpos($text, 'chatbot-chatgpt') !== false) {
             return $text;
         }
+        
+        // 0d. Never translate FluentForm content (handled by translate_fluentform_fields)
+        // Only skip if the text contains actual FluentForm HTML elements, not just the word "fluentform"
+        if (strpos($text, '<') !== false && (
+            strpos($text, 'ff-el-form') !== false || 
+            strpos($text, 'ff-el-input') !== false ||
+            strpos($text, 'ff-btn') !== false ||
+            strpos($text, 'ff-field_container') !== false ||
+            strpos($text, 'ff-el-group') !== false ||
+            strpos($text, 'ff-t-container') !== false ||
+            strpos($text, 'ff-t-cell') !== false ||
+            strpos($text, 'ff-el-input--label') !== false ||
+            strpos($text, 'ff-el-input--content') !== false ||
+            strpos($text, 'ff-el-form-control') !== false ||
+            strpos($text, 'ff_form_instance') !== false ||
+            strpos($text, 'fluentform') !== false
+        )) {
+            return $text;
+        }
 
         // 0d. Skip content that contains shortcode placeholders
         $trimmed_text = trim($text);
@@ -777,8 +797,18 @@ class AI_Translate_Core
         // Determine caching strategy based on context
         $caching_strategy = $this->get_caching_strategy($text_for_cache, $context);
 
+        // Voor Subscribe2: filter IP adressen uit de cache key om unieke cache files te voorkomen
+        $text_for_cache_key = $text;
+        if (strpos($text, 's2formwidget') !== false) {
+            // Gebruik unieke statische placeholder voor IP adressen
+            $text_for_cache_key = preg_replace('/value=["\"](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})["\"]/i', 'value="__AITRANSLATE_SC_XIP__"', $text);
+            $text_for_cache_key = preg_replace('/value=[\'"](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})[\'"]/i', 'value="__AITRANSLATE_SC_XIP__"', $text_for_cache_key);
+        }
+        
         // Use md5 of the original text + target language as the base identifier (not stripped text)
-        $cache_identifier = md5($text . $target_language);
+        $cache_identifier = md5($text_for_cache_key . $target_language);
+        
+
         // Generate keys with the central function
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'mem');
 
@@ -807,15 +837,26 @@ class AI_Translate_Core
         if ($use_disk_cache) {
             // get_cached_content expects the key WITHOUT .cache suffix
             $disk_cached = $this->get_cached_content($disk_cache_key);
+            
             if ($disk_cached !== false) {
                 if (strpos($disk_cached, self::TRANSLATION_MARKER) !== false) {
                     $result = $disk_cached;
+                    
+                    // Voor Subscribe2: vervang placeholders terug naar echte IP adressen
+                    if (strpos($text, 's2formwidget') !== false) {
+                        // Vervang __AITRANSLATE_SC_XIP__ placeholder terug naar het echte IP adres van de huidige gebruiker
+                        $current_ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+                        $result = str_replace('value="__AITRANSLATE_SC_XIP__"', 'value="' . $current_ip . '"', $result);
+                        $result = str_replace("value='__AITRANSLATE_SC_XIP__'", "value='" . $current_ip . "'", $result);
+                    }
+                    
                     if (!empty($shortcodes)) {
                         $result = $this->restore_shortcode_pairs($result, $shortcodes);
                     }
                     // Opslaan in transient voor snellere toegang
                     $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
                     set_transient($transient_key, $result, $this->expiration_hours * 3600);
+                    
                     return $result;
                 }
             }
@@ -824,9 +865,19 @@ class AI_Translate_Core
         // Generate transient key
         $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'trans');
         $cached = get_transient($transient_key);
+        
         if ($cached !== false) {
             if (strpos($cached, self::TRANSLATION_MARKER) !== false) {
                 $result = $cached;
+                
+                // Voor Subscribe2: vervang placeholders terug naar echte IP adressen
+                if (strpos($text, 's2formwidget') !== false) {
+                    // Vervang __AITRANSLATE_SC_XIP__ placeholder terug naar het echte IP adres van de huidige gebruiker
+                    $current_ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+                    $result = str_replace('value="__AITRANSLATE_SC_XIP__"', 'value="' . $current_ip . '"', $result);
+                    $result = str_replace("value='__AITRANSLATE_SC_XIP__'", "value='" . $current_ip . "'", $result);
+                }
+                
                 if (!empty($shortcodes)) {
                     $result = $this->restore_shortcode_pairs($result, $shortcodes);
                 }
@@ -834,6 +885,7 @@ class AI_Translate_Core
                 if ($use_disk_cache) {
                     $this->save_to_cache($disk_cache_key, $result);
                 }
+                
                 return $result;
             }
         }
@@ -842,11 +894,16 @@ class AI_Translate_Core
         $placeholders = [];
         $placeholder_index = 0;
         $text_processed = $text_to_translate; // Start with text after excluded shortcodes
-
+        
         // Extract nonces and tokens to prevent translation
-        // Skip security token extraction for FluentForm content to prevent HTML corruption
-        if (strpos($text_processed, 'fluentform') === false && strpos($text_processed, 'ff-') === false) {
+        // Skip security token extraction for FluentForm and Subscribe2 content to prevent HTML corruption
+        if (strpos($text_processed, 'fluentform') === false && 
+            strpos($text_processed, 'ff-') === false && 
+            strpos($text_processed, 's2formwidget') === false) {
             $text_processed = $this->extract_security_tokens($text_processed, $placeholders, $placeholder_index);
+        } elseif (strpos($text_processed, 's2formwidget') !== false) {
+            // Voor Subscribe2: alleen IP adressen maskeren
+            $text_processed = $this->extract_security_tokens($text_processed, $placeholders, $placeholder_index, ['ip_addresses']);
         }
 
         // Remove all placeholders of the type __AITRANSLATE_X__, __AITRANSLATE_FF_X__, and __AITRANSLATE_SEC_X__ from the text and remember their positions
@@ -908,12 +965,15 @@ class AI_Translate_Core
         }
         $final_translated_text = $translated_text_with_placeholders;
 
+
+
         // --- Restore security tokens and other placeholders ---
         if (!empty($placeholders)) {
             // Sort placeholders by length in descending order to prevent partial matches
             uksort($placeholders, function ($a, $b) {
                 return strlen($b) <=> strlen($a);
             });
+            
             foreach ($placeholders as $placeholder => $original_value) {
                 $final_translated_text = str_replace($placeholder, $original_value, $final_translated_text);
             }
@@ -936,16 +996,24 @@ class AI_Translate_Core
 
         // Store in persistent cache (transient/disk) only if the marker is present.
         if (strpos((string)$final_translated_text, self::TRANSLATION_MARKER) !== false) {
+            // Voor Subscribe2: filter IP adressen uit de content die wordt opgeslagen in cache
+            $content_for_cache = $final_translated_text;
+            if (strpos($text, 's2formwidget') !== false) {
+                // Filter IP adressen uit de content die wordt opgeslagen
+                $content_for_cache = preg_replace('/value=["\"](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})["\"]/i', 'value="__AITRANSLATE_SC_XIP__"', $final_translated_text);
+                $content_for_cache = preg_replace('/value=[\'"](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})[\'"]/i', 'value="__AITRANSLATE_SC_XIP__"', $content_for_cache);
+            }
+            
             // For global UI elements, use special global cache
             if ($caching_strategy === 'global_ui') {
-                $this->cache_global_ui_element($text, $target_language, $final_translated_text);
+                $this->cache_global_ui_element($text, $target_language, $content_for_cache);
             } else {
                 // Store in transient
-                set_transient($transient_key, $final_translated_text, $this->expiration_hours * 3600);
+                set_transient($transient_key, $content_for_cache, $this->expiration_hours * 3600);
                 // Store in disk if enabled
                 if ($use_disk_cache) {
                     // save_to_cache expects the key WITHOUT .cache suffix
-                    $this->save_to_cache($disk_cache_key, $final_translated_text);
+                    $this->save_to_cache($disk_cache_key, $content_for_cache);
                 }
             }
         }
@@ -1786,7 +1854,8 @@ class AI_Translate_Core
             $sorted_items = $items_to_translate;
             sort($sorted_items);
         }
-        $cache_identifier = md5(json_encode($sorted_items) . $type . $source_language . $target_language);
+        $cache_string = json_encode($sorted_items) . $type . $source_language . $target_language;
+        $cache_identifier = md5($cache_string);
         $memory_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_mem');
 
         // MEMORY CACHE VERWIJDERD
@@ -1821,20 +1890,35 @@ class AI_Translate_Core
         if (!$all_items_excluded) {
             $transient_key = $this->generate_cache_key($cache_identifier, $target_language, 'batch_trans');
             $cached = get_transient($transient_key);
+            
             // Moet een numerieke array zijn met correct aantal items
             if ($cached !== false && is_array($cached) && count($cached) === count($items_to_translate) && array_keys($cached) === range(0, count($cached) - 1)) {
+                
+                // Voor FluentForm: vervang placeholders terug naar echte nonce waarden
+                if ($type === 'fluentform') {
+                    foreach ($cached as $index => $text) {
+                        // Vervang __AITRANSLATE_FF_NONCE__ placeholder terug naar echte nonce waarde
+                        $cached[$index] = str_replace('value="__AITRANSLATE_FF_NONCE__"', 'value="' . wp_create_nonce('fluentform') . '"', $text);
+                        $cached[$index] = str_replace("value='__AITRANSLATE_FF_NONCE__'", "value='" . wp_create_nonce('fluentform') . "'", $text);
+                    }
+                }
+                
                 // If it comes from transient, also save it to disk cache only if content changed
-                $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
-                $existing_cache = $this->get_cached_content($disk_cache_key);
-                if ($existing_cache === false || $existing_cache !== json_encode($cached)) {
-                    $this->save_to_cache($disk_cache_key, json_encode($cached));
+                // Voor FluentForm: skip disk cache
+                if ($type !== 'fluentform') {
+                    $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+                    $existing_cache = $this->get_cached_content($disk_cache_key);
+                    if ($existing_cache === false || $existing_cache !== json_encode($cached)) {
+                        $this->save_to_cache($disk_cache_key, json_encode($cached));
+                    }
                 }
                 return array_combine($original_keys, $cached); // Combineer met originele keys
             }
         }
 
         // Disk Cache Check (alleen als niet alle items uitgesloten zijn)
-        if (!$all_items_excluded) {
+        // Voor FluentForm: skip disk cache om unieke cache files te voorkomen
+        if (!$all_items_excluded && $type !== 'fluentform') {
             $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
             $disk_cached = $this->get_cached_content($disk_cache_key);
             if ($disk_cached !== false) {
@@ -1855,6 +1939,11 @@ class AI_Translate_Core
 
         // Skip API call if all items are excluded
         if ($all_items_excluded) {
+            return array_combine($original_keys, $items_to_translate);
+        }
+        
+        // Voor FluentForm: skip API call als source en target language hetzelfde zijn
+        if ($type === 'fluentform' && $source_language === $target_language) {
             return array_combine($original_keys, $items_to_translate);
         }
 
@@ -1946,6 +2035,15 @@ class AI_Translate_Core
                         return $valid_items;
                     }
 
+                    // Voor FluentForm: vervang placeholders terug naar echte nonce waarden
+                    if ($type === 'fluentform') {
+                        foreach ($translated_array as $index => $text) {
+                            // Vervang __AITRANSLATE_FF_NONCE__ placeholder terug naar echte nonce waarde
+                            $translated_array[$index] = str_replace('value="__AITRANSLATE_FF_NONCE__"', 'value="' . wp_create_nonce('fluentform') . '"', $text);
+                            $translated_array[$index] = str_replace("value='__AITRANSLATE_FF_NONCE__'", "value='" . wp_create_nonce('fluentform') . "'", $text);
+                        }
+                    }
+                    
                     // Alleen transient en disk cache maken als niet alle items uitgesloten zijn
                     if (!$all_items_excluded) {
                         // Voor menu items: cache individuele items in globale UI cache
@@ -1958,10 +2056,13 @@ class AI_Translate_Core
                             // Voor andere types: gebruik normale batch cache
                             set_transient($transient_key, $translated_array, $this->expiration_hours * 3600);
                             // Also save to disk cache for persistence only if content changed
-                            $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
-                            $existing_cache = $this->get_cached_content($disk_cache_key);
-                            if ($existing_cache === false || $existing_cache !== json_encode($translated_array)) {
-                                $this->save_to_cache($disk_cache_key, json_encode($translated_array));
+                            // Voor FluentForm: skip disk cache
+                            if ($type !== 'fluentform') {
+                                $disk_cache_key = $this->generate_cache_key($cache_identifier, $target_language, 'disk');
+                                $existing_cache = $this->get_cached_content($disk_cache_key);
+                                if ($existing_cache === false || $existing_cache !== json_encode($translated_array)) {
+                                    $this->save_to_cache($disk_cache_key, json_encode($translated_array));
+                                }
                             }
                         }
                     }
@@ -3620,18 +3721,49 @@ class AI_Translate_Core
         if (
             strpos($content, 'fluentform') === false &&
             strpos($content, 'ff-el-form') === false &&
-            strpos($content, 'ff-el-input') === false
+            strpos($content, 'ff-el-input') === false &&
+            strpos($content, 'ff-btn') === false &&
+            strpos($content, 'ff-field_container') === false &&
+            strpos($content, 'ff-el-group') === false &&
+            strpos($content, 'ff-t-container') === false &&
+            strpos($content, 'ff-t-cell') === false &&
+            strpos($content, 'ff-el-input--label') === false &&
+            strpos($content, 'ff-el-input--content') === false &&
+            strpos($content, 'ff-el-form-control') === false &&
+            strpos($content, 'ff_form_instance') === false
         ) {
             return $content;
         }
 
+
+
         // Extract translatable elements from FluentForm
         $translatable_texts = [];
         
-        // Extract labels
-        preg_match_all('/<label[^>]*class="[^"]*ff-el-input[^"]*"[^>]*>(.*?)<\/label>/is', $content, $label_matches);
-        if (!empty($label_matches[1])) {
-            $translatable_texts = array_merge($translatable_texts, $label_matches[1]);
+        // Extract headings (h1, h2, h3, h4, h5, h6) that might contain form titles
+        preg_match_all('/<h[1-6][^>]*>(.*?)<\/h[1-6]>/is', $content, $heading_matches);
+        if (!empty($heading_matches[1])) {
+            $translatable_texts = array_merge($translatable_texts, $heading_matches[1]);
+        }
+        
+        // Extract div elements with class that might contain form titles
+        preg_match_all('/<div[^>]*class="[^"]*(?:form-title|form-header|contact-title|contact-header)[^"]*"[^>]*>(.*?)<\/div>/is', $content, $div_matches);
+        if (!empty($div_matches[1])) {
+            $translatable_texts = array_merge($translatable_texts, $div_matches[1]);
+        }
+        
+        // Extract labels - multiple patterns to catch all FluentForm labels
+        $label_patterns = [
+            '/<label[^>]*for="[^"]*"[^>]*>(.*?)<\/label>/is',
+            '/<label[^>]*class="[^"]*(?:ff-el|fluentform)[^"]*"[^>]*>(.*?)<\/label>/is',
+            '/<label[^>]*>(.*?)<\/label>/is' // Catch all labels as final fallback
+        ];
+        
+        foreach ($label_patterns as $pattern) {
+            preg_match_all($pattern, $content, $label_matches);
+            if (!empty($label_matches[1])) {
+                $translatable_texts = array_merge($translatable_texts, $label_matches[1]);
+            }
         }
         
         // Extract placeholders
@@ -3663,8 +3795,17 @@ class AI_Translate_Core
         $current_lang = $this->get_current_language();
         $default_lang = $this->default_language;
         
+        // Voor FluentForm: filter nonce waarden uit de cache key om unieke cache files te voorkomen
+        $normalized_texts = [];
+        foreach ($translatable_texts as $text) {
+            // Vervang nonce waarden door placeholders
+            $normalized_text = preg_replace('/value=["\']([a-f0-9]{10})["\']/i', 'value="__AITRANSLATE_FF_NONCE__"', $text);
+            $normalized_text = preg_replace('/value=[\'"]([a-f0-9]{10})[\'"]/i', 'value="__AITRANSLATE_FF_NONCE__"', $normalized_text);
+            $normalized_texts[] = $normalized_text;
+        }
+        
         $translated_texts = $this->batch_translate_items(
-            $translatable_texts,
+            $normalized_texts,
             $default_lang,
             $current_lang,
             'fluentform'
@@ -3674,7 +3815,10 @@ class AI_Translate_Core
         $translated_content = $content;
         foreach ($translatable_texts as $index => $original_text) {
             if (isset($translated_texts[$index])) {
-                $translated_content = str_replace($original_text, $translated_texts[$index], $translated_content);
+                // Use preg_replace to replace all occurrences, not just the first one
+                // Also handle HTML entities and whitespace variations
+                $original_escaped = preg_quote(trim($original_text), '/');
+                $translated_content = preg_replace('/' . $original_escaped . '/', $translated_texts[$index], $translated_content);
             }
         }
         
@@ -4236,7 +4380,7 @@ class AI_Translate_Core
                 $current_language,
                 $default_language,
                 false, // Not a title
-                true   // Use disk cache
+                false   // Use disk cache
             );
 
             // Remove translation marker
@@ -4522,10 +4666,15 @@ class AI_Translate_Core
      * @param string $text The text to process
      * @param array $placeholders Reference to array that stores extracted elements
      * @param int $placeholder_index Reference to placeholder counter
+     * @param array $mask_types Array of types to mask: 'tokens', 'nonces', 'ip_addresses', 'emails', 'urls', 'timestamps', 'session_ids', 'js_events', 'data_attributes'
      * @return string Text with problematic elements replaced by placeholders
      */
-    private function extract_security_tokens(string $text, array &$placeholders, int &$placeholder_index): string
+    private function extract_security_tokens(string $text, array &$placeholders, int &$placeholder_index, array $mask_types = []): string
     {
+        // Default mask types if none specified
+        if (empty($mask_types)) {
+            $mask_types = ['tokens', 'nonces', 'ip_addresses'];
+        }
 
         // 0. Vervang data-content attribuut door een standaard placeholder
         $data_content_placeholder = '__AITRANSLATE_SC_' . $placeholder_index . '__';
@@ -4574,47 +4723,10 @@ class AI_Translate_Core
             $text
         );
 
-        // 5. Mask WordPress nonces
-        $nonce_pattern = '/name=["\']_wpnonce["\'][^>]*value=["\']([^"\']+)["\']/i';
-        $text = preg_replace_callback($nonce_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
-            $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
-            $placeholders[$placeholder] = $matches[0];
-            $placeholder_index++;
-            return $placeholder;
-        }, $text);
-
-
-        // 6. Mask WordPress placeholders (zoals {{POSTTITLE}})
-        $wordpress_placeholder_pattern = '/\{\{[A-Z_]+\}\}/i';
-        $text = preg_replace_callback($wordpress_placeholder_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
-            $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
-            $placeholders[$placeholder] = $matches[0];
-            $placeholder_index++;
-            return $placeholder;
-        }, $text);
-
-        // 7. Mask overige bekende security/dynamic tokens - PROTECT COMPLETE INPUT TAGS
-        $token_patterns = [
-            // CSRF tokens
-            '/<input[^>]*name=["\']_token["\'][^>]*>/i',
-            '/<input[^>]*name=["\']csrf_token["\'][^>]*>/i',
-            '/<input[^>]*name=["\']security["\'][^>]*>/i',
-
-            // Contact Form 7 tokens
-            '/<input[^>]*name=["\']_wpcf7["\'][^>]*>/i',
-            '/<input[^>]*name=["\']_wpcf7_version["\'][^>]*>/i',
-            '/<input[^>]*name=["\']_wpcf7_locale["\'][^>]*>/i',
-            '/<input[^>]*name=["\']_wpcf7_unit_tag["\'][^>]*>/i',
-            '/<input[^>]*name=["\']_wpcf7_container_post["\'][^>]*>/i',
-
-            // WooCommerce tokens
-            '/<input[^>]*name=["\']woocommerce-process-checkout-nonce["\'][^>]*>/i',
-            '/<input[^>]*name=["\']woocommerce-login-nonce["\'][^>]*>/i',
-            '/<input[^>]*name=["\']woocommerce-register-nonce["\'][^>]*>/i',
-        ];
-
-        foreach ($token_patterns as $pattern) {
-            $text = preg_replace_callback($pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+        // 5. Mask WordPress nonces (alleen als 'nonces' in mask_types staat)
+        if (in_array('nonces', $mask_types)) {
+            $nonce_pattern = '/name=["\']_wpnonce["\'][^>]*value=["\']([^"\']+)["\']/i';
+            $text = preg_replace_callback($nonce_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
                 $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
@@ -4622,30 +4734,90 @@ class AI_Translate_Core
             }, $text);
         }
 
-        // 8. Mask dynamische patronen (IP, email, url, timestamp, sessie-id, JS events, data-attribs)
-        $dynamic_patterns = [
-            // IP addresses
-            '/value=["\"](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})["\"]/i',
-            // Email addresses
-            '/value=["\"]([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})["\"]/i',
-            // URLs
-            '/value=["\"](https?:\/\/[^\s"\'<>"]+)["\"]/i',
-            // Timestamps and dates
-            '/value=["\"](\d{4}-\d{2}-\d{2})["\"]/i',
-            '/value=["\"](\d{2}:\d{2}:\d{2})["\"]/i',
-            // Session IDs and dynamic IDs
-            '/value=["\"]([a-f0-9]{8,})["\"]/i',
-            // JavaScript event handlers
-            '/on\w+=["\"][^"\"]*["\"]/i',
-            // Data attributes met dynamische waarden (exclusief data-content)
-            '/data-(?!form_id|form_instance|name|type|required|placeholder|value|form)\w+=["\"][^"\"]*["\"]/i',
-        ];
+
+        // 6. Mask WordPress placeholders (zoals {{POSTTITLE}}) - alleen als 'tokens' in mask_types staat
+        if (in_array('tokens', $mask_types)) {
+            $wordpress_placeholder_pattern = '/\{\{[A-Z_]+\}\}/i';
+            $text = preg_replace_callback($wordpress_placeholder_pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+                $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
+                $placeholders[$placeholder] = $matches[0];
+                $placeholder_index++;
+                return $placeholder;
+            }, $text);
+        }
+
+        // 7. Mask overige bekende security/dynamic tokens - PROTECT COMPLETE INPUT TAGS
+        if (in_array('tokens', $mask_types)) {
+            $token_patterns = [
+                // CSRF tokens
+                '/<input[^>]*name=["\']_token["\'][^>]*>/i',
+                '/<input[^>]*name=["\']csrf_token["\'][^>]*>/i',
+                '/<input[^>]*name=["\']security["\'][^>]*>/i',
+
+                // Contact Form 7 tokens
+                '/<input[^>]*name=["\']_wpcf7["\'][^>]*>/i',
+                '/<input[^>]*name=["\']_wpcf7_version["\'][^>]*>/i',
+                '/<input[^>]*name=["\']_wpcf7_locale["\'][^>]*>/i',
+                '/<input[^>]*name=["\']_wpcf7_unit_tag["\'][^>]*>/i',
+                '/<input[^>]*name=["\']_wpcf7_container_post["\'][^>]*>/i',
+
+                // WooCommerce tokens
+                '/<input[^>]*name=["\']woocommerce-process-checkout-nonce["\'][^>]*>/i',
+                '/<input[^>]*name=["\']woocommerce-login-nonce["\'][^>]*>/i',
+                '/<input[^>]*name=["\']woocommerce-register-nonce["\'][^>]*>/i',
+            ];
+
+            foreach ($token_patterns as $pattern) {
+                $text = preg_replace_callback($pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
+                    $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
+                    $placeholders[$placeholder] = $matches[0];
+                    $placeholder_index++;
+                    return $placeholder;
+                }, $text);
+            }
+        }
+
+        // 8. Mask dynamische patronen (alleen als de specifieke types zijn opgegeven)
+        $dynamic_patterns = [];
+        
+        if (in_array('ip_addresses', $mask_types)) {
+            $dynamic_patterns[] = '/value=["\"](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})["\"]/i';
+            $dynamic_patterns[] = '/value=[\'"](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})[\'"]/i';
+        }
+        
+        if (in_array('emails', $mask_types)) {
+            $dynamic_patterns[] = '/value=["\"]([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})["\"]/i';
+        }
+        
+        if (in_array('urls', $mask_types)) {
+            $dynamic_patterns[] = '/value=["\"](https?:\/\/[^\s"\'<>"]+)["\"]/i';
+        }
+        
+        if (in_array('timestamps', $mask_types)) {
+            $dynamic_patterns[] = '/value=["\"](\d{4}-\d{2}-\d{2})["\"]/i';
+            $dynamic_patterns[] = '/value=["\"](\d{2}:\d{2}:\d{2})["\"]/i';
+        }
+        
+        if (in_array('session_ids', $mask_types)) {
+            $dynamic_patterns[] = '/value=["\"]([a-f0-9]{8,})["\"]/i';
+        }
+        
+        if (in_array('js_events', $mask_types)) {
+            $dynamic_patterns[] = '/on\w+=["\"][^"\"]*["\"]/i';
+        }
+        
+        if (in_array('data_attributes', $mask_types)) {
+            $dynamic_patterns[] = '/data-(?!form_id|form_instance|name|type|required|placeholder|value|form)\w+=["\"][^"\"]*["\"]/i';
+        }
 
         foreach ($dynamic_patterns as $pattern) {
             $text = preg_replace_callback($pattern, function ($matches) use (&$placeholders, &$placeholder_index) {
                 $placeholder = '__AITRANSLATE_' . $placeholder_index . '__';
                 $placeholders[$placeholder] = $matches[0];
                 $placeholder_index++;
+                
+
+                
                 return $placeholder;
             }, $text);
         }
@@ -5161,5 +5333,26 @@ class AI_Translate_Core
                 }
             }
         }
+    }
+
+    /**
+     * Normalize FluentForm HTML for consistent cache keys.
+     * Removes dynamic values that change on each page load.
+     */
+    private function normalize_fluentform_for_cache(string $content): string
+    {
+        // Remove nonce values
+        $content = preg_replace('/value="[a-f0-9]{10}"/', 'value="__NONCE__"', $content);
+        
+        // Remove post ID
+        $content = preg_replace('/value=\'[0-9]+\'/', 'value=\'__POST_ID__\'', $content);
+        
+        // Remove form instance variations (keep base structure)
+        $content = preg_replace('/ff_form_instance_[0-9_]+/', 'ff_form_instance_base', $content);
+        
+        // Remove any other dynamic IDs that might change
+        $content = preg_replace('/id="[^"]*fluentform[^"]*"/', 'id="fluentform_base"', $content);
+        
+        return $content;
     }
 }
