@@ -913,6 +913,62 @@ add_filter('template_include', function ($template) {
 
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), __NAMESPACE__ . '\\ai_translate_settings_link');
 
+// Fix all wp-json API calls to use root domain without language prefix
+add_action('wp_footer', function () {
+    ?>
+    <script>
+    // Fix CF7 and generic REST API calls (wp-json) to use root domain without language prefix
+    // WordPress AJAX calls (/wp-admin/admin-ajax.php) don't need fixing
+    function fixRestApiCalls() {
+        const domain = window.location.origin;
+        const correctRoot = domain + '/wp-json/';
+        
+        // Fix CF7 REST API root
+        if (typeof wpcf7 !== 'undefined' && wpcf7.api) {
+            if (wpcf7.api.root !== correctRoot) {
+                const originalRoot = wpcf7.api.root;
+                wpcf7.api.root = correctRoot;
+                //console.log('AI-Translate: Fixed CF7 API root from', originalRoot, 'to', wpcf7.api.root);
+            }
+        }
+        
+        // Fix wp.apiFetch for REST API calls
+        if (typeof wp !== 'undefined' && wp.apiFetch) {
+            const originalApiFetch = wp.apiFetch;
+            wp.apiFetch = function(options) {
+                if (options.path && options.path.startsWith('/wp-json/')) {
+                    // Path is already correct
+                } else if (options.url && options.url.includes('/wp-json/')) {
+                    // Fix URL to use root domain without language prefix
+                    options.url = options.url.replace(/https?:\/\/[^\/]+\/[a-z]{2,3}\/wp-json\//, domain + '/wp-json/');
+                }
+                return originalApiFetch.call(this, options);
+            };
+        }
+        
+        // Fix fetch calls to wp-json REST API
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            if (typeof url === 'string' && url.includes('/wp-json/')) {
+                // Fix URL to use root domain without language prefix
+                url = url.replace(/https?:\/\/[^\/]+\/[a-z]{2,3}\/wp-json\//, domain + '/wp-json/');
+            }
+            return originalFetch.call(this, url, options);
+        };
+    }
+    
+    // Run fix immediately
+    fixRestApiCalls();
+    
+    // Also run when DOM is loaded
+    document.addEventListener('DOMContentLoaded', fixRestApiCalls);
+    
+    // Also run when window loads
+    window.addEventListener('load', fixRestApiCalls);
+    </script>
+    <?php
+});
+
 // Add 5-star rating link to plugin row meta
 add_filter('plugin_row_meta', __NAMESPACE__ . '\\ai_translate_plugin_row_meta', 10, 2);
 
