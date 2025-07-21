@@ -1037,6 +1037,7 @@ class AI_Translate_Core
     {
 
         if (strpos($text, self::TRANSLATION_MARKER) !== false) {
+            //error_log("AI-Translate: Skipping already translated text in do_translate: '" . substr(trim($text), 0, 50) . "'");
             return $text;
         }
 
@@ -1279,6 +1280,9 @@ class AI_Translate_Core
         if ($is_title || in_array($type, ['site_title', 'tagline'], true)) {
             $translated = wp_strip_all_tags($translated);
         }
+
+        // Remove translation marker before returning (after all processing)
+        $translated = self::remove_translation_marker($translated);
 
         return $translated;
     }
@@ -5203,9 +5207,9 @@ class AI_Translate_Core
     {
         $length = strlen($text);
 
-        // Voor UI elementen, gebruik globale UI cache
+        // Voor UI elementen, gebruik normale cache (niet global_ui om cache problemen te voorkomen)
         if (in_array($context, ['widget_title', 'menu_item', 'search_placeholder'])) {
-            return 'global_ui';
+            return 'normal';
         }
 
         // Voor zeer korte teksten, alleen memory cache (per request)

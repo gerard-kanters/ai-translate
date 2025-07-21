@@ -233,15 +233,8 @@ add_action('plugins_loaded', function () { // Keep this hook for loading core
                 );
 
                 // Then handle content translation
-                if (strpos($text_with_translated_urls, '<!--aitranslate:translated-->') !== false) {
-                    // Strip all instances of the marker to prevent accumulation
-                    $clean_text = str_replace('<!--aitranslate:translated-->', '', $text_with_translated_urls);
-                    // Translate the cleaned text as a whole
-                    $result = $core->translate_template_part($clean_text, 'widget_text');
-                } else {
-                    // Normal case - translate everything
-                    $result = $core->translate_template_part($text_with_translated_urls, 'widget_text');
-                }
+                // Always translate the text - the cache check is handled inside translate_template_part
+                $result = $core->translate_template_part($text_with_translated_urls, 'widget_text');
 
                 $processing_widget_text = false;
                 return $result;
