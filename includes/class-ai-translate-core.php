@@ -3739,90 +3739,177 @@ class AI_Translate_Core
             return $content;
         }
 
+        // Extract placeholders, labels, buttons, submit buttons
+        // GEEN option teksten vertalen in deze stap
+        // Dit voorkomt validatieproblemen
+        $fields_to_translate = [];
+        $field_mappings = [];
+        $placeholder_index = 0;
 
-
-        // Extract translatable elements from FluentForm
-        $translatable_texts = [];
-        
         // Extract headings (h1, h2, h3, h4, h5, h6) that might contain form titles
-        preg_match_all('/<h[1-6][^>]*>(.*?)<\/h[1-6]>/is', $content, $heading_matches);
-        if (!empty($heading_matches[1])) {
-            $translatable_texts = array_merge($translatable_texts, $heading_matches[1]);
+        preg_match_all('/<h[1-6][^>]*>(.*?)<\/h[1-6]>/is', $content, $heading_matches, PREG_OFFSET_CAPTURE);
+        foreach ($heading_matches[1] as $index => $match) {
+            $heading_text = $match[0];
+            $position = $heading_matches[0][$index][1];
+            $key = 'heading_' . $index;
+            $fields_to_translate[$key] = $heading_text;
+            $field_mappings[$key] = [
+                'type' => 'heading',
+                'original' => $heading_text,
+                'position' => $position,
+                'full_match' => $heading_matches[0][$index][0]
+            ];
         }
-        
+
         // Extract div elements with class that might contain form titles
-        preg_match_all('/<div[^>]*class="[^"]*(?:form-title|form-header|contact-title|contact-header)[^"]*"[^>]*>(.*?)<\/div>/is', $content, $div_matches);
-        if (!empty($div_matches[1])) {
-            $translatable_texts = array_merge($translatable_texts, $div_matches[1]);
+        preg_match_all('/<div[^>]*class="[^"]*(?:form-title|form-header|contact-title|contact-header)[^"]*"[^>]*>(.*?)<\/div>/is', $content, $div_matches, PREG_OFFSET_CAPTURE);
+        foreach ($div_matches[1] as $index => $match) {
+            $div_text = $match[0];
+            $position = $div_matches[0][$index][1];
+            $key = 'div_' . $index;
+            $fields_to_translate[$key] = $div_text;
+            $field_mappings[$key] = [
+                'type' => 'div',
+                'original' => $div_text,
+                'position' => $position,
+                'full_match' => $div_matches[0][$index][0]
+            ];
         }
-        
+
         // Extract labels - multiple patterns to catch all FluentForm labels
         $label_patterns = [
             '/<label[^>]*for="[^"]*"[^>]*>(.*?)<\/label>/is',
             '/<label[^>]*class="[^"]*(?:ff-el|fluentform)[^"]*"[^>]*>(.*?)<\/label>/is',
             '/<label[^>]*>(.*?)<\/label>/is' // Catch all labels as final fallback
         ];
-        
-        foreach ($label_patterns as $pattern) {
-            preg_match_all($pattern, $content, $label_matches);
-            if (!empty($label_matches[1])) {
-                $translatable_texts = array_merge($translatable_texts, $label_matches[1]);
+
+        foreach ($label_patterns as $pattern_index => $pattern) {
+            preg_match_all($pattern, $content, $label_matches, PREG_OFFSET_CAPTURE);
+            foreach ($label_matches[1] as $index => $match) {
+                $label_text = $match[0];
+                $position = $label_matches[0][$index][1];
+                $key = 'label_' . $pattern_index . '_' . $index;
+                $fields_to_translate[$key] = $label_text;
+                $field_mappings[$key] = [
+                    'type' => 'label',
+                    'original' => $label_text,
+                    'position' => $position,
+                    'full_match' => $label_matches[0][$index][0]
+                ];
             }
         }
-        
+
         // Extract placeholders
-        preg_match_all('/placeholder=["\']([^"\']+)["\']/i', $content, $placeholder_matches);
-        if (!empty($placeholder_matches[1])) {
-            $translatable_texts = array_merge($translatable_texts, $placeholder_matches[1]);
+        preg_match_all('/placeholder=["\']([^"\']+)["\']/i', $content, $placeholder_matches, PREG_OFFSET_CAPTURE);
+        foreach ($placeholder_matches[1] as $index => $match) {
+            $placeholder_text = $match[0];
+            $position = $placeholder_matches[0][$index][1];
+            $key = 'placeholder_' . $index;
+            $fields_to_translate[$key] = $placeholder_text;
+            $field_mappings[$key] = [
+                'type' => 'placeholder',
+                'original' => $placeholder_text,
+                'position' => $position,
+                'full_match' => $placeholder_matches[0][$index][0]
+            ];
         }
-        
-        // Extract option texts
-        preg_match_all('/<option[^>]*value=["\'][^"\']*["\'][^>]*>([^<]+)<\/option>/is', $content, $option_matches);
-        if (!empty($option_matches[1])) {
-            $translatable_texts = array_merge($translatable_texts, $option_matches[1]);
-        }
-        
+
         // Extract button texts
-        preg_match_all('/<button[^>]*class="[^"]*ff-btn[^"]*"[^>]*>(.*?)<\/button>/is', $content, $button_matches);
-        if (!empty($button_matches[1])) {
-            $translatable_texts = array_merge($translatable_texts, $button_matches[1]);
+        preg_match_all('/<button[^>]*class="[^"]*ff-btn[^"]*"[^>]*>(.*?)<\/button>/is', $content, $button_matches, PREG_OFFSET_CAPTURE);
+        foreach ($button_matches[1] as $index => $match) {
+            $button_text = $match[0];
+            $position = $button_matches[0][$index][1];
+            $key = 'button_' . $index;
+            $fields_to_translate[$key] = $button_text;
+            $field_mappings[$key] = [
+                'type' => 'button',
+                'original' => $button_text,
+                'position' => $position,
+                'full_match' => $button_matches[0][$index][0]
+            ];
         }
-        
-        // Remove duplicates and empty strings
-        $translatable_texts = array_filter(array_unique($translatable_texts));
-        
-        if (empty($translatable_texts)) {
+
+        // Extract option texts (alleen de zichtbare tekst, niet de value)
+        preg_match_all('/<option[^>]*value=[\'\"][^\'\"]*[\'\"][^>]*>([^<]+)<\/option>/i', $content, $option_matches, PREG_OFFSET_CAPTURE);
+        foreach ($option_matches[1] as $index => $match) {
+            $option_text = $match[0];
+            $position = $option_matches[0][$index][1];
+            $key = 'option_' . $index;
+            $fields_to_translate[$key] = $option_text;
+            $field_mappings[$key] = [
+                'type' => 'option',
+                'original' => $option_text,
+                'position' => $position,
+                'full_match' => $option_matches[0][$index][0]
+            ];
+        }
+
+        if (empty($fields_to_translate)) {
             return $content;
         }
-        
+
         // Batch translate the texts
         $current_lang = $this->get_current_language();
         $default_lang = $this->default_language;
-        
+
         // Voor FluentForm: filter nonce waarden uit de cache key om unieke cache files te voorkomen
         $normalized_texts = [];
-        foreach ($translatable_texts as $text) {
+        foreach ($fields_to_translate as $key => $text) {
             // Vervang nonce waarden door placeholders
             $normalized_text = preg_replace('/value=["\']([a-f0-9]{10})["\']/i', 'value="__AITRANSLATE_FF_NONCE__"', $text);
             $normalized_text = preg_replace('/value=[\'"]([a-f0-9]{10})[\'"]/i', 'value="__AITRANSLATE_FF_NONCE__"', $normalized_text);
-            $normalized_texts[] = $normalized_text;
+            $normalized_texts[$key] = $normalized_text;
         }
-        
+
         $translated_texts = $this->batch_translate_items(
             $normalized_texts,
             $default_lang,
             $current_lang,
             'fluentform'
         );
-        
+
         // Replace original texts with translated versions
         $translated_content = $content;
-        foreach ($translatable_texts as $index => $original_text) {
-            if (isset($translated_texts[$index])) {
-                // Use preg_replace to replace all occurrences, not just the first one
-                // Also handle HTML entities and whitespace variations
-                $original_escaped = preg_quote(trim($original_text), '/');
-                $translated_content = preg_replace('/' . $original_escaped . '/', $translated_texts[$index], $translated_content);
+        foreach ($field_mappings as $key => $mapping) {
+            if (isset($translated_texts[$key])) {
+                $translated_text = $translated_texts[$key];
+                
+                switch ($mapping['type']) {
+                    case 'heading':
+                    case 'div':
+                    case 'label':
+                    case 'button':
+                        // Vervang de volledige match
+                        $translated_content = str_replace(
+                            $mapping['full_match'],
+                            str_replace($mapping['original'], esc_html($translated_text), $mapping['full_match']),
+                            $translated_content
+                        );
+                        break;
+                        
+                    case 'placeholder':
+                        // Vervang alleen de placeholder waarde
+                        $translated_content = str_replace(
+                            'placeholder="' . $mapping['original'] . '"',
+                            'placeholder="' . esc_attr($translated_text) . '"',
+                            $translated_content
+                        );
+                        $translated_content = str_replace(
+                            "placeholder='" . $mapping['original'] . "'",
+                            "placeholder='" . esc_attr($translated_text) . "'",
+                            $translated_content
+                        );
+                        break;
+                        
+                    case 'option':
+                        // Vervang alleen de zichtbare tekst tussen <option>...</option>, niet de value
+                        $translated_content = str_replace(
+                            '>' . $mapping['original'] . '<',
+                            '>' . esc_html($translated_text) . '<',
+                            $translated_content
+                        );
+                        break;
+                }
             }
         }
         
