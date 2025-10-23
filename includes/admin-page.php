@@ -16,7 +16,10 @@ if (! class_exists('AI_Translate_Core')) {
 }
 
 /**
- * AJAX handler for clearing cache for a specific language
+ * Handle AJAX request to clear cache for a specific language.
+ *
+ * Security: requires manage_options capability and a valid nonce.
+ * Output is JSON via wp_send_json_*.
  */
 function ajax_clear_cache_language()
 {
@@ -60,7 +63,10 @@ function ajax_clear_cache_language()
 add_action('wp_ajax_ai_translate_clear_cache_language', __NAMESPACE__ . '\\ajax_clear_cache_language');
 
 /**
- * AJAX handler for generating website context suggestion
+ * Handle AJAX request to generate a website context suggestion.
+ *
+ * Security: requires manage_options capability and a valid nonce.
+ * Clears prompt cache to ensure immediate use of new context.
  */
 function ajax_generate_website_context()
 {
@@ -119,15 +125,8 @@ add_action('update_option_ai_translate_settings', function ($old_value, $value) 
 }, 10, 2);
 
 /**
- * AJAX handler for validating API settings
+ * AJAX handlers and admin UI bootstrap below.
  */
-
-function no_admin_page()
-{
-    if (! defined('ABSPATH') || ! is_admin()) {
-        exit;
-    }
-}
 
 // Add admin menu
 add_action('admin_menu', function () {
@@ -184,123 +183,137 @@ add_action('admin_enqueue_scripts', function ($hook) {
 add_action('admin_init', function () {
     register_setting('ai_translate', 'ai_translate_settings', [
         'sanitize_callback' => function ($input) {
+            // Start from existing settings to avoid accidental defaults.
+            $current_settings = get_option('ai_translate_settings', []);
+            $sanitized = is_array($current_settings) ? $current_settings : [];
+
+            // Ensure expected arrays exist
+            if (!isset($sanitized['api_keys']) || !is_array($sanitized['api_keys'])) {
+                $sanitized['api_keys'] = [];
+            }
+            if (!isset($sanitized['models']) || !is_array($sanitized['models'])) {
+                $sanitized['models'] = [];
+            }
+
+            // Provider
             $valid_providers = array_keys(AI_Translate_Core::get_api_providers());
-            if (isset($input['api_provider']) && in_array($input['api_provider'], $valid_providers, true)) {
-                $input['api_provider'] = sanitize_text_field($input['api_provider']);
-            } else {
-                // Fallback to a default provider if invalid or not set
-                $input['api_provider'] = 'openai';
+            if (isset($input['api_provider'])) {
+                $prov = sanitize_text_field($input['api_provider']);
+                if (in_array($prov, $valid_providers, true)) {
+                    $sanitized['api_provider'] = $prov;
+                } else {
+                    add_settings_error(
+                        'ai_translate_settings',
+                        'invalid_api_provider',
+                        __('Invalid API provider selected.', 'ai-translate'),
+                        'error'
+                    );
+                }
             }
-            // Remove old api_url if it exists from a previous version
-            unset($input['api_url']);
 
-            // Sanitize custom_api_url if present, regardless of provider
+            // legacy key removal
+            if (isset($input['api_url'])) {
+                unset($input['api_url']);
+            }
+
+            // Custom API URL
             if (isset($input['custom_api_url'])) {
-                $input['custom_api_url'] = esc_url_raw(trim($input['custom_api_url']));
-            } else {
-                // Ensure custom_api_url is set, even if empty
-                $input['custom_api_url'] = '';
+                $sanitized['custom_api_url'] = esc_url_raw(trim($input['custom_api_url']));
+            }
+            if (($sanitized['api_provider'] ?? null) === 'custom') {
+                if (empty($sanitized['custom_api_url'])) {
+                    add_settings_error(
+                        'ai_translate_settings',
+                        'custom_url_required',
+                        __('Custom API URL is required for the custom provider.', 'ai-translate'),
+                        'error'
+                    );
+                }
             }
 
+            // Cache expiration (days → hours), minimum 14 days
             if (isset($input['cache_expiration'])) {
                 $cache_days = intval($input['cache_expiration']);
                 if ($cache_days < 14) {
                     add_settings_error(
-                        'ai_translate_settings', // slug title of the setting
-                        'cache_duration_too_low', // error code
-                        __('Cache duration cannot be less than 14 days. It has been automatically set to 14 days.', 'ai-translate'), // error message
-                        'warning' // type of message
+                        'ai_translate_settings',
+                        'cache_duration_too_low',
+                        __('Cache duration cannot be less than 14 days. It has been automatically set to 14 days.', 'ai-translate'),
+                        'warning'
                     );
-                    $input['cache_expiration'] = 14; // Set to a minimum of 14 days
+                    $cache_days = 14;
                 }
-                // Convert to hours for storage
-                $input['cache_expiration'] = intval($input['cache_expiration']) * 24;
-            } else {
-                // Fallback if not set, set to 14 days (in hours)
-                $input['cache_expiration'] = 14 * 24;
+                $sanitized['cache_expiration'] = $cache_days * 24;
+            } elseif (!isset($sanitized['cache_expiration'])) {
+                // Initialize if not set at all
+                $sanitized['cache_expiration'] = 14 * 24;
             }
 
+            // Model selection (per provider)
             if (isset($input['selected_model'])) {
+                $selected_provider = $sanitized['api_provider'] ?? ($current_settings['api_provider'] ?? null);
+                $model_to_store = null;
                 if ($input['selected_model'] === 'custom') {
                     if (!empty($input['custom_model'])) {
-                        $input['selected_model'] = trim($input['custom_model']);
+                        $model_to_store = trim($input['custom_model']);
                     } else {
-                        $input['selected_model'] = 'gpt-4.1-mini'; // Fallback
+                        add_settings_error(
+                            'ai_translate_settings',
+                            'custom_model_required',
+                            __('Custom model name is required when selecting a custom model.', 'ai-translate'),
+                            'error'
+                        );
+                    }
+                } else {
+                    $model_to_store = trim(sanitize_text_field($input['selected_model']));
+                }
+                if ($selected_provider && $model_to_store !== null) {
+                    $sanitized['models'][$selected_provider] = $model_to_store;
+                    $sanitized['selected_model'] = $model_to_store;
+                }
+            }
+
+            // API key per provider
+            if (isset($input['api_key'])) {
+                $provider_for_key = $sanitized['api_provider'] ?? ($input['api_provider'] ?? ($current_settings['api_provider'] ?? null));
+                if ($provider_for_key) {
+                    $key_val = trim(sanitize_text_field($input['api_key']));
+                    $sanitized['api_keys'][$provider_for_key] = $key_val;
+                    if ($key_val === '') {
+                        add_settings_error(
+                            'ai_translate_settings',
+                            'api_key_missing',
+                            __('API key is required for the selected provider.', 'ai-translate'),
+                            'error'
+                        );
                     }
                 }
             }
 
-            // Haal de huidige opgeslagen instellingen op om de 'api_keys' array te behouden
-            $current_settings = get_option('ai_translate_settings', []);
-
-            // Initialiseer de 'api_keys' array als deze nog niet bestaat
-            if (!isset($current_settings['api_keys']) || !is_array($current_settings['api_keys'])) {
-                $current_settings['api_keys'] = [
-                    'openai' => '',
-                    'deepseek' => '',
-                    'custom' => '',
-                ];
-            }
-
-            // Verwerk de API-sleutel voor de geselecteerde provider
-            if (isset($input['api_key'])) {
-                $selected_provider = $input['api_provider'] ?? 'openai'; // Gebruik de geselecteerde provider
-                $current_settings['api_keys'][$selected_provider] = trim($input['api_key']);
-                // Verwijder de tijdelijke 'api_key' uit de $input array, zodat deze niet op het topniveau wordt opgeslagen
-                unset($input['api_key']);
-            }
-
-            // Zorg ervoor dat de bijgewerkte 'api_keys' array wordt opgenomen in de $input die wordt opgeslagen
-            $input['api_keys'] = $current_settings['api_keys'];
-            if (isset($input['custom_model'])) {
-                $input['custom_model'] = trim($input['custom_model']);
-            }
-
+            // Homepage meta description
             if (isset($input['homepage_meta_description'])) {
-                $input['homepage_meta_description'] = sanitize_textarea_field($input['homepage_meta_description']);
-            } else {
-                $input['homepage_meta_description'] = '';
+                $sanitized['homepage_meta_description'] = sanitize_textarea_field($input['homepage_meta_description']);
             }
 
+            // Website context
             if (isset($input['website_context'])) {
-                $input['website_context'] = sanitize_textarea_field($input['website_context']);
-            } else {
-                $input['website_context'] = '';
+                $sanitized['website_context'] = sanitize_textarea_field($input['website_context']);
             }
 
+            // Enabled languages (switcher)
             if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
-                $input['enabled_languages'] = array_unique(array_map('sanitize_text_field', $input['enabled_languages']));
-            } else {
-                $input['enabled_languages'] = ['en'];
+                $sanitized['enabled_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['enabled_languages'])));
             }
 
+            // Detectable languages (auto)
             if (isset($input['detectable_languages']) && is_array($input['detectable_languages'])) {
-                $input['detectable_languages'] = array_unique(array_map('sanitize_text_field', $input['detectable_languages']));
-            } else {
-                $input['detectable_languages'] = [];
+                $sanitized['detectable_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['detectable_languages'])));
             }
 
-            // Sanitize multilingual search setting
-            if (isset($input['enable_multilingual_search'])) {
-                $input['enable_multilingual_search'] = (bool) $input['enable_multilingual_search'];
-            } else {
-                $input['enable_multilingual_search'] = false;
-            }
+            // Multilingual search toggle
+            $sanitized['enable_multilingual_search'] = isset($input['enable_multilingual_search']) ? (bool)$input['enable_multilingual_search'] : false;
 
-            if (!isset($current_settings['models']) || !is_array($current_settings['models'])) {
-                $current_settings['models'] = [
-                    'openai' => '',
-                    'deepseek' => '',
-                    'custom' => '',
-                ];
-            }
-            if (isset($input['selected_model'])) {
-                $selected_provider = $input['api_provider'] ?? 'openai';
-                $current_settings['models'][$selected_provider] = trim($input['selected_model']);
-            }
-            $input['models'] = $current_settings['models'];
-
-            return $input;
+            return $sanitized;
         }
     ]);
 
@@ -312,14 +325,15 @@ add_action('admin_init', function () {
         'ai-translate'
     );
     add_settings_field(
-        'api_provider', // Changed from 'api_url'
-        'API Provider', // Changed label
+        'api_provider',
+        'API Provider',
         function () {
             $settings = get_option('ai_translate_settings');
-            $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : 'openai'; // Default to openai
+            $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $providers = AI_Translate_Core::get_api_providers();
 
             echo '<select id="api_provider_select" name="ai_translate_settings[api_provider]">';
+            echo '<option value="" ' . selected($current_provider_key, '', false) . ' disabled hidden>— Select provider —</option>';
             foreach ($providers as $key => $provider_details) {
                 echo '<option value="' . esc_attr($key) . '" ' . selected($current_provider_key, $key, false) . '>' . esc_html($provider_details['name']) . '</option>';
             }
@@ -339,7 +353,7 @@ add_action('admin_init', function () {
         'API Key',
         function () {
             $settings = get_option('ai_translate_settings');
-            $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : 'openai';
+            $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             // Haal de API-sleutel op uit de nieuwe 'api_keys' array
             $api_keys = $settings['api_keys'] ?? [];
             $value = $api_keys[$current_provider_key] ?? ''; // Toon de sleutel voor de geselecteerde provider
@@ -354,12 +368,13 @@ add_action('admin_init', function () {
         'Translation Model',
         function () {
             $settings = get_option('ai_translate_settings');
-            $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : 'openai';
+            $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $models = isset($settings['models']) ? $settings['models'] : [];
-            $selected_model = isset($models[$current_provider]) ? $models[$current_provider] : (isset($settings['selected_model']) ? $settings['selected_model'] : '');
+            $selected_model = $current_provider !== '' ? ($models[$current_provider] ?? '') : '';
             $custom_model = isset($settings['custom_model']) ? $settings['custom_model'] : '';
             $is_custom = $selected_model && !in_array($selected_model, ['gpt-4', 'gpt-3.5-turbo']);
             echo '<select name="ai_translate_settings[selected_model]" id="selected_model">';
+            echo '<option value="" ' . selected($selected_model, '', false) . ' disabled hidden>— Select model —</option>';
             if ($selected_model && !$is_custom) {
                 echo '<option value="' . esc_attr($selected_model) . '" selected>' . esc_html($selected_model) . '</option>';
             }
@@ -393,12 +408,13 @@ add_action('admin_init', function () {
         'Default Language',
         function () {
             $settings = get_option('ai_translate_settings');
-            $value = isset($settings['default_language']) ? $settings['default_language'] : 'nl'; // Default 'nl'
+            $value = isset($settings['default_language']) ? $settings['default_language'] : '';
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Get all available languages
             echo '<select name="ai_translate_settings[default_language]">';
-            // Ensure default language is in the list
-            if (!isset($languages[$value])) {
+            echo '<option value="" ' . selected($value, '', false) . ' disabled hidden>— Select default language —</option>';
+            // Ensure current saved language stays visible if not in list
+            if ($value !== '' && !isset($languages[$value])) {
                 echo '<option value="' . esc_attr($value) . '" selected>' . esc_html(ucfirst($value)) . ' (Current)</option>';
             }
             foreach ($languages as $code => $name) {
@@ -414,8 +430,7 @@ add_action('admin_init', function () {
         'Enabled Languages (in Switcher)',
         function () {
             $settings = get_option('ai_translate_settings');
-            // Default enabled: nl, en, de, fr, es
-            $enabled = isset($settings['enabled_languages']) ? (array)$settings['enabled_languages'] : ['nl', 'en', 'de', 'fr', 'es'];
+            $enabled = isset($settings['enabled_languages']) ? (array)$settings['enabled_languages'] : [];
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Use all available languages
             echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
@@ -439,9 +454,7 @@ add_action('admin_init', function () {
         'Detectable Languages (Auto-Translate)',
         function () {
             $settings = get_option('ai_translate_settings');
-            // Default detectable languages (can be empty or contain a subset)
-            $default_detectable = ['ja', 'zh', 'ru', 'hi', 'ka', 'sv', 'pl', 'ar', 'tr', 'fi', 'no', 'da', 'ko', 'uk']; // Optionally retain a default selection
-            $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : $default_detectable;
+            $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : [];
 
             $core = AI_Translate_Core::get_instance();
             // Retrieve ALL available languages from the core class
@@ -449,8 +462,7 @@ add_action('admin_init', function () {
 
             echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
 
-            // REMOVED: The hardcoded $detectable_languages array is no longer needed.
-            // $detectable_languages = [ ... ];
+            // No hardcoded default selections.
 
             // Loop through ALL available languages from the core class
             foreach ($languages as $code => $name) {
@@ -547,17 +559,14 @@ add_action('admin_init', function () {
 
 });
 
+/**
+ * Render the AI Translate admin page (tabs: General, Cache).
+ *
+ * Contains WordPress settings API sections/fields and cache management UI.
+ * Uses nonces and capability checks for all mutating actions.
+ */
 function render_admin_page()
 {
-    // Clear Cache button handling
-    if (isset($_POST['clear_cache']) && check_admin_referer('clear_cache_action', 'clear_cache_nonce')) {
-        if (class_exists('AI_Translate_Core')) {
-            AI_Translate_Core::get_instance()->clear_all_cache();
-            echo '<div id="message" class="updated notice is-dismissible"><p>Cache has been cleared.</p></div>';
-        }
-    }
-
-    
     $cache_language_message = '';
     if (
         isset($_POST['clear_cache_language']) &&
@@ -791,19 +800,29 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     $provider_key = isset($_POST['api_provider']) ? sanitize_text_field(wp_unslash($_POST['api_provider'])) : null;
     $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
 
-    if (!$provider_key) { // Als provider niet in POST zit, haal uit settings
+    if (!$provider_key) { // Als provider niet in POST zit, haal uit settings (zonder default)
         $settings = get_option('ai_translate_settings');
-        $provider_key = $settings['api_provider'] ?? 'openai'; // Default
-        if (empty($api_key)) { // Als API key ook niet in POST zat, haal uit settings
-             $api_keys = $settings['api_keys'] ?? [];
-             $api_key = $api_keys[$provider_key] ?? '';
+        $provider_key = $settings['api_provider'] ?? '';
+        if (empty($api_key) && $provider_key !== '') { // Als API key ook niet in POST zat, haal uit settings voor de gekozen provider
+            $api_keys = $settings['api_keys'] ?? [];
+            $api_key = $api_keys[$provider_key] ?? '';
         }
+    }
+    if (empty($provider_key)) {
+        wp_send_json_error(['message' => 'API Provider ontbreekt.']);
     }
     
     $api_url = AI_Translate_Core::get_api_url_for_provider($provider_key);
     // Als de provider 'custom' is, gebruik dan de custom_api_url uit POST
-    if ($provider_key === 'custom' && isset($_POST['custom_api_url_value'])) {
-        $api_url = esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value']))));
+    if ($provider_key === 'custom') {
+        if (isset($_POST['custom_api_url_value'])) {
+            $api_url = esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value']))));
+        } else {
+            $settings = isset($settings) ? $settings : get_option('ai_translate_settings');
+            if (empty($api_url)) {
+                $api_url = esc_url_raw(trim((string) ($settings['custom_api_url'] ?? '')));
+            }
+        }
     }
 
     if (empty($api_url) || empty($api_key)) {
@@ -868,13 +887,24 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     // Als provider niet in POST zit, haal uit settings
     if (!$provider_key) {
         $settings = get_option('ai_translate_settings');
-        $provider_key = $settings['api_provider'] ?? 'openai'; // Default
-        if (empty($api_key)) { 
-            $api_keys = $settings['api_keys'] ?? [];
-            $api_key = $api_keys[$provider_key] ?? '';
+        $provider_key = $settings['api_provider'] ?? '';
+        if ($provider_key !== '') {
+            if (empty($api_key)) {
+                $api_keys = $settings['api_keys'] ?? [];
+                $api_key = $api_keys[$provider_key] ?? '';
+            }
+            if (empty($model)) { $model = $settings['selected_model'] ?? ''; }
+            if (empty($custom_api_url_value)) { $custom_api_url_value = $settings['custom_api_url'] ?? ''; }
         }
-        if (empty($model)) { $model = $settings['selected_model'] ?? ''; }
-        if (empty($custom_api_url_value)) { $custom_api_url_value = $settings['custom_api_url'] ?? ''; }
+    }
+    if (empty($provider_key)) {
+        wp_send_json_error(['message' => 'API Provider ontbreekt.']);
+    }
+    if (empty($api_key)) {
+        wp_send_json_error(['message' => 'API Key ontbreekt.']);
+    }
+    if ($provider_key === 'custom' && empty($custom_api_url_value)) {
+        wp_send_json_error(['message' => 'Custom API URL ontbreekt voor provider custom.']);
     }
 
     $core = AI_Translate_Core::get_instance();
@@ -928,3 +958,23 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
 });
 
 add_action('update_option_ai_translate_settings', 'AITranslate\\maybe_flush_rules_on_settings_update', 20, 2);
+
+/**
+ * Flush rewrite rules when language-related settings change.
+ *
+ * @param array $old
+ * @param array $new
+ * @return void
+ */
+function maybe_flush_rules_on_settings_update($old, $new)
+{
+    $keys = ['default_language', 'enabled_languages', 'detectable_languages'];
+    foreach ($keys as $k) {
+        $old_v = isset($old[$k]) ? $old[$k] : null;
+        $new_v = isset($new[$k]) ? $new[$k] : null;
+        if ($old_v !== $new_v) {
+            flush_rewrite_rules();
+            return;
+        }
+    }
+}
