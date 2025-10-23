@@ -42,7 +42,13 @@ final class AI_OB
         }
         $lang = AI_Lang::current();
         if ($lang === null || !AI_Lang::should_translate($lang)) {
-            return $html; // No translation when at default language or language not determined.
+            // Still inject SEO tags (meta/OG/hreflang) for default language or when language not determined
+            $targetLang = $lang ?: AI_Lang::default();
+            if (!$targetLang) {
+                $locale = function_exists('get_locale') ? (string) get_locale() : '';
+                $targetLang = $locale !== '' ? sanitize_key(substr($locale, 0, 2)) : 'nl';
+            }
+            return AI_SEO::inject($html, $targetLang);
         }
 
         $route = $this->current_route_id();

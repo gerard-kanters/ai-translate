@@ -157,7 +157,8 @@ add_filter('request', function ($vars) {
  * Start output buffering for front-end (skip admin, AJAX, REST and feeds).
  */
 add_action('template_redirect', function () {
-    if (\AITranslate\AI_Lang::is_exempt_request()) {
+    // Skip only admin/AJAX/REST/feeds; allow default language to pass so SEO injection can run
+    if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed()) {
         return;
     }
     // Force language detection strictly by URL prefix first (cookie only fallback)

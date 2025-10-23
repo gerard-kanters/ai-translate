@@ -100,6 +100,26 @@ final class AI_URL
         return $doc->saveHTML();
     }
 
+    /**
+     * Rewrite a single URL (relative or absolute) to the target language path.
+     * Returns a site-relative path with query/fragment when internal; null when external or not rewritable.
+     *
+     * @param string $href
+     * @param string $lang
+     * @param string|null $default
+     * @return string|null
+     */
+    public static function rewrite_single_href($href, $lang, $default = null)
+    {
+        if ($default === null) {
+            $default = AI_Lang::default();
+        }
+        if ($lang === null || $default === null) {
+            return null;
+        }
+        return self::rewriteHref($href, $lang, $default);
+    }
+
     private static function isSkippableHref($href)
     {
         $href = ltrim($href);
