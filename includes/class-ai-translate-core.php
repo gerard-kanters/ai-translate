@@ -330,6 +330,30 @@ final class AI_Translate_Core
     }
 
     /**
+     * Clear slug map table used for translated slugs.
+     * Does not modify rewrite rules or other caches.
+     *
+     * @return array{success:bool,cleared:int,message?:string}
+     */
+    public function clear_slug_map()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ai_translate_slugs';
+        // Verify table exists
+        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+        if ($exists !== $table) {
+            return ['success' => false, 'cleared' => 0, 'message' => 'Slug table not found'];
+        }
+        // Count rows for reporting
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+        $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
+        // Truncate the table
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+        $wpdb->query("TRUNCATE TABLE {$table}");
+        return ['success' => true, 'cleared' => $count];
+    }
+
+    /**
      * Build a single, centralized system prompt for all translation requests.
      *
      * This ensures consistent instruction to the LLM across batch and any future single-call translations.

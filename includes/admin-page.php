@@ -705,6 +705,34 @@ function render_admin_page()
 
                 <hr style="margin: 20px 0;">
 
+                <!-- Clear slug cache (truncate slug table) -->
+                <h3>Clear slug cache</h3>
+                <p>Clear the slug table used for translated URLs. Language and menu caches are not affected.</p>
+                <?php
+                if (isset($_POST['clear_slug_cache']) && check_admin_referer('clear_slug_cache_action', 'clear_slug_cache_nonce')) {
+                    if (!current_user_can('manage_options')) {
+                        echo '<div class="notice notice-error"><p>Insufficient permissions.</p></div>';
+                    } else {
+                        if (!class_exists('AI_Translate_Core')) { require_once __DIR__ . '/class-ai-translate-core.php'; }
+                        $core = AI_Translate_Core::get_instance();
+                        $res = $core->clear_slug_map();
+                        if (!empty($res['success'])) {
+                            $num = isset($res['cleared']) ? (int) $res['cleared'] : 0;
+                            echo '<div class="notice notice-success"><p>Slug cache cleared. Rows removed: ' . intval($num) . '.</p></div>';
+                        } else {
+                            $msg = isset($res['message']) ? $res['message'] : 'Unknown error';
+                            echo '<div class="notice notice-error"><p>Failed to clear slug cache: ' . esc_html($msg) . '.</p></div>';
+                        }
+                    }
+                }
+                ?>
+                <form method="post">
+                    <?php wp_nonce_field('clear_slug_cache_action', 'clear_slug_cache_nonce'); ?>
+                    <?php submit_button('Clear slug cache', 'delete', 'clear_slug_cache', false); ?>
+                </form>
+
+                <hr style="margin: 20px 0;">
+
                 
                 <h3>Clear cache per language</h3>
                 <?php
