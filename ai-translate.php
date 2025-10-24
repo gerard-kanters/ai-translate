@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: AI Translate
- * Description: AI based translation plugin. Adding 23 languages in a few clicks. 
+ * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
  * Version: 2.0.1

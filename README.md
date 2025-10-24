@@ -7,11 +7,11 @@ Stable tag: 2.01
 Requires PHP: 8 
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
-= AI-powered WordPress plugin for automatic website translation in 23 languages. Boosts traffic and improves your SEO. =
+= AI-powered plugin for automatic website translation in 25 languages. Boosts traffic and improves your SEO. =
 
 ## Short Description
 
-AI-powered WordPress plugin for automatic website translation in 23 languages. Boosts traffic and improves your SEO.
+AI-powered WordPress plugin for automatic website translation in 25 languages. Boosts traffic and improves your SEO.
 
 ## Description
 
@@ -156,9 +156,10 @@ AI Translate requires an API key for one of the supported providers:
 ## Changelog
 
 ### 2.01
-  - Total rework, changing the translation architecture for performance and support much more themes and plugins
-  - Reduced cost of translation (increasing batch)
+  - Total rework, changing the translation architecture.  
+  - Reduced cost of translation (increasing batch).
   - Great performance boost.
+  - Better support for third party plugins and themes.
 
 ### 1.34
 - Fix pagination with pretty URL

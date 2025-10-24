@@ -32,9 +32,9 @@ final class AI_Translate_Core
     public static function get_api_providers()
     {
         return [
-            'openai' => [ 'name' => 'OpenAI compatible (api.openai.com)', 'base_url' => 'https://api.openai.com/v1' ],
-            'deepseek' => [ 'name' => 'DeepSeek (openai-compatible)', 'base_url' => 'https://api.deepseek.com/v1' ],
-            'custom' => [ 'name' => 'Custom (OpenAI-compatible)', 'base_url' => '' ],
+            'openai' => [ 'name' => 'OpenAI/ChatGPT', 'base_url' => 'https://api.openai.com/v1' ],
+            'deepseek' => [ 'name' => 'DeepSeek', 'base_url' => 'https://api.deepseek.com/v1' ],
+            'custom' => [ 'name' => 'Custom API', 'base_url' => '' ],
         ];
     }
 
