@@ -19,9 +19,6 @@ final class AI_Batch
     public static function translate_plan(array $plan, $source, $target, array $context)
     {
         $segments = $plan['segments'] ?? [];
-        if (empty($segments)) {
-            return ['segments' => [], 'map' => []];
-        }
 
         $settings = get_option('ai_translate_settings', []);
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
@@ -30,8 +27,22 @@ final class AI_Batch
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
 
+        \ai_translate_dbg('translate_plan_begin', [
+            'provider' => $provider ?: 'none',
+            'model' => $model ?: 'none',
+            'segment_count' => is_array($segments) ? count($segments) : 0,
+        ]);
+        if (empty($segments)) {
+            \ai_translate_dbg('translate_plan_no_segments', [ 'provider' => $provider ?: 'none' ]);
+            return ['segments' => [], 'map' => []];
+        }
+
         if ($provider === '' || $model === '' || $apiKey === '') {
-            // Misconfiguratie: geen vertaling uitvoeren.
+            \ai_translate_dbg('translate_plan_skipped_misconfigured', [
+                'provider' => $provider ?: 'none',
+                'has_model' => $model !== '',
+                'has_key' => $apiKey !== '',
+            ]);
             return ['segments' => [], 'map' => []];
         }
 
@@ -40,56 +51,116 @@ final class AI_Batch
             $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
         }
         if ($baseUrl === '') {
+            \ai_translate_dbg('translate_plan_no_base_url', [ 'provider' => $provider ]);
             return ['segments' => [], 'map' => []];
         }
 
         // Build prompt with minimal deterministic context
         $system = self::buildSystemPrompt($source, $target, $context);
-        $userPayload = self::buildUserPayload($segments);
-
         $endpoint = rtrim($baseUrl, '/') . '/chat/completions';
-        $response = wp_remote_post($endpoint, [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type'  => 'application/json',
-            ],
-            'timeout' => 30,
-            'sslverify' => true,
-            'body' => wp_json_encode([
+
+        // Provider-specifieke chunking om timeouts te voorkomen
+        $chunkSize = ($provider === 'deepseek') ? 40 : count($segments);
+        $batches = ($chunkSize < count($segments)) ? array_chunk($segments, $chunkSize) : [ $segments ];
+
+        $translations = [];
+        foreach ($batches as $i => $batchSegs) {
+            \ai_translate_dbg('translate_plan_chunk', [
+                'provider' => $provider,
+                'chunk_index' => $i + 1,
+                'chunk_size' => count($batchSegs),
+                'total' => count($segments),
+            ]);
+
+            $userPayload = self::buildUserPayload($batchSegs);
+            $body = [
                 'model' => $model,
                 'messages' => [
                     ['role' => 'system', 'content' => $system],
                     ['role' => 'user', 'content' => $userPayload],
                 ],
                 'temperature' => 0,
-                'response_format' => [ 'type' => 'json_object' ],
-            ]),
-        ]);
+            ];
+            if ($provider !== 'deepseek') {
+                $body['response_format'] = [ 'type' => 'json_object' ];
+            }
 
-        if (is_wp_error($response)) {
-            return ['segments' => [], 'map' => []];
-        }
-        $code = (int) wp_remote_retrieve_response_code($response);
-        if ($code !== 200) {
-            return ['segments' => [], 'map' => []];
-        }
-        $body = (string) wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-        $choices = is_array($data) ? ($data['choices'] ?? []) : [];
-        if (!$choices || !isset($choices[0]['message']['content'])) {
-            return ['segments' => [], 'map' => []];
-        }
-        $content = (string) $choices[0]['message']['content'];
-        $parsed = json_decode($content, true);
-        if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-            return ['segments' => [], 'map' => []];
+            $timeoutSeconds = ($provider === 'deepseek') ? 60 : 30;
+            $response = wp_remote_post($endpoint, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Content-Type'  => 'application/json',
+                ],
+                'timeout' => $timeoutSeconds,
+                'connect_timeout' => 15,
+                'sslverify' => true,
+                'body' => wp_json_encode($body),
+            ]);
+
+            if (is_wp_error($response)) {
+                \ai_translate_dbg('translate_plan_http_error', [
+                    'provider' => $provider,
+                    'endpoint' => $endpoint,
+                    'error' => $response->get_error_message(),
+                ]);
+                // Stoppen bij fout; lever tot nu toe verzamelde vertalingen terug
+                return ['segments' => $translations, 'map' => []];
+            }
+            $code = (int) wp_remote_retrieve_response_code($response);
+            if ($code !== 200) {
+                $bodyText = (string) wp_remote_retrieve_body($response);
+                \ai_translate_dbg('translate_plan_http_non200', [
+                    'provider' => $provider,
+                    'status' => $code,
+                    'body_preview' => mb_substr($bodyText, 0, 400),
+                ]);
+                return ['segments' => $translations, 'map' => []];
+            }
+
+            $respBody = (string) wp_remote_retrieve_body($response);
+            $data = json_decode($respBody, true);
+            $choices = is_array($data) ? ($data['choices'] ?? []) : [];
+            if (!$choices || !isset($choices[0]['message']['content'])) {
+                \ai_translate_dbg('translate_plan_no_choices_or_content', [
+                    'provider' => $provider,
+                    'has_choices' => !empty($choices),
+                ]);
+                return ['segments' => $translations, 'map' => []];
+            }
+            $content = (string) $choices[0]['message']['content'];
+            if ($provider === 'deepseek') {
+                \ai_translate_dbg('translate_plan_body_preview', [
+                    'provider' => $provider,
+                    'content_preview' => mb_substr($content, 0, 400),
+                ]);
+            }
+            $parsed = json_decode($content, true);
+            if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
+                $candidate = $content;
+                $candidate = str_replace(["```json", "```JSON", "```"], '', $candidate);
+                $start = strpos($candidate, '{');
+                $end = strrpos($candidate, '}');
+                if ($start !== false && $end !== false && $end >= $start) {
+                    $candidate = substr($candidate, $start, $end - $start + 1);
+                }
+                $parsed = json_decode(trim($candidate), true);
+            }
+            if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
+                \ai_translate_dbg('translate_plan_parse_failed', [
+                    'provider' => $provider,
+                    'content_preview' => mb_substr($content, 0, 400),
+                ]);
+                return ['segments' => $translations, 'map' => []];
+            }
+            foreach ($parsed['translations'] as $k => $v) {
+                $translations[(string) $k] = (string) $v;
+            }
+            \ai_translate_dbg('translate_plan_success', [
+                'provider' => $provider,
+                'translated_count' => count($parsed['translations']),
+            ]);
         }
 
-        // Expect: { translations: { id => text, ... } } and PRESERVE KEYS
-        $translations = [];
-        foreach ($parsed['translations'] as $k => $v) {
-            $translations[(string) $k] = (string) $v;
-        }
         return ['segments' => $translations, 'map' => []];
     }
 

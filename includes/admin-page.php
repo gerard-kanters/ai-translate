@@ -981,6 +981,14 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
             $current_settings['api_keys'][$provider_key] = $api_key;
             $current_settings['api_provider'] = $provider_key; // Zorg dat de provider ook wordt opgeslagen
             $current_settings['selected_model'] = $model;
+
+            // Zorg ervoor dat het model ook per provider wordt weggeschreven (runtime leest dit veld)
+            if (!isset($current_settings['models']) || !is_array($current_settings['models'])) {
+                $current_settings['models'] = [];
+            }
+            if (is_string($model) && $model !== '') {
+                $current_settings['models'][$provider_key] = $model;
+            }
             
             if (isset($_POST['custom_model_value'])) {
                  $current_settings['custom_model'] = trim(sanitize_text_field(wp_unslash($_POST['custom_model_value'])));
