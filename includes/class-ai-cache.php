@@ -31,6 +31,14 @@ final class AI_Cache
     {
         $file = self::file_path($key);
         if (is_file($file)) {
+            // Revalidate based on admin setting (cache_expiration in hours, min 14 days)
+            $settings = get_option('ai_translate_settings', []);
+            $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
+            $expiry_seconds = max(14 * 24, $expiry_hours) * HOUR_IN_SECONDS;
+            $mtime = @filemtime($file);
+            if ($mtime && (time() - (int) $mtime) > $expiry_seconds) {
+                return false; // expired → force refresh via API
+            }
             $contents = @file_get_contents($file);
             return $contents !== false ? $contents : false;
         }
