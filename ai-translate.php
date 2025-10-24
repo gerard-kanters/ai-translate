@@ -27,33 +27,10 @@ require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
 
 
-// Lightweight debug logger for routing analysis
+// Debug logger disabled (no-op)
 if (!function_exists('ai_translate_dbg')) {
     function ai_translate_dbg($message, $context = array()) {
-        $msg = '[ai-translate] ' . (string) $message;
-        if (is_array($context) && !empty($context)) {
-            if (function_exists('wp_json_encode')) {
-                $msg .= ' ' . wp_json_encode($context);
-            } else {
-                $msg .= ' ' . json_encode($context);
-            }
-        }
-        // Log to PHP error log
-        error_log($msg);
-        // Also mirror to uploads-based log file to ensure availability on production
-        if (function_exists('wp_upload_dir')) {
-            $up = wp_upload_dir();
-            if (is_array($up) && !empty($up['basedir'])) {
-                $dir = rtrim((string)$up['basedir'], '/\\') . '/ai-translate/logs/';
-                if (!is_dir($dir)) {
-                    @mkdir($dir, 0755, true);
-                }
-                $line = gmdate('c') . ' ' . $msg . "\n";
-                // Write to both ai-router.log and urlmap.log for compatibility with tooling
-                @file_put_contents($dir . 'ai-router.log', $line, FILE_APPEND);
-                @file_put_contents($dir . 'urlmap.log', $line, FILE_APPEND);
-            }
-        }
+        return;
     }
 }
 
