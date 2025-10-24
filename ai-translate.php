@@ -103,6 +103,35 @@ add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
 }, 10, 2);
 
 /**
+ * Add a 5-star rating link to the plugin row on the Plugins screen.
+ *
+ * This renders a golden 5-star link that points to the plugin's WordPress.org page,
+ * similar to popular plugins. Only affects the AI Translate row.
+ *
+ * @param string[] $links Existing meta links for the row.
+ * @param string   $file  Plugin basename for the current row.
+ * @return string[]
+ */
+add_filter('plugin_row_meta', function (array $links, $file) {
+    if ($file !== plugin_basename(__FILE__)) {
+        return $links;
+    }
+
+    $url = 'https://wordpress.org/plugins/ai-translate/';
+    $label = __('Rate on WordPress.org', 'ai-translate');
+    $stars = '★★★★★';
+
+    $links[] = sprintf(
+        '<a href="%1$s" target="_blank" rel="noopener noreferrer" aria-label="%2$s" style="color:#ffb900;text-decoration:none;">%3$s</a>',
+        esc_url($url),
+        esc_attr($label),
+        esc_html($stars)
+    );
+
+    return $links;
+}, 10, 2);
+
+/**
  * Flush rewrite rules on activation.
  */
 register_activation_hook(__FILE__, function () {

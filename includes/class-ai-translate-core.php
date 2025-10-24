@@ -337,5 +337,3 @@ final class AI_Translate_Core
         return $site_name !== '' ? $site_name : 'Website context';
     }
 }
-
-
