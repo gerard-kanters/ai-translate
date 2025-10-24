@@ -655,47 +655,57 @@ function render_admin_page()
                 <?php wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce'); // Nonce for AJAX clear language cache ?>
                 
                 <!-- Clear all caches -->
-                <h3>Clear all caches</h3>
-                <p>Clear all translation caches (disk, memory, transients, menu). <strong>Slug cache is preserved to maintain URL stability.</strong></p>
+                <h3>Clear all language caches</h3>
+                <p>Clear all language caches. <strong>Menu and slug cache are preserved to maintain URL stability.</strong></p>
                 <?php
                 if (isset($_POST['clear_cache']) && check_admin_referer('clear_cache_action', 'clear_cache_nonce')) {
                     if (!class_exists('AI_Translate_Core')) {
                         require_once __DIR__ . '/class-ai-translate-core.php';
                     }
                     $core = AI_Translate_Core::get_instance();
-                    $core->clear_all_cache_except_slugs();
-                    echo '<div class="notice notice-success"><p>All caches successfully cleared (except slug cache).</p></div>';
+                    // Only clear disk-based language caches; do not clear menu or slugs
+                    $core->clear_language_disk_caches_only();
+                    echo '<div class="notice notice-success"><p>All language caches cleared. Menu and slug cache preserved.</p></div>';
                 }
                 ?>
                 <form method="post">
                     <?php wp_nonce_field('clear_cache_action', 'clear_cache_nonce'); ?>
-                    <?php submit_button('Clear all caches', 'delete', 'clear_cache', false); ?>
+                    <?php submit_button('Clear all language caches', 'delete', 'clear_cache', false); ?>
                 </form>
 
                 <hr style="margin: 20px 0;">
 
-                <!-- Clear memory cache -->
-                <h3>Clear memory cache</h3>
-                <p>Clear only memory cache and all transients (database). Disk cache will remain and be used to refill memory cache. <strong>Slug cache is preserved to maintain URL stability.</strong></p>
+                <!-- Clear menu cache (including menu translation tables) -->
+                <h3>Clear menu cache</h3>
+                <p>Clear  menu caches. Languages and Slug map are not affected.</p>
                 <?php
-                $memory_cache_message = '';
-                if (isset($_POST['clear_memory_cache']) && check_admin_referer('clear_memory_cache_action', 'clear_memory_cache_nonce')) {
-                    if (class_exists('AI_Translate_Core')) {
+                if (isset($_POST['clear_menu_cache']) && check_admin_referer('clear_menu_cache_action', 'clear_menu_cache_nonce')) {
+                    if (!current_user_can('manage_options')) {
+                        echo '<div class="notice notice-error"><p>Insufficient permissions.</p></div>';
+                    } else {
+                        if (!class_exists('AI_Translate_Core')) {
+                            require_once __DIR__ . '/class-ai-translate-core.php';
+                        }
                         $core = AI_Translate_Core::get_instance();
-                        $core->clear_memory_and_transients_except_slugs();
-                        $memory_cache_message = '<div class="notice notice-success"><p>Memory cache successfully cleared (except slug cache).</p></div>';
+                        $res = $core->clear_menu_cache();
+                        $tables = isset($res['tables_cleared']) && is_array($res['tables_cleared']) ? $res['tables_cleared'] : [];
+                        $msg = 'Menu cache cleared';
+                        if (!empty($tables)) {
+                            $safe = array_map('esc_html', $tables);
+                            $msg .= ' and tables truncated: ' . implode(', ', $safe);
+                        }
+                        echo '<div class="notice notice-success"><p>' . esc_html($msg) . '.</p></div>';
                     }
-                }
-                if (!empty($memory_cache_message)) {
-                    echo wp_kses_post($memory_cache_message);
                 }
                 ?>
                 <form method="post">
-                    <?php wp_nonce_field('clear_memory_cache_action', 'clear_memory_cache_nonce'); ?>
-                    <?php submit_button('Clear memory cache', 'delete', 'clear_memory_cache', false); ?>
+                    <?php wp_nonce_field('clear_menu_cache_action', 'clear_menu_cache_nonce'); ?>
+                    <?php submit_button('Clear menu cache', 'delete', 'clear_menu_cache', false); ?>
                 </form>
 
                 <hr style="margin: 20px 0;">
+
+                
                 <h3>Clear cache per language</h3>
                 <?php
                 if (!empty($cache_language_message)) {

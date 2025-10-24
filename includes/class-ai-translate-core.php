@@ -233,11 +233,143 @@ final class AI_Translate_Core
     }
 
     /**
+     * Clear only disk-based language caches (HTML artifacts) and preserve menu and slug caches.
+     * Does not touch transients or object cache.
+     *
+     * @return void
+     */
+    public function clear_language_disk_caches_only()
+    {
+        $uploads = wp_upload_dir();
+        $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+        if (!is_dir($root)) {
+            return;
+        }
+        $rii = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($rii as $file) {
+            /** @var \SplFileInfo $file */
+            if ($file->isDir()) {
+                @rmdir($file->getPathname());
+            } else {
+                @unlink($file->getPathname());
+            }
+        }
+    }
+
+    /**
      * Clear prompt cache (currently same as memory/transients for simplicity).
      */
     public function clear_prompt_cache()
     {
         $this->clear_memory_and_transients_except_slugs();
+    }
+
+    /**
+     * Clear menu caches and optional plugin menu tables if present.
+     * - Clears WordPress nav menu transients and object cache entries.
+     * - If legacy plugin tables for menu translations exist, truncates them.
+     * - Never touches slug map table.
+     *
+     * @return array{wp_caches_cleared:bool,tables_cleared:array<int,string>}
+     */
+    public function clear_menu_cache()
+    {
+        // Clear common WordPress menu caches
+        delete_transient('nav_menu');
+        delete_transient('nav_menu_items');
+        delete_transient('nav_menu_cache');
+
+        // Clear object cache entries for registered menus and locations
+        if (function_exists('get_nav_menu_locations')) {
+            $menu_locations = get_nav_menu_locations();
+            if (is_array($menu_locations)) {
+                foreach ($menu_locations as $location => $menu_id) {
+                    wp_cache_delete($menu_id, 'nav_menu');
+                    wp_cache_delete($location, 'nav_menu_locations');
+                }
+            }
+        }
+        if (function_exists('wp_get_nav_menus')) {
+            $menus = wp_get_nav_menus();
+            if (is_array($menus)) {
+                foreach ($menus as $menu) {
+                    if (is_object($menu) && isset($menu->term_id)) {
+                        wp_cache_delete($menu->term_id, 'nav_menu');
+                    }
+                }
+            }
+        }
+        // Best-effort flush of a cache group if available (not standard in core)
+        if (function_exists('wp_cache_flush_group')) {
+            @wp_cache_flush_group('nav_menu');
+        }
+
+        // Optionally truncate legacy/alternate plugin tables if they exist
+        $tablesCleared = [];
+        global $wpdb;
+        $candidates = [
+            $wpdb->prefix . 'ai_translate_menus',
+            $wpdb->prefix . 'ai_translate_menu_items',
+        ];
+        foreach ($candidates as $tbl) {
+            $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $tbl));
+            if ($exists === $tbl) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+                $wpdb->query("TRUNCATE TABLE {$tbl}");
+                $tablesCleared[] = $tbl;
+            }
+        }
+
+        return [
+            'wp_caches_cleared' => true,
+            'tables_cleared' => $tablesCleared,
+        ];
+    }
+
+    /**
+     * Build a single, centralized system prompt for all translation requests.
+     *
+     * This ensures consistent instruction to the LLM across batch and any future single-call translations.
+     *
+     * @param string|null $source_language The expected source language code (nullable/empty if unknown).
+     * @param string $target_language The desired target language code.
+     * @param array $context Optional context array; supports 'website_context' and 'is_title'.
+     * @return string
+     */
+    public static function build_translation_system_prompt($source_language, $target_language, array $context = [])
+    {
+        $sourceLang = $source_language ? (string) $source_language : 'unknown';
+        $targetLang = (string) $target_language;
+        $websiteContext = isset($context['website_context']) && $context['website_context'] !== ''
+            ? "\n\nWebsite context: " . (string) $context['website_context']
+            : '';
+        $titleHint = isset($context['is_title']) && $context['is_title'] ? "\n- If the text is a title or menu label, keep it concise and natural." : '';
+
+        $prompt = sprintf(
+            'You are a professional translation engine. CRITICAL: The source language is %s and the target language is %s. IGNORE the apparent language of the input text and translate as instructed.%s%s
+        
+        TRANSLATION STYLE:
+        - Make the translation sound natural, fluent, and professional, as if written by a native speaker.
+        - Adapt phrasing slightly to ensure it is persuasive and consistent with standard website language in the target language.
+        - Avoid literal translations that sound awkward or robotic.
+        - Use idiomatic expressions and natural vocabulary appropriate for the audience and context.
+        - Maintain the original tone and intent while ensuring the text flows smoothly and is suitable for publication.
+        
+        MENU ITEMS:
+        - For segments where segment.type is "menu": translate to at most two words.
+        - Prefer concise, standard navigation labels while preserving meaning.
+        - If the original is longer, choose the best two-word equivalent in the target language.%s',
+            $sourceLang,
+            $targetLang,
+            $websiteContext,
+            '',
+            $titleHint
+        );
+
+        return $prompt;
     }
 
     /**

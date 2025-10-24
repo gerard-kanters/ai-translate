@@ -48,9 +48,10 @@ final class AI_DOM
                     foreach ($textNodes as $tn) {
                         $orig = (string) $tn->nodeValue;
                         if (trim($orig) === '') { continue; }
-                        $id = 't' . (++$counter);
-                        // Preserve original leading/trailing whitespace to avoid losing spaces around inline elements
-                        $segments[] = ['id' => $id, 'text' => $orig, 'type' => 'node'];
+						$id = 't' . (++$counter);
+						// Preserve original leading/trailing whitespace to avoid losing spaces around inline elements
+						$isMenu = self::isMenuContext($tn);
+						$segments[] = ['id' => $id, 'text' => $orig, 'type' => ($isMenu ? 'menu' : 'node')];
                         $nodeIndex[$id] = $tn; // map to DOMText for precise merge
                     }
                 }
@@ -105,9 +106,10 @@ final class AI_DOM
                 $already = false;
                 foreach ($nodeIndex as $mapped) { if ($mapped === $tn) { $already = true; break; } }
                 if ($already) continue;
-                $id = 't' . (++$counter);
-                // Preserve whitespace
-                $segments[] = ['id' => $id, 'text' => $orig, 'type' => 'node'];
+				$id = 't' . (++$counter);
+				// Preserve whitespace
+				$isMenu = self::isMenuContext($tn);
+				$segments[] = ['id' => $id, 'text' => $orig, 'type' => ($isMenu ? 'menu' : 'node')];
                 $nodeIndex[$id] = $tn;
             }
         }
@@ -333,6 +335,44 @@ final class AI_DOM
                 }
             }
         }
+    }
+
+    /**
+     * Detect if a text node is likely inside a site navigation/menu context.
+     * Heuristics: inside <nav>, or ancestor role="navigation|menubar|menu", or class contains menu/nav/navbar/menu-item.
+     *
+     * @param \DOMText $textNode
+     * @return bool
+     */
+    private static function isMenuContext(\DOMText $textNode)
+    {
+        for ($n = $textNode->parentNode; $n; $n = $n->parentNode) {
+            if ($n instanceof \DOMElement) {
+                $tag = strtolower($n->tagName);
+                if ($tag === 'nav') {
+                    return true;
+                }
+                $role = strtolower((string) $n->getAttribute('role'));
+                if ($role === 'navigation' || $role === 'menubar' || $role === 'menu') {
+                    return true;
+                }
+                $classAttr = ' ' . strtolower((string) $n->getAttribute('class')) . ' ';
+                if ($classAttr !== '  ') {
+                    if (strpos($classAttr, ' menu ') !== false
+                        || strpos($classAttr, ' nav ') !== false
+                        || strpos($classAttr, ' navbar ') !== false
+                        || strpos($classAttr, ' menu-item ') !== false
+                        || strpos($classAttr, ' nav-item ') !== false
+                        || strpos($classAttr, ' navbar-nav ') !== false) {
+                        return true;
+                    }
+                }
+            }
+            if ($n instanceof \DOMDocument) {
+                break;
+            }
+        }
+        return false;
     }
 }
 

@@ -95,17 +95,7 @@ final class AI_Batch
 
     private static function buildSystemPrompt($source, $target, array $ctx)
     {
-        $parts = [];
-        $parts[] = 'You are a professional website translator.';
-        $parts[] = 'Translate UI text and content faithfully; preserve numbers, IDs, codes.';
-        if ($source) {
-            $parts[] = 'Source language: ' . $source;
-        }
-        $parts[] = 'Target language: ' . $target;
-        if (!empty($ctx['website_context'])) {
-            $parts[] = 'Website context: ' . $ctx['website_context'];
-        }
-        return implode(' ', $parts);
+        return \AITranslate\AI_Translate_Core::build_translation_system_prompt($source, $target, $ctx);
     }
 
     private static function buildUserPayload(array $segments)
