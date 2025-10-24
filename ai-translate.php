@@ -1,9 +1,10 @@
 <?php
 /**
  * Plugin Name: AI Translate
- * Description: Output Buffering based translation plugin for WordPress with language switcher and provider selection.
+ * Description: AI based translation plugin. Adding 23 languages in a few clicks. 
  * Author: Netcare
- * Version: 2.0.0
+ * Author URI: https://netcare.nl/
+ * Version: 2.0.1
  * Requires PHP: 8.0
  * Text Domain: ai-translate
  */
@@ -229,8 +230,8 @@ add_action('wp_footer', function () {
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
-    // Inline minimal CSS for bottom-LEFT button, popup opens UPWARDS
-    echo '<style>.ai-trans{position:fixed;bottom:20px;left:20px;z-index:9999}.ai-trans .btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:8px 12px;border-radius:24px;border:none;background:#1e3a8a;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:13px;font-weight:600}.ai-trans .btn img{width:20px;height:14px;border-radius:2px}.ai-trans .menu{position:absolute;bottom:100%;left:0;margin-bottom:8px;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:8px;display:none;min-width:140px}.ai-trans.show .menu{display:block}.ai-trans .item{display:flex;align-items:center;gap:8px;padding:8px 10px;text-decoration:none;color:#222;border-radius:6px;font-size:13px}.ai-trans .item:hover{background:#f3f4f6}.ai-trans .item img{width:20px;height:14px;border-radius:2px}</style>';
+    // Inline minimal CSS for bottom-LEFT button, popup opens UPWARDS (namespaced classes to avoid theme conflicts)
+    echo '<style>.ai-trans{position:fixed;bottom:20px;left:20px;z-index:2147483000}.ai-trans .ai-trans-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:8px 12px;border-radius:24px;border:none;background:#1e3a8a;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:13px;font-weight:600}.ai-trans .ai-trans-btn img{width:20px;height:14px;border-radius:2px}.ai-trans .ai-trans-menu{position:absolute;bottom:100%;left:0;margin-bottom:8px;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:8px;display:none;min-width:140px}.ai-trans.ai-trans-open .ai-trans-menu{display:block}.ai-trans .ai-trans-item{display:flex;align-items:center;gap:8px;padding:8px 10px;text-decoration:none;color:#222;border-radius:6px;font-size:13px}.ai-trans .ai-trans-item:hover{background:#f3f4f6}.ai-trans .ai-trans-item img{width:20px;height:14px;border-radius:2px}</style>';
 
     // Current language (from URL or default)
     $currentLang = null;
@@ -240,8 +241,8 @@ add_action('wp_footer', function () {
 
     echo '<div id="ai-trans" class="ai-trans">';
     // Show current language flag with code label
-    echo '<button type="button" class="btn" aria-haspopup="true" aria-controls="ai-trans-menu" title="' . esc_attr(strtoupper($currentLang)) . '"><img src="' . $currentFlag . '" alt="' . esc_attr($currentLang) . '"><span>' . esc_html(strtoupper($currentLang)) . '</span></button>';
-    echo '<div id="ai-trans-menu" class="menu" role="menu">';
+    echo '<button type="button" class="ai-trans-btn" aria-haspopup="true" aria-expanded="false" aria-controls="ai-trans-menu" title="' . esc_attr(strtoupper($currentLang)) . '"><img src="' . $currentFlag . '" alt="' . esc_attr($currentLang) . '"><span>' . esc_html(strtoupper($currentLang)) . '</span></button>';
+    echo '<div id="ai-trans-menu" class="ai-trans-menu" role="menu">';
 
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
@@ -251,7 +252,7 @@ add_action('wp_footer', function () {
         $targetPath = preg_replace('#/{2,}#','/',$targetPath);
         $url = esc_url( home_url( $targetPath ) );
         $flag = esc_url( $flags_url . $code . '.png' );
-        echo '<a class="item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
+        echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
     }
 
     echo '</div></div>';
@@ -259,7 +260,7 @@ add_action('wp_footer', function () {
     // Minimal toggle script + cookie set on click + dynamic placeholder translation
     $ajaxUrl = esc_url(admin_url('admin-ajax.php'));
     $nonce = wp_create_nonce('ai_translate_front_nonce');
-    echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".btn");b.addEventListener("click",function(e){e.stopPropagation();w.classList.toggle("show")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("show")}});w.addEventListener("click",function(e){var a=e.target.closest("a.item");if(!a)return;var lang=a.getAttribute("data-lang")||"";if(lang){var d=new Date(Date.now()+30*24*60*60*1000).toUTCString();document.cookie="ai_translate_lang="+encodeURIComponent(lang)+";path=/;expires="+d+";SameSite=Lax";}});
+    echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});w.addEventListener("click",function(e){var a=e.target.closest("a.ai-trans-item");if(!a)return;var lang=a.getAttribute("data-lang")||"";if(lang){var d=new Date(Date.now()+30*24*60*60*1000).toUTCString();document.cookie="ai_translate_lang="+encodeURIComponent(lang)+";path=/;expires="+d+";SameSite=Lax";}});
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
 var AI_TA={u:"' . $ajaxUrl . '",n:"' . esc_js($nonce) . '"};
 function cS(r){var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label]"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&ph.trim())s.add(ph.trim());var tl=el.getAttribute("title");if(tl&&tl.trim())s.add(tl.trim());var al=el.getAttribute("aria-label");if(al&&al.trim())s.add(al.trim());var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&v.trim())s.add(v.trim());}}});return Array.from(s);} 

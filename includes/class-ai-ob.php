@@ -42,13 +42,9 @@ final class AI_OB
         }
         $lang = AI_Lang::current();
         if ($lang === null || !AI_Lang::should_translate($lang)) {
-            // Still inject SEO tags (meta/OG/hreflang) for default language or when language not determined
-            $targetLang = $lang ?: AI_Lang::default();
-            if (!$targetLang) {
-                $locale = function_exists('get_locale') ? (string) get_locale() : '';
-                $targetLang = $locale !== '' ? sanitize_key(substr($locale, 0, 2)) : 'nl';
-            }
-            return AI_SEO::inject($html, $targetLang);
+            // For default language (or when language not determined), return original HTML unchanged
+            // to avoid theme incompatibilities from DOM rewriting.
+            return $html;
         }
 
         $route = $this->current_route_id();
@@ -70,10 +66,41 @@ final class AI_OB
         $res = AI_Batch::translate_plan($plan, AI_Lang::default(), $lang, $this->site_context());
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
         // If provider fails, serve original (no blank pages)
-        $html2 = empty($translations) ? $html : AI_DOM::merge($plan, $translations);
+        if (empty($translations)) {
+            $html2 = $html;
+        } else {
+            $merged = AI_DOM::merge($plan, $translations);
+            // Preserve original <body> framing to avoid theme conflicts: replace only inner body
+            $html2 = $merged;
+            if (preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $merged, $mNew) &&
+                preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $html, $mOrig)) {
+                $newInner = (string) $mNew[1];
+                $html2 = (string) preg_replace('/(<body\b[^>]*>)[\s\S]*?(<\/body>)/i', '$1' . $newInner . '$2', (string) $html, 1);
+            }
+        }
 
         $html3 = AI_SEO::inject($html2, $lang);
-        $html3 = AI_URL::rewrite($html3, $lang);
+        // Skip URL rewrite for themes known to be sensitive to DOM rebuild (flat-bootstrap / spot)
+        $skipRewrite = false;
+        if (function_exists('wp_get_theme')) {
+            try {
+                $th = wp_get_theme();
+                if ($th) {
+                    $idParts = array(
+                        strtolower((string) $th->get_stylesheet()),
+                        strtolower((string) $th->get_template()),
+                        strtolower((string) $th->get('Name')),
+                    );
+                    $idStr = implode('|', array_filter($idParts));
+                    if (strpos($idStr, 'flat-bootstrap') !== false || strpos($idStr, 'spot') !== false) {
+                        $skipRewrite = true;
+                    }
+                }
+            } catch (\Throwable $e) {}
+        }
+        if (!$skipRewrite) {
+            $html3 = AI_URL::rewrite($html3, $lang);
+        }
 
         AI_Cache::set($key, $html3);
         return $html3;
@@ -134,5 +161,3 @@ final class AI_OB
         ];
     }
 }
-
-

@@ -35,6 +35,12 @@ final class AI_SEO
         libxml_use_internal_errors($internalErrors);
 
         $xpath = new \DOMXPath($doc);
+        if (function_exists('ai_translate_dbg')) {
+            ai_translate_dbg('seo_inject_start', [
+                'lang' => $lang,
+                'has_head' => (bool) $doc->getElementsByTagName('head')->item(0),
+            ]);
+        }
         $head = $doc->getElementsByTagName('head')->item(0);
         if (!$head) {
             // Create <head> if missing
@@ -46,6 +52,25 @@ final class AI_SEO
                 // As a fallback, prepend head at the top-level
                 $doc->insertBefore($head, $doc->firstChild);
             }
+        }
+
+        // Translate <title> content for non-default languages (preserve structure)
+        try {
+            if ($default && $lang && strtolower((string)$lang) !== strtolower((string)$default)) {
+                $titleNode = $doc->getElementsByTagName('title')->item(0);
+                if ($titleNode) {
+                    $origTitle = trim((string) $titleNode->textContent);
+                    if ($origTitle !== '') {
+                        $newTitle = self::maybeTranslateMeta($origTitle, $default, $lang);
+                        if (is_string($newTitle) && $newTitle !== '') {
+                            while ($titleNode->firstChild) { $titleNode->removeChild($titleNode->firstChild); }
+                            $titleNode->appendChild($doc->createTextNode($newTitle));
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fail-safe: keep original title on error
         }
 
         // 1) Meta Description (add if missing)
@@ -173,6 +198,18 @@ final class AI_SEO
 
         // 3) hreflang alternates
         self::injectHreflang($doc, $xpath, $head, $lang, $default);
+        if (function_exists('ai_translate_dbg')) {
+            $hreflangs = [];
+            $links = $xpath->query('//head/link[@rel="alternate" and @hreflang]');
+            if ($links) {
+                foreach ($links as $lnk) {
+                    if ($lnk instanceof \DOMElement) {
+                        $hreflangs[] = strtolower((string) $lnk->getAttribute('hreflang'));
+                    }
+                }
+            }
+            ai_translate_dbg('seo_inject_done', [ 'lang' => $lang, 'hreflangs' => $hreflangs ]);
+        }
 
         return $doc->saveHTML();
     }
