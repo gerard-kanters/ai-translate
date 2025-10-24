@@ -418,7 +418,7 @@ add_action('admin_init', function () {
                 echo '<option value="' . esc_attr($value) . '" selected>' . esc_html(ucfirst($value)) . ' (Current)</option>';
             }
             foreach ($languages as $code => $name) {
-                echo '<option value="' . esc_attr($code) . '" ' . selected($value, $code, false) . '>' . esc_html($name) . '</option>';
+                echo '<option value="' . esc_attr($code) . '" ' . selected($value, $code, false) . '>' . esc_html($name . ' (' . $code . ')') . '</option>';
             }
             echo '</select>';
         },
@@ -434,12 +434,16 @@ add_action('admin_init', function () {
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Use all available languages
             echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
+            // Flags base URL
+            $flags_url = plugin_dir_url(__DIR__) . 'assets/flags/';
             foreach ($languages as $code => $name) {
                 // Exclude detectable languages from being selectable here? Optional.
                 // For now, allow overlap but explain via description.
                 echo '<label style="display:block;margin-bottom:5px;">';
                 echo '<input type="checkbox" name="ai_translate_settings[enabled_languages][]" value="' . esc_attr($code) . '" ' .
-                    checked(in_array($code, $enabled), true, false) . '> ' . esc_html($name);
+                    checked(in_array($code, $enabled), true, false) . '> ' .
+                    '<img src="' . esc_url($flags_url . $code . '.png') . '" alt="' . esc_attr(strtoupper($code)) . '" style="width:16px;height:12px;vertical-align:middle;margin-right:6px;">' .
+                    esc_html($name . ' (' . $code . ')');
                 echo '</label>';
             }
             echo '</div>';
@@ -460,6 +464,9 @@ add_action('admin_init', function () {
             // Retrieve ALL available languages from the core class
             $languages = $core->get_available_languages();
 
+            // Flags base URL
+            $flags_url = plugin_dir_url(__DIR__) . 'assets/flags/';
+
             echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
 
             // No hardcoded default selections.
@@ -468,7 +475,9 @@ add_action('admin_init', function () {
             foreach ($languages as $code => $name) {
                 echo '<label style="display:block;margin-bottom:5px;">';
                 echo '<input type="checkbox" name="ai_translate_settings[detectable_languages][]" value="' . esc_attr($code) . '" ' .
-                    checked(in_array($code, $detected_enabled), true, false) . '> ' . esc_html($name);
+                    checked(in_array($code, $detected_enabled), true, false) . '> ' .
+                    '<img src="' . esc_url($flags_url . $code . '.png') . '" alt="' . esc_attr(strtoupper($code)) . '" style="width:16px;height:12px;vertical-align:middle;margin-right:6px;">' .
+                    esc_html($name . ' (' . $code . ')');
                 echo '</label>';
             }
             echo '</div>';

@@ -43,7 +43,7 @@ AI Translate leverages advanced AI to provide seamless, automatic translation of
 AI Translate is free to use, but you need an API key from an AI service provider like OpenAI or Deepseek. Costs depend on your usage and chosen provider. OpenAI charges approximately €0.0015 per 1K tokens, meaning an average 500-word page costs about €0.01 to translate.
 
 = Which languages are supported? =
-AI Translate supports 23+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Vietnamese, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian and more.
+AI Translate supports 23+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Georgian, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian and more.
 
 = How does caching work? =
 AI Translate uses an intelligent caching system that stores translations in WordPress transients and files. Translations are only regenerated when the original content changes, which saves API costs and improves performance.

@@ -47,6 +47,16 @@ final class AI_OB
             return $html;
         }
 
+        // Never serve cached HTML to logged-in users or when admin bar should be visible.
+        // This prevents returning a cached anonymous page that lacks the admin toolbar.
+        $bypassUserCache = false;
+        if (function_exists('is_user_logged_in') && is_user_logged_in()) {
+            $bypassUserCache = true;
+        }
+        if (function_exists('is_admin_bar_showing') && is_admin_bar_showing()) {
+            $bypassUserCache = true;
+        }
+
         $route = $this->current_route_id();
         // Debug: help analyze caching and keys on paginated/archive views
         if (function_exists('ai_translate_dbg')) {
@@ -57,9 +67,11 @@ final class AI_OB
             ]);
         }
         $key = AI_Cache::key($lang, $route, $this->content_version());
-        $cached = AI_Cache::get($key);
-        if ($cached !== false) {
-            return $cached;
+        if (!$bypassUserCache) {
+            $cached = AI_Cache::get($key);
+            if ($cached !== false) {
+                return $cached;
+            }
         }
 
         $plan = AI_DOM::plan($html);
@@ -102,7 +114,9 @@ final class AI_OB
             $html3 = AI_URL::rewrite($html3, $lang);
         }
 
-        AI_Cache::set($key, $html3);
+        if (!$bypassUserCache) {
+            AI_Cache::set($key, $html3);
+        }
         return $html3;
     }
 

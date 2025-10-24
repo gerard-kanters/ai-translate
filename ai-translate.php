@@ -287,15 +287,16 @@ add_action('wp_footer', function () {
     echo '</div></div>';
 
     // Minimal toggle script + cookie set on click + dynamic placeholder translation
-    $ajaxUrl = esc_url(admin_url('admin-ajax.php'));
+    $restUrl = esc_url_raw( rest_url('ai-translate/v1/batch-strings') );
     $nonce = wp_create_nonce('ai_translate_front_nonce');
     echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});w.addEventListener("click",function(e){var a=e.target.closest("a.ai-trans-item");if(!a)return;var lang=a.getAttribute("data-lang")||"";if(lang){var d=new Date(Date.now()+30*24*60*60*1000).toUTCString();document.cookie="ai_translate_lang="+encodeURIComponent(lang)+";path=/;expires="+d+";SameSite=Lax";}});
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
-var AI_TA={u:"' . $ajaxUrl . '",n:"' . esc_js($nonce) . '"};
+var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
+function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
 function cS(r){var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label]"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&ph.trim())s.add(ph.trim());var tl=el.getAttribute("title");if(tl&&tl.trim())s.add(tl.trim());var al=el.getAttribute("aria-label");if(al&&al.trim())s.add(al.trim());var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&v.trim())s.add(v.trim());}}});return Array.from(s);} 
-function aT(r,m){var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label]"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&m[ph]!=null)el.setAttribute("placeholder",m[ph]);var tl=el.getAttribute("title");if(tl&&m[tl]!=null)el.setAttribute("title",m[tl]);var al=el.getAttribute("aria-label");if(al&&m[al]!=null)el.setAttribute("aria-label",m[al]);var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&m[v]!=null)el.setAttribute("value",m[v]);}}});}
-function tA(r){var ss=cS(r);if(!ss.length)return;var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/x-www-form-urlencoded; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}};x.send("action=ai_translate_batch_strings&nonce="+encodeURIComponent(AI_TA.n)+"&strings="+encodeURIComponent(JSON.stringify(ss)));}
-document.addEventListener("DOMContentLoaded",function(){tA(document);try{var mo=new MutationObserver(function(ms){ms.forEach(function(m){for(var i=0;i<m.addedNodes.length;i++){var n=m.addedNodes[i];if(n&&n.nodeType===1){tA(n);}}});});mo.observe(document.documentElement,{childList:true,subtree:true});}catch(e){}});
+ function aT(r,m){var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label]"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}});} 
+ function tA(r){var ss=cS(r);if(!ss.length)return;var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
+document.addEventListener("DOMContentLoaded",function(){tA(document);try{var to=null;function db(f){clearTimeout(to);to=setTimeout(f,80);}var mo=new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==="childList"){for(var i=0;i<m.addedNodes.length;i++){var n=m.addedNodes[i];if(n&&n.nodeType===1){tA(n);}}}else if(m.type==="attributes"){var a=m.attributeName||"";if(a==="placeholder"||a==="title"||a==="aria-label"||a==="value"){db(function(){tA(m.target&&m.target.nodeType===1?m.target:document);});}}});});mo.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["placeholder","title","aria-label","value"]});}catch(e){}});
 })();</script>';
 });
 
@@ -326,57 +327,66 @@ add_action('init', function () {
     }
 }, 99);
 /**
- * Frontend AJAX endpoint for dynamic UI attribute translation.
+ * REST endpoint voor dynamische UI-attribuutvertaling (geen admin-ajax).
  */
-add_action('wp_ajax_nopriv_ai_translate_batch_strings', function(){
-    check_ajax_referer('ai_translate_front_nonce','nonce');
-    $raw = isset($_POST['strings']) ? (string) wp_unslash($_POST['strings']) : '[]';
-    $arr = json_decode($raw, true);
-    if (!is_array($arr)) { wp_send_json_success(['map'=>[]]); }
-    $texts = array_values(array_unique(array_filter(array_map(function($s){ return trim((string) $s); }, $arr))));
-    $lang = \AITranslate\AI_Lang::current();
-    $default = \AITranslate\AI_Lang::default();
-    if ($lang === null || $default === null) { wp_send_json_success(['map'=>[]]); }
-    if (strtolower($lang) === strtolower($default)) {
-        $map = [];
-        foreach ($texts as $t) { $map[$t] = $t; }
-        wp_send_json_success(['map'=>$map]);
-    }
-    $settings = get_option('ai_translate_settings', array());
-    $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14*24);
-    $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
-    $map = [];
-    $toTranslate = [];
-    $idMap = [];
-    $i = 0;
-    foreach ($texts as $t) {
-        $key = 'ai_tr_attr_' . $lang . '_' . md5($t);
-        $cached = get_transient($key);
-        if ($cached !== false) {
-            $map[$t] = (string) $cached;
-        } else {
-            $id = 's' . (++$i);
-            $toTranslate[$id] = $t;
-            $idMap[$id] = $t;
+add_action('rest_api_init', function(){
+    register_rest_route('ai-translate/v1', '/batch-strings', [
+        'methods' => 'POST',
+        'permission_callback' => '__return_true',
+        'args' => [],
+        'callback' => function(\WP_REST_Request $request){
+            $nonce = (string) ($request->get_param('nonce') ?? '');
+            if (!wp_verify_nonce($nonce, 'ai_translate_front_nonce')) {
+                return new \WP_REST_Response(['success'=>true,'data'=>['map'=>[]]], 200);
+            }
+            $arr = $request->get_param('strings');
+            if (!is_array($arr)) { $arr = []; }
+            $texts = array_values(array_unique(array_filter(array_map(function($s){ return trim((string) $s); }, $arr))));
+            $langParam = sanitize_key((string) ($request->get_param('lang') ?? ''));
+            $lang = $langParam !== '' ? $langParam : \AITranslate\AI_Lang::current();
+            $default = \AITranslate\AI_Lang::default();
+            if ($lang === null || $default === null) { return new \WP_REST_Response(['success'=>true,'data'=>['map'=>[]]], 200); }
+            if (strtolower($lang) === strtolower($default)) {
+                $map = [];
+                foreach ($texts as $t) { $map[$t] = $t; }
+                return new \WP_REST_Response(['success'=>true,'data'=>['map'=>$map]], 200);
+            }
+            $settings = get_option('ai_translate_settings', array());
+            $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14*24);
+            $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
+            $map = [];
+            $toTranslate = [];
+            $idMap = [];
+            $i = 0;
+            foreach ($texts as $t) {
+                $key = 'ai_tr_attr_' . $lang . '_' . md5($t);
+                $cached = get_transient($key);
+                if ($cached !== false) {
+                    $map[$t] = (string) $cached;
+                } else {
+                    $id = 's' . (++$i);
+                    $toTranslate[$id] = $t;
+                    $idMap[$id] = $t;
+                }
+            }
+            if (!empty($toTranslate)) {
+                $plan = ['segments'=>[]];
+                foreach ($toTranslate as $id=>$text) {
+                    $plan['segments'][] = ['id'=>$id, 'text'=>$text, 'type'=>'meta'];
+                }
+                $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
+                $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
+                $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : array();
+                foreach ($toTranslate as $id=>$orig) {
+                    $tr = isset($segs[$id]) ? (string) $segs[$id] : $orig;
+                    $map[$orig] = $tr;
+                    set_transient('ai_tr_attr_' . $lang . '_' . md5($orig), $tr, $expiry);
+                }
+            }
+            return new \WP_REST_Response(['success'=>true,'data'=>['map'=>$map]], 200);
         }
-    }
-    if (!empty($toTranslate)) {
-        $plan = ['segments'=>[]];
-        foreach ($toTranslate as $id=>$text) {
-            $plan['segments'][] = ['id'=>$id, 'text'=>$text, 'type'=>'meta'];
-        }
-        $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
-        $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
-        $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : array();
-        foreach ($toTranslate as $id=>$orig) {
-            $tr = isset($segs[$id]) ? (string) $segs[$id] : $orig;
-            $map[$orig] = $tr;
-            set_transient('ai_tr_attr_' . $lang . '_' . md5($orig), $tr, $expiry);
-        }
-    }
-    wp_send_json_success(['map'=>$map]);
+    ]);
 });
-add_action('wp_ajax_ai_translate_batch_strings', function(){ do_action('wp_ajax_nopriv_ai_translate_batch_strings'); });
 
 /**
  * Ensure language-only URLs (e.g., /en/, /de/) route to the site's front page.
