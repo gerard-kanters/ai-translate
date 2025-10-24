@@ -221,6 +221,32 @@ add_action('template_redirect', function () {
             }
         }
     }
+    // If URL has no language prefix, ensure cookie reflects default language to avoid stale cookie
+    $reqPath2 = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    if ($reqPath2 === '' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath2)) {
+        $defaultLang = \AITranslate\AI_Lang::default();
+        if ($defaultLang) {
+            $cookie_val = isset($_COOKIE['ai_translate_lang']) ? (string) $_COOKIE['ai_translate_lang'] : '';
+            if (strtolower($cookie_val) !== strtolower($defaultLang)) {
+                setcookie('ai_translate_lang', (string) $defaultLang, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+            }
+        }
+    }
+    // Ensure search requests have language-prefixed URL when current language != default
+    if (function_exists('is_search') && is_search()) {
+        $cur = \AITranslate\AI_Lang::current();
+        $def = \AITranslate\AI_Lang::default();
+        $pathNow = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if ($cur && $def && strtolower($cur) !== strtolower($def)) {
+            if ($pathNow === '' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
+                $base = home_url('/' . $cur . '/');
+                $target = add_query_arg($_GET, $base);
+                wp_safe_redirect($target, 302);
+                exit;
+            }
+        }
+    }
     \AITranslate\AI_OB::instance()->start();
 }, 1);
 
@@ -775,4 +801,70 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links)
     return $links;
 });
 
+
+/**
+ * Translate search query into the default language before running WP_Query,
+ * and keep the displayed search term as originally entered by the user.
+ */
+add_action('pre_get_posts', function ($query) {
+    if (!is_object($query) || !method_exists($query, 'is_main_query')) {
+        return;
+    }
+    if (is_admin() || !$query->is_main_query() || !$query->is_search()) {
+        return;
+    }
+    // Skip when current request is exempt (admin/default language etc.)
+    if (\AITranslate\AI_Lang::is_exempt_request()) {
+        return;
+    }
+
+    $s = $query->get('s');
+    if (!is_string($s)) {
+        return;
+    }
+    $s = trim((string) wp_unslash($s));
+    if ($s === '') {
+        return;
+    }
+
+    $original = sanitize_text_field($s);
+    // Preserve original for display on results templates
+    $GLOBALS['ai_translate_original_search_query'] = $original;
+
+    $current = \AITranslate\AI_Lang::current();
+    $default = \AITranslate\AI_Lang::default();
+    if ($current === null || $default === null || strtolower($current) === strtolower($default)) {
+        return;
+    }
+
+    $settings = get_option('ai_translate_settings', array());
+    $ctx = array(
+        'website_context' => isset($settings['website_context']) ? (string) $settings['website_context'] : '',
+    );
+    $plan = array('segments' => array(
+        array('id' => 'q1', 'text' => $original, 'type' => 'meta'),
+    ));
+    $res = \AITranslate\AI_Batch::translate_plan($plan, $current, $default, $ctx);
+    $translated = '';
+    if (is_array($res) && isset($res['segments']) && is_array($res['segments'])) {
+        $translated = (string) ($res['segments']['q1'] ?? '');
+    }
+    if ($translated !== '') {
+        $query->set('s', $translated);
+    }
+}, 9);
+
+/**
+ * Ensure the visible search query remains the user's original input (not the translated term).
+ */
+add_filter('get_search_query', function ($search, $escaped = true) {
+    if (is_admin()) {
+        return $search;
+    }
+    if (isset($GLOBALS['ai_translate_original_search_query'])) {
+        $orig = (string) $GLOBALS['ai_translate_original_search_query'];
+        return $escaped ? esc_attr($orig) : $orig;
+    }
+    return $search;
+}, 10, 2);
 

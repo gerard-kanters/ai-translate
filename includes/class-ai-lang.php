@@ -50,11 +50,39 @@ final class AI_Lang
                 }
             }
         }
-        // Important: when URL has no language prefix, prefer default language over cookie
-        // This ensures routes without /{lang}/ are always the default language
-        // and prevents stale cookies from forcing translation on default URLs.
-
+        // When URL has no language prefix, fall back to cookie and then browser language.
         if ($lang === null || $lang === '') {
+            // 1) Cookie wins if valid
+            $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
+            if ($cookieLang !== '' && (empty($allowed) || in_array($cookieLang, $allowed, true))) {
+                self::$current = $cookieLang;
+                return self::$current;
+            }
+            // 2) Browser Accept-Language (first 2-letter match)
+            $browser = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? (string) $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
+            $picked = '';
+            if ($browser !== '') {
+                $parts = explode(',', $browser);
+                foreach ($parts as $p) {
+                    $p = trim((string) $p);
+                    if ($p === '') { continue; }
+                    $code = strtolower(substr($p, 0, 2));
+                    if ($code !== '' && (empty($allowed) || in_array($code, $allowed, true))) {
+                        $picked = $code;
+                        break;
+                    }
+                }
+            }
+            if ($picked !== '') {
+                // Set cookie for consistency on next requests (30 days)
+                if (!headers_sent()) {
+                    setcookie('ai_translate_lang', $picked, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                    $_COOKIE['ai_translate_lang'] = $picked;
+                }
+                self::$current = $picked;
+                return self::$current;
+            }
+            // 3) Default as last resort
             self::$current = $default !== '' ? $default : null;
             return self::$current;
         }
