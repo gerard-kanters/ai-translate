@@ -26,7 +26,7 @@ final class AI_URL
 
         $doc = new \DOMDocument();
         $internalErrors = libxml_use_internal_errors(true);
-        $flags = defined('LIBXML_HTML_NOIMPLIED') ? (LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD) : 0;
+        $flags = LIBXML_HTML_NODEFDTD;
         $doc->loadHTML($html, $flags);
         libxml_clear_errors();
         libxml_use_internal_errors($internalErrors);
@@ -97,7 +97,30 @@ final class AI_URL
             }
         }
 
-        return $doc->saveHTML();
+        $result = $doc->saveHTML();
+        
+        // Remove XML declaration added by loadHTML (causes quirks mode)
+        $result = preg_replace('/<\?xml[^?]*\?>\s*/i', '', $result);
+        
+        // Preserve DOCTYPE from original HTML to avoid quirks mode
+        if (preg_match('/^(<!DOCTYPE[^>]*>)/i', (string) $html, $docMatch)) {
+            // Ensure we don't duplicate if saveHTML already includes it
+            if (stripos($result, '<!DOCTYPE') === false) {
+                $result = $docMatch[1] . "\n" . $result;
+            }
+        }
+        
+        // Preserve original framing and only update the body inner content with rewritten URLs
+        if (preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $result, $bodyNew) &&
+            preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $html, $bodyOrig)) {
+            
+            $newBodyInner = (string) $bodyNew[1];
+            
+            // Only replace body inner content (URLs have been rewritten), keep everything else from original
+            $result = (string) preg_replace('/(<body\b[^>]*>)[\s\S]*?(<\/body>)/i', '$1' . $newBodyInner . '$2', (string) $html, 1);
+        }
+        
+        return $result;
     }
 
     /**

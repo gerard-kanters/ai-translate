@@ -66,8 +66,10 @@ final class AI_OB
                 'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
             ]);
         }
+        // Allow cache bypass via nocache parameter for testing
+        $nocache = isset($_GET['nocache']) || isset($_GET['no_cache']);
         $key = AI_Cache::key($lang, $route, $this->content_version());
-        if (!$bypassUserCache) {
+        if (!$bypassUserCache && !$nocache) {
             $cached = AI_Cache::get($key);
             if ($cached !== false) {
                 return $cached;
@@ -92,27 +94,7 @@ final class AI_OB
         }
 
         $html3 = AI_SEO::inject($html2, $lang);
-        // Skip URL rewrite for themes known to be sensitive to DOM rebuild (flat-bootstrap / spot)
-        $skipRewrite = false;
-        if (function_exists('wp_get_theme')) {
-            try {
-                $th = wp_get_theme();
-                if ($th) {
-                    $idParts = array(
-                        strtolower((string) $th->get_stylesheet()),
-                        strtolower((string) $th->get_template()),
-                        strtolower((string) $th->get('Name')),
-                    );
-                    $idStr = implode('|', array_filter($idParts));
-                    if (strpos($idStr, 'flat-bootstrap') !== false || strpos($idStr, 'spot') !== false) {
-                        $skipRewrite = true;
-                    }
-                }
-            } catch (\Throwable $e) {}
-        }
-        if (!$skipRewrite) {
-            $html3 = AI_URL::rewrite($html3, $lang);
-        }
+        $html3 = AI_URL::rewrite($html3, $lang);
 
         if (!$bypassUserCache) {
             AI_Cache::set($key, $html3);

@@ -29,7 +29,7 @@ final class AI_SEO
         $doc = new \DOMDocument();
         $internalErrors = libxml_use_internal_errors(true);
         $htmlToLoad = self::ensureUtf8($html);
-        $flags = defined('LIBXML_HTML_NOIMPLIED') ? (LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD) : 0;
+        $flags = LIBXML_HTML_NODEFDTD;
         $doc->loadHTML('<?xml encoding="utf-8" ?>' . $htmlToLoad, $flags);
         libxml_clear_errors();
         libxml_use_internal_errors($internalErrors);
@@ -211,7 +211,43 @@ final class AI_SEO
             ai_translate_dbg('seo_inject_done', [ 'lang' => $lang, 'hreflangs' => $hreflangs ]);
         }
 
-        return $doc->saveHTML();
+        $result = $doc->saveHTML();
+        
+        // Remove XML declaration added by loadHTML (causes quirks mode)
+        $result = preg_replace('/<\?xml[^?]*\?>\s*/i', '', $result);
+        
+        // Preserve DOCTYPE from original HTML to avoid quirks mode
+        if (preg_match('/^(<!DOCTYPE[^>]*>)/i', (string) $html, $docMatch)) {
+            // Ensure we don't duplicate if saveHTML already includes it
+            if (stripos($result, '<!DOCTYPE') === false) {
+                $result = $docMatch[1] . "\n" . $result;
+            }
+        }
+        
+        // Preserve original <body> framing to avoid theme structure conflicts
+        // Extract only the <head> from DOMDocument result and merge with original HTML body
+        if (preg_match('/<head\b[^>]*>([\s\S]*?)<\/head>/i', (string) $result, $headNew) &&
+            preg_match('/<head\b[^>]*>([\s\S]*?)<\/head>/i', (string) $html, $headOrig) &&
+            preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $html, $bodyOrig)) {
+            
+            $newHead = (string) $headNew[1];
+            $origBodyTag = (string) $bodyOrig[0];
+            
+            // Build result: DOCTYPE + updated head + original body
+            $doctype = '';
+            if (preg_match('/^(<!DOCTYPE[^>]*>)/i', (string) $html, $doctypeMatch)) {
+                $doctype = $doctypeMatch[1] . "\n";
+            }
+            
+            $htmlTag = '<html';
+            if (preg_match('/<html\b([^>]*)>/i', (string) $html, $htmlMatch)) {
+                $htmlTag = '<html' . $htmlMatch[1] . '>';
+            }
+            
+            $result = $doctype . $htmlTag . "\n<head>" . $newHead . "</head>\n" . $origBodyTag . "</html>";
+        }
+        
+        return $result;
     }
 
     /**

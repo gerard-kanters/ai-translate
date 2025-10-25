@@ -18,7 +18,7 @@ final class AI_DOM
         $doc = new \DOMDocument();
         $internalErrors = libxml_use_internal_errors(true);
         $htmlToLoad = self::ensureUtf8($html);
-        $flags = defined('LIBXML_HTML_NOIMPLIED') ? (LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD) : 0;
+        $flags = LIBXML_HTML_NODEFDTD;
         // Hint UTF-8 to libxml to avoid mojibake for emojis/special chars
         $doc->loadHTML('<?xml encoding="utf-8" ?>' . $htmlToLoad, $flags);
         libxml_clear_errors();
@@ -133,6 +133,7 @@ final class AI_DOM
             'doc' => $doc,
             'segments' => $segments,
             'nodeIndex' => $nodeIndex,
+            'originalHTML' => $html,
         ];
     }
 
@@ -186,8 +187,22 @@ final class AI_DOM
         // Cleanup: remove duplicated words around anchors introduced by segmented translation
         self::fixAnchorAdjacencyDuplicates($doc);
 
-        $flags = defined('LIBXML_HTML_NOIMPLIED') ? (LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD) : 0;
-        return $doc->saveHTML();
+        // Return the full HTML - DOMDocument has fixed any structural issues
+        $result = $doc->saveHTML();
+        
+        // Remove XML declaration added by loadHTML (causes quirks mode)
+        $result = preg_replace('/<\?xml[^?]*\?>\s*/i', '', $result);
+        
+        // Preserve DOCTYPE from original HTML to avoid quirks mode
+        $origHTML = isset($plan['originalHTML']) ? $plan['originalHTML'] : '';
+        if ($origHTML && preg_match('/^(<!DOCTYPE[^>]*>)/i', (string) $origHTML, $docMatch)) {
+            // Ensure we don't duplicate if saveHTML already includes it
+            if (stripos($result, '<!DOCTYPE') === false) {
+                $result = $docMatch[1] . "\n" . $result;
+            }
+        }
+        
+        return $result;
     }
 
     private static function isExcluded(\DOMNode $node, array $exclusions)
