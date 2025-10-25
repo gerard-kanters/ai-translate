@@ -117,9 +117,6 @@ add_action('update_option_ai_translate_settings', function ($old_value, $value) 
         if (class_exists('AI_Translate_Core')) {
             $core = AI_Translate_Core::get_instance();
             $core->clear_prompt_cache();
-            
-            // Also clear translation cache to force re-translation with new context
-            $core->clear_all_cache();
         }
     }
 }, 10, 2);
