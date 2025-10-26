@@ -30,7 +30,7 @@ final class AI_DOM
         $visitedTextNodes = new \SplObjectStorage();
 
         $exclusions = ['script','style','code','pre','noscript'];
-        $translatableTags = ['title','p','h1','h2','h3','h4','h5','h6','li','td','th','caption','figcaption','span','label','a','button'];
+        $translatableTags = ['title','p','h1','h2','h3','h4','h5','h6','li','td','th','caption','figcaption','span','label','a','button','img'];
         $attrNames = ['title','alt','placeholder','aria-label','value'];
 
         $xpath = new \DOMXPath($doc);
