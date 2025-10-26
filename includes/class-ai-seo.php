@@ -339,17 +339,25 @@ final class AI_SEO
 
         $currentAbs = self::currentPageUrlAbsolute();
         $defaultUrl = '';
+        
+        // Determine post_id for singular pages to enable slug translation
+        $post_id = 0;
+        if (is_singular()) {
+            $post_id = get_queried_object_id();
+        }
 
         foreach ($langs as $lc) {
             $lc = sanitize_key((string) $lc);
             if (isset($existing[$lc])) {
                 continue; // already present
             }
-            $path = AI_URL::rewrite_single_href($currentAbs, $lc, $default);
-            if (!is_string($path) || $path === '') {
+            
+            // Build URL with translated slug if available
+            $href = self::buildHreflangUrl($currentAbs, $lc, $default, $post_id);
+            if ($href === '') {
                 continue;
             }
-            $href = home_url($path);
+            
             if ($lc === $default) {
                 $defaultUrl = $href;
             }
@@ -364,10 +372,7 @@ final class AI_SEO
         // x-default equals default language URL
         if (is_string($default) && $default !== '' && !isset($existing['x-default'])) {
             if ($defaultUrl === '') {
-                $path = AI_URL::rewrite_single_href($currentAbs, $default, $default);
-                if (is_string($path) && $path !== '') {
-                    $defaultUrl = home_url($path);
-                }
+                $defaultUrl = self::buildHreflangUrl($currentAbs, $default, $default, $post_id);
             }
             if ($defaultUrl !== '') {
                 $el = $doc->createElement('link');
@@ -379,6 +384,46 @@ final class AI_SEO
                 $head->appendChild($doc->createTextNode("\n"));
             }
         }
+    }
+    
+    /**
+     * Build hreflang URL with translated slug for a given language.
+     *
+     * @param string $currentUrl
+     * @param string $targetLang
+     * @param string $default
+     * @param int $post_id
+     * @return string
+     */
+    private static function buildHreflangUrl($currentUrl, $targetLang, $default, $post_id)
+    {
+        // For homepage
+        if (is_front_page() || is_home()) {
+            if (strtolower($targetLang) === strtolower($default)) {
+                return home_url('/');
+            }
+            return home_url('/' . $targetLang . '/');
+        }
+        
+        // For singular posts/pages with slug translation
+        if ($post_id > 0) {
+            $translatedSlug = AI_Slugs::get_or_generate($post_id, $targetLang);
+            if ($translatedSlug !== null) {
+                if (strtolower($targetLang) === strtolower($default)) {
+                    // Default language: no language prefix
+                    return home_url('/' . ltrim($translatedSlug, '/') . '/');
+                }
+                // Non-default: include language prefix
+                return home_url('/' . $targetLang . '/' . ltrim($translatedSlug, '/') . '/');
+            }
+        }
+        
+        // Fallback: use basic rewrite (language prefix only)
+        $path = AI_URL::rewrite_single_href($currentUrl, $targetLang, $default);
+        if (!is_string($path) || $path === '') {
+            return '';
+        }
+        return home_url($path);
     }
 
     /**

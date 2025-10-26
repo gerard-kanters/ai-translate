@@ -98,6 +98,12 @@ final class AI_Slugs
         }
         $source_slug = self::get_source_slug($post_id);
         if ($source_slug === '') return null;
+        
+        // For default language: return source slug directly (no translation needed)
+        if (strtolower($lang) === strtolower($default)) {
+            return $source_slug;
+        }
+        
         $version = md5($source_slug);
 
         $row = self::get_row($post_id, $lang);
