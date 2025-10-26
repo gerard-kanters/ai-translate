@@ -37,21 +37,36 @@ final class AI_Lang
         $allowed = array_map(function ($v) { return strtolower(sanitize_key((string) $v)); }, $allowed);
 
         $lang = null;
+        $hasLangInUrl = false;
 
         $q_lang = get_query_var('ai_lang');
         if (is_string($q_lang) && $q_lang !== '') {
             $lang = strtolower(sanitize_key($q_lang));
+            $hasLangInUrl = true;
         } else {
             // Fallback: parse leading /xx/ from request URI if present
             $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
             if ($req !== '') {
                 if (preg_match('#^/([a-z]{2})(?:/|$)#i', $req, $m)) {
                     $lang = strtolower($m[1]);
+                    $hasLangInUrl = true;
                 }
             }
         }
         // When URL has no language prefix, fall back to cookie and then browser language.
         if ($lang === null || $lang === '') {
+            $normalizedDefault = $default !== '' ? strtolower(sanitize_key($default)) : '';
+            if (!$hasLangInUrl && $normalizedDefault !== '') {
+                $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
+                if ($cookieLang !== $normalizedDefault) {
+                    if (!headers_sent()) {
+                        setcookie('ai_translate_lang', $normalizedDefault, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                    }
+                    $_COOKIE['ai_translate_lang'] = $normalizedDefault;
+                }
+                self::$current = $normalizedDefault;
+                return self::$current;
+            }
             // 1) Cookie wins if valid
             $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
             if ($cookieLang !== '' && (empty($allowed) || in_array($cookieLang, $allowed, true))) {

@@ -162,7 +162,8 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
      https://yoursite.com
 
 ## Changelog
-### 2.03
+### 2.04
+   - Fix switching back and forth with default language.
    - Fix race condition causing white pages for spiders/crawlers
    - Add HTML validation before caching to prevent incomplete pages
    - Add image ALT text translation support

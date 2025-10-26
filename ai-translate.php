@@ -4,7 +4,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.0.3
+ * Version: 2.0.4
  * Requires PHP: 8.0
  * Text Domain: ai-translate
  */
@@ -206,16 +206,16 @@ add_action('template_redirect', function () {
     }
     // If URL has no language prefix, ensure cookie reflects default language to avoid stale cookie
     $reqPath2 = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-    if ($reqPath2 === '' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath2)) {
-        $defaultLang = \AITranslate\AI_Lang::default();
-        if ($defaultLang) {
-            $cookie_val = isset($_COOKIE['ai_translate_lang']) ? (string) $_COOKIE['ai_translate_lang'] : '';
-            if (strtolower($cookie_val) !== strtolower($defaultLang)) {
-                setcookie('ai_translate_lang', (string) $defaultLang, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
-                $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+        if ($reqPath2 === '' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath2)) {
+            $defaultLang = \AITranslate\AI_Lang::default();
+            if ($defaultLang) {
+                $cookie_val = isset($_COOKIE['ai_translate_lang']) ? (string) $_COOKIE['ai_translate_lang'] : '';
+                if (strtolower($cookie_val) !== strtolower($defaultLang)) {
+                    setcookie('ai_translate_lang', (string) $defaultLang, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                    $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+                }
             }
         }
-    }
     // Ensure search requests have language-prefixed URL when current language != default
     if (function_exists('is_search') && is_search()) {
         $cur = \AITranslate\AI_Lang::current();
