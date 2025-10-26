@@ -53,15 +53,12 @@ final class AI_OB
             return $html;
         }
         
-        // Determine if we need translation or just SEO injection
+        // For default language: only inject hreflang tags (no translation needed)
         $needsTranslation = AI_Lang::should_translate($lang);
-        $isDefaultLang = !$needsTranslation;
-        
-        // For default language: only inject SEO (hreflang tags) without translation
-        if ($isDefaultLang) {
-            $htmlWithSeo = AI_SEO::inject($html, $lang);
+        if (!$needsTranslation) {
+            $htmlWithHreflang = AI_SEO::inject_hreflang_only($html, $lang);
             $processing = false;
-            return $htmlWithSeo;
+            return $htmlWithHreflang;
         }
 
         // Never serve cached HTML to logged-in users or when admin bar should be visible.

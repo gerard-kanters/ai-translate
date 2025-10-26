@@ -8,6 +8,41 @@ namespace AITranslate;
 final class AI_SEO
 {
     /**
+     * Inject hreflang tags as plain text without DOM parsing.
+     * This prevents JavaScript and other scripts from being corrupted.
+     *
+     * @param string $html
+     * @param string $lang
+     * @return string
+     */
+    public static function inject_hreflang_only($html, $lang)
+    {
+        if (is_admin()) {
+            return $html;
+        }
+
+        $default = AI_Lang::default();
+        if ($lang === null) {
+            return $html;
+        }
+
+        // Generate hreflang tags as text
+        $hreflangTags = self::generateHreflangTags($lang, $default);
+        
+        // Inject before </head> tag as plain text
+        if (stripos($html, '</head>') !== false) {
+            $html = preg_replace(
+                '#</head>#i',
+                "\n" . $hreflangTags . "\n</head>",
+                $html,
+                1
+            );
+        }
+        
+        return $html;
+    }
+
+    /**
      * Inject hreflang/canonical and translate simple meta labels.
      *
      * @param string $html
@@ -248,6 +283,59 @@ final class AI_SEO
         }
         
         return $result;
+    }
+
+    /**
+     * Generate hreflang tags as plain text strings.
+     *
+     * @param string $lang
+     * @param string $default
+     * @return string
+     */
+    private static function generateHreflangTags($lang, $default)
+    {
+        $settings = get_option('ai_translate_settings', []);
+        $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : [];
+        $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : [];
+        $langs = array_values(array_unique(array_merge($enabled, $detectable)));
+        if (is_string($default) && $default !== '' && !in_array($default, $langs, true)) {
+            $langs[] = $default;
+        }
+
+        $currentAbs = self::currentPageUrlAbsolute();
+        $defaultUrl = '';
+        
+        $post_id = 0;
+        if (is_singular()) {
+            $post_id = get_queried_object_id();
+        }
+
+        $tags = [];
+        foreach ($langs as $lc) {
+            $lc = sanitize_key((string) $lc);
+            
+            $href = self::buildHreflangUrl($currentAbs, $lc, $default, $post_id);
+            if ($href === '') {
+                continue;
+            }
+            
+            if ($lc === $default) {
+                $defaultUrl = $href;
+            }
+            
+            $tags[] = '<link rel="alternate" hreflang="' . esc_attr($lc) . '" href="' . esc_url($href) . '" />';
+        }
+
+        if (is_string($default) && $default !== '') {
+            if ($defaultUrl === '') {
+                $defaultUrl = self::buildHreflangUrl($currentAbs, $default, $default, $post_id);
+            }
+            if ($defaultUrl !== '') {
+                $tags[] = '<link rel="alternate" hreflang="x-default" href="' . esc_url($defaultUrl) . '" />';
+            }
+        }
+
+        return implode("\n", $tags);
     }
 
     /**
