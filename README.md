@@ -154,68 +154,16 @@ AI Translate requires an API key for one of the supported providers:
 - API key for OpenAI, Deepseek, or compatible service
 
 ## Crawler/Spider Best Practices
-
 When using automated crawlers or spiders to warm up the cache (e.g., wget, curl), follow these guidelines to prevent race conditions and ensure proper cache generation:
-
 ### Recommended Spider Settings
-
-```bash
 # Good: Sequential crawling with adequate delays
 wget --spider --no-directories --delete-after --recursive --level=10 \
      --wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \
      https://yoursite.com
 
-# Or use single-threaded crawling
-wget --mirror --spider --wait=2 --random-wait --limit-rate=200k \
-     --domains=$SITE https://yoursite.com
-```
-
-### Key Parameters
-
-- `--wait=3` or higher: Minimum 3 seconds between requests (2-5 seconds recommended)
-- `--random-wait`: Adds randomness to prevent pattern-based timeouts
-- `--limit-rate=200k`: Prevents overwhelming the server
-- Avoid parallel crawling tools like `--parallel` or multiple wget instances
-
-### Why These Settings Matter
-
-The plugin implements **cache locking** to prevent concurrent page generation:
-- When a page is being translated and cached, other requests wait up to 30 seconds
-- If crawling is too fast (e.g., `--wait=1`), multiple pages compete for resources
-- Translation can take 5-20 seconds per page depending on content length
-
-### Monitoring
-
-Check WordPress debug logs for cache generation:
-```bash
-tail -f /var/www/yoursite/wp-content/debug.log | grep AI-Translate
-```
-
-Look for:
-- `ob_callback_incomplete_html`: HTML validation failed (race condition detected)
-- `ob_lock_timeout`: Cache lock timeout (crawler too fast)
-- `translate_plan_begin`: Translation started successfully
-
-### Cache Warming Strategy
-
-For large sites, use a staged approach:
-
-```bash
-# Step 1: Crawl main pages first
-wget --spider --wait=3 --domains=$SITE https://yoursite.com/en/
-
-# Step 2: Wait for initial pages to cache (check cache stats in admin)
-
-# Step 3: Crawl deeper with proper delays
-wget --spider --recursive --level=5 --wait=3 --random-wait \
-     --domains=$SITE https://yoursite.com/en/
-```
-
 ## Changelog
-
 ### 2.03
    - Fix race condition causing white pages for spiders/crawlers
-   - Implement cache locking to prevent concurrent page generation
    - Add HTML validation before caching to prevent incomplete pages
    - Add image ALT text translation support
    - Fix issue SEO engine inject that might mess up already troubled HTML
