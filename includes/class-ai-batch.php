@@ -89,11 +89,40 @@ final class AI_Batch
                 $primaryByKey[$key] = (string)$seg['id'];
                 $idsByPrimary[$seg['id']] = [ (string)$seg['id'] ];
                 $primarySegById[$seg['id']] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
-                // check cache
+                // check cache and validate for non-Latin target languages
                 $ckey = 'ai_tr_seg_' . $targetLang . '_' . md5($key);
                 $cached = get_transient($ckey);
                 if ($cached !== false) {
-                    $cachedPrimary[$seg['id']] = (string) $cached;
+                    $cachedText = (string) $cached;
+                    $srcLen = mb_strlen($trimmed);
+                    $cachedLen = mb_strlen($cachedText);
+                    $cacheInvalid = false;
+                    
+                    // For ALL languages and ALL lengths: check if translation is exactly identical
+                    // This catches untranslated placeholders like "Naam", "Email", "Telefoon" etc.
+                    // Only skip very short words (≤3 chars) like "van" → "van" which can be valid
+                    if ($srcLen > 3 && trim($cachedText) === trim($trimmed)) {
+                        $cacheInvalid = true;
+                    }
+                    
+                    // For non-Latin target languages: additional check for Latin characters
+                    // Only for longer texts to avoid false positives with brand names
+                    if (!$cacheInvalid && $cachedLen > 100) {
+                        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'];
+                        if (in_array($targetLang, $nonLatinLangs, true)) {
+                            $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
+                            $latinRatio = $cachedLen > 0 ? ($latinCount / $cachedLen) : 0;
+                            if ($latinRatio > 0.4) {
+                                $cacheInvalid = true;
+                            }
+                        }
+                    }
+                    
+                    if ($cacheInvalid) {
+                        $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
+                    } else {
+                        $cachedPrimary[$seg['id']] = $cachedText;
+                    }
                 } else {
                     $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
                 }
@@ -104,7 +133,8 @@ final class AI_Batch
             }
         }
 
-        $chunkSize = ($provider === 'deepseek') ? 15 : 25;
+        // Use smaller chunk sizes to prevent API response truncation issues
+        $chunkSize = ($provider === 'deepseek') ? 8 : 5;
         $batches = ($chunkSize < count($workSegments)) ? array_chunk($workSegments, $chunkSize) : [ $workSegments ];
 
         // Concurrency: for DeepSeek, parallel chunks using Requests::request_multiple if available
@@ -132,6 +162,7 @@ final class AI_Batch
                             ['role' => 'user', 'content' => $userPayload],
                         ],
                         'temperature' => 0,
+                        'max_tokens' => 4096,
                     ];
                     $requests[] = [
                         'url' => $endpoint,
@@ -184,7 +215,10 @@ final class AI_Batch
                 $failedIndexes = [];
                 foreach ($responses as $idx => $resp) {
                     $ok = is_object($resp) && property_exists($resp, 'status_code') ? ((int)$resp->status_code === 200) : false;
-                    if (!$ok) { $failedIndexes[] = (int)$idx; continue; }
+                    if (!$ok) { 
+                        $failedIndexes[] = (int)$idx; 
+                        continue; 
+                    }
                     $content = '';
                     if (is_object($resp) && property_exists($resp, 'body')) { $content = (string) $resp->body; }
                     $data = json_decode($content, true);
@@ -238,21 +272,40 @@ final class AI_Batch
                 if (isset($translationsPrimary[$pid])) {
                     $tr = (string)$translationsPrimary[$pid];
                     $src = (string)$meta['text'];
-                    if (mb_strlen($src) >= 4 && trim(mb_strtolower($tr)) === trim(mb_strtolower($src))) {
+                    $srcLen = mb_strlen($src);
+                    $trLen = mb_strlen($tr);
+                    
+                    // For ALL languages and ALL lengths: check if translation is exactly identical
+                    // This catches untranslated placeholders like "Naam", "Email", "Telefoon" etc.
+                    // Only skip very short words (≤3 chars) like "van" → "van" which can be valid
+                    if ($srcLen > 3 && trim($tr) === trim($src)) {
                         $needsRetry[] = $pid;
+                    }
+                    // For non-Latin target languages with longer texts: additional check for Latin ratio
+                    // Only trigger if >40% Latin to avoid false positives with brand names
+                    elseif ($trLen > 100 && in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'], true)) {
+                        $latinChars = preg_match_all('/[A-Za-z]/', $tr);
+                        $latinRatio = $trLen > 0 ? ($latinChars / $trLen) : 0;
+                        if ($latinRatio > 0.4) {
+                            $needsRetry[] = $pid;
+                        }
                     }
                 } elseif (!isset($cachedPrimary[$pid])) {
                     $needsRetry[] = $pid;
                 }
             }
             if (!empty($needsRetry)) {
-                $strictSystem = $system . "\n\nSTRICT: Do not copy the source text. Translate into the target language. If the text is already in the target language or is a proper noun/brand/number, keep as-is.";
+                \ai_translate_dbg('translate_plan_retry_needed', [
+                    'count' => count($needsRetry),
+                    'ids' => array_slice($needsRetry, 0, 10)
+                ]);
+                $strictSystem = $system . "\n\nSTRICT: Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name.";
                 $retrySegs = [];
                 foreach ($needsRetry as $pid) { $retrySegs[] = $primarySegById[$pid]; }
-                $retryChunks = array_chunk($retrySegs, 10);
+                $retryChunks = array_chunk($retrySegs, 5);
                 foreach ($retryChunks as $rc) {
                     $userPayload = self::buildUserPayload($rc);
-                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ], 'temperature' => 0 ];
+                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ], 'temperature' => 0, 'max_tokens' => 4096 ];
                     $resp = wp_remote_post($endpoint, [ 'headers' => [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ], 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                     if (is_wp_error($resp)) { continue; }
                     if ((int)wp_remote_retrieve_response_code($resp) !== 200) { continue; }
@@ -310,6 +363,7 @@ final class AI_Batch
                     ['role' => 'user', 'content' => $userPayload],
                 ],
                 'temperature' => 0,
+                'max_tokens' => 4096,
             ];
             if ($provider !== 'deepseek') {
                 $body['response_format'] = [ 'type' => 'json_object' ];

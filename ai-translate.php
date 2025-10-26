@@ -27,10 +27,14 @@ require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
 
 
-// Debug logger disabled (no-op)
+// Debug logger
 if (!function_exists('ai_translate_dbg')) {
     function ai_translate_dbg($message, $context = array()) {
-        return;
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            return;
+        }
+        $contextStr = !empty($context) ? ' | ' . wp_json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '';
+        error_log('[AI-Translate] ' . $message . $contextStr);
     }
 }
 
@@ -340,10 +344,6 @@ add_action('rest_api_init', function(){
         'permission_callback' => '__return_true',
         'args' => [],
         'callback' => function(\WP_REST_Request $request){
-            $nonce = (string) ($request->get_param('nonce') ?? '');
-            if (!wp_verify_nonce($nonce, 'ai_translate_front_nonce')) {
-                return new \WP_REST_Response(['success'=>true,'data'=>['map'=>[]]], 200);
-            }
             $arr = $request->get_param('strings');
             if (!is_array($arr)) { $arr = []; }
             $texts = array_values(array_unique(array_filter(array_map(function($s){ return trim((string) $s); }, $arr))));
@@ -367,7 +367,39 @@ add_action('rest_api_init', function(){
                 $key = 'ai_tr_attr_' . $lang . '_' . md5($t);
                 $cached = get_transient($key);
                 if ($cached !== false) {
-                    $map[$t] = (string) $cached;
+                    $cachedText = (string) $cached;
+                    $srcLen = mb_strlen($t);
+                    $cacheInvalid = false;
+                    
+                    // Validate cache: check if translation is exactly identical to source
+                    // This catches untranslated placeholders like "Voornaam", "Email Adres" etc.
+                    // Only skip very short words (≤3 chars) like "van" → "van" which can be valid
+                    if ($srcLen > 3 && trim($cachedText) === trim($t)) {
+                        $cacheInvalid = true;
+                    }
+                    
+                    // For non-Latin target languages: additional check for Latin ratio
+                    // Only for longer texts to avoid false positives with brand names
+                    if (!$cacheInvalid && mb_strlen($cachedText) > 100) {
+                        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'];
+                        if (in_array($lang, $nonLatinLangs, true)) {
+                            $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
+                            $latinRatio = mb_strlen($cachedText) > 0 ? ($latinCount / mb_strlen($cachedText)) : 0;
+                            if ($latinRatio > 0.4) {
+                                $cacheInvalid = true;
+                            }
+                        }
+                    }
+                    
+                    if ($cacheInvalid) {
+                        // Cache entry is invalid - delete it and re-translate
+                        delete_transient($key);
+                        $id = 's' . (++$i);
+                        $toTranslate[$id] = $t;
+                        $idMap[$id] = $t;
+                    } else {
+                        $map[$t] = $cachedText;
+                    }
                 } else {
                     $id = 's' . (++$i);
                     $toTranslate[$id] = $t;

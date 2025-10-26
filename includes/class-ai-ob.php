@@ -85,10 +85,15 @@ final class AI_OB
         
         $timeLimit = (int) ini_get('max_execution_time');
         $elapsed = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
-        $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 60;
+        $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 120;
         if ($remaining < 20) {
             $processing = false;
             return $html;
+        }
+        
+        // Extend execution time for large pages
+        if ($timeLimit > 0 && $timeLimit < 120) {
+            @set_time_limit(120);
         }
 
         $plan = AI_DOM::plan($html);
