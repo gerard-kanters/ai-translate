@@ -4,7 +4,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.0.1
+ * Version: 2.0.2
  * Requires PHP: 8.0
  * Text Domain: ai-translate
  */
@@ -58,6 +58,8 @@ add_action('init', function () {
     add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');
     add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(.+?)/?$', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
     add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
+    // Pagination for posts index: /{lang}/page/{n}/ (added last so it sits on top due to 'top')
+    add_rewrite_rule('^' . $regex . '/page/([0-9]+)/?$', 'index.php?lang=$matches[1]&paged=$matches[2]', 'top');
 }, 2);
 
 add_filter('query_vars', function ($vars) {
@@ -461,7 +463,38 @@ add_action('parse_request', function ($wp) {
 /**
  * Route /{lang}/page/{n} to the posts page with proper pagination.
  */
-// Removed parse_request pagination handler for /{lang}/page/{n}
+add_action('parse_request', function ($wp) {
+    if (is_admin() || wp_doing_ajax()) {
+        return;
+    }
+    $path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
+    if (!is_string($path) || $path === '/') {
+        return;
+    }
+    if (!preg_match('#^/([a-z]{2})/page/([0-9]+)/?$#i', $path, $m)) {
+        return;
+    }
+    $n = max(1, (int) $m[2]);
+    $posts_page_id = (int) get_option('page_for_posts');
+    $existing = is_array($wp->query_vars) ? $wp->query_vars : array();
+    $wp->query_vars = $existing;
+    $wp->query_vars['paged'] = $n;
+    if ($posts_page_id > 0) {
+        $wp->query_vars['pagename'] = (string) get_page_uri($posts_page_id);
+        $wp->is_home = true;
+        $wp->is_page = false;
+        $wp->is_singular = false;
+        $wp->is_404 = false;
+    } else {
+        $wp->is_home = true;
+        $wp->is_404 = false;
+    }
+    ai_translate_dbg('lang_paged_route', [
+        'REQUEST_URI' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+        'paged' => $n,
+        'pagename' => isset($wp->query_vars['pagename']) ? (string) $wp->query_vars['pagename'] : ''
+    ]);
+});
 
 /**
  * Ensure /{lang}/?blogpage={n} resolves to the posts index with pagination.
@@ -486,6 +519,10 @@ add_action('parse_request', function ($wp) {
     $rest = trim($rest, '/');
     if ($rest === '') {
         return; // handled by previous block (language root)
+    }
+    // Let the dedicated pagination handler manage /{lang}/page/{n}
+    if (preg_match('#^page/[0-9]+/?$#i', $rest)) {
+        return;
     }
     ai_translate_dbg('parse_request_lang_path', ['path' => $path, 'lang' => $lang, 'rest' => $rest]);
 
