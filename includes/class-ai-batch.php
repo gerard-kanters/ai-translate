@@ -20,6 +20,14 @@ final class AI_Batch
     {
         $segments = $plan['segments'] ?? [];
 
+        $timeLimit = (int) ini_get('max_execution_time');
+        $elapsed = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+        $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 60;
+        if ($remaining < 15) {
+            \ai_translate_dbg('translate_plan_timeout_abort', ['remaining' => $remaining]);
+            return ['segments' => [], 'map' => []];
+        }
+
         $settings = get_option('ai_translate_settings', []);
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
@@ -96,8 +104,7 @@ final class AI_Batch
             }
         }
 
-        // Provider-specifieke chunking om timeouts te voorkomen
-        $chunkSize = ($provider === 'deepseek') ? 20 : 30;
+        $chunkSize = ($provider === 'deepseek') ? 15 : 25;
         $batches = ($chunkSize < count($workSegments)) ? array_chunk($workSegments, $chunkSize) : [ $workSegments ];
 
         // Concurrency: for DeepSeek, parallel chunks using Requests::request_multiple if available
@@ -109,9 +116,9 @@ final class AI_Batch
             elseif (class_exists('\\Requests')) { $reqClass = '\\Requests'; $canMulti = true; }
         }
         if ($canMulti) {
-            $concurrency = 3;
+            $concurrency = 2;
             $groups = array_chunk($batches, $concurrency);
-            $timeoutSeconds = ($provider === 'deepseek') ? 120 : 60;
+            $timeoutSeconds = ($provider === 'deepseek') ? 90 : 45;
             foreach ($groups as $gIdx => $group) {
                 \ai_translate_dbg('translate_plan_group_start', [ 'provider' => $provider, 'group_index' => $gIdx + 1, 'group_size' => count($group) ]);
                 $requests = [];
@@ -308,19 +315,22 @@ final class AI_Batch
                 $body['response_format'] = [ 'type' => 'json_object' ];
             }
 
-            $timeoutSeconds = ($provider === 'deepseek') ? 120 : 60;
+            $timeoutSeconds = ($provider === 'deepseek') ? 90 : 45;
             $attempts = 0;
-            $maxAttempts = ($provider === 'deepseek') ? 2 : 1; // DeepSeek 1 retry; anderen geen retry i.v.m. rate limits
+            $maxAttempts = 1;
             $response = null;
             do {
                 $attempts++;
+                $timeRemaining = $timeLimit > 0 ? ($timeLimit - (microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true)))) : 60;
+                $safeTimeout = min($timeoutSeconds, max(10, (int)($timeRemaining - 10)));
+                
                 $response = wp_remote_post($endpoint, [
                     'headers' => [
                         'Authorization' => 'Bearer ' . $apiKey,
                         'Content-Type'  => 'application/json',
                     ],
-                    'timeout' => $timeoutSeconds,
-                    'connect_timeout' => 15,
+                    'timeout' => $safeTimeout,
+                    'connect_timeout' => 10,
                     'sslverify' => true,
                     'body' => wp_json_encode($body),
                 ]);

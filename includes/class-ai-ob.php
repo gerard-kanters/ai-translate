@@ -37,13 +37,19 @@ final class AI_OB
      */
     public function callback($html)
     {
+        static $processing = false;
+        if ($processing) {
+            return $html;
+        }
+        $processing = true;
+        
         if (is_admin()) {
+            $processing = false;
             return $html;
         }
         $lang = AI_Lang::current();
         if ($lang === null || !AI_Lang::should_translate($lang)) {
-            // For default language (or when language not determined), return original HTML unchanged
-            // to avoid theme incompatibilities from DOM rewriting.
+            $processing = false;
             return $html;
         }
 
@@ -72,15 +78,24 @@ final class AI_OB
         if (!$bypassUserCache && !$nocache) {
             $cached = AI_Cache::get($key);
             if ($cached !== false) {
+                $processing = false;
                 return $cached;
             }
+        }
+        
+        $timeLimit = (int) ini_get('max_execution_time');
+        $elapsed = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+        $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 60;
+        if ($remaining < 20) {
+            $processing = false;
+            return $html;
         }
 
         $plan = AI_DOM::plan($html);
         $res = AI_Batch::translate_plan($plan, AI_Lang::default(), $lang, $this->site_context());
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
-        // If provider fails, serve original (no blank pages)
         if (empty($translations)) {
+            $processing = false;
             $html2 = $html;
         } else {
             $merged = AI_DOM::merge($plan, $translations);
@@ -99,6 +114,7 @@ final class AI_OB
         if (!$bypassUserCache) {
             AI_Cache::set($key, $html3);
         }
+        $processing = false;
         return $html3;
     }
 
