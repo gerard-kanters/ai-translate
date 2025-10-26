@@ -165,11 +165,13 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 ### 2.04
    - Fix switching back and forth with default language.
    - Fix race condition causing white pages for spiders/crawlers
+   - Fixed hreflang tags for default language.
    - Add HTML validation before caching to prevent incomplete pages
    - Add image ALT text translation support
    - Fix issue SEO engine inject that might mess up already troubled HTML
    - More efficient merge of translated output resulting in faster load 
    - Improved chunking 
+   - Reduced url length and system prompt to generate slug
    - Placeholder translation improved 
 
 ### 2.01
