@@ -385,7 +385,15 @@ final class AI_Translate_Core
         MENU ITEMS:
         - For segments where segment.type is "menu": translate to at most two words.
         - Prefer concise, standard navigation labels while preserving meaning.
-        - If the original is longer, choose the best two-word equivalent in the target language.%s',
+        - If the original is longer, choose the best two-word equivalent in the target language.
+        
+        URL SLUGS (META TYPE):
+        - For segments where segment.type is "meta": these are URL slugs or short keywords.
+        - Keep them SHORT and URL-friendly: maximum 2-3 words, ideally one compound word.
+        - Use hyphens (-) to separate words if needed in Latin-based languages.
+        - For CJK languages (Chinese/Japanese/Korean): use 2-4 characters maximum.
+        - Never use full sentences, descriptions, or long phrases.
+        - Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH).%s',
             $sourceLang,
             $targetLang,
             $websiteContext,

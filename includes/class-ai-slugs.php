@@ -144,7 +144,15 @@ final class AI_Slugs
             $translated_slug = preg_replace('/-+/u', '-', (string) $translated_slug);
             $translated_slug = trim((string) $translated_slug, '-');
         }
-        // Keep full slug; no artificial clamping
+        
+        // Validate slug length: reject translations that are too long (likely full sentences)
+        $maxLength = 60; // Maximum characters for a slug
+        $charCount = mb_strlen($translated_slug);
+        if ($charCount > $maxLength) {
+            // Translation is too long (probably a sentence instead of a slug), use source slug as fallback
+            $translated_slug = $source_slug;
+        }
+        
         // Guard: if translation looks like a suffix of the source (lost leading chars), fallback to source slug
         if ($translated_slug !== '' && str_ends_with($source_slug, $translated_slug) && (strlen($source_slug) - strlen($translated_slug)) >= 2) {
             $translated_slug = $source_slug;
