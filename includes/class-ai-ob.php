@@ -83,10 +83,49 @@ final class AI_OB
             }
         }
         
+        // Implement cache locking to prevent race conditions from concurrent requests
+        // When multiple spiders/crawlers hit the same uncached page simultaneously,
+        // only the first request generates the translation while others wait
+        $lockKey = 'ai_translate_lock_' . md5($key);
+        $maxLockWait = 30; // Maximum seconds to wait for lock
+        $lockAcquired = false;
+        
+        if (!$bypassUserCache && !$nocache) {
+            $lockStart = time();
+            // Try to acquire lock, wait if another process is generating this page
+            while (($lockTime = get_transient($lockKey)) !== false) {
+                if ((time() - $lockStart) > $maxLockWait) {
+                    // Lock timeout - proceed anyway to avoid infinite wait
+                    if (function_exists('ai_translate_dbg')) {
+                        ai_translate_dbg('ob_lock_timeout', [
+                            'key' => $key,
+                            'waited' => (time() - $lockStart),
+                        ]);
+                    }
+                    break;
+                }
+                // Wait 200ms before checking again
+                usleep(200000);
+                // Check if cache became available while waiting
+                $cached = AI_Cache::get($key);
+                if ($cached !== false) {
+                    $processing = false;
+                    return $cached;
+                }
+            }
+            
+            // Acquire lock for this page generation
+            set_transient($lockKey, time(), 120); // Lock expires after 2 minutes as failsafe
+            $lockAcquired = true;
+        }
+        
         $timeLimit = (int) ini_get('max_execution_time');
         $elapsed = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
         $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 120;
         if ($remaining < 20) {
+            if ($lockAcquired) {
+                delete_transient($lockKey);
+            }
             $processing = false;
             return $html;
         }
@@ -94,6 +133,28 @@ final class AI_OB
         // Extend execution time for large pages
         if ($timeLimit > 0 && $timeLimit < 120) {
             @set_time_limit(120);
+        }
+
+        // Validate HTML before processing: must have minimum length and essential tags
+        // This prevents caching incomplete/empty HTML from spiders or partial buffer flushes
+        $htmlLen = strlen($html);
+        $hasHtml = (stripos($html, '<html') !== false || stripos($html, '<!DOCTYPE') !== false);
+        $hasBody = (stripos($html, '<body') !== false);
+        
+        if ($htmlLen < 500 || !$hasHtml || !$hasBody) {
+            if (function_exists('ai_translate_dbg')) {
+                ai_translate_dbg('ob_callback_incomplete_html', [
+                    'len' => $htmlLen,
+                    'has_html' => $hasHtml,
+                    'has_body' => $hasBody,
+                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                ]);
+            }
+            if ($lockAcquired) {
+                delete_transient($lockKey);
+            }
+            $processing = false;
+            return $html; // Return untranslated incomplete HTML without caching
         }
 
         $plan = AI_DOM::plan($html);
@@ -116,9 +177,36 @@ final class AI_OB
         $html3 = AI_SEO::inject($html2, $lang);
         $html3 = AI_URL::rewrite($html3, $lang);
 
+        // Validate final output before caching
+        $html3Len = strlen($html3);
+        $html3HasHtml = (stripos($html3, '<html') !== false || stripos($html3, '<!DOCTYPE') !== false);
+        $html3HasBody = (stripos($html3, '<body') !== false);
+        
+        if ($html3Len < 500 || !$html3HasHtml || !$html3HasBody) {
+            if (function_exists('ai_translate_dbg')) {
+                ai_translate_dbg('ob_callback_incomplete_output', [
+                    'len' => $html3Len,
+                    'has_html' => $html3HasHtml,
+                    'has_body' => $html3HasBody,
+                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                ]);
+            }
+            if ($lockAcquired) {
+                delete_transient($lockKey);
+            }
+            $processing = false;
+            return $html3; // Return output but don't cache it
+        }
+
         if (!$bypassUserCache) {
             AI_Cache::set($key, $html3);
         }
+        
+        // Release lock after successful cache generation
+        if ($lockAcquired) {
+            delete_transient($lockKey);
+        }
+        
         $processing = false;
         return $html3;
     }
