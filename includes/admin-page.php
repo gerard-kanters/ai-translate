@@ -345,7 +345,7 @@ add_action('admin_init', function () {
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
             echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://your-custom-api.com/v1/" class="regular-text">';
-            echo '<p class="description">Enter the endpoint URL for your custom API provider. Example: <a href="https://air.netcare.nl/v1/" target="_blank">https://air.netcare.nl/v1/</a></p>';
+            echo '<p class="description">Enter the endpoint URL for your custom API provider. Example: <a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a></p>';
             echo '</div>';
 
         },
