@@ -354,6 +354,23 @@ final class AI_Translate_Core
     }
 
     /**
+     * Convert language code to full language name.
+     *
+     * @param string $code Language code (e.g. 'ka', 'en', 'nl').
+     * @return string Full language name or 'unknown' if not found.
+     */
+    private static function get_language_name($code)
+    {
+        if ($code === '' || $code === null) {
+            return 'unknown';
+        }
+        $code = strtolower((string) $code);
+        $core = self::get_instance();
+        $languages = $core->get_available_languages();
+        return isset($languages[$code]) ? (string) $languages[$code] : 'unknown';
+    }
+
+    /**
      * Build a single, centralized system prompt for all translation requests.
      *
      * This ensures consistent instruction to the LLM across batch and any future single-call translations.
@@ -365,8 +382,8 @@ final class AI_Translate_Core
      */
     public static function build_translation_system_prompt($source_language, $target_language, array $context = [])
     {
-        $sourceLang = $source_language ? (string) $source_language : 'unknown';
-        $targetLang = (string) $target_language;
+        $sourceLangName = $source_language ? self::get_language_name((string) $source_language) : 'unknown';
+        $targetLangName = self::get_language_name((string) $target_language);
         $websiteContext = isset($context['website_context']) && $context['website_context'] !== ''
             ? "\n\nWebsite context: " . (string) $context['website_context']
             : '';
@@ -394,8 +411,8 @@ final class AI_Translate_Core
         - For UTF-8 languages use 2-4 characters maximum.
         - Never use full sentences, descriptions, or long phrases.
         - Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH).%s',
-            $sourceLang,
-            $targetLang,
+            $sourceLangName,
+            $targetLangName,
             $websiteContext,
             '',
             $titleHint
