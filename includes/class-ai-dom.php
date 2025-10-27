@@ -15,6 +15,21 @@ final class AI_DOM
      */
     public static function plan($html)
     {
+        // CRITICAL: Remove speculationrules script tags completely before DOM processing
+        // These contain JSON that DOMDocument corrupts when parsing/saving
+        // Since prefetch/prerender rules should never be translated anyway, removing is safe
+        $html = preg_replace('/<script\s+type=["\']?speculationrules["\']?[^>]*>[\s\S]*?<\/script>/i', '', $html);
+        
+        // Extract and preserve other script/style tags to prevent DOMDocument from corrupting them
+        $placeholders = [];
+        $placeholder_counter = 0;
+        
+        // Extract <script> tags (except speculationrules which is already removed)
+        $html = self::extractAndReplace($html, 'script', $placeholders, $placeholder_counter);
+        
+        // Extract <style> tags
+        $html = self::extractAndReplace($html, 'style', $placeholders, $placeholder_counter);
+
         $doc = new \DOMDocument();
         $internalErrors = libxml_use_internal_errors(true);
         $htmlToLoad = self::ensureUtf8($html);
@@ -134,7 +149,67 @@ final class AI_DOM
             'segments' => $segments,
             'nodeIndex' => $nodeIndex,
             'originalHTML' => $html,
+            'placeholders' => $placeholders,
         ];
+    }
+
+    /**
+     * Extract tags by type (script/style) and replace with placeholders.
+     * More robust than regex as it handles attributes with special chars.
+     *
+     * @param string $html
+     * @param string $tagName
+     * @param array $placeholders
+     * @param int $counter
+     * @return string
+     */
+    private static function extractAndReplace($html, $tagName, &$placeholders, &$counter)
+    {
+        $result = '';
+        $pos = 0;
+        $tagLower = strtolower($tagName);
+        $openTag = '<' . $tagName;
+        $closeTag = '</' . $tagName . '>';
+        $closeLowerTag = '</' . $tagLower . '>';
+        
+        while (($start = stripos($html, $openTag, $pos)) !== false) {
+            // Add content before this tag
+            $result .= substr($html, $pos, $start - $pos);
+            
+            // Find the end of opening tag (look for >)
+            $tagEnd = strpos($html, '>', $start);
+            if ($tagEnd === false) {
+                // No closing > found, treat rest as normal content
+                $result .= substr($html, $start);
+                break;
+            }
+            
+            // Find closing tag (case-insensitive)
+            $closePos = stripos($html, $closeTag, $tagEnd);
+            if ($closePos === false) {
+                // No closing tag found, include what we have
+                $result .= substr($html, $start);
+                break;
+            }
+            
+            // Extract full tag including content
+            $fullTag = substr($html, $start, $closePos - $start + strlen($closeTag));
+            
+            // Create placeholder
+            $placeholder = '<!--AI_' . strtoupper($tagName) . '_PLACEHOLDER_' . (++$counter) . '-->';
+            $placeholders[$placeholder] = $fullTag;
+            $result .= $placeholder;
+            
+            // Move position forward
+            $pos = $closePos + strlen($closeTag);
+        }
+        
+        // Add remaining content
+        if ($pos < strlen($html)) {
+            $result .= substr($html, $pos);
+        }
+        
+        return $result;
     }
 
     /**
@@ -199,6 +274,13 @@ final class AI_DOM
             // Ensure we don't duplicate if saveHTML already includes it
             if (stripos($result, '<!DOCTYPE') === false) {
                 $result = $docMatch[1] . "\n" . $result;
+            }
+        }
+        
+        // Restore preserved script and style tags from placeholders
+        if (isset($plan['placeholders']) && is_array($plan['placeholders'])) {
+            foreach ($plan['placeholders'] as $placeholder => $original_tag) {
+                $result = str_replace($placeholder, $original_tag, $result);
             }
         }
         
