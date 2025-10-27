@@ -76,6 +76,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function toggleGpt5Warning() {
+        var gpt5Warning = document.getElementById('openai_gpt5_warning');
+        if (gpt5Warning && apiProviderSelect) {
+            if (apiProviderSelect.value === 'openai') {
+                gpt5Warning.style.display = 'block';
+            } else {
+                gpt5Warning.style.display = 'none';
+            }
+        }
+    }
+
     function updateModelField() {
         if (!selectedModel) return;
         var selectedProvider = apiProviderSelect.value;
@@ -92,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (model) {
                 var opt = document.createElement('option');
                 opt.value = model;
-                opt.textContent = model + ' (custom)';
+                opt.textContent = model;
                 opt.selected = true;
                 selectedModel.appendChild(opt);
             }
@@ -105,23 +116,6 @@ document.addEventListener('DOMContentLoaded', function () {
             // Trigger change event
             var event = new Event('change');
             selectedModel.dispatchEvent(event);
-            
-            // Check of het model custom is en vul custom veld
-            var standardModels = ['gpt-4', 'gpt-3.5-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4.1', 'deepseek-chat', 'deepseek-coder'];
-            var isCustomModel = model && !standardModels.includes(model);
-            
-            if (isCustomModel && customModelInput) {
-                customModelInput.value = model;
-                if (customModelDiv) {
-                    customModelDiv.style.display = 'block';
-                }
-            } else if (customModelInput) {
-                // Als het geen custom model is, leeg het custom veld
-                customModelInput.value = '';
-                if (customModelDiv) {
-                    customModelDiv.style.display = 'none';
-                }
-            }
         }
     }
 
@@ -186,10 +180,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (apiProviderSelect) {
         apiProviderSelect.addEventListener('change', updateApiKeyRequestLink);
         apiProviderSelect.addEventListener('change', toggleCustomApiUrlField);
+        apiProviderSelect.addEventListener('change', toggleGpt5Warning);
         apiProviderSelect.addEventListener('change', updateApiKeyField); // Update API key field when provider changes
         apiProviderSelect.addEventListener('change', updateModelField);
         updateApiKeyRequestLink();
         toggleCustomApiUrlField();
+        toggleGpt5Warning();
         updateApiKeyField(); // Trigger initial update
         updateModelField(); // Initieel bij laden
     }

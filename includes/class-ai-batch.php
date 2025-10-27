@@ -35,6 +35,16 @@ final class AI_Batch
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
 
+        // Block GPT-5 models (gpt-5*, o1-*, o3-*) - they have 3-5x higher latency due to complex reasoning
+        if ($model !== '' && preg_match('/^(gpt-5|o1-|o3-)/i', $model)) {
+            \ai_translate_dbg('translate_plan_blocked_model', [
+                'provider' => $provider,
+                'model' => $model,
+                'reason' => 'GPT-5/O1/O3 models are too slow for real-time translations'
+            ]);
+            return ['segments' => [], 'map' => []];
+        }
+
         \ai_translate_dbg('translate_plan_begin', [
             'provider' => $provider ?: 'none',
             'model' => $model ?: 'none',
@@ -161,9 +171,15 @@ final class AI_Batch
                             ['role' => 'system', 'content' => $system],
                             ['role' => 'user', 'content' => $userPayload],
                         ],
-                        'temperature' => 0,
-                        'max_tokens' => 4096,
                     ];
+                    // Newer models (gpt-5.x, o1-series) use max_completion_tokens instead of max_tokens
+                    // These models also don't support temperature != 1, so we omit it
+                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+                        $body['max_completion_tokens'] = 4096;
+                    } else {
+                        $body['max_tokens'] = 4096;
+                        $body['temperature'] = 0;
+                    }
                     $requests[] = [
                         'url' => $endpoint,
                         'headers' => [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ],
@@ -187,7 +203,13 @@ final class AI_Batch
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             \ai_translate_dbg('translate_plan_chunk', [ 'provider' => $provider, 'chunk_index' => ($gIdx * $concurrency) + $i + 1, 'chunk_size' => count($batchSegs2), 'total' => count($segments) ]);
                             $userPayload = self::buildUserPayload($batchSegs2);
-                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ], 'temperature' => 0 ];
+                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
+                            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+                                $body['max_completion_tokens'] = 4096;
+                            } else {
+                                $body['max_tokens'] = 4096;
+                                $body['temperature'] = 0;
+                            }
                             $resp = wp_remote_post($endpoint, [ 'headers' => [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ], 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                             if (is_wp_error($resp)) { continue; }
                             $code = (int) wp_remote_retrieve_response_code($resp);
@@ -216,6 +238,9 @@ final class AI_Batch
                 foreach ($responses as $idx => $resp) {
                     $ok = is_object($resp) && property_exists($resp, 'status_code') ? ((int)$resp->status_code === 200) : false;
                     if (!$ok) { 
+                        $status = is_object($resp) && property_exists($resp, 'status_code') ? $resp->status_code : 'no_status';
+                        $errorBody = is_object($resp) && property_exists($resp, 'body') ? mb_substr((string)$resp->body, 0, 500) : 'no_body';
+                        \ai_translate_dbg('translate_plan_http_fail', [ 'provider' => $provider, 'model' => $model, 'idx' => $idx, 'status' => $status, 'error' => $errorBody ]);
                         $failedIndexes[] = (int)$idx; 
                         continue; 
                     }
@@ -223,8 +248,13 @@ final class AI_Batch
                     if (is_object($resp) && property_exists($resp, 'body')) { $content = (string) $resp->body; }
                     $data = json_decode($content, true);
                     $choices = is_array($data) ? ($data['choices'] ?? []) : [];
-                    if (!$choices || !isset($choices[0]['message']['content'])) { $failedIndexes[] = (int)$idx; continue; }
+                    if (!$choices || !isset($choices[0]['message']['content'])) { 
+                        \ai_translate_dbg('translate_plan_no_content', [ 'provider' => $provider, 'model' => $model, 'idx' => $idx, 'has_data' => is_array($data), 'body_preview' => mb_substr($content, 0, 300) ]);
+                        $failedIndexes[] = (int)$idx; 
+                        continue; 
+                    }
                     $msg = (string)$choices[0]['message']['content'];
+                    \ai_translate_dbg('translate_plan_response', [ 'provider' => $provider, 'model' => $model, 'idx' => $idx, 'content_preview' => mb_substr($msg, 0, 300) ]);
                     $parsed = json_decode($msg, true);
                     if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
                         $candidate = str_replace(["```json","```JSON","```"], '', $msg);
@@ -305,7 +335,13 @@ final class AI_Batch
                 $retryChunks = array_chunk($retrySegs, 5);
                 foreach ($retryChunks as $rc) {
                     $userPayload = self::buildUserPayload($rc);
-                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ], 'temperature' => 0, 'max_tokens' => 4096 ];
+                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+                        $body['max_completion_tokens'] = 4096;
+                    } else {
+                        $body['max_tokens'] = 4096;
+                        $body['temperature'] = 0;
+                    }
                     $resp = wp_remote_post($endpoint, [ 'headers' => [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ], 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                     if (is_wp_error($resp)) { continue; }
                     if ((int)wp_remote_retrieve_response_code($resp) !== 200) { continue; }
@@ -362,11 +398,14 @@ final class AI_Batch
                     ['role' => 'system', 'content' => $system],
                     ['role' => 'user', 'content' => $userPayload],
                 ],
-                'temperature' => 0,
-                'max_tokens' => 4096,
             ];
-            if ($provider !== 'deepseek') {
-                $body['response_format'] = [ 'type' => 'json_object' ];
+            // Newer models (gpt-5.x, o1-series) use max_completion_tokens instead of max_tokens
+            // These models also don't support temperature != 1, so we omit it
+            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+                $body['max_completion_tokens'] = 4096;
+            } else {
+                $body['max_tokens'] = 4096;
+                $body['temperature'] = 0;
             }
 
             $timeoutSeconds = ($provider === 'deepseek') ? 90 : 45;

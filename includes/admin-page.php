@@ -338,6 +338,10 @@ add_action('admin_init', function () {
                 echo '<option value="' . esc_attr($key) . '" ' . selected($current_provider_key, $key, false) . '>' . esc_html($provider_details['name']) . '</option>';
             }
             echo '</select>';
+            // GPT-5 warning for OpenAI
+            echo '<div id="openai_gpt5_warning" style="margin-top:10px; display:none;">';
+            echo '<p class="description" style="color: #d63638;"><strong>Note:</strong> GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive.</p>';
+            echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
             echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://your-custom-api.com/v1/" class="regular-text">';
@@ -372,19 +376,15 @@ add_action('admin_init', function () {
             $models = isset($settings['models']) ? $settings['models'] : [];
             $selected_model = $current_provider !== '' ? ($models[$current_provider] ?? '') : '';
             $custom_model = isset($settings['custom_model']) ? $settings['custom_model'] : '';
-            $is_custom = $selected_model && !in_array($selected_model, ['gpt-4', 'gpt-3.5-turbo']);
             echo '<select name="ai_translate_settings[selected_model]" id="selected_model">';
             echo '<option value="" ' . selected($selected_model, '', false) . ' disabled hidden>— Select model —</option>';
-            if ($selected_model && !$is_custom) {
+            if ($selected_model) {
                 echo '<option value="' . esc_attr($selected_model) . '" selected>' . esc_html($selected_model) . '</option>';
             }
-            if ($is_custom) {
-                echo '<option value="' . esc_attr($selected_model) . '" selected>' . esc_html($selected_model) . ' (custom)</option>';
-            }
-            echo '<option value="custom" ' . selected($is_custom, true, false) . '>Select...</option>';
+            echo '<option value="custom">Select...</option>';
             echo '</select> ';
-            echo '<div id="custom_model_div" style="margin-top:10px; display:' . ($is_custom ? 'block' : 'none') . ';">';
-            echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($is_custom ? $selected_model : $custom_model) . '" placeholder="E.g.: deepseek-chat, gpt-4o, ..." class="regular-text">';
+            echo '<div id="custom_model_div" style="margin-top:10px; display:none;">';
+            echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($custom_model) . '" placeholder="E.g.: deepseek-chat, gpt-4o, ..." class="regular-text">';
             echo '</div>';
             echo '<button type="button" class="button" id="ai-translate-validate-api">Validate API settings</button>';
             echo '<span id="ai-translate-api-status" style="margin-left:10px;"></span>';
@@ -930,6 +930,11 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
     }, $data['data']);
     $models = array_filter($models);
+    // Block GPT-5 models as they are designed for complex reasoning tasks and have 3-5x higher latency
+    // GPT-5 is unsuitable for real-time website translations (use gpt-4o-mini or gpt-4.1-mini instead)
+    $models = array_filter($models, function($model) {
+        return !preg_match('/^(gpt-5|o1-|o3-)/i', $model);
+    });
     sort($models);
     wp_send_json_success(['models' => $models]);
 });

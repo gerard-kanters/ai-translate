@@ -119,8 +119,9 @@ Each visitor’s language choice is remembered for future visits.
 
 ## Recommended Model Selection
 
-- OpenAI: gpt-5.1-mini  
+- OpenAI: gpt-4.1-mini. Do not use GPT 5.1 since reasoning is slow, expensive and useless for translation. 
 - Deepseek: deepseek-chat (slower, but cost-effective)
+- Custom, use openrouter or deepinfra and select a model.
 
 ## Development
 
