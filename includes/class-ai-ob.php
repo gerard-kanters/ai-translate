@@ -86,8 +86,50 @@ final class AI_OB
         if (!$bypassUserCache && !$nocache) {
             $cached = AI_Cache::get($key);
             if ($cached !== false) {
-                $processing = false;
-                return $cached;
+                // Validate cached content for substantial untranslated text (> 4 words)
+                $defaultLang = AI_Lang::default();
+                if ($defaultLang !== null) {
+                    $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang);
+                    if ($untranslatedCheck['has_untranslated']) {
+                        if (function_exists('ai_translate_dbg')) {
+                            ai_translate_dbg('ob_callback_cached_untranslated_detected', [
+                                'word_count' => $untranslatedCheck['word_count'],
+                                'reason' => $untranslatedCheck['reason'],
+                                'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                                'lang' => $lang,
+                                'action' => 'invalidating_cache',
+                            ]);
+                        }
+                        
+                        // Check retry counter to avoid infinite loops
+                        $retryKey = 'ai_translate_retry_' . md5($key);
+                        $retryCount = (int) get_transient($retryKey);
+                        
+                        if ($retryCount < 1) {
+                            // Mark as retry and invalidate cache to force retranslation
+                            set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
+                            // Fall through to translation below (don't return cached)
+                        } else {
+                            // Max retries reached, serve cached version anyway
+                            if (function_exists('ai_translate_dbg')) {
+                                ai_translate_dbg('ob_callback_serving_cached_despite_untranslated', [
+                                    'reason' => 'max_retries_reached',
+                                    'retry_count' => $retryCount,
+                                ]);
+                            }
+                            $processing = false;
+                            return $cached;
+                        }
+                    } else {
+                        // Cache is good, return it
+                        $processing = false;
+                        return $cached;
+                    }
+                } else {
+                    // No default language configured, return cache as-is
+                    $processing = false;
+                    return $cached;
+                }
             }
         }
         
@@ -204,54 +246,6 @@ final class AI_OB
             }
             $processing = false;
             return $html3; // Return output but don't cache it
-        }
-
-        // Check for substantial untranslated content (> 4 words threshold)
-        $defaultLang = AI_Lang::default();
-        if ($defaultLang !== null) {
-            $untranslatedCheck = $this->detect_untranslated_content($html3, $lang, $defaultLang);
-            if ($untranslatedCheck['has_untranslated']) {
-                if (function_exists('ai_translate_dbg')) {
-                    ai_translate_dbg('ob_callback_untranslated_detected', [
-                        'word_count' => $untranslatedCheck['word_count'],
-                        'reason' => $untranslatedCheck['reason'],
-                        'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                        'lang' => $lang,
-                    ]);
-                }
-                
-                // Check if this is already a retry attempt to avoid infinite loops
-                $retryKey = 'ai_translate_retry_' . md5($key);
-                $retryCount = (int) get_transient($retryKey);
-                
-                if ($retryCount < 1) {
-                    // Mark this as a retry attempt (expires in 1 hour)
-                    set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
-                    
-                    // Don't cache this incomplete translation
-                    if ($lockAcquired) {
-                        delete_transient($lockKey);
-                    }
-                    
-                    if (function_exists('ai_translate_dbg')) {
-                        ai_translate_dbg('ob_callback_skipping_cache_for_retry', [
-                            'retry_count' => $retryCount + 1,
-                            'key' => $key,
-                        ]);
-                    }
-                    
-                    $processing = false;
-                    return $html3; // Return without caching, next request will retry translation
-                } else {
-                    // Already retried once, cache anyway to prevent infinite retries
-                    if (function_exists('ai_translate_dbg')) {
-                        ai_translate_dbg('ob_callback_caching_despite_untranslated', [
-                            'reason' => 'max_retries_reached',
-                            'retry_count' => $retryCount,
-                        ]);
-                    }
-                }
-            }
         }
 
         if (!$bypassUserCache) {
