@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.8  
-Stable tag: 2.03  
+Stable tag: 2.0.5
 Requires PHP: 8 
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
@@ -163,6 +163,9 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
      https://yoursite.com
 
 ## Changelog
+### 2.05
+  - Fixed JS issue with speculationrules
+
 ### 2.04
    - Fix switching back and forth with default language.
    - Fix race condition causing white pages for spiders/crawlers
