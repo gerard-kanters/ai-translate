@@ -239,41 +239,13 @@ add_action('template_redirect', function () {
  */
 // Removed pagination forcing; theme handles pagination
 
-/**
- * Rewrite menu item URLs to use translated slugs for current language.
- * This ensures menu links point to /{lang}/{translated-slug}/ instead of /{source-slug}/.
- */
-add_filter('nav_menu_link_attributes', function ($atts, $item = null, $args = null, $depth = 0) {
-    // Skip in admin or when viewing default language
+// Never adjust admin URLs or rewrite menu items in admin or default language
+add_filter('nav_menu_link_attributes', function ($atts, $item) {
     if (is_admin() || \AITranslate\AI_Lang::is_exempt_request()) {
         return $atts;
     }
-    
-    // Ensure $item is available
-    if (!$item) {
-        return $atts;
-    }
-    
-    $lang = \AITranslate\AI_Lang::current();
-    $default = \AITranslate\AI_Lang::default();
-    
-    // Skip if no language or viewing default language
-    if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
-        return $atts;
-    }
-    
-    // Only process menu items that link to posts/pages (not custom links, categories, etc.)
-    if (isset($item->type) && $item->type === 'post_type' && !empty($item->object_id)) {
-        $translated_slug = \AITranslate\AI_Slugs::get_or_generate((int) $item->object_id, $lang);
-        if ($translated_slug !== null && isset($item->url)) {
-            // Build translated URL: /{lang}/{translated-slug}/
-            $trail = substr($item->url, -1) === '/' ? '/' : '';
-            $atts['href'] = home_url('/' . $lang . '/' . trim($translated_slug, '/') . $trail);
-        }
-    }
-    
     return $atts;
-}, 10, 4);
+}, 10, 2);
 
 // Language switcher is intentionally removed as per request
 /**
@@ -330,8 +302,8 @@ add_action('wp_footer', function () {
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
 var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
 function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
-function cS(r){var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label]"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&ph.trim())s.add(ph.trim());var tl=el.getAttribute("title");if(tl&&tl.trim())s.add(tl.trim());var al=el.getAttribute("aria-label");if(al&&al.trim())s.add(al.trim());var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&v.trim())s.add(v.trim());}}});return Array.from(s);} 
- function aT(r,m){var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label]"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}});} 
+function cS(r){var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&ph.trim())s.add(ph.trim());var tl=el.getAttribute("title");if(tl&&tl.trim())s.add(tl.trim());var al=el.getAttribute("aria-label");if(al&&al.trim())s.add(al.trim());var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&v.trim())s.add(v.trim());}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc&&tc.trim())s.add(tc.trim());});return Array.from(s);} 
+ function aT(r,m){var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc){var tct=tc.trim();if(tct&&m[tct]!=null)el.textContent=m[tct];}});} 
  function tA(r){var ss=cS(r);if(!ss.length)return;var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
 document.addEventListener("DOMContentLoaded",function(){tA(document);try{var to=null;function db(f){clearTimeout(to);to=setTimeout(f,80);}var mo=new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==="childList"){for(var i=0;i<m.addedNodes.length;i++){var n=m.addedNodes[i];if(n&&n.nodeType===1){tA(n);}}}else if(m.type==="attributes"){var a=m.attributeName||"";if(a==="placeholder"||a==="title"||a==="aria-label"||a==="value"){db(function(){tA(m.target&&m.target.nodeType===1?m.target:document);});}}});});mo.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["placeholder","title","aria-label","value"]});}catch(e){}});
 })();</script>';
@@ -864,141 +836,6 @@ add_action('init', function () {
         ai_translate_dbg('rewrite_rules_flushed_v2');
     }
 }, 21);
-
-/**
- * Store menu item titles and referenced object IDs before update so we can clear old translation cache.
- * This runs BEFORE the menu item is saved to the database.
- */
-add_action('wp_update_nav_menu_item', function ($menu_id, $menu_item_db_id) {
-    // Get current title and object ID before it gets updated
-    $menu_item = get_post($menu_item_db_id);
-    if ($menu_item && $menu_item->post_type === 'nav_menu_item') {
-        $old_item = wp_setup_nav_menu_item($menu_item);
-        if ($old_item && isset($old_item->title)) {
-            $GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id] = trim((string) $old_item->title);
-        }
-        if ($old_item && isset($old_item->object_id)) {
-            $GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id] = (int) $old_item->object_id;
-        }
-    }
-}, 9, 2);
-
-/**
- * Clear translation cache when menu items are updated.
- * Ensures that renamed menu items get fresh translations instead of cached old ones.
- * Also regenerates slugs for the referenced page if the menu item points to a different page.
- */
-add_action('wp_update_nav_menu_item', function ($menu_id, $menu_item_db_id, $args) {
-    if (!isset($args['menu-item-title']) || !is_string($args['menu-item-title'])) {
-        return;
-    }
-    $newTitle = trim((string) $args['menu-item-title']);
-    if ($newTitle === '') {
-        return;
-    }
-    
-    // Get old title from our earlier hook (stored in globals)
-    $oldTitle = isset($GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id]) 
-        ? $GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id] 
-        : '';
-    
-    // Get old and new object IDs (the post/page this menu item links to)
-    $oldObjectId = isset($GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id]) 
-        ? (int) $GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id] 
-        : 0;
-    $newObjectId = isset($args['menu-item-object-id']) ? (int) $args['menu-item-object-id'] : 0;
-    
-    // If object ID changed or title changed, clear caches and regenerate slugs
-    $titleChanged = ($oldTitle !== '' && $oldTitle !== $newTitle);
-    $objectChanged = ($oldObjectId > 0 && $newObjectId > 0 && $oldObjectId !== $newObjectId);
-    
-    if (!$titleChanged && !$objectChanged) {
-        return; // Nothing relevant changed
-    }
-    
-    // Clear transient cache for all languages for both old and new title
-    $settings = get_option('ai_translate_settings', array());
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
-    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
-    $default = \AITranslate\AI_Lang::default();
-    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
-    
-    foreach ($langs as $lang) {
-        $lang = sanitize_key((string) $lang);
-        if ($lang === '' || ($default && strtolower($lang) === strtolower($default))) {
-            continue;
-        }
-        // Clear cache for old title
-        if ($oldTitle !== '') {
-            $key = 'ai_tr_attr_' . $lang . '_' . md5($oldTitle);
-            delete_transient($key);
-        }
-        // Clear cache for new title (in case it was used elsewhere before)
-        if ($newTitle !== '') {
-            $key = 'ai_tr_attr_' . $lang . '_' . md5($newTitle);
-            delete_transient($key);
-        }
-        
-        // Regenerate slugs for the NEW page this menu item now points to
-        if ($newObjectId > 0) {
-            \AITranslate\AI_Slugs::get_or_generate($newObjectId, $lang);
-        }
-    }
-    
-    // Clear WordPress menu caches
-    \AITranslate\AI_Translate_Core::get_instance()->clear_menu_cache();
-    
-    // Optionally clear page caches (expensive but necessary for immediate visibility)
-    // Check if auto-clear is enabled in settings
-    $auto_clear_pages = isset($settings['auto_clear_pages_on_menu_update']) 
-        ? (bool) $settings['auto_clear_pages_on_menu_update'] 
-        : true; // Default to true for backwards compatibility
-    
-    if ($auto_clear_pages) {
-        \AITranslate\AI_Translate_Core::get_instance()->clear_language_disk_caches_only();
-        ai_translate_dbg('page_caches_auto_cleared', ['reason' => 'menu_item_updated']);
-    }
-    
-    ai_translate_dbg('menu_item_cache_cleared', [
-        'menu_id' => $menu_id,
-        'item_id' => $menu_item_db_id,
-        'old_title' => $oldTitle,
-        'new_title' => $newTitle,
-        'old_object_id' => $oldObjectId,
-        'new_object_id' => $newObjectId,
-        'title_changed' => $titleChanged,
-        'object_changed' => $objectChanged,
-    ]);
-    
-    // Clean up
-    if (isset($GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id])) {
-        unset($GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id]);
-    }
-    if (isset($GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id])) {
-        unset($GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id]);
-    }
-}, 10, 3);
-
-/**
- * Clear translation cache when entire menu is updated.
- */
-add_action('wp_update_nav_menu', function ($menu_id, $menu_data = null) {
-    // Clear WordPress menu caches
-    \AITranslate\AI_Translate_Core::get_instance()->clear_menu_cache();
-    
-    // Optionally clear page caches (expensive but necessary for immediate visibility)
-    $settings = get_option('ai_translate_settings', array());
-    $auto_clear_pages = isset($settings['auto_clear_pages_on_menu_update']) 
-        ? (bool) $settings['auto_clear_pages_on_menu_update'] 
-        : true; // Default to true for backwards compatibility
-    
-    if ($auto_clear_pages) {
-        \AITranslate\AI_Translate_Core::get_instance()->clear_language_disk_caches_only();
-        ai_translate_dbg('page_caches_auto_cleared', ['reason' => 'menu_updated']);
-    }
-    
-    ai_translate_dbg('menu_cache_cleared', ['menu_id' => $menu_id]);
-}, 10, 2);
 
 /**
  * Add Settings quick link on the Plugins page.
