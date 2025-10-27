@@ -318,7 +318,8 @@ final class AI_OB
 
     /**
      * Detect if translated HTML contains substantial untranslated text (> 4 words).
-     * Uses heuristics appropriate for target language.
+     * Only detects character-set mismatches: Latin ↔ Non-Latin.
+     * Does NOT detect Latin → Latin (e.g. EN→DE, NL→FR) as this requires language-specific analysis.
      *
      * @param string $html Translated HTML
      * @param string $targetLang Target language code
@@ -346,92 +347,58 @@ final class AI_OB
             return $result;
         }
         
-        $nonLatinTargets = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el'];
-        $isNonLatinTarget = in_array(strtolower($targetLang), $nonLatinTargets, true);
+        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi'];
+        $sourceIsNonLatin = in_array(strtolower($sourceLang), $nonLatinLangs, true);
+        $targetIsNonLatin = in_array(strtolower($targetLang), $nonLatinLangs, true);
         
-        if ($isNonLatinTarget) {
-            $latinChars = preg_match_all('/[a-zA-Z]/', $bodyText);
-            $totalChars = mb_strlen($bodyText);
-            $latinRatio = $totalChars > 0 ? ($latinChars / $totalChars) : 0;
+        // Only detect if character sets differ (Latin ↔ Non-Latin)
+        if ($sourceIsNonLatin === $targetIsNonLatin) {
+            return $result;
+        }
+        
+        $latinChars = preg_match_all('/[a-zA-Z]/', $bodyText);
+        $totalChars = mb_strlen($bodyText);
+        $latinRatio = $totalChars > 0 ? ($latinChars / $totalChars) : 0;
+        
+        $expectedLatinRatio = $targetIsNonLatin ? 0.15 : 0.50;
+        $unexpectedDirection = $targetIsNonLatin ? ($latinRatio > $expectedLatinRatio) : ($latinRatio < $expectedLatinRatio);
+        
+        if ($unexpectedDirection) {
+            preg_match_all('/\b[a-zA-Z]+\b/', $bodyText, $matches);
+            $latinWords = isset($matches[0]) ? $matches[0] : [];
             
-            if ($latinRatio > 0.15) {
-                preg_match_all('/\b[a-zA-Z]+\b/', $bodyText, $matches);
-                $latinWords = isset($matches[0]) ? $matches[0] : [];
+            $commonExclusions = ['CEO', 'CTO', 'IT', 'AI', 'API', 'URL', 'SEO', 'SaaS', 'B2B', 'B2C', 
+                'WordPress', 'NetCare', 'Centillien', 'LinkedIn', 'Facebook', 'Twitter', 'Instagram',
+                'WhatsApp', 'YouTube', 'Google', 'Microsoft', 'Apple', 'iPhone', 'iPad', 'Android',
+                'Windows', 'Mac', 'Linux', 'HTML', 'CSS', 'JavaScript', 'PHP', 'SQL', 'HTTP', 'HTTPS',
+                'PDF', 'JSON', 'XML', 'REST', 'SOAP', 'VPN', 'DNS', 'IP', 'TCP', 'UDP', 'USB', 'RAM',
+                'CPU', 'GPU', 'SSD', 'HDD', 'DVD', 'CD', 'iOS', 'macOS', 'Wi-Fi', 'Bluetooth', 'NFC'];
+            
+            $filteredWords = array_filter($latinWords, function($word) use ($commonExclusions) {
+                if (mb_strlen($word) <= 2) return false;
+                if (is_numeric($word)) return false;
+                if (in_array($word, $commonExclusions, true)) return false;
+                if (strtoupper($word) === $word && mb_strlen($word) <= 5) return false;
+                return true;
+            });
+            
+            $wordCount = count($filteredWords);
+            if ($wordCount > 4) {
+                $result['has_untranslated'] = true;
+                $result['word_count'] = $wordCount;
                 
-                $commonExclusions = ['CEO', 'CTO', 'IT', 'AI', 'API', 'URL', 'SEO', 'SaaS', 'B2B', 'B2C', 
-                    'WordPress', 'NetCare', 'Centillien', 'LinkedIn', 'Facebook', 'Twitter', 'Instagram',
-                    'WhatsApp', 'YouTube', 'Google', 'Microsoft', 'Apple', 'iPhone', 'iPad', 'Android',
-                    'Windows', 'Mac', 'Linux', 'HTML', 'CSS', 'JavaScript', 'PHP', 'SQL'];
-                
-                $filteredWords = array_filter($latinWords, function($word) use ($commonExclusions) {
-                    if (mb_strlen($word) <= 2) return false;
-                    if (is_numeric($word)) return false;
-                    if (in_array($word, $commonExclusions, true)) return false;
-                    if (strtoupper($word) === $word && mb_strlen($word) <= 5) return false;
-                    return true;
-                });
-                
-                $wordCount = count($filteredWords);
-                if ($wordCount > 4) {
-                    $result['has_untranslated'] = true;
-                    $result['word_count'] = $wordCount;
-                    $result['reason'] = sprintf('Non-Latin target has %d Latin words (%.1f%% Latin chars)', 
-                        $wordCount, $latinRatio * 100);
-                    return $result;
-                }
-            }
-        } else {
-            $sourceCommonWords = $this->get_common_words_for_language($sourceLang);
-            if (!empty($sourceCommonWords)) {
-                $bodyLower = mb_strtolower($bodyText);
-                $foundWords = [];
-                
-                foreach ($sourceCommonWords as $word) {
-                    $pattern = '/\b' . preg_quote(mb_strtolower($word), '/') . '\b/u';
-                    if (preg_match($pattern, $bodyLower)) {
-                        $foundWords[] = $word;
-                    }
+                if ($targetIsNonLatin) {
+                    $result['reason'] = sprintf('Non-Latin target (%s) has %d Latin words (%.1f%% Latin)', 
+                        strtoupper($targetLang), $wordCount, $latinRatio * 100);
+                } else {
+                    $result['reason'] = sprintf('Latin target (%s) has too few Latin chars (%.1f%%, expected >%.0f%%)', 
+                        strtoupper($targetLang), $latinRatio * 100, $expectedLatinRatio * 100);
                 }
                 
-                if (count($foundWords) > 4) {
-                    $result['has_untranslated'] = true;
-                    $result['word_count'] = count($foundWords);
-                    $result['reason'] = sprintf('Found %d common %s words: %s', 
-                        count($foundWords), strtoupper($sourceLang), 
-                        implode(', ', array_slice($foundWords, 0, 5)));
-                    return $result;
-                }
+                return $result;
             }
         }
         
         return $result;
-    }
-
-    /**
-     * Get common words for a language to detect untranslated content.
-     *
-     * @param string $lang Language code
-     * @return string[]
-     */
-    private function get_common_words_for_language($lang)
-    {
-        $commonWords = [
-            'nl' => ['het', 'een', 'van', 'zijn', 'voor', 'met', 'naar', 'door', 'maar', 'over', 
-                'deze', 'onder', 'naar', 'zonder', 'tussen', 'volgens', 'namelijk', 'echter',
-                'ondanks', 'hoewel', 'wanneer', 'omdat', 'indien', 'waardoor', 'waarbij', 
-                'waarmee', 'waarin', 'waarop', 'waaruit', 'waarvan'],
-            'en' => ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'with', 'from', 'this',
-                'have', 'they', 'which', 'their', 'about', 'would', 'there', 'these',
-                'through', 'however', 'therefore', 'although', 'because', 'without'],
-            'de' => ['der', 'und', 'die', 'von', 'den', 'mit', 'für', 'auf', 'ist', 'des',
-                'sich', 'nicht', 'ein', 'eine', 'als', 'auch', 'werden', 'wurde'],
-            'fr' => ['les', 'des', 'une', 'pour', 'dans', 'sur', 'avec', 'par', 'est', 'sont',
-                'qui', 'que', 'dont', 'mais', 'plus', 'tout', 'tous', 'cette', 'sans'],
-            'es' => ['los', 'las', 'una', 'por', 'para', 'con', 'del', 'sus', 'que', 'esta',
-                'pero', 'son', 'como', 'sus', 'más', 'este', 'todos', 'entre', 'desde'],
-        ];
-        
-        $lang = strtolower($lang);
-        return isset($commonWords[$lang]) ? $commonWords[$lang] : [];
     }
 }
