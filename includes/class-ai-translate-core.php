@@ -160,6 +160,8 @@ final class AI_Translate_Core
     public function clear_cache_for_language($lang)
     {
         $lang = sanitize_key((string) $lang);
+        
+        // Clear disk cache for this language
         $uploads = wp_upload_dir();
         $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/' . $lang . '/pages/';
         $count = 0;
@@ -182,6 +184,16 @@ final class AI_Translate_Core
                 }
             }
         }
+        
+        // Clear segment translation transients for this language
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+            '_transient_ai_tr_seg_' . $lang . '_%',
+            '_transient_timeout_ai_tr_seg_' . $lang . '_%'
+        ));
+        
         return ['success' => true, 'count' => $count];
     }
 
@@ -199,7 +211,8 @@ final class AI_Translate_Core
     public function clear_memory_and_transients_except_slugs()
     {
         global $wpdb;
-        // Clear transients
+        // Clear all transients (including segment translations ai_tr_seg_* and menu items ai_tr_attr_*)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_%' OR option_name LIKE '_site_transient_%'");
         // In-memory nothing persistent beyond this request
         wp_cache_flush();
@@ -308,13 +321,13 @@ final class AI_Translate_Core
             @wp_cache_flush_group('nav_menu');
         }
 
-        // Clear ALL menu-item translation transients (ai_tr_attr_*)
-        // This ensures renamed menu items get fresh translations
+        // Clear ALL translation transients (ai_tr_attr_* for menu items and ai_tr_seg_* for segments)
+        // This ensures renamed menu items and updated content get fresh translations
         $transients_cleared = 0;
         global $wpdb;
         
-        // Delete all transients starting with ai_tr_attr_
-        $sql = "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_ai_tr_attr_%' OR option_name LIKE '_transient_timeout_ai_tr_attr_%'";
+        // Delete all transients starting with ai_tr_attr_ or ai_tr_seg_
+        $sql = "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_ai_tr_attr_%' OR option_name LIKE '_transient_timeout_ai_tr_attr_%' OR option_name LIKE '_transient_ai_tr_seg_%' OR option_name LIKE '_transient_timeout_ai_tr_seg_%'";
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $result = $wpdb->query($sql);
         if ($result !== false) {

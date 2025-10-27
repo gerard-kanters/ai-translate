@@ -687,9 +687,17 @@ function render_admin_page()
                         require_once __DIR__ . '/class-ai-translate-core.php';
                     }
                     $core = AI_Translate_Core::get_instance();
-                    // Only clear disk-based language caches; do not clear menu or slugs
+                    // Clear disk-based language caches
                     $core->clear_language_disk_caches_only();
-                    echo '<div class="notice notice-success"><p>All language caches cleared. Menu and slug cache preserved.</p></div>';
+                    // Also clear segment translation transients
+                    global $wpdb;
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                    $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_ai_tr_seg_%' OR option_name LIKE '_transient_timeout_ai_tr_seg_%'");
+                    // Clear PHP opcache to ensure new code is active
+                    if (function_exists('opcache_reset')) {
+                        opcache_reset();
+                    }
+                    echo '<div class="notice notice-success"><p>All language caches and translation transients cleared. Menu and slug cache preserved.</p></div>';
                 }
                 ?>
                 <form method="post">

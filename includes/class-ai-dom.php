@@ -262,7 +262,8 @@ final class AI_DOM
             }
             foreach (iterator_to_array($n->childNodes ?? []) as $child) {
                 if ($child->nodeType === XML_TEXT_NODE) {
-                    if (!$visited->contains($child)) {
+                    // Check if text node has any excluded ancestor
+                    if (!$visited->contains($child) && !self::isExcluded($child, $exclusions)) {
                         $visited->attach($child);
                         $result[] = $child;
                     }

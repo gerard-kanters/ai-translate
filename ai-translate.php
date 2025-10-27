@@ -409,7 +409,12 @@ add_action('rest_api_init', function(){
             if (!empty($toTranslate)) {
                 $plan = ['segments'=>[]];
                 foreach ($toTranslate as $id=>$text) {
-                    $plan['segments'][] = ['id'=>$id, 'text'=>$text, 'type'=>'meta'];
+                    // Use 'node' type for longer texts (full sentences), 'meta' for short UI strings
+                    // Count words by splitting on whitespace
+                    $words = preg_split('/\s+/', trim($text), -1, PREG_SPLIT_NO_EMPTY);
+                    $wordCount = count($words);
+                    $segmentType = ($wordCount > 4) ? 'node' : 'meta';
+                    $plan['segments'][] = ['id'=>$id, 'text'=>$text, 'type'=>$segmentType];
                 }
                 $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
                 $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
