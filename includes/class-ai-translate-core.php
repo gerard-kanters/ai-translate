@@ -270,10 +270,11 @@ final class AI_Translate_Core
     /**
      * Clear menu caches and optional plugin menu tables if present.
      * - Clears WordPress nav menu transients and object cache entries.
+     * - Clears all menu-item translation transients (ai_tr_attr_*).
      * - If legacy plugin tables for menu translations exist, truncates them.
      * - Never touches slug map table.
      *
-     * @return array{wp_caches_cleared:bool,tables_cleared:array<int,string>}
+     * @return array{wp_caches_cleared:bool,tables_cleared:array<int,string>,transients_cleared:int}
      */
     public function clear_menu_cache()
     {
@@ -307,9 +308,21 @@ final class AI_Translate_Core
             @wp_cache_flush_group('nav_menu');
         }
 
+        // Clear ALL menu-item translation transients (ai_tr_attr_*)
+        // This ensures renamed menu items get fresh translations
+        $transients_cleared = 0;
+        global $wpdb;
+        
+        // Delete all transients starting with ai_tr_attr_
+        $sql = "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_ai_tr_attr_%' OR option_name LIKE '_transient_timeout_ai_tr_attr_%'";
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $result = $wpdb->query($sql);
+        if ($result !== false) {
+            $transients_cleared = (int) $result;
+        }
+
         // Optionally truncate legacy/alternate plugin tables if they exist
         $tablesCleared = [];
-        global $wpdb;
         $candidates = [
             $wpdb->prefix . 'ai_translate_menus',
             $wpdb->prefix . 'ai_translate_menu_items',
@@ -326,6 +339,7 @@ final class AI_Translate_Core
         return [
             'wp_caches_cleared' => true,
             'tables_cleared' => $tablesCleared,
+            'transients_cleared' => $transients_cleared,
         ];
     }
 
@@ -405,9 +419,10 @@ final class AI_Translate_Core
         - Maintain the original tone and intent while ensuring the text flows smoothly and is suitable for publication.
         
         MENU ITEMS:
-        - For segments where segment.type is "menu": translate to at most two words.
-        - Prefer concise, standard navigation labels while preserving meaning.
-        - If the original is longer, choose the best two-word equivalent in the target language.
+        - For segments where segment.type is "menu": translate literally and accurately.
+        - Keep menu items concise (1-3 words maximum), but always preserve the exact meaning of the original text.
+        - NEVER substitute with generic menu labels like "About", "News", or "Services" unless those words appear in the original.
+        - Translate the actual words provided, not what you think the menu item should be called.
         
         URL SLUGS (META TYPE):
         - For segments where segment.type is "meta": these are URL slugs or short keywords.

@@ -199,6 +199,20 @@ final class AI_Slugs
         $table = self::table_name();
         $schema = self::detect_schema();
         $now = gmdate('Y-m-d H:i:s');
+        
+        // First, check if source_slug changed - if so, delete old row to avoid orphaned mappings
+        $existing = self::get_row($post_id, $lang);
+        if ($existing && isset($existing['source_slug']) && $existing['source_slug'] !== '' && $existing['source_slug'] !== $source_slug) {
+            // Source slug changed - delete the old mapping
+            if ($schema === 'original') {
+                $colLang = 'language_code';
+            } else {
+                $colLang = 'lang';
+            }
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+            $wpdb->delete($table, ['post_id' => (int) $post_id, $colLang => (string) $lang], ['%d', '%s']);
+        }
+        
         if ($schema === 'original') {
             // Original schema
             $wpdb->replace(

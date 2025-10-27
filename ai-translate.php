@@ -239,13 +239,41 @@ add_action('template_redirect', function () {
  */
 // Removed pagination forcing; theme handles pagination
 
-// Never adjust admin URLs or rewrite menu items in admin or default language
-add_filter('nav_menu_link_attributes', function ($atts, $item) {
+/**
+ * Rewrite menu item URLs to use translated slugs for current language.
+ * This ensures menu links point to /{lang}/{translated-slug}/ instead of /{source-slug}/.
+ */
+add_filter('nav_menu_link_attributes', function ($atts, $item = null, $args = null, $depth = 0) {
+    // Skip in admin or when viewing default language
     if (is_admin() || \AITranslate\AI_Lang::is_exempt_request()) {
         return $atts;
     }
+    
+    // Ensure $item is available
+    if (!$item) {
+        return $atts;
+    }
+    
+    $lang = \AITranslate\AI_Lang::current();
+    $default = \AITranslate\AI_Lang::default();
+    
+    // Skip if no language or viewing default language
+    if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
+        return $atts;
+    }
+    
+    // Only process menu items that link to posts/pages (not custom links, categories, etc.)
+    if (isset($item->type) && $item->type === 'post_type' && !empty($item->object_id)) {
+        $translated_slug = \AITranslate\AI_Slugs::get_or_generate((int) $item->object_id, $lang);
+        if ($translated_slug !== null && isset($item->url)) {
+            // Build translated URL: /{lang}/{translated-slug}/
+            $trail = substr($item->url, -1) === '/' ? '/' : '';
+            $atts['href'] = home_url('/' . $lang . '/' . trim($translated_slug, '/') . $trail);
+        }
+    }
+    
     return $atts;
-}, 10, 2);
+}, 10, 4);
 
 // Language switcher is intentionally removed as per request
 /**
@@ -836,6 +864,141 @@ add_action('init', function () {
         ai_translate_dbg('rewrite_rules_flushed_v2');
     }
 }, 21);
+
+/**
+ * Store menu item titles and referenced object IDs before update so we can clear old translation cache.
+ * This runs BEFORE the menu item is saved to the database.
+ */
+add_action('wp_update_nav_menu_item', function ($menu_id, $menu_item_db_id) {
+    // Get current title and object ID before it gets updated
+    $menu_item = get_post($menu_item_db_id);
+    if ($menu_item && $menu_item->post_type === 'nav_menu_item') {
+        $old_item = wp_setup_nav_menu_item($menu_item);
+        if ($old_item && isset($old_item->title)) {
+            $GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id] = trim((string) $old_item->title);
+        }
+        if ($old_item && isset($old_item->object_id)) {
+            $GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id] = (int) $old_item->object_id;
+        }
+    }
+}, 9, 2);
+
+/**
+ * Clear translation cache when menu items are updated.
+ * Ensures that renamed menu items get fresh translations instead of cached old ones.
+ * Also regenerates slugs for the referenced page if the menu item points to a different page.
+ */
+add_action('wp_update_nav_menu_item', function ($menu_id, $menu_item_db_id, $args) {
+    if (!isset($args['menu-item-title']) || !is_string($args['menu-item-title'])) {
+        return;
+    }
+    $newTitle = trim((string) $args['menu-item-title']);
+    if ($newTitle === '') {
+        return;
+    }
+    
+    // Get old title from our earlier hook (stored in globals)
+    $oldTitle = isset($GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id]) 
+        ? $GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id] 
+        : '';
+    
+    // Get old and new object IDs (the post/page this menu item links to)
+    $oldObjectId = isset($GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id]) 
+        ? (int) $GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id] 
+        : 0;
+    $newObjectId = isset($args['menu-item-object-id']) ? (int) $args['menu-item-object-id'] : 0;
+    
+    // If object ID changed or title changed, clear caches and regenerate slugs
+    $titleChanged = ($oldTitle !== '' && $oldTitle !== $newTitle);
+    $objectChanged = ($oldObjectId > 0 && $newObjectId > 0 && $oldObjectId !== $newObjectId);
+    
+    if (!$titleChanged && !$objectChanged) {
+        return; // Nothing relevant changed
+    }
+    
+    // Clear transient cache for all languages for both old and new title
+    $settings = get_option('ai_translate_settings', array());
+    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
+    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
+    $default = \AITranslate\AI_Lang::default();
+    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
+    
+    foreach ($langs as $lang) {
+        $lang = sanitize_key((string) $lang);
+        if ($lang === '' || ($default && strtolower($lang) === strtolower($default))) {
+            continue;
+        }
+        // Clear cache for old title
+        if ($oldTitle !== '') {
+            $key = 'ai_tr_attr_' . $lang . '_' . md5($oldTitle);
+            delete_transient($key);
+        }
+        // Clear cache for new title (in case it was used elsewhere before)
+        if ($newTitle !== '') {
+            $key = 'ai_tr_attr_' . $lang . '_' . md5($newTitle);
+            delete_transient($key);
+        }
+        
+        // Regenerate slugs for the NEW page this menu item now points to
+        if ($newObjectId > 0) {
+            \AITranslate\AI_Slugs::get_or_generate($newObjectId, $lang);
+        }
+    }
+    
+    // Clear WordPress menu caches
+    \AITranslate\AI_Translate_Core::get_instance()->clear_menu_cache();
+    
+    // Optionally clear page caches (expensive but necessary for immediate visibility)
+    // Check if auto-clear is enabled in settings
+    $auto_clear_pages = isset($settings['auto_clear_pages_on_menu_update']) 
+        ? (bool) $settings['auto_clear_pages_on_menu_update'] 
+        : true; // Default to true for backwards compatibility
+    
+    if ($auto_clear_pages) {
+        \AITranslate\AI_Translate_Core::get_instance()->clear_language_disk_caches_only();
+        ai_translate_dbg('page_caches_auto_cleared', ['reason' => 'menu_item_updated']);
+    }
+    
+    ai_translate_dbg('menu_item_cache_cleared', [
+        'menu_id' => $menu_id,
+        'item_id' => $menu_item_db_id,
+        'old_title' => $oldTitle,
+        'new_title' => $newTitle,
+        'old_object_id' => $oldObjectId,
+        'new_object_id' => $newObjectId,
+        'title_changed' => $titleChanged,
+        'object_changed' => $objectChanged,
+    ]);
+    
+    // Clean up
+    if (isset($GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id])) {
+        unset($GLOBALS['ai_translate_menu_old_titles'][$menu_item_db_id]);
+    }
+    if (isset($GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id])) {
+        unset($GLOBALS['ai_translate_menu_old_object_ids'][$menu_item_db_id]);
+    }
+}, 10, 3);
+
+/**
+ * Clear translation cache when entire menu is updated.
+ */
+add_action('wp_update_nav_menu', function ($menu_id, $menu_data = null) {
+    // Clear WordPress menu caches
+    \AITranslate\AI_Translate_Core::get_instance()->clear_menu_cache();
+    
+    // Optionally clear page caches (expensive but necessary for immediate visibility)
+    $settings = get_option('ai_translate_settings', array());
+    $auto_clear_pages = isset($settings['auto_clear_pages_on_menu_update']) 
+        ? (bool) $settings['auto_clear_pages_on_menu_update'] 
+        : true; // Default to true for backwards compatibility
+    
+    if ($auto_clear_pages) {
+        \AITranslate\AI_Translate_Core::get_instance()->clear_language_disk_caches_only();
+        ai_translate_dbg('page_caches_auto_cleared', ['reason' => 'menu_updated']);
+    }
+    
+    ai_translate_dbg('menu_cache_cleared', ['menu_id' => $menu_id]);
+}, 10, 2);
 
 /**
  * Add Settings quick link on the Plugins page.

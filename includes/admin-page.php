@@ -246,6 +246,9 @@ add_action('admin_init', function () {
                 $sanitized['cache_expiration'] = 14 * 24;
             }
 
+            // Auto-clear pages on menu update (checkbox)
+            $sanitized['auto_clear_pages_on_menu_update'] = isset($input['auto_clear_pages_on_menu_update']) ? true : false;
+
             // Model selection (per provider)
             if (isset($input['selected_model'])) {
                 $selected_provider = $sanitized['api_provider'] ?? ($current_settings['api_provider'] ?? null);
@@ -504,6 +507,30 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_cache'
     );
+    add_settings_field(
+        'auto_clear_pages_on_menu_update',
+        'Auto-Clear Pages on Menu Update',
+        function () {
+            $settings = get_option('ai_translate_settings');
+            $value = isset($settings['auto_clear_pages_on_menu_update']) ? (bool) $settings['auto_clear_pages_on_menu_update'] : true;
+            echo '<label>';
+            echo '<input type="checkbox" name="ai_translate_settings[auto_clear_pages_on_menu_update]" value="1" ' . checked($value, true, false) . '> ';
+            echo esc_html__('Automatically clear all page caches when menu items are updated', 'ai-translate');
+            echo '</label>';
+            echo '<p class="description">';
+            echo '<strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ';
+            echo esc_html__('Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting.', 'ai-translate');
+            echo '<br>';
+            echo '<strong>' . esc_html__('When enabled:', 'ai-translate') . '</strong> ';
+            echo esc_html__('All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages).', 'ai-translate');
+            echo '<br>';
+            echo '<strong>' . esc_html__('When disabled:', 'ai-translate') . '</strong> ';
+            echo esc_html__('Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_cache'
+    );
 
     // Advanced Settings Section
     add_settings_section(
@@ -674,7 +701,7 @@ function render_admin_page()
 
                 <!-- Clear menu cache (including menu translation tables) -->
                 <h3>Clear menu cache</h3>
-                <p>Clear  menu caches. Languages and Slug map are not affected.</p>
+                <p>Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected.</p>
                 <?php
                 if (isset($_POST['clear_menu_cache']) && check_admin_referer('clear_menu_cache_action', 'clear_menu_cache_nonce')) {
                     if (!current_user_can('manage_options')) {
@@ -686,7 +713,11 @@ function render_admin_page()
                         $core = AI_Translate_Core::get_instance();
                         $res = $core->clear_menu_cache();
                         $tables = isset($res['tables_cleared']) && is_array($res['tables_cleared']) ? $res['tables_cleared'] : [];
+                        $transients = isset($res['transients_cleared']) ? (int) $res['transients_cleared'] : 0;
                         $msg = 'Menu cache cleared';
+                        if ($transients > 0) {
+                            $msg .= ' (' . $transients . ' menu-item translations removed)';
+                        }
                         if (!empty($tables)) {
                             $safe = array_map('esc_html', $tables);
                             $msg .= ' and tables truncated: ' . implode(', ', $safe);
