@@ -354,10 +354,10 @@ final class AI_Translate_Core
     }
 
     /**
-     * Convert language code to full language name.
+     * Convert language code to full language name with code.
      *
      * @param string $code Language code (e.g. 'ka', 'en', 'nl').
-     * @return string Full language name or 'unknown' if not found.
+     * @return string Full language name with code, e.g. "Georgian (ka)" or 'unknown' if not found.
      */
     private static function get_language_name($code)
     {
@@ -367,7 +367,10 @@ final class AI_Translate_Core
         $code = strtolower((string) $code);
         $core = self::get_instance();
         $languages = $core->get_available_languages();
-        return isset($languages[$code]) ? (string) $languages[$code] : 'unknown';
+        if (isset($languages[$code])) {
+            return $languages[$code] . ' (' . strtoupper($code) . ')';
+        }
+        return 'unknown';
     }
 
     /**
@@ -390,7 +393,9 @@ final class AI_Translate_Core
         $titleHint = isset($context['is_title']) && $context['is_title'] ? "\n- If the text is a title or menu label, keep it concise and natural." : '';
 
         $prompt = sprintf(
-            'You are a professional translation engine. CRITICAL: The source language is %s and the target language is %s. IGNORE the apparent language of the input text and translate as instructed.%s%s
+            'You are a professional translation engine.
+        
+        Important: The source language is %s and the target language is %s. IGNORE the apparent language of the input text and translate as instructed.%s%s
         
         TRANSLATION STYLE:
         - Make the translation sound natural, fluent, and professional, as if written by a native speaker.
