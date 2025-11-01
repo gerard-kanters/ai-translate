@@ -195,9 +195,11 @@ final class AI_DOM
             // Extract full tag including content
             $fullTag = substr($html, $start, $closePos - $start + strlen($closeTag));
             
-            // Create placeholder
-            $placeholder = '<!--AI_' . strtoupper($tagName) . '_PLACEHOLDER_' . (++$counter) . '-->';
-            $placeholders[$placeholder] = $fullTag;
+            // Create placeholder using data attribute to preserve through DOM parsing
+            // HTML comments can be removed by DOMDocument, so use a script tag instead
+            $placeholderId = strtoupper($tagName) . '_PLACEHOLDER_' . (++$counter);
+            $placeholder = '<script type="text/plain" data-ai-placeholder="' . $placeholderId . '"></script>';
+            $placeholders[$placeholderId] = $fullTag;
             $result .= $placeholder;
             
             // Move position forward
@@ -279,8 +281,8 @@ final class AI_DOM
         
         // Restore preserved script and style tags from placeholders
         if (isset($plan['placeholders']) && is_array($plan['placeholders'])) {
-            foreach ($plan['placeholders'] as $placeholder => $original_tag) {
-                $result = str_replace($placeholder, $original_tag, $result);
+            foreach ($plan['placeholders'] as $placeholderId => $original_tag) {
+                $result = str_replace('<script type="text/plain" data-ai-placeholder="' . $placeholderId . '"></script>', $original_tag, $result);
             }
         }
         

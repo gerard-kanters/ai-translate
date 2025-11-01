@@ -6,163 +6,175 @@ Tested up to: 6.8
 Stable tag: 2.0.5
 Requires PHP: 8 
 License: GPLv2 or later  
-License URI: https://www.gnu.org/licenses/gpl-2.0.html  
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 = AI-powered plugin for automatic website translation in 25 languages. Boosts traffic and improves your SEO. =
 
 ## Short Description
 
-AI-powered WordPress plugin for automatic website translation in 25 languages. Boosts traffic and improves your SEO.
+🌍 AI Translate maakt je WordPress website automatisch beschikbaar in meer dan 25 talen. Verhoog je bereik en verbeter je SEO zonder handmatig werk.
 
 ## Description
 
-AI Translate leverages advanced AI to provide seamless, automatic translation of your WordPress website content—including posts, pages, titles, taglines, menus, and widget titles. Translations are fast, SEO-friendly, and highly customizable. Intelligent caching ensures top performance. The plugin generates a smart summary of your website and provides it to itself while translating, so translations are always tailored to your brand, terminology, and topic.
+AI Translate vertaalt automatisch je volledige website met behulp van geavanceerde kunstmatige intelligentie. De plugin vertaalt pagina's, berichten, titels, menu's en meer in real-time of via slimme caching. 
+
+**Wat maakt AI Translate uniek?**
+✨ De AI analyseert eerst je website om te begrijpen wat je doet en hoe je communiceert. Daardoor zijn de vertalingen altijd afgestemd op jouw merk, terminologie en toonzetting.
+
+🚀 Met intelligente caching werkt je site razendsnel, ook met veel vertalingen. Vertalingen worden automatisch bijgewerkt wanneer je originele content wijzigt, zonder extra API-kosten.
 
 ## Features
 
-- Automatic translation of pages, posts, and custom post types.  
-- AI generates summary of your site for itself to understand the goal of the website.
-- Support for all major languages of the world.  
-- Intelligent caching for better performance.  
-- Automatic re-translation when original content changes.  
-- Remembers each visitor’s language preference (requires cookies).  
-- Easy to use language switcher interface.  
-- Customizable translation models (OpenAI, Deepseek, or compatible API).  
-- Translates URLs for SEO (e.g., `/over-ons` to `/en/about-us`).  
+🌐 **Automatische vertaling** - Pagina's, berichten en custom post types worden automatisch vertaald
+✨ **Slimme AI** - Genereert een samenvatting van je site voor context-aware vertalingen
+🌍 **25+ talen** - Ondersteuning voor alle belangrijke wereldtalen
+⚡ **Snelle caching** - Intelligente cache voor betere performance en lagere kosten
+🔄 **Automatische updates** - Vertalingen worden automatisch bijgewerkt bij content wijzigingen
+🍪 **Onthoudt voorkeuren** - Bewaart de taalvoorkeur van elke bezoeker (via cookies)
+🎨 **Makkelijk te gebruiken** - Eenvoudige taalwisselaar in de linkerhoek van je website
+🔧 **Flexibel** - Kies je eigen AI model (OpenAI, Deepseek of andere API's)
+🔗 **SEO-vriendelijk** - Vertaalt ook URL's voor betere zoekmachine-optimalisatie
 
 ## Installation
 
-1. Upload the plugin files to `/wp-content/plugins/ai-translate/` or install directly via the WordPress plugin screen.
-2. Activate the plugin via the 'Plugins' menu.
-3. Go to 'Admin > AI Translate' to configure settings.
-4. Add your API key and select languages.
-5. For best performance, use memcached or Redis (plugin uses heavy caching).
+1. **Installeer de plugin** - Upload naar `/wp-content/plugins/ai-translate/` of installeer via WordPress plugin scherm
+2. **Activeer** - Ga naar 'Plugins' menu en activeer AI Translate
+3. **Configureer** - Ga naar 'Admin > AI Translate' om de instellingen te configureren
+4. **Voeg API key toe** - Voeg je API key toe en selecteer welke talen je wilt ondersteunen
+5. **Tip voor beste performance** - Gebruik Memcached of Redis voor nog snellere caching (optioneel)
 
 == Frequently Asked Questions ==
 
-= What are the costs for using AI Translate? =
-AI Translate is free to use, but you need an API key from an AI service provider like OpenAI or Deepseek. Costs depend on your usage and chosen provider. OpenAI charges approximately €0.0015 per 1K tokens, meaning an average 500-word page costs about €0.01 to translate.
+= Wat kost het gebruik van AI Translate? =
+Het gebruik van AI Translate zelf is gratis. Je hebt wel een API key nodig van een AI service provider zoals OpenAI of Deepseek. De kosten hangen af van je gebruik en de provider die je kiest. Bij OpenAI kost een gemiddelde pagina van 500 woorden ongeveer €0,01 om te vertalen.
 
-= Which languages are supported? =
-AI Translate supports 23+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Georgian, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian and more.
+= Welke talen worden ondersteund? =
+AI Translate ondersteunt 25+ talen waaronder Nederlands, Engels, Duits, Frans, Spaans, Italiaans, Portugees, Russisch, Chinees, Japans, Koreaans, Arabisch, Hindi, Thai, Georgisch, Zweeds, Noors, Deens, Fins, Pools, Tsjechisch, Grieks, Roemeens en meer.
 
-= How does caching work? =
-AI Translate uses an intelligent caching system that stores translations in WordPress transients and files. Translations are only regenerated when the original content changes, which saves API costs and improves performance.
+= Hoe werkt de caching? =
+AI Translate gebruikt een slim caching systeem dat vertalingen opslaat in WordPress en bestanden. Vertalingen worden alleen opnieuw gegenereerd wanneer de originele content verandert. Dit bespaart API-kosten en verbetert de snelheid van je website.
 
-= Does AI Translate work with all themes? =
-Yes, AI Translate is designed to work with all WordPress themes. The plugin uses standard WordPress hooks and filters, so it should be compatible with most themes.
+= Werkt AI Translate met alle themes? =
+Ja! AI Translate is ontworpen om te werken met alle WordPress themes. De plugin gebruikt standaard WordPress functies, dus compatibiliteit is gegarandeerd.
 
-= How is my privacy protected? =
-AI Translate only sends website content for translation to the AI service. No visitor personal data, IP addresses, or other privacy-sensitive information is shared. All translations are cached locally.
+= Hoe wordt mijn privacy beschermd? =
+AI Translate stuurt alleen website content voor vertaling naar de AI service. Geen persoonlijke data, IP-adressen of andere privacy-gevoelige informatie wordt gedeeld. Alle vertalingen worden lokaal opgeslagen in de cache.
 
-= What happens if the AI service is unavailable? =
-If the AI service is temporarily unavailable, AI Translate displays the original content in the default language. Cached translations remain available and the website continues to function.
+= Wat gebeurt er als de AI service niet beschikbaar is? =
+Als de AI service tijdelijk niet beschikbaar is, toont AI Translate de originele content in de standaard taal. Gecachte vertalingen blijven beschikbaar en je website blijft gewoon werken.
 
-= How can I optimize performance? =
-For optimal performance, we recommend:
-* Using a caching plugin like Jetpack, WP Rocket or W3 Total Cache
-* Configuring Memcached or Redis for database caching
-* Adjusting cache duration based on your content update frequency
+= Hoe kan ik de performance optimaliseren? =
+Voor optimale performance raden we aan:
+* Een caching plugin te gebruiken zoals Jetpack, WP Rocket of W3 Total Cache
+* Memcached of Redis te configureren voor database caching
+* De cache duur aan te passen op basis van hoe vaak je content update
 
-= Can I use AI Translate for a multilingual webshop? =
-Yes, AI Translate works with WooCommerce and other e-commerce plugins. Product titles, descriptions, and categories are automatically translated. Note that prices and technical specifications are not translated.
+= Kan ik AI Translate gebruiken voor een meertalige webshop? =
+Ja! AI Translate werkt perfect met WooCommerce en andere e-commerce plugins. Producttitels, beschrijvingen en categorieën worden automatisch vertaald. Let op: prijzen en technische specificaties worden niet vertaald.
 
-= How often are translations updated? =
-Translations are only updated when the original content changes. This happens automatically and prevents unnecessary API costs. You can also manually clear the cache via admin settings. 
+= Hoe vaak worden vertalingen bijgewerkt? =
+Vertalingen worden alleen bijgewerkt wanneer de originele content verandert. Dit gebeurt automatisch en voorkomt onnodige API-kosten. Je kunt ook handmatig de cache legen via de admin instellingen.
 
-= Is AI Translate SEO-friendly? =
-Yes, AI Translate is fully SEO-friendly. It automatically generates hreflang tags, translates URL slugs, and ensures search engines can properly index the different language versions.
+= Is AI Translate SEO-vriendelijk? =
+Ja! AI Translate is volledig SEO-vriendelijk. Het genereert automatisch hreflang tags, vertaalt URL slugs, en zorgt ervoor dat zoekmachines alle taalversies correct kunnen indexeren.
 
-= Can I customize the AI prompts? =
-Currently, the AI prompts are optimized for the best translations using the intended use of your site by reading the content and changes the tone of voice. You can improve influence the prompt in the admin settings providing more context about your site manually too. It is however not needed 
+= Kan ik de AI prompts aanpassen? =
+De AI prompts zijn geoptimaliseerd voor de beste vertalingen door je website te analyseren en de toonzetting aan te passen. Je kunt extra context over je site toevoegen in de admin instellingen, maar dit is meestal niet nodig.
 
-= What's the difference between "Enabled Languages" and "Detectable Languages"? =
-"Enabled Languages" are languages visible in the language switcher. "Detectable Languages" are automatically detected based on the visitor's browser language, but are not visible in the switcher.
+= Wat is het verschil tussen "Enabled Languages" en "Detectable Languages"? =
+**Enabled Languages** zijn talen die zichtbaar zijn in de taalwisselaar (de vlaggenknop op je website). Bezoekers kunnen deze talen direct selecteren.
 
+**Detectable Languages** worden automatisch gedetecteerd op basis van de browser taal van de bezoeker, maar zijn niet zichtbaar in de wisselaar. Ideaal voor talen die je wilt ondersteunen zonder de interface te vullen.
 
 ## Configuration
 
-Find all plugin settings under 'AI Translate' in your WordPress admin menu.
+Alle plugin instellingen vind je onder 'AI Translate' in je WordPress admin menu.
 
 ### API Settings
 
-- **API URL**: Endpoint for your AI translation API (e.g., `https://api.openai.com/v1/`)
-- **API Key**: Your API authentication key
-- **Translation Model**: Choose your preferred AI model
+🔑 **API URL** - Het adres van je AI translation API (bijv. `https://api.openai.com/v1/`)
+🔐 **API Key** - Je API authenticatie sleutel
+🤖 **Translation Model** - Kies je favoriete AI model
 
 ### Language Settings
 
-- **Default Language**: Main language of your website  
-- **Enabled Languages**: Languages shown in the language switcher  
-- **Detectable Languages**: Auto-translate if visitor's browser matches, but not in switcher
+🌍 **Default Language** - De hoofdtaal van je website  
+🎯 **Enabled Languages** - Talen die zichtbaar zijn in de taalwisselaar  
+🔍 **Detectable Languages** - Automatische vertaling bij browser match, maar niet in wisselaar
 
 ### Cache Settings
 
-- **Cache Duration (days)**: How long translated content stays cached  
-- **Cache Management**: Clear all cache, only transient cache, or cache per language  
-- **Automatic cache invalidation**: Cache refreshes only when original content changes
+⏱️ **Cache Duration (days)** - Hoe lang vertaalde content gecached blijft  
+🗑️ **Cache Management** - Leeg alle cache, alleen transient cache, of cache per taal  
+🔄 **Automatic cache invalidation** - Cache wordt alleen vernieuwd bij content wijzigingen
 
 ### Advanced Settings
 
-- Homepage Meta Description: Set and auto-translate a custom meta description for your homepage
-- Generate context of site to be translated automatically and use it for translation "tone of voice and content"
+📄 **Homepage Meta Description** - Stel een aangepaste meta beschrijving in die automatisch wordt vertaald
+✨ **Auto-generate site context** - Laat de AI automatisch je site analyseren voor betere vertalingen
 
 ## Usage
 
-Once configured, AI Translate adds a language switcher button to your website (default: bottom left). Visitors can select their preferred language; content is translated instantly or loaded from cache.  
-Each visitor’s language choice is remembered for future visits.
+Na configuratie voegt AI Translate automatisch een taalwisselaar toe aan je website (standaard linksonder). Bezoekers kunnen hun voorkeurstaal selecteren; content wordt direct vertaald of geladen uit de cache.
+
+De taalvoorkeur van elke bezoeker wordt onthouden voor toekomstige bezoeken.
 
 ## Cache
 
-- Translations are cached in `/wp-content/uploads/ai-translate/cache/`
-- Expired cache is cleaned up automatically
-- Manual cache clearing via plugin settings
+📁 Vertalingen worden gecached in `/wp-content/uploads/ai-translate/cache/`
+🧹 Verlopen cache wordt automatisch opgeruimd
+🔧 Handmatige cache clearing via plugin instellingen
 
 ## Recommended Model Selection
 
-- OpenAI: gpt-4.1-mini. Do not use GPT 5.1 since reasoning is slow, expensive and useless for translation. 
-- Deepseek: deepseek-chat (slower, but cost-effective)
-- Custom, use openrouter or deepinfra and select a model.
+💡 **OpenAI**: gpt-4.1-mini - Gebruik geen GPT 5.1 voor vertalingen (langzaam, duur en onnodig complex)
+💰 **Deepseek**: deepseek-chat - Langzamer, maar kosteneffectiever
+🔧 **Custom**: Gebruik OpenRouter of DeepInfra en selecteer een model
 
 ## Development
 
-- Path-based language URLs for SEO  
-- Support for more content types and translation improvements is ongoing  
-- Caching and API optimization are continuously improved
+🔗 Path-based language URLs voor SEO  
+🚀 Ondersteuning voor meer content types en vertaalverbeteringen zijn in ontwikkeling  
+⚡ Caching en API optimalisatie worden continu verbeterd
 
 ## External Services
 
-AI Translate requires an API key for one of the supported providers:
+AI Translate heeft een API key nodig van een van de ondersteunde providers:
 
 ### Supported AI Translation Services
 
 **OpenAI API**
-- What it is: OpenAI's GPT models for text translation
-- What data is sent: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
-- When data is sent: When a visitor accesses your website in a language different from the default language, and the content is not already cached
+- Wat het is: OpenAI's GPT modellen voor tekst vertaling
+- Welke data wordt verzonden: Website content (berichten, pagina's, titels, menu items, widget titels) die vertaald moet worden, samen met bron- en doeltaal informatie
+- Wanneer data wordt verzonden: Wanneer een bezoeker je website bezoekt in een andere taal dan de standaard taal, en de content nog niet gecached is
 - Service provider: OpenAI
 - Terms of service: https://openai.com/terms/
 - Privacy policy: https://openai.com/privacy/
 
-
 **Data Handling:**  
-- Only website content for translation is sent—no visitor IP or personal data  
-- All translations cached locally; nothing is shared externally
+🔒 Alleen website content voor vertaling wordt verzonden—geen bezoeker IP of persoonlijke data  
+💾 Alle vertalingen worden lokaal gecached; niets wordt extern gedeeld
 
 ## Requirements
 
-- WordPress 5.0 or higher  
-- PHP 8 or higher  
-- API key for OpenAI, Deepseek, or compatible service
+✅ WordPress 5.0 of hoger  
+✅ PHP 8 of hoger  
+🔑 API key voor OpenAI, Deepseek of compatibele service
 
 ## Crawler/Spider Best Practices
-When using automated crawlers or spiders to warm up the cache (e.g., wget, curl), follow these guidelines to prevent race conditions and ensure proper cache generation:
+
+Wanneer je geautomatiseerde crawlers of spiders gebruikt om de cache voor te verwarmen (bijv. wget, curl), volg deze richtlijnen om race conditions te voorkomen en correcte cache generatie te garanderen:
+
 ### Recommended Spider Settings
-# Good: Sequential crawling with adequate delays
+
+```bash
+# Goed: Sequentiële crawling met adequate vertraging
 wget --spider --no-directories --delete-after --recursive --level=10 \
      --wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \
      https://yoursite.com
+```
 
 ## Changelog
+
 ### 2.05
   - Fixed JS issue with speculationrules
 
@@ -219,7 +231,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - API error handling with backoff
 - Detectable (auto-detect, no switcher) languages
 - Improved cache statistics in admin
-- Remembers each visitor’s language preference
+- Remembers each visitor's language preference
 - Bugfixes and style improvements
 - Improved hreflang original URL logic
 
@@ -228,4 +240,4 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Provided by
 
-[NetCare](https://netcare.nl)
+🌐 [NetCare](https://netcare.nl)
