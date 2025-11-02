@@ -168,6 +168,18 @@ add_action('template_redirect', function () {
     // Force language detection strictly by URL prefix first (cookie only fallback)
     \AITranslate\AI_Lang::detect();
 
+    // Set WordPress locale based on detected language
+    add_filter('locale', function ($locale) {
+        $currentLang = \AITranslate\AI_Lang::current();
+        if ($currentLang) {
+            // WordPress locale usually uses format like 'en_US', 'nl_NL'.
+            // For 2-letter codes, we'll append a default country code if not explicitly set.
+            // This is a pragmatic choice; ideally, we'd have a mapping.
+            return strtolower($currentLang) . '_' . strtoupper($currentLang);
+        }
+        return $locale;
+    });
+
     // Handle full_reset parameter for testing/resetting purposes
     if (isset($_GET['full_reset']) && $_GET['full_reset'] === '1') {
         error_log('[AI Translate Debug] full_reset=1 detected. Attempting to reset language to default.');
@@ -193,24 +205,25 @@ add_action('template_redirect', function () {
     // Handle language switch parameter (set cookie and redirect)
     if (isset($_GET['switch_lang'])) {
         $newLang = strtolower(sanitize_key((string) $_GET['switch_lang']));
-        error_log('[AI Translate Debug] switch_lang parameter detected: ' . $newLang);
         if ($newLang !== '') {
-            $secure = is_ssl();
-            setcookie('ai_translate_lang', $newLang, [
-                'expires' => time() + 30 * DAY_IN_SECONDS,
-                'path' => '/',
-                'domain' => '',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
+            // Set cookie with enhanced compatibility
+            setcookie(
+                'ai_translate_lang',
+                $newLang,
+                [
+                    'expires' => time() + 30 * 86400,
+                    'path' => '/',
+                    'domain' => '',
+                    'secure' => is_ssl(),
+                    'httponly' => true,
+                    'samesite' => 'None'
+                ]
+            );
             $_COOKIE['ai_translate_lang'] = $newLang;
-            error_log('[AI Translate Debug] Cookie ai_translate_lang set to: ' . (string) $_COOKIE['ai_translate_lang']);
             
             // Redirect to clean URL without query parameter
             $defaultLang = \AITranslate\AI_Lang::default();
             $cleanUrl = ($newLang === strtolower((string) $defaultLang)) ? home_url('/') : home_url('/' . $newLang . '/');
-            error_log('[AI Translate Debug] Redirecting to clean URL: ' . $cleanUrl);
             wp_safe_redirect($cleanUrl, 302);
             exit;
         }
@@ -388,20 +401,19 @@ add_action('wp_footer', function () {
         $targetPath = ($code === $default) ? '/' : ('/' . $code . '/');
         // Normalize double slashes
         $targetPath = preg_replace('#/{2,}#','/',$targetPath);
-        // Add switch_lang parameter so server can set cookie before redirect
-        $url = esc_url( add_query_arg( 'switch_lang', $code, home_url( $targetPath ) ) );
+        // Build target URL without query parameters
+        $url = esc_url( home_url( $targetPath ) );
         $flag = esc_url( $flags_url . $code . '.png' );
-        echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
+        echo '<a class="ai-trans-item" href="#" role="menuitem" data-lang="' . esc_attr($code) . '" data-target-url="' . esc_attr($url) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
     }
 
     echo '</div></div>';
 
-    // Minimal toggle script + cookie set on click + dynamic placeholder translation
+    // Minimal toggle script + pure JS cookie handling
     $restUrl = esc_url_raw( rest_url('ai-translate/v1/batch-strings') );
     $nonce = wp_create_nonce('ai_translate_front_nonce');
-    echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});
+    echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});w.addEventListener("click",function(e){var a=e.target.closest("a.ai-trans-item");if(!a)return;e.preventDefault();e.stopPropagation();var lang=a.getAttribute("data-lang");var url=a.getAttribute("data-target-url");if(lang&&url){var switchUrl=url.indexOf("?")>-1?url+"&switch_lang="+encodeURIComponent(lang):url+"?switch_lang="+encodeURIComponent(lang);window.location.href=switchUrl;}});var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
-var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
 function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
 function cS(r){var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&ph.trim())s.add(ph.trim());var tl=el.getAttribute("title");if(tl&&tl.trim())s.add(tl.trim());var al=el.getAttribute("aria-label");if(al&&al.trim())s.add(al.trim());var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&v.trim())s.add(v.trim());}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc&&tc.trim())s.add(tc.trim());});return Array.from(s);} 
  function aT(r,m){var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc){var tct=tc.trim();if(tct&&m[tct]!=null)el.textContent=m[tct];}});} 

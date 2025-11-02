@@ -219,24 +219,13 @@ final class AI_DOM
      *
      * @param array $plan
      * @param array $translations map id => translated string
-     * @param string|null $targetLang Target language code for HTML lang attribute
      * @return string
      */
-    public static function merge(array $plan, array $translations, $targetLang = null)
+    public static function merge(array $plan, array $translations)
     {
         $doc = $plan['doc'];
         $segments = $plan['segments'];
         $nodeIndex = $plan['nodeIndex'];
-
-        // Update HTML lang attribute if targetLang is provided
-        if ($targetLang !== null && $targetLang !== '') {
-            $htmlElement = $doc->getElementsByTagName('html')->item(0);
-            if ($htmlElement instanceof \DOMElement) {
-                // Convert language code to proper locale format (e.g., 'de' -> 'de-DE', 'en' -> 'en-GB')
-                $locale = self::getLangAttribute($targetLang);
-                $htmlElement->setAttribute('lang', $locale);
-            }
-        }
 
         foreach ($segments as $seg) {
             $id = $seg['id'];
@@ -298,27 +287,6 @@ final class AI_DOM
         }
         
         return $result;
-    }
-
-    /**
-     * Convert language code to proper locale format for HTML lang attribute.
-     *
-     * @param string $lang Language code (e.g., 'de', 'en', 'nl')
-     * @return string Locale format (e.g., 'de-DE', 'en-GB', 'nl-NL')
-     */
-    private static function getLangAttribute($lang)
-    {
-        $lang = strtolower(trim($lang));
-        $localeMap = [
-            'nl' => 'nl-NL',
-            'en' => 'en-GB',
-            'de' => 'de-DE',
-            'fr' => 'fr-FR',
-            'es' => 'es-ES',
-            'it' => 'it-IT',
-            'pt' => 'pt-PT',
-        ];
-        return $localeMap[$lang] ?? $lang;
     }
 
     private static function isExcluded(\DOMNode $node, array $exclusions)
