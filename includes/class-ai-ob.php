@@ -72,14 +72,6 @@ final class AI_OB
         }
 
         $route = $this->current_route_id();
-        // Debug: help analyze caching and keys on paginated/archive views
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('ob_callback', [
-                'route' => $route,
-                'lang' => $lang,
-                'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-            ]);
-        }
         // Allow cache bypass via nocache parameter for testing
         $nocache = isset($_GET['nocache']) || isset($_GET['no_cache']);
         $key = AI_Cache::key($lang, $route, $this->content_version());
@@ -91,16 +83,6 @@ final class AI_OB
                 if ($defaultLang !== null) {
                     $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang);
                     if ($untranslatedCheck['has_untranslated']) {
-                        if (function_exists('ai_translate_dbg')) {
-                            ai_translate_dbg('ob_callback_cached_untranslated_detected', [
-                                'word_count' => $untranslatedCheck['word_count'],
-                                'reason' => $untranslatedCheck['reason'],
-                                'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                                'lang' => $lang,
-                                'action' => 'invalidating_cache',
-                            ]);
-                        }
-                        
                         // Check retry counter to avoid infinite loops
                         $retryKey = 'ai_translate_retry_' . md5($key);
                         $retryCount = (int) get_transient($retryKey);
@@ -111,12 +93,6 @@ final class AI_OB
                             // Fall through to translation below (don't return cached)
                         } else {
                             // Max retries reached, serve cached version anyway
-                            if (function_exists('ai_translate_dbg')) {
-                                ai_translate_dbg('ob_callback_serving_cached_despite_untranslated', [
-                                    'reason' => 'max_retries_reached',
-                                    'retry_count' => $retryCount,
-                                ]);
-                            }
                             $processing = false;
                             return $cached;
                         }
@@ -146,12 +122,6 @@ final class AI_OB
             while (($lockTime = get_transient($lockKey)) !== false) {
                 if ((time() - $lockStart) > $maxLockWait) {
                     // Lock timeout - proceed anyway to avoid infinite wait
-                    if (function_exists('ai_translate_dbg')) {
-                        ai_translate_dbg('ob_lock_timeout', [
-                            'key' => $key,
-                            'waited' => (time() - $lockStart),
-                        ]);
-                    }
                     break;
                 }
                 // Wait 200ms before checking again
@@ -192,14 +162,6 @@ final class AI_OB
         $hasBody = (stripos($html, '<body') !== false);
         
         if ($htmlLen < 500 || !$hasHtml || !$hasBody) {
-            if (function_exists('ai_translate_dbg')) {
-                ai_translate_dbg('ob_callback_incomplete_html', [
-                    'len' => $htmlLen,
-                    'has_html' => $hasHtml,
-                    'has_body' => $hasBody,
-                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                ]);
-            }
             if ($lockAcquired) {
                 delete_transient($lockKey);
             }
@@ -233,14 +195,6 @@ final class AI_OB
         $html3HasBody = (stripos($html3, '<body') !== false);
         
         if ($html3Len < 500 || !$html3HasHtml || !$html3HasBody) {
-            if (function_exists('ai_translate_dbg')) {
-                ai_translate_dbg('ob_callback_incomplete_output', [
-                    'len' => $html3Len,
-                    'has_html' => $html3HasHtml,
-                    'has_body' => $html3HasBody,
-                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                ]);
-            }
             if ($lockAcquired) {
                 delete_transient($lockKey);
             }

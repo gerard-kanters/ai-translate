@@ -70,12 +70,6 @@ final class AI_SEO
         libxml_use_internal_errors($internalErrors);
 
         $xpath = new \DOMXPath($doc);
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('seo_inject_start', [
-                'lang' => $lang,
-                'has_head' => (bool) $doc->getElementsByTagName('head')->item(0),
-            ]);
-        }
         $head = $doc->getElementsByTagName('head')->item(0);
         if (!$head) {
             // Create <head> if missing
@@ -233,18 +227,6 @@ final class AI_SEO
 
         // 3) hreflang alternates
         self::injectHreflang($doc, $xpath, $head, $lang, $default);
-        if (function_exists('ai_translate_dbg')) {
-            $hreflangs = [];
-            $links = $xpath->query('//head/link[@rel="alternate" and @hreflang]');
-            if ($links) {
-                foreach ($links as $lnk) {
-                    if ($lnk instanceof \DOMElement) {
-                        $hreflangs[] = strtolower((string) $lnk->getAttribute('hreflang'));
-                    }
-                }
-            }
-            ai_translate_dbg('seo_inject_done', [ 'lang' => $lang, 'hreflangs' => $hreflangs ]);
-        }
 
         $result = $doc->saveHTML();
         

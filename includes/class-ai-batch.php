@@ -24,7 +24,6 @@ final class AI_Batch
         $elapsed = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
         $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 60;
         if ($remaining < 15) {
-            \ai_translate_dbg('translate_plan_timeout_abort', ['remaining' => $remaining]);
             return ['segments' => [], 'map' => []];
         }
 
@@ -37,30 +36,14 @@ final class AI_Batch
 
         // Block GPT-5 models (gpt-5*, o1-*, o3-*) - they have 3-5x higher latency due to complex reasoning
         if ($model !== '' && preg_match('/^(gpt-5|o1-|o3-)/i', $model)) {
-            \ai_translate_dbg('translate_plan_blocked_model', [
-                'provider' => $provider,
-                'model' => $model,
-                'reason' => 'GPT-5/O1/O3 models are too slow for real-time translations'
-            ]);
             return ['segments' => [], 'map' => []];
         }
 
-        \ai_translate_dbg('translate_plan_begin', [
-            'provider' => $provider ?: 'none',
-            'model' => $model ?: 'none',
-            'segment_count' => is_array($segments) ? count($segments) : 0,
-        ]);
         if (empty($segments)) {
-            \ai_translate_dbg('translate_plan_no_segments', [ 'provider' => $provider ?: 'none' ]);
             return ['segments' => [], 'map' => []];
         }
 
         if ($provider === '' || $model === '' || $apiKey === '') {
-            \ai_translate_dbg('translate_plan_skipped_misconfigured', [
-                'provider' => $provider ?: 'none',
-                'has_model' => $model !== '',
-                'has_key' => $apiKey !== '',
-            ]);
             return ['segments' => [], 'map' => []];
         }
 
@@ -69,7 +52,6 @@ final class AI_Batch
             $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
         }
         if ($baseUrl === '') {
-            \ai_translate_dbg('translate_plan_no_base_url', [ 'provider' => $provider ]);
             return ['segments' => [], 'map' => []];
         }
 
@@ -160,7 +142,6 @@ final class AI_Batch
             $groups = array_chunk($batches, $concurrency);
             $timeoutSeconds = ($provider === 'deepseek') ? 90 : 45;
             foreach ($groups as $gIdx => $group) {
-                \ai_translate_dbg('translate_plan_group_start', [ 'provider' => $provider, 'group_index' => $gIdx + 1, 'group_size' => count($group) ]);
                 $requests = [];
                 $metas = [];
                 foreach ($group as $batchSegs) {
@@ -195,13 +176,11 @@ final class AI_Batch
                 };
                 $responses = $doAttempt($requests);
                 if ($responses instanceof \Throwable) {
-                    \ai_translate_dbg('translate_plan_group_error', [ 'provider' => $provider, 'error' => $responses->getMessage() ]);
                     // Fallback to sequential handling for this group
                     foreach ($group as $idx => $batchSegs) {
                         // Reuse sequential path below by emulating one-batch run
                         $batchesSingle = [$batchSegs];
                         foreach ($batchesSingle as $i => $batchSegs2) {
-                            \ai_translate_dbg('translate_plan_chunk', [ 'provider' => $provider, 'chunk_index' => ($gIdx * $concurrency) + $i + 1, 'chunk_size' => count($batchSegs2), 'total' => count($segments) ]);
                             $userPayload = self::buildUserPayload($batchSegs2);
                             $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
                             if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
@@ -238,9 +217,6 @@ final class AI_Batch
                 foreach ($responses as $idx => $resp) {
                     $ok = is_object($resp) && property_exists($resp, 'status_code') ? ((int)$resp->status_code === 200) : false;
                     if (!$ok) { 
-                        $status = is_object($resp) && property_exists($resp, 'status_code') ? $resp->status_code : 'no_status';
-                        $errorBody = is_object($resp) && property_exists($resp, 'body') ? mb_substr((string)$resp->body, 0, 500) : 'no_body';
-                        \ai_translate_dbg('translate_plan_http_fail', [ 'provider' => $provider, 'model' => $model, 'idx' => $idx, 'status' => $status, 'error' => $errorBody ]);
                         $failedIndexes[] = (int)$idx; 
                         continue; 
                     }
@@ -249,12 +225,10 @@ final class AI_Batch
                     $data = json_decode($content, true);
                     $choices = is_array($data) ? ($data['choices'] ?? []) : [];
                     if (!$choices || !isset($choices[0]['message']['content'])) { 
-                        \ai_translate_dbg('translate_plan_no_content', [ 'provider' => $provider, 'model' => $model, 'idx' => $idx, 'has_data' => is_array($data), 'body_preview' => mb_substr($content, 0, 300) ]);
                         $failedIndexes[] = (int)$idx; 
                         continue; 
                     }
                     $msg = (string)$choices[0]['message']['content'];
-                    \ai_translate_dbg('translate_plan_response', [ 'provider' => $provider, 'model' => $model, 'idx' => $idx, 'content_preview' => mb_substr($msg, 0, 300) ]);
                     $parsed = json_decode($msg, true);
                     if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
                         $candidate = str_replace(["```json","```JSON","```"], '', $msg);
@@ -325,10 +299,6 @@ final class AI_Batch
                 }
             }
             if (!empty($needsRetry)) {
-                \ai_translate_dbg('translate_plan_retry_needed', [
-                    'count' => count($needsRetry),
-                    'ids' => array_slice($needsRetry, 0, 10)
-                ]);
                 $strictSystem = $system . "\n\nSTRICT: Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name.";
                 $retrySegs = [];
                 foreach ($needsRetry as $pid) { $retrySegs[] = $primarySegById[$pid]; }
@@ -384,13 +354,6 @@ final class AI_Batch
         }
 
         foreach ($batches as $i => $batchSegs) {
-            \ai_translate_dbg('translate_plan_chunk', [
-                'provider' => $provider,
-                'chunk_index' => $i + 1,
-                'chunk_size' => count($batchSegs),
-                'total' => count($segments),
-            ]);
-
             $userPayload = self::buildUserPayload($batchSegs);
             $body = [
                 'model' => $model,
@@ -428,24 +391,11 @@ final class AI_Batch
                     'body' => wp_json_encode($body),
                 ]);
                 if (is_wp_error($response)) {
-                    \ai_translate_dbg('translate_plan_http_error', [
-                        'provider' => $provider,
-                        'endpoint' => $endpoint,
-                        'error' => $response->get_error_message(),
-                        'attempt' => $attempts,
-                    ]);
                     if ($attempts < $maxAttempts) { usleep(300000); }
                     continue;
                 }
                 $code = (int) wp_remote_retrieve_response_code($response);
                 if ($code !== 200) {
-                    $bodyText = (string) wp_remote_retrieve_body($response);
-                    \ai_translate_dbg('translate_plan_http_non200', [
-                        'provider' => $provider,
-                        'status' => $code,
-                        'body_preview' => mb_substr($bodyText, 0, 400),
-                        'attempt' => $attempts,
-                    ]);
                     if ($attempts < $maxAttempts) { usleep(300000); continue; }
                 }
                 break;
@@ -463,19 +413,9 @@ final class AI_Batch
             $data = json_decode($respBody, true);
             $choices = is_array($data) ? ($data['choices'] ?? []) : [];
             if (!$choices || !isset($choices[0]['message']['content'])) {
-                \ai_translate_dbg('translate_plan_no_choices_or_content', [
-                    'provider' => $provider,
-                    'has_choices' => !empty($choices),
-                ]);
                 break;
             }
             $content = (string) $choices[0]['message']['content'];
-            if ($provider === 'deepseek') {
-                \ai_translate_dbg('translate_plan_body_preview', [
-                    'provider' => $provider,
-                    'content_preview' => mb_substr($content, 0, 400),
-                ]);
-            }
             $parsed = json_decode($content, true);
             if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
                 $candidate = $content;
@@ -488,19 +428,11 @@ final class AI_Batch
                 $parsed = json_decode(trim($candidate), true);
             }
             if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                \ai_translate_dbg('translate_plan_parse_failed', [
-                    'provider' => $provider,
-                    'content_preview' => mb_substr($content, 0, 400),
-                ]);
                 break;
             }
             foreach ($parsed['translations'] as $k => $v) {
                 $translationsPrimary[(string) $k] = (string) $v;
             }
-            \ai_translate_dbg('translate_plan_success', [
-                'provider' => $provider,
-                'translated_count' => count($parsed['translations']),
-            ]);
         }
         // Cache and expand to all ids
         foreach ($translationsPrimary as $pid => $tr) {

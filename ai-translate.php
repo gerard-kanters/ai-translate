@@ -4,7 +4,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.0.5
+ * Version: 2.0.6
  * Requires PHP: 8.0
  * Text Domain: ai-translate
  */
@@ -78,10 +78,8 @@ add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
     $req = (string) $requested_url;
     $path = (string) parse_url($req, PHP_URL_PATH);
     if ($path !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $path)) {
-        ai_translate_dbg('redirect_canonical prevented', ['requested' => $requested_url]);
         return false; // keep /xx or /xx/... as requested
     }
-    ai_translate_dbg('redirect_canonical pass', ['requested' => $requested_url, 'redirect' => $redirect_url]);
     return $redirect_url;
 }, 10, 2);
 
@@ -132,10 +130,6 @@ add_filter('request', function ($vars) {
     if ($req !== '' && (strpos($req, '/wp-admin/') !== false || strpos($req, 'wp-login.php') !== false)) {
         return $vars;
     }
-    ai_translate_dbg('request_in', [
-        'REQUEST_URI' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-        'vars' => array_intersect_key((array)$vars, ['lang'=>1,'pagename'=>1,'name'=>1,'blogpage'=>1,'paged'=>1])
-    ]);
     // Handle 'lang' query var: map translated slug back to source for both pages and singles
     if (isset($vars['lang'])) {
         // pagename can be hierarchical: map EACH segment back to its source slug
@@ -150,7 +144,6 @@ add_filter('request', function ($vars) {
                     }
                 }
                 $vars['pagename'] = implode('/', $segments);
-                ai_translate_dbg('request_pagename_mapped', ['pagename' => $vars['pagename']]);
             }
         }
         if (!empty($vars['name'])) {
@@ -158,11 +151,9 @@ add_filter('request', function ($vars) {
             $src = \AITranslate\AI_Slugs::resolve_any_to_source_slug($nm);
                 if ($src) {
                     $vars['name'] = $src;
-                    ai_translate_dbg('request_name_mapped', ['name' => $vars['name']]);
                 }
         }
     }
-    ai_translate_dbg('request_out', array_intersect_key((array)$vars, ['lang'=>1,'pagename'=>1,'name'=>1,'paged'=>1]));
     return $vars;
 });
 
@@ -176,12 +167,6 @@ add_action('template_redirect', function () {
     }
     // Force language detection strictly by URL prefix first (cookie only fallback)
     \AITranslate\AI_Lang::detect();
-    ai_translate_dbg('template_redirect_start', [
-        'REQUEST_URI' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-        'lang_qv' => (string) (get_query_var('lang') ?: ''),
-        'paged' => (int) get_query_var('paged'),
-        'blogpage' => isset($_GET['blogpage']) ? (int) $_GET['blogpage'] : 0,
-    ]);
 
     // Remove force-home logic; keep template_redirect minimal
     // Sync cookie with URL language when present
@@ -458,11 +443,6 @@ add_action('parse_request', function ($wp) {
                         'pagename' => (string) get_page_uri($posts_page_id),
                         'paged' => $paged ?: $blogPaged,
                     ));
-                    ai_translate_dbg('lang_root_posts_paged', [
-                        'REQUEST_URI' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                        'paged' => $paged ?: $blogPaged,
-                        'pagename' => $wp->query_vars['pagename']
-                    ]);
                     return;
                 }
             }
@@ -488,10 +468,6 @@ add_action('parse_request', function ($wp) {
                 $wp->is_singular = true;
                 $wp->is_home = false;
                 $wp->is_404 = false;
-                ai_translate_dbg('lang_root_route', [
-                    'REQUEST_URI' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                    'query_vars' => array_intersect_key($wp->query_vars, ['paged'=>1,'blogpage'=>1,'page_id'=>1])
-                ]);
             }
         }
     }
@@ -526,11 +502,6 @@ add_action('parse_request', function ($wp) {
         $wp->is_home = true;
         $wp->is_404 = false;
     }
-    ai_translate_dbg('lang_paged_route', [
-        'REQUEST_URI' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-        'paged' => $n,
-        'pagename' => isset($wp->query_vars['pagename']) ? (string) $wp->query_vars['pagename'] : ''
-    ]);
 });
 
 /**
@@ -561,7 +532,6 @@ add_action('parse_request', function ($wp) {
     if (preg_match('#^page/[0-9]+/?$#i', $rest)) {
         return;
     }
-    ai_translate_dbg('parse_request_lang_path', ['path' => $path, 'lang' => $lang, 'rest' => $rest]);
 
     // Removed handlers for translated posts index pagination
 
@@ -591,10 +561,6 @@ add_action('parse_request', function ($wp) {
         }
         $wp->is_404 = false;
         $wp->is_singular = true;
-        ai_translate_dbg('mapped_via_slug_table', [
-            'post_id' => (int)$post_id,
-            'post_type' => $post ? (string)$post->post_type : 'unknown'
-        ]);
         return;
     }
 
@@ -633,22 +599,14 @@ add_action('parse_request', function ($wp) {
                 }
                 $wp->is_singular = true;
                 $wp->is_404 = false;
-                ai_translate_dbg('mapped_via_page_path', [
-                    'sourcePath' => $sourcePath,
-                    'post_id' => (int)$post->ID,
-                    'post_type' => (string)$post->post_type
-                ]);
                 return;
             }
 
             // Fallback: let WP try resolving as page path
             $wp->query_vars['pagename'] = $sourcePath;
             // Do not force 404 state here; allow core to resolve properly
-            ai_translate_dbg('fallback_set_pagename', ['sourcePath' => $sourcePath]);
         }
-        // (debug logging removed)
     }
-    // (debug logging removed)
 });
 
 /**
@@ -803,7 +761,6 @@ add_filter('pre_handle_404', function ($preempt, $wp_query) {
             $wp_query->is_singular = true;
             $wp_query->is_home = false;
             $wp_query->is_404 = false;
-            ai_translate_dbg('pre_handle_404_lang_root_to_front', ['REQUEST_URI' => $reqPath, 'page_id' => $front_id]);
             return true; // short-circuit 404
         }
         return $preempt;
@@ -816,7 +773,6 @@ add_filter('pre_handle_404', function ($preempt, $wp_query) {
         $wp_query->is_404 = false;
         $wp_query->is_page = true;
         $wp_query->is_singular = true;
-        ai_translate_dbg('pre_handle_404_resolved_source', ['REQUEST_URI' => $reqPath, 'pagename' => $source]);
         return true;
     }
     return $preempt;
@@ -838,7 +794,6 @@ add_action('init', function () {
     if (!get_option('ai_translate_rules_flushed_v2')) {
         flush_rewrite_rules(false);
         update_option('ai_translate_rules_flushed_v2', 1);
-        ai_translate_dbg('rewrite_rules_flushed_v2');
     }
 }, 21);
 
