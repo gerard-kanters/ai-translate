@@ -55,18 +55,6 @@ final class AI_Lang
         }
         // When URL has no language prefix, fall back to cookie and then browser language.
         if ($lang === null || $lang === '') {
-            $normalizedDefault = $default !== '' ? strtolower(sanitize_key($default)) : '';
-            if (!$hasLangInUrl && $normalizedDefault !== '') {
-                $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
-                if ($cookieLang !== $normalizedDefault) {
-                    if (!headers_sent()) {
-                        setcookie('ai_translate_lang', $normalizedDefault, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
-                    }
-                    $_COOKIE['ai_translate_lang'] = $normalizedDefault;
-                }
-                self::$current = $normalizedDefault;
-                return self::$current;
-            }
             // 1) Cookie wins if valid
             $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
             if ($cookieLang !== '' && (empty($allowed) || in_array($cookieLang, $allowed, true))) {
@@ -98,7 +86,16 @@ final class AI_Lang
                 return self::$current;
             }
             // 3) Default as last resort
-            self::$current = $default !== '' ? $default : null;
+            $normalizedDefault = $default !== '' ? strtolower(sanitize_key($default)) : '';
+            if ($normalizedDefault !== '') {
+                if (!headers_sent()) {
+                    setcookie('ai_translate_lang', $normalizedDefault, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                }
+                $_COOKIE['ai_translate_lang'] = $normalizedDefault;
+                self::$current = $normalizedDefault;
+                return self::$current;
+            }
+            self::$current = null;
             return self::$current;
         }
 

@@ -198,6 +198,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 ### 2.06
 - Fixed JS issue with speculationrules
 - Removed debug logging.
+- Fix browser language detection
 
 ### 2.04
 - Fix switching back and forth with default language
