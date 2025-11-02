@@ -120,6 +120,14 @@ final class AI_Lang
     }
 
     /**
+     * Reset cached language detection (force re-detection on next call).
+     */
+    public static function reset()
+    {
+        self::$current = null;
+    }
+
+    /**
      * Default language.
      *
      * @return string|null
