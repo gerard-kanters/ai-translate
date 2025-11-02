@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.8  
-Stable tag: 2.0.6
+Stable tag: 2.0.7
 Requires PHP: 8 
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -195,7 +195,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Changelog
 
-### 2.06
+### 2.07
 - Fixed JS issue with speculationrules
 - Removed debug logging.
 - Fix browser language detection

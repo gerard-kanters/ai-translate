@@ -176,7 +176,7 @@ final class AI_OB
             $processing = false;
             $html2 = $html;
         } else {
-            $merged = AI_DOM::merge($plan, $translations);
+            $merged = AI_DOM::merge($plan, $translations, $lang);
             // Preserve original <body> framing to avoid theme conflicts: replace only inner body
             $html2 = $merged;
             if (preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $merged, $mNew) &&
@@ -184,8 +184,31 @@ final class AI_OB
                 $newInner = (string) $mNew[1];
                 $html2 = (string) preg_replace('/(<body\b[^>]*>)[\s\S]*?(<\/body>)/i', '$1' . $newInner . '$2', (string) $html, 1);
             }
+            
+            // Update HTML lang attribute in the preserved original HTML to match target language
+            if ($lang !== null && $lang !== '') {
+                $locale = self::getLangAttribute($lang);
+                // Replace existing lang attribute
+                $html2 = preg_replace('/(<html\b[^>]*\s)lang=["\'][^"\']*["\']/i', '$1lang="' . esc_attr($locale) . '"', $html2, 1);
+                // If no lang attribute exists, add it to the html tag
+                if (!preg_match('/<html\b[^>]*\slang=/i', $html2)) {
+                    $html2 = preg_replace('/(<html\b)([^>]*)>/i', '$1$2 lang="' . esc_attr($locale) . '">', $html2, 1);
+                }
+            }
         }
 
+        // Ensure lang attribute is set before SEO injection
+        if ($lang !== null && $lang !== '' && !empty($html2)) {
+            $locale = self::getLangAttribute($lang);
+            // Double-check lang attribute is correct in final HTML
+            if (!preg_match('/<html\b[^>]*\slang=["\']' . preg_quote($locale, '/') . '["\']/i', $html2)) {
+                $html2 = preg_replace('/(<html\b[^>]*\s)lang=["\'][^"\']*["\']/i', '$1lang="' . esc_attr($locale) . '"', $html2, 1);
+                if (!preg_match('/<html\b[^>]*\slang=/i', $html2)) {
+                    $html2 = preg_replace('/(<html\b)([^>]*)>/i', '$1$2 lang="' . esc_attr($locale) . '">', $html2, 1);
+                }
+            }
+        }
+        
         $html3 = AI_SEO::inject($html2, $lang);
         $html3 = AI_URL::rewrite($html3, $lang);
 
@@ -213,6 +236,27 @@ final class AI_OB
         
         $processing = false;
         return $html3;
+    }
+
+    /**
+     * Convert language code to proper locale format for HTML lang attribute.
+     *
+     * @param string $lang Language code (e.g., 'de', 'en', 'nl')
+     * @return string Locale format (e.g., 'de-DE', 'en-GB', 'nl-NL')
+     */
+    private static function getLangAttribute($lang)
+    {
+        $lang = strtolower(trim($lang));
+        $localeMap = [
+            'nl' => 'nl-NL',
+            'en' => 'en-GB',
+            'de' => 'de-DE',
+            'fr' => 'fr-FR',
+            'es' => 'es-ES',
+            'it' => 'it-IT',
+            'pt' => 'pt-PT',
+        ];
+        return $localeMap[$lang] ?? $lang;
     }
 
     /**

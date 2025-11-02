@@ -4,7 +4,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.0.6
+ * Version: 2.0.7
  * Requires PHP: 8.0
  * Text Domain: ai-translate
  */
@@ -168,16 +168,49 @@ add_action('template_redirect', function () {
     // Force language detection strictly by URL prefix first (cookie only fallback)
     \AITranslate\AI_Lang::detect();
 
-    // Handle language switch parameter (set cookie and redirect) - ALWAYS FIRST
+    // Handle full_reset parameter for testing/resetting purposes
+    if (isset($_GET['full_reset']) && $_GET['full_reset'] === '1') {
+        error_log('[AI Translate Debug] full_reset=1 detected. Attempting to reset language to default.');
+        $defaultLang = \AITranslate\AI_Lang::default();
+        error_log('[AI Translate Debug] Default language determined: ' . (string) $defaultLang);
+        $secure = is_ssl();
+        setcookie('ai_translate_lang', (string) $defaultLang, [
+            'expires' => time() + 30 * DAY_IN_SECONDS,
+            'path' => '/',
+            'domain' => '',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+        $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+        error_log('[AI Translate Debug] Cookie ai_translate_lang set to: ' . (string) $_COOKIE['ai_translate_lang']);
+        $redirectUrl = home_url('/');
+        error_log('[AI Translate Debug] Redirecting to: ' . $redirectUrl);
+        wp_safe_redirect($redirectUrl, 302);
+        exit;
+    }
+
+    // Handle language switch parameter (set cookie and redirect)
     if (isset($_GET['switch_lang'])) {
         $newLang = strtolower(sanitize_key((string) $_GET['switch_lang']));
+        error_log('[AI Translate Debug] switch_lang parameter detected: ' . $newLang);
         if ($newLang !== '') {
-            setcookie('ai_translate_lang', $newLang, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+            $secure = is_ssl();
+            setcookie('ai_translate_lang', $newLang, [
+                'expires' => time() + 30 * DAY_IN_SECONDS,
+                'path' => '/',
+                'domain' => '',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
             $_COOKIE['ai_translate_lang'] = $newLang;
+            error_log('[AI Translate Debug] Cookie ai_translate_lang set to: ' . (string) $_COOKIE['ai_translate_lang']);
             
             // Redirect to clean URL without query parameter
             $defaultLang = \AITranslate\AI_Lang::default();
             $cleanUrl = ($newLang === strtolower((string) $defaultLang)) ? home_url('/') : home_url('/' . $newLang . '/');
+            error_log('[AI Translate Debug] Redirecting to clean URL: ' . $cleanUrl);
             wp_safe_redirect($cleanUrl, 302);
             exit;
         }
@@ -206,7 +239,15 @@ add_action('template_redirect', function () {
             }
         } elseif ($cookie_val === '' || $cookie_val === $lang_from_q) {
             // Sync cookie to URL language
-            setcookie('ai_translate_lang', $lang_q, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+            $secure = is_ssl();
+            setcookie('ai_translate_lang', $lang_q, [
+                'expires' => time() + 30 * DAY_IN_SECONDS,
+                'path' => '/',
+                'domain' => '',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
             $_COOKIE['ai_translate_lang'] = $lang_q;
         }
     } else {
@@ -225,7 +266,15 @@ add_action('template_redirect', function () {
                 }
             } elseif ($cookie_val === '' || $cookie_val === $lang_from_path) {
                 // Sync cookie to URL language
-                setcookie('ai_translate_lang', $mm[1], time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                $secure = is_ssl();
+                setcookie('ai_translate_lang', $mm[1], [
+                    'expires' => time() + 30 * DAY_IN_SECONDS,
+                    'path' => '/',
+                    'domain' => '',
+                    'secure' => $secure,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]);
                 $_COOKIE['ai_translate_lang'] = $mm[1];
             }
         }
@@ -252,7 +301,15 @@ add_action('template_redirect', function () {
             if ($normalizedCookie === $normalizedDefault) {
                 // Cookie matches default - ensure it's set correctly
                 if ($cookie_val !== (string) $defaultLang) {
-                    setcookie('ai_translate_lang', (string) $defaultLang, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                    $secure = is_ssl();
+                    setcookie('ai_translate_lang', (string) $defaultLang, [
+                        'expires' => time() + 30 * DAY_IN_SECONDS,
+                        'path' => '/',
+                        'domain' => '',
+                        'secure' => $secure,
+                        'httponly' => true,
+                        'samesite' => 'Lax'
+                    ]);
                     $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
                 }
             }
