@@ -4,8 +4,8 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.0.7
- * Requires PHP: 8.0
+ * Version: 2.0.10
+ * Requires PHP: 8.0.0
  * Text Domain: ai-translate
  */
 
@@ -38,40 +38,9 @@ if (!function_exists('ai_translate_dbg')) {
     }
 }
 
-/**
- * Get cookie options with correct samesite value based on SSL.
- * samesite: 'None' requires secure: true (HTTPS), otherwise use 'Lax'.
- *
- * @return array Cookie options array
- */
-if (!function_exists('ai_translate_get_cookie_options')) {
-    function ai_translate_get_cookie_options($lang) {
-        $secure = is_ssl();
-        $options = [
-            'expires' => time() + 30 * 86400,
-            'path' => '/',
-            'domain' => '',
-            'secure' => $secure,
-            'httponly' => true,
-        ];
-        // samesite: 'None' requires secure: true (HTTPS)
-        $options['samesite'] = $secure ? 'None' : 'Lax';
-        return $options;
-    }
-}
-
 // Ensure slug map table exists early in init
 add_action('init', function () {
     \AITranslate\AI_Slugs::install_table();
-    
-    // Ensure permalinks are enabled (required for rewrite rules to work)
-    $permalink_structure = get_option('permalink_structure');
-    if (empty($permalink_structure)) {
-        // Use postname structure as default
-        update_option('permalink_structure', '/%postname%/');
-        // Flush rewrite rules to apply the new structure
-        flush_rewrite_rules(false);
-    }
 }, 1);
 
  
@@ -105,117 +74,38 @@ add_filter('query_vars', function ($vars) {
 /**
  * Handle language switch via switcher early in init (before template_redirect)
  */
-// Note: switch_lang and _lang_key handlers moved to template_redirect to run before other redirect logic
-
-/**
- * Handle language switch and _lang_key parameters very early (before any redirects)
- * Using 'init' hook with priority 1 to ensure it runs before redirect_canonical
- */
 add_action('init', function () {
-    // Skip admin/AJAX/REST only (don't use is_feed() here, it requires query to be run)
+    // Skip admin/AJAX/REST
     if (is_admin() || wp_doing_ajax() || wp_is_json_request()) {
         return;
     }
     
-    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-    $cookieValue = isset($_COOKIE['ai_translate_lang']) ? $_COOKIE['ai_translate_lang'] : 'none';
-    ai_translate_dbg('init: start', [
-        'reqPath' => $reqPath,
-        'cookie' => $cookieValue,
-        'switch_lang' => isset($_GET['switch_lang']) ? $_GET['switch_lang'] : 'none',
-        '_lang_switch' => isset($_GET['_lang_switch']) ? $_GET['_lang_switch'] : 'none'
+    // Only handle switch_lang parameter - nothing else
+    $switchLang = isset($_GET['switch_lang']) ? strtolower(sanitize_key((string) $_GET['switch_lang'])) : '';
+    if ($switchLang === '') {
+        return;
+    }
+    
+    // Set cookie
+    $secure = is_ssl();
+    $sameSite = $secure ? 'None' : 'Lax';
+    setcookie('ai_translate_lang', $switchLang, [
+        'expires' => time() + 30 * 86400,
+        'path' => '/',
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => $sameSite
     ]);
+    $_COOKIE['ai_translate_lang'] = $switchLang;
     
-    // If no switch_lang or _lang_switch parameter, ensure cookie is set correctly before any other code runs
-    // This prevents AI_Lang::detect() from being called elsewhere and using browser language instead of cookie
-    if (!isset($_GET['switch_lang']) && !isset($_GET['_lang_switch'])) {
-        // Check if URL has language prefix - if so, sync cookie
-        if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
-            $langFromUrl = strtolower(sanitize_key($m[1]));
-            if ($cookieValue !== $langFromUrl) {
-                setcookie('ai_translate_lang', $langFromUrl, ai_translate_get_cookie_options($langFromUrl));
-                $_COOKIE['ai_translate_lang'] = $langFromUrl;
-                ai_translate_dbg('init: synced cookie to URL lang', ['lang' => $langFromUrl]);
-            }
-        } elseif ($cookieValue !== 'none' && $cookieValue !== '') {
-            // No language in URL but cookie exists - ensure it's set correctly
-            // This ensures cookie is available for any early calls to AI_Lang::detect()
-            setcookie('ai_translate_lang', $cookieValue, ai_translate_get_cookie_options($cookieValue));
-            ai_translate_dbg('init: ensured cookie is set', ['lang' => $cookieValue]);
-        }
-    }
+    // Redirect to clean URL (remove switch_lang parameter)
+    $defaultLang = \AITranslate\AI_Lang::default();
+    $targetUrl = ($switchLang === strtolower((string) $defaultLang)) ? home_url('/') : home_url('/' . $switchLang . '/');
+    // Add marker parameter so template_redirect knows this was a switch
+    $targetUrl = add_query_arg('_ai_lang_switched', '1', $targetUrl);
     
-    // Handle language switch via switcher or URL parameter - MUST be FIRST
-    $switchLangParam = isset($_GET['switch_lang']) ? strtolower(sanitize_key((string) $_GET['switch_lang'])) : '';
-    if ($switchLangParam !== '') {
-        // Set cookie for new language
-        setcookie('ai_translate_lang', $switchLangParam, ai_translate_get_cookie_options($switchLangParam));
-        // Set cookie in $_COOKIE immediately so it's available in this request
-        $_COOKIE['ai_translate_lang'] = $switchLangParam;
-        
-        // Store in transient for the next request (in case cookie isn't available yet)
-        $transientKey = 'ai_switch_lang_' . md5((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown') . time());
-        set_transient($transientKey, $switchLangParam, 10);
-        // Also store the transient key in a session-like transient for easy lookup in template_redirect
-        set_transient('ai_switch_lang_current_key', $transientKey, 10);
-        set_transient('ai_switch_lang_current_lang', $switchLangParam, 10);
-        
-        // Force language detection with updated cookie
-        \AITranslate\AI_Lang::reset();
-        \AITranslate\AI_Lang::detect();
-        
-        // Redirect directly to clean URL (with transient key as fallback)
-        $defaultLang = \AITranslate\AI_Lang::default();
-        $cleanUrl = ($switchLangParam === strtolower((string) $defaultLang)) ? home_url('/') : home_url('/' . $switchLangParam . '/');
-        $cleanUrl = add_query_arg('_lang_switch', urlencode($transientKey), $cleanUrl);
-        wp_safe_redirect($cleanUrl, 302);
-        exit;
-    }
-    
-    // Check for transient key (from switch_lang redirect) - MUST be SECOND
-    if (isset($_GET['_lang_switch'])) {
-        $transientKey = sanitize_text_field((string) $_GET['_lang_switch']);
-        $transientLang = get_transient($transientKey);
-        if ($transientLang !== false && is_string($transientLang)) {
-            $targetLang = strtolower(sanitize_key($transientLang));
-            // Set cookie in $_COOKIE immediately so detect() can use it
-            $_COOKIE['ai_translate_lang'] = $targetLang;
-            // Make sure cookie is set correctly
-            setcookie('ai_translate_lang', $targetLang, ai_translate_get_cookie_options($targetLang));
-            // Store transient key and language in session-like transients for easy lookup in template_redirect
-            set_transient('ai_switch_lang_current_key', $transientKey, 10);
-            set_transient('ai_switch_lang_current_lang', $targetLang, 10);
-            // Force language detection with updated cookie
-            \AITranslate\AI_Lang::reset();
-            \AITranslate\AI_Lang::detect();
-            // Do NOT redirect again; keep _lang_switch in URL for this request to avoid early redirects
-            // It will be removed client-side via history.replaceState in the footer.
-        }
-    }
-    
-    // Set WordPress locale based on detected language - MUST be after cookie is set
-    // This filter can be called early by WordPress, so we need to ensure cookie is available
-    add_filter('locale', function ($locale) {
-        // Ensure cookie is set in $_COOKIE before calling AI_Lang::current()
-        if (!isset($_COOKIE['ai_translate_lang']) || $_COOKIE['ai_translate_lang'] === '') {
-            $cookieValue = isset($_COOKIE['ai_translate_lang']) ? $_COOKIE['ai_translate_lang'] : '';
-            if ($cookieValue === '') {
-                // Try to get from transient if available
-                $transientLang = get_transient('ai_switch_lang_current_lang');
-                if ($transientLang !== false && is_string($transientLang)) {
-                    $_COOKIE['ai_translate_lang'] = strtolower(sanitize_key($transientLang));
-                }
-            }
-        }
-        $currentLang = \AITranslate\AI_Lang::current();
-        if ($currentLang) {
-            // WordPress locale usually uses format like 'en_US', 'nl_NL'.
-            // For 2-letter codes, we'll append a default country code if not explicitly set.
-            // This is a pragmatic choice; ideally, we'd have a mapping.
-            return strtolower($currentLang) . '_' . strtoupper($currentLang);
-        }
-        return $locale;
-    }, 10);
+    wp_safe_redirect($targetUrl, 302);
+    exit;
 }, 1);
 
 /**
@@ -267,12 +157,6 @@ add_filter('plugin_row_meta', function (array $links, $file) {
  * Flush rewrite rules on activation.
  */
 register_activation_hook(__FILE__, function () {
-    // Enable permalinks if not already set
-    $permalink_structure = get_option('permalink_structure');
-    if (empty($permalink_structure)) {
-        // Use postname structure as default
-        update_option('permalink_structure', '/%postname%/');
-    }
     // Ensure rules are registered before flushing
     do_action('init');
     flush_rewrite_rules();
@@ -316,229 +200,159 @@ add_filter('request', function ($vars) {
 
 /**
  * Start output buffering for front-end (skip admin, AJAX, REST and feeds).
+ * Handles language detection and redirection according to the 4 language switcher rules.
  */
 add_action('template_redirect', function () {
-    // Skip only admin/AJAX/REST/feeds; allow default language to pass so SEO injection can run
+    // Skip admin/AJAX/REST/feeds
     if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed()) {
         return;
     }
     
-    // If switch_lang or _lang_switch parameter is present, skip redirect logic but continue to run detection/OB
-    $ai_skip_redirects = (isset($_GET['switch_lang']) || isset($_GET['_lang_switch']));
-    
-    $defaultLang = \AITranslate\AI_Lang::default();
     $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $defaultLang = \AITranslate\AI_Lang::default();
+    
+    // Check if we just switched languages - switcher has HIGHEST priority!
+    if (isset($_GET['_ai_lang_switched']) && $_GET['_ai_lang_switched'] === '1') {
+        // Cookie is already set by init hook, just proceed normally
+        $finalLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : (string) $defaultLang;
+        if ($finalLang === '') {
+            $finalLang = (string) $defaultLang;
+        }
+        \AITranslate\AI_Lang::set_current($finalLang);
+        
+        // Set WordPress locale
+        add_filter('locale', function ($locale) {
+            $currentLang = \AITranslate\AI_Lang::current();
+            if ($currentLang) {
+                return strtolower($currentLang) . '_' . strtoupper($currentLang);
+            }
+            return $locale;
+        });
+        
+        \AITranslate\AI_OB::instance()->start();
+        return; // Skip all other logic - switcher priority!
+    }
+    
+    // Extract language from URL
     $langFromUrl = null;
-    
-    ai_translate_dbg('template_redirect: start', [
-        'reqPath' => $reqPath,
-        'defaultLang' => $defaultLang,
-        'cookie' => isset($_COOKIE['ai_translate_lang']) ? $_COOKIE['ai_translate_lang'] : 'none',
-        'skip_redirects' => $ai_skip_redirects
-    ]);
-    
-    // 1. Check URL for language prefix - if present, set cookie to match URL language
     if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
         $langFromUrl = strtolower(sanitize_key($m[1]));
-        ai_translate_dbg('template_redirect: lang from URL', ['lang' => $langFromUrl]);
-        // Always sync cookie to URL language when URL has language prefix
-        setcookie('ai_translate_lang', $langFromUrl, ai_translate_get_cookie_options($langFromUrl));
+    }
+    
+    $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
+    
+    // RULE 3: Canonicalize default language - /nl/ → /
+    if ($langFromUrl !== null && $defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
+        if ($reqPath !== '/') {
+            wp_safe_redirect(home_url('/'), 302);
+            exit;
+        }
+    }
+    
+    // RULE 4: If cookie exists and on root, ensure language is set to default
+    if ($reqPath === '/' && $cookieLang !== '') {
+        $secure = is_ssl();
+        $sameSite = $secure ? 'None' : 'Lax';
+        setcookie('ai_translate_lang', (string) $defaultLang, [
+            'expires' => time() + 30 * 86400,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => $sameSite
+        ]);
+        $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+        // Set language and stop processing
+        $finalLang = (string) $defaultLang;
+        \AITranslate\AI_Lang::set_current($finalLang);
+        add_filter('locale', function ($locale) {
+            $currentLang = \AITranslate\AI_Lang::current();
+            if ($currentLang) {
+                return strtolower($currentLang) . '_' . strtoupper($currentLang);
+            }
+            return $locale;
+        });
+        \AITranslate\AI_OB::instance()->start();
+        return;
+    }
+    
+    // RULE 1: First visit (no cookie) on root - detect browser language and redirect
+    if ($reqPath === '/' && $cookieLang === '') {
+        // True first visit - detect browser language
+        \AITranslate\AI_Lang::reset();
+        \AITranslate\AI_Lang::detect();
+        $detected = \AITranslate\AI_Lang::current();
+        if (!$detected) {
+            $detected = (string) $defaultLang;
+        }
+        
+        // Set cookie
+        $secure = is_ssl();
+        $sameSite = $secure ? 'None' : 'Lax';
+        setcookie('ai_translate_lang', $detected, [
+            'expires' => time() + 30 * 86400,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => $sameSite
+        ]);
+        $_COOKIE['ai_translate_lang'] = $detected;
+        
+        // Redirect to language URL if not default
+        if ($detected && strtolower($detected) !== strtolower((string) $defaultLang)) {
+            wp_safe_redirect(home_url('/' . $detected . '/'), 302);
+            exit;
+        }
+        // If detected == default, no redirect needed, just set language below
+    }
+    
+    // Sync cookie if URL has language prefix
+    if ($langFromUrl !== null && ($cookieLang === '' || $cookieLang !== $langFromUrl)) {
+        $secure = is_ssl();
+        $sameSite = $secure ? 'None' : 'Lax';
+        setcookie('ai_translate_lang', $langFromUrl, [
+            'expires' => time() + 30 * 86400,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => $sameSite
+        ]);
         $_COOKIE['ai_translate_lang'] = $langFromUrl;
     }
     
-    // 2. Determine target language based on priority: URL > Cookie > Transient > Browser > Default
-    $targetLang = null;
-    
-    if ($langFromUrl !== null) {
-        // URL has language prefix - use it
-        $targetLang = $langFromUrl;
-        ai_translate_dbg('template_redirect: using URL lang', ['targetLang' => $targetLang]);
-    } else {
-        // No language in URL - when visiting root URL (/), always use default language
-        // If cookie exists and is not default, redirect to language-prefixed URL
-        $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
-        
-        // Check for transient first (from _lang_switch redirect) - but only if it's NOT the default language
-        // If transient is default language, we want to use default language for root URL
-        $transientLang = get_transient('ai_switch_lang_current_lang');
-        if ($transientLang !== false && is_string($transientLang)) {
-            $transientLang = strtolower(sanitize_key($transientLang));
-            if (strtolower($transientLang) !== strtolower((string) $defaultLang)) {
-                // Transient language is not default - redirect to language-prefixed URL
-                $targetLang = $transientLang;
-                ai_translate_dbg('template_redirect: using transient lang, redirecting to /' . $targetLang . '/', ['targetLang' => $targetLang]);
-                // Set cookie immediately
-                setcookie('ai_translate_lang', $targetLang, ai_translate_get_cookie_options($targetLang));
-                $_COOKIE['ai_translate_lang'] = $targetLang;
-                // Delete transient after use
-                $transientKey = get_transient('ai_switch_lang_current_key');
-                if ($transientKey !== false) {
-                    delete_transient($transientKey);
-                    delete_transient('ai_switch_lang_current_key');
-                    delete_transient('ai_switch_lang_current_lang');
-                }
-                if (!$ai_skip_redirects) {
-                    wp_safe_redirect(home_url('/' . $targetLang . '/'), 302);
-                    exit;
-                }
-            } else {
-                // Transient is default language - delete it and use default for root URL
-                $transientKey = get_transient('ai_switch_lang_current_key');
-                if ($transientKey !== false) {
-                    delete_transient($transientKey);
-                    delete_transient('ai_switch_lang_current_key');
-                    delete_transient('ai_switch_lang_current_lang');
-                }
-                $targetLang = (string) $defaultLang;
-                ai_translate_dbg('template_redirect: transient is default, using default for root URL', ['targetLang' => $targetLang]);
-                // Set cookie to default language
-                setcookie('ai_translate_lang', $targetLang, ai_translate_get_cookie_options($targetLang));
-                $_COOKIE['ai_translate_lang'] = $targetLang;
-            }
-        } elseif ($cookieLang !== '' && strtolower($cookieLang) !== strtolower((string) $defaultLang)) {
-            // Cookie exists and is not default - redirect to language-prefixed URL
-            ai_translate_dbg('template_redirect: cookie is not default, redirecting to /' . $cookieLang . '/');
-            if (!$ai_skip_redirects) {
-                wp_safe_redirect(home_url('/' . $cookieLang . '/'), 302);
-                exit;
-            }
-            $targetLang = $cookieLang;
-        } else {
-            // Cookie is default or doesn't exist - use default language for root URL
-            $targetLang = (string) $defaultLang;
-            ai_translate_dbg('template_redirect: using default lang for root URL', ['targetLang' => $targetLang]);
-            // Set cookie to default language if not set or different
-            if ($cookieLang === '' || strtolower($cookieLang) !== strtolower($targetLang)) {
-                setcookie('ai_translate_lang', $targetLang, ai_translate_get_cookie_options($targetLang));
-                $_COOKIE['ai_translate_lang'] = $targetLang;
-            }
-            
-            // No cookie and no transient - check browser language (first-time visit)
-            if ($cookieLang === '') {
-                ai_translate_dbg('template_redirect: no cookie/transient, using browser detection');
-                $browserLang = '';
-                $browser = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? (string) $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
-                if ($browser !== '') {
-                    $settings = get_option('ai_translate_settings', []);
-                    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_map('strval', $settings['enabled_languages']) : [];
-                    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? array_map('strval', $settings['detectable_languages']) : [];
-                    $available = [];
-                    if (class_exists('AITranslate\\AI_Translate_Core')) {
-                        $core = \AITranslate\AI_Translate_Core::get_instance();
-                        $available = array_map('strval', array_keys($core->get_available_languages()));
-                    }
-                    $allowed = array_values(array_unique(array_filter(array_merge($available, $enabled, $detectable))));
-                    $allowed = array_map(function ($v) { return strtolower(sanitize_key((string) $v)); }, $allowed);
-                    
-                    $parts = explode(',', $browser);
-                    foreach ($parts as $p) {
-                        $p = trim((string) $p);
-                        if ($p === '') { continue; }
-                        $code = strtolower(substr($p, 0, 2));
-                        if ($code !== '' && (empty($allowed) || in_array($code, $allowed, true))) {
-                            $browserLang = $code;
-                            break;
-                        }
-                    }
-                }
-                
-                if ($browserLang !== '' && strtolower($browserLang) !== strtolower((string) $defaultLang)) {
-                    // Browser language is not default - redirect to language-prefixed URL
-                    $targetLang = $browserLang;
-                    ai_translate_dbg('template_redirect: browser detection result, redirecting to /' . $targetLang . '/', ['targetLang' => $targetLang, 'browserLang' => $browserLang]);
-                    // Set cookie to detected language
-                    setcookie('ai_translate_lang', $targetLang, ai_translate_get_cookie_options($targetLang));
-                    $_COOKIE['ai_translate_lang'] = $targetLang;
-                    if (!$ai_skip_redirects) {
-                        wp_safe_redirect(home_url('/' . $targetLang . '/'), 302);
-                        exit;
-                    }
-                } else {
-                    // Browser language is default or not detected - use default language
-                    $targetLang = (string) $defaultLang;
-                    ai_translate_dbg('template_redirect: browser detection result, using default', ['targetLang' => $targetLang, 'browserLang' => $browserLang]);
-                    // Set cookie to default language
-                    setcookie('ai_translate_lang', $targetLang, ai_translate_get_cookie_options($targetLang));
-                    $_COOKIE['ai_translate_lang'] = $targetLang;
-                }
-            }
-        }
+    // Set language for content
+    $finalLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : (string) $defaultLang;
+    if ($finalLang === '') {
+        $finalLang = (string) $defaultLang;
     }
-    
-    // 3. Redirect logic: if target language is not default and URL doesn't match, redirect
-    if (!$ai_skip_redirects && $targetLang && $defaultLang) {
-        $isDefaultLang = strtolower($targetLang) === strtolower((string) $defaultLang);
-        ai_translate_dbg('template_redirect: redirect check', [
-            'targetLang' => $targetLang,
-            'defaultLang' => $defaultLang,
-            'isDefaultLang' => $isDefaultLang,
-            'langFromUrl' => $langFromUrl
-        ]);
-        
-        if ($isDefaultLang && $langFromUrl !== null) {
-            // Default language should be on root URL (/), not /nl/
-            ai_translate_dbg('template_redirect: redirecting default lang from /' . $langFromUrl . '/ to /');
-            wp_safe_redirect(home_url('/'), 302);
-            exit;
-        } elseif (!$isDefaultLang && $langFromUrl === null) {
-            // Non-default language should have language prefix in URL
-            ai_translate_dbg('template_redirect: redirecting to /' . $targetLang . '/');
-            wp_safe_redirect(home_url('/' . $targetLang . '/'), 302);
-            exit;
-        }
-    }
-    
-    // Force language detection (for other code that depends on it)
-    // Reset first to ensure fresh detection with updated cookie
-    // But don't overwrite the cookie we just set - use the targetLang we determined
-    \AITranslate\AI_Lang::reset();
-    // Set the cookie in $_COOKIE before calling detect() so it's available
-    if ($targetLang !== null) {
-        $_COOKIE['ai_translate_lang'] = $targetLang;
-    }
-    \AITranslate\AI_Lang::detect();
-    
-    // IMPORTANT: When visiting root URL (/), always use default language for content (no translation)
-    // The cookie is kept for future navigation, but the content should always be default language
-    // This ensures that / always shows default language content, even if cookie says otherwise
-    if ($reqPath === '/' && $langFromUrl === null) {
-        // Force default language for content translation - don't translate default language content
-        $targetLang = (string) $defaultLang;
-        \AITranslate\AI_Lang::reset();
-        $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
-        \AITranslate\AI_Lang::detect();
-        ai_translate_dbg('template_redirect: forcing default lang for root URL content', ['targetLang' => $targetLang]);
-    }
+    \AITranslate\AI_Lang::set_current($finalLang);
 
-    // Handle full_reset parameter for testing/resetting purposes
+    // Set WordPress locale
+    add_filter('locale', function ($locale) {
+        $currentLang = \AITranslate\AI_Lang::current();
+        if ($currentLang) {
+            return strtolower($currentLang) . '_' . strtoupper($currentLang);
+        }
+        return $locale;
+    });
+
+    // Handle full_reset parameter for testing
     if (isset($_GET['full_reset']) && $_GET['full_reset'] === '1') {
-        $defaultLang = \AITranslate\AI_Lang::default();
-        $options = ai_translate_get_cookie_options((string) $defaultLang);
-        $options['expires'] = time() + 30 * DAY_IN_SECONDS;
-        setcookie('ai_translate_lang', (string) $defaultLang, $options);
+        $secure = is_ssl();
+        $sameSite = $secure ? 'None' : 'Lax';
+        setcookie('ai_translate_lang', (string) $defaultLang, [
+            'expires' => time() + 30 * DAY_IN_SECONDS,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => $sameSite
+        ]);
         $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
         wp_safe_redirect(home_url('/'), 302);
         exit;
     }
 
-    // Handle cookie mismatch with URL (user navigated manually or cookie was changed)
-    if ($langFromUrl !== null && !$ai_skip_redirects) {
-        // URL has language prefix - check if cookie matches
-        $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
-        if ($cookieLang !== '' && $cookieLang !== $langFromUrl) {
-            // Cookie doesn't match URL - redirect to cookie language
-            $defaultLang = \AITranslate\AI_Lang::default();
-            if ($cookieLang === strtolower((string) $defaultLang)) {
-                wp_safe_redirect(home_url('/'), 302);
-            } else {
-                wp_safe_redirect(home_url('/' . $cookieLang . '/'), 302);
-            }
-            exit;
-        }
-    }
-
-    // Ensure search requests have language-prefixed URL when current language != default
-    if (function_exists('is_search') && is_search() && !$ai_skip_redirects) {
+    // Ensure search requests have language-prefixed URL
+    if (function_exists('is_search') && is_search()) {
         $cur = \AITranslate\AI_Lang::current();
         $def = \AITranslate\AI_Lang::default();
         $pathNow = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
@@ -551,6 +365,7 @@ add_action('template_redirect', function () {
             }
         }
     }
+    
     \AITranslate\AI_OB::instance()->start();
 }, 1);
 
@@ -609,10 +424,12 @@ add_action('wp_footer', function () {
         $targetPath = ($code === $default) ? '/' : ('/' . $code . '/');
         // Normalize double slashes
         $targetPath = preg_replace('#/{2,}#','/',$targetPath);
-        // Build target URL without query parameters
-        $url = esc_url( home_url( $targetPath ) );
+        // Build target URL WITH switch_lang parameter
+        $url = home_url( $targetPath );
+        $url = add_query_arg('switch_lang', $code, $url);
+        $url = esc_url( $url );
         $flag = esc_url( $flags_url . $code . '.png' );
-        echo '<a class="ai-trans-item" href="#" role="menuitem" data-lang="' . esc_attr($code) . '" data-target-url="' . esc_attr($url) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
+        echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
     }
 
     echo '</div></div>';
@@ -621,9 +438,7 @@ add_action('wp_footer', function () {
     $restUrl = esc_url_raw( rest_url('ai-translate/v1/batch-strings') );
     $nonce = wp_create_nonce('ai_translate_front_nonce');
     $is_ssl = is_ssl() ? 'true' : 'false';
-    echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});w.addEventListener("click",function(e){var a=e.target.closest("a.ai-trans-item");if(!a)return;e.preventDefault();e.stopPropagation();var lang=a.getAttribute("data-lang");var url=a.getAttribute("data-target-url");if(lang&&url){var isSecure=' . $is_ssl . ';var expires=new Date(Date.now()+30*86400*1000).toUTCString();var cookieVal="ai_translate_lang="+encodeURIComponent(lang)+"; expires="+expires+"; path=/; SameSite=None"+(isSecure?"; Secure":"");document.cookie=cookieVal;var switchUrl=url.indexOf("?")>-1?url+"&switch_lang="+encodeURIComponent(lang):url+"?switch_lang="+encodeURIComponent(lang);window.location.href=switchUrl;}});var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
-// Remove one-time _lang_switch param from URL once page is loaded to avoid repeated redirects
-if(window.location.search&&/[?&]_lang_switch=/.test(window.location.search)){try{var _u=window.location.origin+window.location.pathname+window.location.hash;history.replaceState({},\'\',_u);}catch(e){}}
+    echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
 function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
 function cS(r){var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&ph.trim())s.add(ph.trim());var tl=el.getAttribute("title");if(tl&&tl.trim())s.add(tl.trim());var al=el.getAttribute("aria-label");if(al&&al.trim())s.add(al.trim());var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&v.trim())s.add(v.trim());}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc&&tc.trim())s.add(tc.trim());});return Array.from(s);} 

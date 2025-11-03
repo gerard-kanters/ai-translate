@@ -4,7 +4,7 @@ Tags: translation, artificial intelligence, seo, translate, ai translate
 Requires at least: 5.0  
 Tested up to: 6.8  
 Stable tag: 2.0.7
-Requires PHP: 8 
+Requires PHP: 8.0.0 
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 = AI-powered plugin for automatic website translation in 25 languages. Boosts traffic and improves your SEO. =
