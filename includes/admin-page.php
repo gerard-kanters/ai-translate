@@ -300,6 +300,11 @@ add_action('admin_init', function () {
                 $sanitized['website_context'] = sanitize_textarea_field($input['website_context']);
             }
 
+            // Default language
+            if (isset($input['default_language'])) {
+                $sanitized['default_language'] = sanitize_text_field($input['default_language']);
+            }
+
             // Enabled languages (switcher)
             if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
                 $sanitized['enabled_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['enabled_languages'])));
@@ -464,12 +469,15 @@ add_action('admin_init', function () {
             // Retrieve ALL available languages from the core class
             $languages = $core->get_available_languages();
 
+            // If no detectable languages are set, default to all available languages
+            if (empty($detected_enabled)) {
+                $detected_enabled = array_keys($languages);
+            }
+
             // Flags base URL
             $flags_url = plugin_dir_url(__DIR__) . 'assets/flags/';
 
             echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
-
-            // No hardcoded default selections.
 
             // Loop through ALL available languages from the core class
             foreach ($languages as $code => $name) {

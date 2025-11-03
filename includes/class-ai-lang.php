@@ -39,7 +39,7 @@ final class AI_Lang
         $lang = null;
         $hasLangInUrl = false;
 
-        $q_lang = get_query_var('ai_lang');
+        $q_lang = get_query_var('lang');
         if (is_string($q_lang) && $q_lang !== '') {
             $lang = strtolower(sanitize_key($q_lang));
             $hasLangInUrl = true;
@@ -55,13 +55,21 @@ final class AI_Lang
         }
         // When URL has no language prefix, fall back to cookie and then browser language.
         if ($lang === null || $lang === '') {
-            // 1) Cookie wins if valid
+            // 1) Cookie wins if valid - always respect cookie if it exists, even if not in allowed list
+            // This ensures that when user switches to default language via switcher, cookie is respected
             $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
             error_log('[AI Translate Debug] AI_Lang::detect - Checking cookie: ' . $cookieLang);
-            if ($cookieLang !== '' && (empty($allowed) || in_array($cookieLang, $allowed, true))) {
-                self::$current = $cookieLang;
-                error_log('[AI Translate Debug] AI_Lang::detect - Language detected from cookie: ' . self::$current);
-                return self::$current;
+            if ($cookieLang !== '') {
+                // Cookie exists - check if it's in allowed list OR if it matches default language
+                // This ensures default language cookie is always respected, even if not explicitly allowed
+                $cookieIsAllowed = empty($allowed) || in_array($cookieLang, $allowed, true);
+                $cookieIsDefault = $default !== '' && strtolower(sanitize_key($default)) === $cookieLang;
+                
+                if ($cookieIsAllowed || $cookieIsDefault) {
+                    self::$current = $cookieLang;
+                    error_log('[AI Translate Debug] AI_Lang::detect - Language detected from cookie: ' . self::$current);
+                    return self::$current;
+                }
             }
             // 2) Browser Accept-Language (first 2-letter match)
             $browser = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? (string) $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
@@ -81,11 +89,24 @@ final class AI_Lang
             }
             if ($picked !== '') {
                 error_log('[AI Translate Debug] AI_Lang::detect - Language detected from browser: ' . $picked);
-                // Set cookie for consistency on next requests (30 days)
-                if (!headers_sent()) {
-                    setcookie('ai_translate_lang', $picked, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                // Only set cookie if no cookie exists yet (don't overwrite existing cookies)
+                // This prevents overwriting cookies that were just set by template_redirect
+                if (!headers_sent() && (!isset($_COOKIE['ai_translate_lang']) || $_COOKIE['ai_translate_lang'] === '')) {
+                    if (function_exists('ai_translate_get_cookie_options')) {
+                        /** @var array<string, mixed> $options */
+                        /** @phpstan-ignore-next-line */
+                        /** @psalm-suppress UndefinedFunction */
+                        $options = \ai_translate_get_cookie_options($picked);
+                        $options['expires'] = time() + 30 * DAY_IN_SECONDS;
+                        setcookie('ai_translate_lang', $picked, $options);
+                    } else {
+                        // Fallback for older versions
+                        setcookie('ai_translate_lang', $picked, time() + 30 * DAY_IN_SECONDS, '/', '', is_ssl(), true);
+                    }
                     $_COOKIE['ai_translate_lang'] = $picked;
                     error_log('[AI Translate Debug] AI_Lang::detect - Cookie set to: ' . $picked);
+                } else {
+                    error_log('[AI Translate Debug] AI_Lang::detect - Cookie already exists, not overwriting');
                 }
                 self::$current = $picked;
                 return self::$current;
@@ -94,8 +115,19 @@ final class AI_Lang
             $normalizedDefault = $default !== '' ? strtolower(sanitize_key($default)) : '';
             error_log('[AI Translate Debug] AI_Lang::detect - Falling back to default language: ' . $normalizedDefault);
             if ($normalizedDefault !== '') {
-                if (!headers_sent()) {
-                    setcookie('ai_translate_lang', $normalizedDefault, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
+                // Only set cookie if no cookie exists yet (don't overwrite existing cookies)
+                if (!headers_sent() && (!isset($_COOKIE['ai_translate_lang']) || $_COOKIE['ai_translate_lang'] === '')) {
+                    if (function_exists('ai_translate_get_cookie_options')) {
+                        /** @var array<string, mixed> $options */
+                        /** @phpstan-ignore-next-line */
+                        /** @psalm-suppress UndefinedFunction */
+                        $options = \ai_translate_get_cookie_options($normalizedDefault);
+                        $options['expires'] = time() + 30 * DAY_IN_SECONDS;
+                        setcookie('ai_translate_lang', $normalizedDefault, $options);
+                    } else {
+                        // Fallback for older versions
+                        setcookie('ai_translate_lang', $normalizedDefault, time() + 30 * DAY_IN_SECONDS, '/', '', is_ssl(), true);
+                    }
                     error_log('[AI Translate Debug] AI_Lang::detect - Default cookie set to: ' . $normalizedDefault);
                 }
                 $_COOKIE['ai_translate_lang'] = $normalizedDefault;

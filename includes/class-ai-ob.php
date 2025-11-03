@@ -208,7 +208,7 @@ final class AI_OB
                 }
             }
         }
-        
+
         $html3 = AI_SEO::inject($html2, $lang);
         $html3 = AI_URL::rewrite($html3, $lang);
 

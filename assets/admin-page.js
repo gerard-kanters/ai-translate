@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var customApiUrlDiv = document.getElementById('custom_api_url_div');
     var customApiUrlInput = document.querySelector('input[name="ai_translate_settings[custom_api_url]"]');
     
-    // Haal de opgeslagen API-sleutels op
+    // Get stored API keys
     var apiKeys = aiTranslateAdmin.apiKeys || {};
 
     // API Provider data (mirrors PHP for client-side use)
@@ -92,14 +92,14 @@ document.addEventListener('DOMContentLoaded', function () {
         var selectedProvider = apiProviderSelect.value;
         var model = modelsPerProvider[selectedProvider] || '';
         
-        // Leeg eerst de dropdown
+        // Clear dropdown first
         selectedModel.innerHTML = '';
         
-        // Voor OpenAI en Deepseek: laad modellen via AJAX
+        // For OpenAI and Deepseek: load models via AJAX
         if (selectedProvider === 'openai' || selectedProvider === 'deepseek') {
             loadModelsForProvider(selectedProvider, model);
         } else {
-            // Voor custom provider: toon alleen het opgeslagen model
+            // For custom provider: show only the stored model
             if (model) {
                 var opt = document.createElement('option');
                 opt.value = model;
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var apiKey = apiKeyInput ? apiKeyInput.value : '';
 
         if (!apiUrl || !apiKey) {
-            if (apiStatusSpan) apiStatusSpan.textContent = 'Selecteer API Provider en vul API Key in.';
+            if (apiStatusSpan) apiStatusSpan.textContent = 'Select API Provider and enter API Key.';
             return;
         }
 
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (resp) {
                 if (selectedModel) {
                     if (resp.success && resp.data && resp.data.models) {
-                        // Leeg de dropdown opnieuw (voor de zekerheid)
+                        // Clear dropdown again (to be sure)
                         selectedModel.innerHTML = '';
                         
                         resp.data.models.forEach(function (modelId) {
@@ -166,14 +166,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (currentModel === 'custom') customOpt.selected = true;
                         selectedModel.appendChild(customOpt);
                         
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Models loaded successfully.';
                     } else {
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Geen modellen gevonden: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Unknown error');
                     }
                 }
             })
             .catch(function (e) {
-                if (apiStatusSpan) apiStatusSpan.textContent = 'Fout bij laden modellen: ' + e.message;
+                if (apiStatusSpan) apiStatusSpan.textContent = 'Error loading models: ' + e.message;
             });
     }
 
@@ -187,17 +187,17 @@ document.addEventListener('DOMContentLoaded', function () {
         toggleCustomApiUrlField();
         toggleGpt5Warning();
         updateApiKeyField(); // Trigger initial update
-        updateModelField(); // Initieel bij laden
+        updateModelField(); // Initial on load
     }
 
-    // Functie om het API-sleutelveld bij te werken
+    // Function to update the API key field
     function updateApiKeyField() {
         if (apiProviderSelect && apiKeyInput) {
             var selectedProvider = apiProviderSelect.value;
-            apiKeyInput.value = apiKeys[selectedProvider] || ''; // Update het veld met de opgeslagen sleutel
+            apiKeyInput.value = apiKeys[selectedProvider] || ''; // Update field with stored key
         }
         if (apiStatusSpan) {
-            apiStatusSpan.textContent = ''; // Leeg de API-status melding
+            apiStatusSpan.textContent = ''; // Clear API status message
         }
     }
 
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var apiKey = apiKeyInput ? apiKeyInput.value : '';
 
         if (!apiUrl || !apiKey) {
-            if (apiStatusSpan) apiStatusSpan.textContent = 'Selecteer API Provider en vul API Key in.';
+            if (apiStatusSpan) apiStatusSpan.textContent = 'Select API Provider and enter API Key.';
             return;
         }
 
@@ -260,14 +260,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         customOpt.textContent = 'Select...';
                         if (current === 'custom') customOpt.selected = true;
                         selectedModel.appendChild(customOpt);
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Models loaded successfully.';
                     } else {
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Geen modellen gevonden: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Unknown error');
                     }
                 }
             })
             .catch(function (e) {
-                if (apiStatusSpan) apiStatusSpan.textContent = 'Fout bij laden modellen: ' + e.message;
+                if (apiStatusSpan) apiStatusSpan.textContent = 'Error loading models: ' + e.message;
             });
     }
 
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (validateApiBtn) {
         validateApiBtn.addEventListener('click', function () {
-            if (apiStatusSpan) apiStatusSpan.innerHTML = 'Valideren...';
+            if (apiStatusSpan) apiStatusSpan.innerHTML = 'Validating...';
 
             var apiUrl = getSelectedApiUrl();
             var apiKey = apiKeyInput ? apiKeyInput.value : '';
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (!apiUrl || !apiKey || !modelId) {
-                if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Selecteer API Provider, vul API Key in en selecteer een model.</span>';
+                if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Select API Provider, enter API Key and select a model.</span>';
                 return;
             }
 
@@ -330,19 +330,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(r => r.json())
                 .then(function (resp) {
                     if (resp.success) {
-                        // Update de lokaal opgeslagen apiKeys object na succesvolle validatie
+                        // Update locally stored apiKeys object after successful validation
                         if (apiProviderSelect) {
                             var selectedProvider = apiProviderSelect.value;
                             apiKeys[selectedProvider] = apiKey;
                         }
-                        if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connectie en model OK. API instellingen opgeslagen.</span>';
+                        if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connection and model OK. API settings saved.</span>';
                     } else {
                         if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +
-                            (resp.data && resp.data.message ? resp.data.message : 'Fout') + '</span>';
+                            (resp.data && resp.data.message ? resp.data.message : 'Error') + '</span>';
                     }
                 })
                 .catch(function (error) {
-                    if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Validatie AJAX Fout: ' + error.message + '</span>';
+                    if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Validation AJAX Error: ' + error.message + '</span>';
                 })
                 .finally(function () {
                     validateApiBtn.disabled = false;
@@ -465,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: formData
                 }).then(response => {
                     if (!response.ok) {
-                        throw new Error('Server response niet ok: ' + response.status);
+                        throw new Error('Server response not ok: ' + response.status);
                     }
                     return response.json();
                 })
@@ -494,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 window.location.reload();
                             }, 3000);
                         } else {
-                            var errorMsg = 'Fout bij wissen van cache';
+                            var errorMsg = 'Error clearing cache';
 
                             if (data.data && data.data.message) {
                                 errorMsg += ': ' + data.data.message;
@@ -528,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         var noticeDiv = document.createElement('div');
                         noticeDiv.className = 'notice notice-error is-dismissible';
-                        noticeDiv.innerHTML = '<p>Er is een fout opgetreden bij het wissen van de cache: ' + error.message + '</p>';
+                        noticeDiv.innerHTML = '<p>An error occurred while clearing the cache: ' + error.message + '</p>';
 
                         var cacheTab = document.getElementById('cache');
                         if (cacheTab) {
@@ -554,7 +554,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var cacheTableRows = document.querySelectorAll('tr[id^="cache-row-"]');
     cacheTableRows.forEach(function (row) {
         row.style.cursor = 'pointer';
-        row.setAttribute('title', 'Klik om deze taal te selecteren');
+        row.setAttribute('title', 'Click to select this language');
         row.addEventListener('click', function (e) {
             if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
                 return;
@@ -580,7 +580,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 var selectedOption = langSelect.options[langSelect.selectedIndex];
                 if (selectedOption) {
                     var count = selectedOption.getAttribute('data-count');
-                    langCountSpan.textContent = count + ' bestanden in cache';
+                    langCountSpan.textContent = count + ' files in cache';
                 }
             }
         });
@@ -589,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var initialOption = langSelect.options[langSelect.selectedIndex];
             if (initialOption) {
                 var initialCount = initialOption.getAttribute('data-count');
-                langCountSpan.textContent = initialCount + ' bestanden in cache';
+                langCountSpan.textContent = initialCount + ' files in cache';
             }
         }
 
@@ -622,7 +622,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!apiUrl.value.trim() || !apiKey.value.trim()) {
                 var errorMsg = document.createElement('div');
                 errorMsg.className = 'error notice aitranslate-error';
-                errorMsg.innerHTML = '<p>Let op: Vul zowel API URL als API Key in om vertaalfunctionaliteit te gebruiken.</p>';
+                errorMsg.innerHTML = '<p>Note: Enter both API URL and API Key to use translation functionality.</p>';
                 document.querySelector('#general').insertBefore(errorMsg, document.querySelector('#general form'));
             }
         });
