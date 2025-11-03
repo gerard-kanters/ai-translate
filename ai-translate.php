@@ -4,7 +4,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.0.9
+ * Version: 2.1.0
  * Requires PHP: 8.0.0
  * Text Domain: ai-translate
  */
@@ -227,6 +227,19 @@ add_action('template_redirect', function () {
         if ($finalLang === '') {
             $finalLang = (string) $defaultLang;
         }
+        
+        // Re-confirm the cookie for this request and future requests
+        $secure = is_ssl();
+        $sameSite = $secure ? 'None' : 'Lax';
+        setcookie('ai_translate_lang', $finalLang, [
+            'expires' => time() + 90 * 86400,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => $sameSite
+        ]);
+        $_COOKIE['ai_translate_lang'] = $finalLang;
+        
         \AITranslate\AI_Lang::set_current($finalLang);
         
         // Set WordPress locale

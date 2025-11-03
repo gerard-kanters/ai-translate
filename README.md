@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.8  
-Stable tag: 2.0.9
+Stable tag: 2.1.0
 Requires PHP: 8.0.0 
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -201,14 +201,14 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Changelog
 
-### 2.09
+### 2.1.0
 - Fixed JS issue with speculationrules
 - Removed debug logging.
 - Fix browser language detection.
 - Fix admin setting selecting default language. 
 - Set permalink structure on initialization to post-name
 
-### 2.04
+### 2.0.4
 - Fix switching back and forth with default language
 - Fix race condition causing white pages for spiders/crawlers
 - Fixed hreflang tags for default language
@@ -218,7 +218,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Reduced url length and system prompt to generate slug
 - Placeholder translation improved
 
-### 2.01
+### 2.0.1
 - Total rework, changing the translation architecture
 - Reduced cost of translation (increasing batch)
 - Great performance boost
