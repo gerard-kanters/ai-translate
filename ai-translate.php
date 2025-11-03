@@ -4,7 +4,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.0.8
+ * Version: 2.0.9
  * Requires PHP: 8.0.0
  * Text Domain: ai-translate
  */
@@ -159,6 +159,15 @@ add_filter('plugin_row_meta', function (array $links, $file) {
 register_activation_hook(__FILE__, function () {
     // Ensure rules are registered before flushing
     do_action('init');
+    
+    // Automatically set permalinks to 'post-name' if they're currently 'plain'
+    // since the plugin requires rewrite rules to function
+    $permalink_structure = get_option('permalink_structure');
+    if ($permalink_structure === '' || $permalink_structure === null) {
+        // Set to 'post-name' structure which is /%postname%/
+        update_option('permalink_structure', '/%postname%/');
+    }
+    
     flush_rewrite_rules();
 });
 
@@ -1027,4 +1036,30 @@ add_filter('get_search_query', function ($search, $escaped = true) {
     }
     return $search;
 }, 10, 2);
+
+/**
+ * Check if permalinks are properly configured (not 'plain').
+ * Display a warning if they are set to 'plain' since the plugin requires rewrite rules.
+ */
+add_action('admin_notices', function () {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Check if permalinks are set to 'plain'
+    $permalink_structure = get_option('permalink_structure');
+    if ($permalink_structure === '' || $permalink_structure === null) {
+        // 'plain' structure - show warning
+        echo '<div class="notice notice-warning is-dismissible">';
+        echo '<p>';
+        echo '<strong>AI Translate Warning:</strong> ';
+        echo esc_html__('This plugin requires a permalink structure other than "Plain". ', 'ai-translate');
+        echo 'Please set your permalinks to "Post name" or another structure. ';
+        echo '<a href="' . esc_url(admin_url('options-permalink.php')) . '">';
+        echo esc_html__('Configure Permalinks', 'ai-translate');
+        echo '</a>';
+        echo '</p>';
+        echo '</div>';
+    }
+});
 

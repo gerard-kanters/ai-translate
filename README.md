@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.8  
-Stable tag: 2.0.8
+Stable tag: 2.0.9
 Requires PHP: 8.0.0 
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -47,6 +47,12 @@ Automatic hreflang tags, translated URL slugs, and proper indexing ensure search
 3. **Configure** - Go to 'Admin > AI Translate' to configure settings
 4. **Add API key** - Add your API key and select which languages you want to support
 5. **Tip for best performance** - Use Memcached or Redis for even faster caching (optional)
+
+### Permalinks
+
+AI Translate requires **friendly permalinks** to function properly. The plugin automatically sets your permalinks to the "Post name" structure (`/%postname%/`) during activation if they are currently set to "Plain". This is necessary for the language-prefixed URLs (e.g., `/de/`, `/en/`) to work correctly.
+
+If you manually change permalinks to "Plain" after activation, you will see a warning in the WordPress admin, and the language switching will not work as expected.
 
 ## Frequently Asked Questions
 
@@ -195,11 +201,12 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Changelog
 
-### 2.08
+### 2.09
 - Fixed JS issue with speculationrules
 - Removed debug logging.
 - Fix browser language detection.
 - Fix admin setting selecting default language. 
+- Set permalink structure on initialization to post-name
 
 ### 2.04
 - Fix switching back and forth with default language
