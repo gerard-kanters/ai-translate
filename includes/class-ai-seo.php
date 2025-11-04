@@ -502,13 +502,13 @@ final class AI_SEO
      */
     private static function injectHreflang($doc, $xpath, $head, $current, $default)
     {
-        // Collect existing hreflang rels to avoid duplicates
-        $existing = [];
+        // Remove all existing hreflang alternate links to ensure clean injection
+        // This prevents conflicts with incorrectly generated hreflang tags from other sources
         $links = $xpath->query('//head/link[@rel="alternate" and @hreflang]');
         if ($links) {
             foreach ($links as $lnk) {
-                if ($lnk instanceof \DOMElement) {
-                    $existing[strtolower((string) $lnk->getAttribute('hreflang'))] = true;
+                if ($lnk instanceof \DOMElement && $lnk->parentNode) {
+                    $lnk->parentNode->removeChild($lnk);
                 }
             }
         }
@@ -532,9 +532,6 @@ final class AI_SEO
 
         foreach ($langs as $lc) {
             $lc = sanitize_key((string) $lc);
-            if (isset($existing[$lc])) {
-                continue; // already present
-            }
             
             // Build URL with translated slug if available
             $href = self::buildHreflangUrl($currentAbs, $lc, $default, $post_id);
@@ -554,7 +551,7 @@ final class AI_SEO
         }
 
         // x-default equals default language URL
-        if (is_string($default) && $default !== '' && !isset($existing['x-default'])) {
+        if (is_string($default) && $default !== '' ) {
             if ($defaultUrl === '') {
                 $defaultUrl = self::buildHreflangUrl($currentAbs, $default, $default, $post_id);
             }
