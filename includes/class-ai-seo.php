@@ -59,6 +59,12 @@ final class AI_SEO
         if ($lang === null) {
             return $html;
         }
+        
+        if (is_front_page() || is_home()) {
+            $settings = get_option('ai_translate_settings', []);
+            $homepage_setting = isset($settings['homepage_meta_description']) ? trim((string) $settings['homepage_meta_description']) : '';
+            $blogdesc = (string) get_option('blogdescription', '');
+        }
 
         // Parse HTML into DOM
         $doc = new \DOMDocument();
@@ -102,18 +108,59 @@ final class AI_SEO
             // Fail-safe: keep original title on error
         }
 
-        // 1) Meta Description (add if missing)
-        $hasMetaDesc = false;
+        // 1) Meta Description (add if missing, or replace if empty/not admin setting for homepage)
+        // For translated languages: always use computed description (admin setting) and translate it
         $metaDescNodes = $xpath->query('//head/meta[translate(@name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="description"]');
+        $existingMetaDesc = null;
         if ($metaDescNodes && $metaDescNodes->length > 0) {
-            $hasMetaDesc = true; // Existing description likely already translated by AI_DOM
+            $item = $metaDescNodes->item(0);
+            if ($item instanceof \DOMElement) {
+                $existingMetaDesc = $item;
+            }
         }
-        if (!$hasMetaDesc) {
-            $desc = self::computeMetaDescription();
-            if ($desc !== '') {
-                $finalDesc = self::maybeTranslateMeta($desc, $default, $lang);
-                $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
-                if ($finalDesc !== '') {
+        
+        $desc = self::computeMetaDescription();
+        $shouldReplace = false;
+        $isTranslatedLang = $default && $lang && strtolower((string)$lang) !== strtolower((string)$default);
+        
+        if ($existingMetaDesc === null) {
+            // No meta description exists, add one
+            $shouldReplace = true;
+        } else {
+            // Meta description exists, check if we should replace it
+            $existingContent = trim((string) $existingMetaDesc->getAttribute('content'));
+            
+            // For translated languages: always replace with computed description (admin setting)
+            if ($isTranslatedLang) {
+                $shouldReplace = true;
+            } elseif (is_front_page() || is_home()) {
+                // For default language homepage: replace if empty or if admin setting exists and doesn't match
+                $settings = get_option('ai_translate_settings', []);
+                $homepage = isset($settings['homepage_meta_description']) ? trim((string) $settings['homepage_meta_description']) : '';
+                if ($homepage !== '') {
+                    // Admin setting exists: replace if empty or different
+                    if ($existingContent === '' || $existingContent !== $homepage) {
+                        $shouldReplace = true;
+                    }
+                } elseif ($existingContent === '') {
+                    // No admin setting but existing is empty, use computed description
+                    $shouldReplace = true;
+                }
+            } elseif ($existingContent === '') {
+                // Not homepage, but existing is empty, use computed description
+                $shouldReplace = true;
+            }
+        }
+        
+        if ($shouldReplace && $desc !== '') {
+            $finalDesc = self::maybeTranslateMeta($desc, $default, $lang);
+            $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
+            if ($finalDesc !== '') {
+                if ($existingMetaDesc !== null) {
+                    // Replace existing meta description
+                    $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
+                } else {
+                    // Add new meta description
                     $meta = $doc->createElement('meta');
                     $meta->setAttribute('name', 'description');
                     $meta->setAttribute('content', esc_attr($finalDesc));
@@ -121,15 +168,44 @@ final class AI_SEO
                     $head->appendChild($doc->createTextNode("\n"));
                 }
             }
+        } else {
+            // For translated languages: ensure existing meta description is always translated
+            if ($isTranslatedLang && $existingMetaDesc !== null && $desc === '') {
+                // Even if computeMetaDescription returned empty, translate existing if present
+                $existingContent = trim((string) $existingMetaDesc->getAttribute('content'));
+                if ($existingContent !== '') {
+                    $finalDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
+                    $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
+                    if ($finalDesc !== '') {
+                        $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
+                    }
+                }
+            }
         }
 
-        // 2) Open Graph (add missing og:* tags)
+        // 2) Open Graph (add missing og:* tags or replace for translated languages)
         $ogTitleMissing = self::isOgMissing($xpath, 'og:title');
         $ogDescMissing = self::isOgMissing($xpath, 'og:description');
         $ogImageMissing = self::isOgMissing($xpath, 'og:image');
         $ogUrlMissing   = self::isOgMissing($xpath, 'og:url');
+        
+        // For all languages: synchronize og:description with computed meta description (admin setting)
+        // For translated languages: always replace; for default language: replace if admin setting is set
+        $shouldReplaceOgDesc = $isTranslatedLang;
+        if (!$isTranslatedLang && (is_front_page() || is_home())) {
+            // For default language homepage: check if admin setting is set
+            $settings = get_option('ai_translate_settings', []);
+            $homepage = isset($settings['homepage_meta_description']) ? trim((string) $settings['homepage_meta_description']) : '';
+            if ($homepage !== '') {
+                $shouldReplaceOgDesc = true;
+            }
+        }
+        // Also replace if og:description is missing
+        if ($ogDescMissing) {
+            $shouldReplaceOgDesc = true;
+        }
 
-        if ($ogTitleMissing || $ogDescMissing || $ogImageMissing || $ogUrlMissing) {
+        if ($ogTitleMissing || $shouldReplaceOgDesc || $ogImageMissing || $ogUrlMissing) {
             $siteName = (string) get_bloginfo('name');
             $ogTitle = '';
             if ($ogTitleMissing) {
@@ -152,7 +228,7 @@ final class AI_SEO
             }
 
             $ogDesc = '';
-            if ($ogDescMissing) {
+            if ($shouldReplaceOgDesc) {
                 $ogDesc = self::computeMetaDescription();
                 if ($ogDesc !== '') {
                     $ogDesc = self::maybeTranslateMeta($ogDesc, $default, $lang);
@@ -202,12 +278,39 @@ final class AI_SEO
                 $head->appendChild($meta);
                 $head->appendChild($doc->createTextNode("\n"));
             }
-            if ($ogDescMissing && $ogDesc !== '') {
-                $meta = $doc->createElement('meta');
-                $meta->setAttribute('property', 'og:description');
-                $meta->setAttribute('content', esc_attr(trim($ogDesc)));
-                $head->appendChild($meta);
-                $head->appendChild($doc->createTextNode("\n"));
+            if ($shouldReplaceOgDesc && $ogDesc !== '') {
+                // Find existing og:description to replace, or add new one
+                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
+                if ($existingOgDesc && $existingOgDesc->length > 0) {
+                    // Replace existing og:description
+                    $ogDescElem = $existingOgDesc->item(0);
+                    if ($ogDescElem instanceof \DOMElement) {
+                        $ogDescElem->setAttribute('content', esc_attr(trim($ogDesc)));
+                    }
+                } else {
+                    // Add new og:description
+                    $meta = $doc->createElement('meta');
+                    $meta->setAttribute('property', 'og:description');
+                    $meta->setAttribute('content', esc_attr(trim($ogDesc)));
+                    $head->appendChild($meta);
+                    $head->appendChild($doc->createTextNode("\n"));
+                }
+            } elseif ($isTranslatedLang && $shouldReplaceOgDesc && $ogDesc === '') {
+                // For translated languages: translate existing og:description if computed is empty
+                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
+                if ($existingOgDesc && $existingOgDesc->length > 0) {
+                    $ogDescElem = $existingOgDesc->item(0);
+                    if ($ogDescElem instanceof \DOMElement) {
+                        $existingContent = trim((string) $ogDescElem->getAttribute('content'));
+                        if ($existingContent !== '') {
+                            $translatedOgDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
+                            $translatedOgDesc = self::truncateUtf8($translatedOgDesc, 200, '...');
+                            if ($translatedOgDesc !== '') {
+                                $ogDescElem->setAttribute('content', esc_attr(trim($translatedOgDesc)));
+                            }
+                        }
+                    }
+                }
             }
             if ($ogImageMissing && $ogImage !== '') {
                 $meta = $doc->createElement('meta');
@@ -347,7 +450,8 @@ final class AI_SEO
                 return (string) wp_trim_words($stripped, 55, '');
             }
         }
-        return (string) get_option('blogdescription', '');
+        $blogdesc = (string) get_option('blogdescription', '');
+        return $blogdesc;
     }
 
     /**
@@ -367,9 +471,19 @@ final class AI_SEO
         if (!$default || !$lang || strtolower((string)$lang) === strtolower((string)$default)) {
             return $text;
         }
-        $plan = ['segments' => [ ['id' => 'm', 'text' => (string)$text, 'type' => 'meta'] ]];
+        
+        // Skip translating slug-like strings (menu items, generated slugs)
+        // Heuristic: single line with hyphens but no spaces (e.g., "vioolles-eindhoven", "lezioni-violino-eindhoven")
+        if (preg_match('/^[a-z0-9\-]+$/i', trim($text)) && strpos($text, ' ') === false && strpos($text, '-') !== false) {
+            // This looks like a slug/menu-item, not real content - return as-is
+            return $text;
+        }
+        
+        $plan = ['segments' => [ ['id' => 'm', 'text' => (string)$text, 'type' => 'node'] ]];
         $settings = get_option('ai_translate_settings', []);
-        $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
+        $ctx = [
+            'website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : '',
+        ];
         $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);
         $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : [];
         $translated = isset($segs['m']) ? (string) $segs['m'] : $text;
