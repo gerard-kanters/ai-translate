@@ -208,12 +208,38 @@ add_filter('request', function ($vars) {
 });
 
 /**
- * Start output buffering for front-end (skip admin, AJAX, REST and feeds).
+ * Check if current request is an XML file (sitemap, robots.txt, etc.).
+ *
+ * @return bool
+ */
+function ai_translate_is_xml_request() {
+    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    
+    // Check if path ends with .xml
+    if (preg_match('/\.xml$/i', $reqPath)) {
+        return true;
+    }
+    
+    // Check for WordPress sitemap query vars
+    if (isset($_GET['sitemap']) || isset($_GET['sitemap-index'])) {
+        return true;
+    }
+    
+    // Check for sitemap in path (e.g., /wp-sitemap.xml, /sitemap.xml)
+    if (preg_match('/sitemap/i', $reqPath)) {
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * Start output buffering for front-end (skip admin, AJAX, REST, feeds and XML files).
  * Handles language detection and redirection according to the 4 language switcher rules.
  */
 add_action('template_redirect', function () {
-    // Skip admin/AJAX/REST/feeds
-    if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed()) {
+    // Skip admin/AJAX/REST/feeds/XML files
+    if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed() || ai_translate_is_xml_request()) {
         return;
     }
     

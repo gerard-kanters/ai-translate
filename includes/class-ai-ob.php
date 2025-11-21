@@ -47,6 +47,23 @@ final class AI_OB
             $processing = false;
             return $html;
         }
+        
+        // Skip XML files (sitemaps, etc.) - they should not be processed
+        $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if (preg_match('/\.xml$/i', $reqPath) || 
+            isset($_GET['sitemap']) || 
+            isset($_GET['sitemap-index']) ||
+            preg_match('/sitemap/i', $reqPath)) {
+            $processing = false;
+            return $html;
+        }
+        
+        // Additional check: if content starts with XML declaration, skip processing
+        $htmlTrimmed = trim($html);
+        if (strpos($htmlTrimmed, '<?xml') === 0 || strpos($htmlTrimmed, '<xml') === 0) {
+            $processing = false;
+            return $html;
+        }
         $lang = AI_Lang::current();
         if ($lang === null) {
             $processing = false;
