@@ -156,6 +156,7 @@ final class AI_Translate_Core
             'mt' => 'Maltese',
             'sl' => 'Slovenian',
             'sk' => 'Slovak',
+            'id' => 'Indonesian',
         ];
     }
 
