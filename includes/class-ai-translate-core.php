@@ -147,6 +147,15 @@ final class AI_Translate_Core
             'ja' => 'Japanese',
             'ko' => 'Korean',
             'ka' => 'Georgian',
+            'kk' => 'Kazakh',
+            'et' => 'Estonian',
+            'ga' => 'Irish',
+            'hr' => 'Croatian',
+            'lv' => 'Latvian',
+            'lt' => 'Lithuanian',
+            'mt' => 'Maltese',
+            'sl' => 'Slovenian',
+            'sk' => 'Slovak',
         ];
     }
 
