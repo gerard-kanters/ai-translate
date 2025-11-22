@@ -7,11 +7,11 @@ Stable tag: 2.1.2
 Requires PHP: 8.0.0 
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-= AI-powered plugin for automatic website translation in 25 languages. Boosts traffic and improves your SEO. =
+= AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO. =
 
 ## Short Description
 
-AI Translate automatically makes your WordPress website available in 25+ languages. Increase your reach and improve your SEO without manual work.
+AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work.
 
 ## Description
 
@@ -31,14 +31,14 @@ Automatic hreflang tags, translated URL slugs, and proper indexing ensure search
 ## Features
 
 - **🌐 Automatic Translation** - Pages, posts, and custom post types are automatically translated
-- **✨ Smart AI** - Generates a summary of your site for context-aware translations
-- **🌍 25+ Languages** - Support for all major world languages
-- **⚡ Fast Caching** - Intelligent cache for better performance and lower costs
-- **🔄 Automatic Updates** - Translations are automatically updated when content changes
-- **🍪 Remembers Preferences** - Saves each visitor's language preference (via cookies)
-- **🎨 Easy to Use** - Simple language switcher in the left corner of your website
-- **🔧 Flexible** - Choose your own AI model (OpenAI, Deepseek, or other APIs)
-- **🔗 SEO-Friendly** - Also translates URLs for better search engine optimization
+- **✨ Smart AI** - Generates a summary of your site for context-aware translations.
+- **🌍 35+ Languages** - Support for all major world languages and much more.
+- **⚡ Fast Caching** - Intelligent cache for better performance and lower costs.
+- **🔄 Automatic Updates** - Translations are automatically updated when content changes.
+- **🍪 Remembers Preferences** - Saves each visitor's language preference (via cookies).
+- **🎨 Easy to Use** - Simple language switcher in the left corner of your website.
+- **🔧 Flexible** - Choose your own AI model (OpenAI, Deepseek, or other APIs).
+- **🔗 SEO-Friendly** - Also translates URLs for better search engine optimization.
 
 ## Installation
 
@@ -62,7 +62,7 @@ AI Translate is free to use, but you need an API key from an AI service provider
 
 ### Which languages are supported?
 
-AI Translate supports 25+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Georgian, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian, and more.
+AI Translate supports 35+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Georgian, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian, and more.
 
 ### How does caching work?
 
