@@ -2,11 +2,11 @@
 Contributors: gkanters  
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
-Tested up to: 6.8  
-Stable tag: 2.1.2
-Requires PHP: 8.0.0 
+Tested up to: 6.9  
+Stable tag: 2.1.3
+Requires PHP: 8.0.0
 License: GPLv2 or later  
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
 = AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO. =
 
 ## Short Description
@@ -83,6 +83,7 @@ If the AI service is temporarily unavailable, AI Translate displays the original
 ### How can I optimize performance?
 
 For optimal performance, we recommend:
+
 - Using a caching plugin like Jetpack, WP Rocket, or W3 Total Cache
 - Configuring Memcached or Redis for database caching
 - Adjusting cache duration based on how often you update content
@@ -172,8 +173,8 @@ AI Translate requires an API key from one of the supported providers:
 - **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
 - **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
 - **Service provider**: OpenAI
-- **Terms of service**: https://openai.com/terms/
-- **Privacy policy**: https://openai.com/privacy/
+- **Terms of service**: <https://openai.com/terms/>
+- **Privacy policy**: <https://openai.com/privacy/>
 
 #### Data Handling
 
@@ -201,17 +202,23 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Changelog
 
+### 2.1.3
+
+- Support for Wordpress 6.9
+
 ### 2.1.2
+
 - Fixed JS issue with speculationrules
 - Removed debug logging.
 - Fix browser language detection.
-- Fix admin setting selecting default language. 
+- Fix admin setting selecting default language.
 - Set permalink structure on initialization to post-name
 - Fixed issue with existing meta tags in default language
 - Exclude xml files from processing
 - Added 10 languages
 
 ### 2.0.4
+
 - Fix switching back and forth with default language
 - Fix race condition causing white pages for spiders/crawlers
 - Fixed hreflang tags for default language
@@ -222,12 +229,14 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Placeholder translation improved
 
 ### 2.0.1
+
 - Total rework, changing the translation architecture
 - Reduced cost of translation (increasing batch)
 - Great performance boost
 - Better support for third party plugins and themes
 
 ### 1.34
+
 - Fix pagination with pretty URL
 - Remove hallucinated html tags from ALT image tags
 - Fix menu issues with translated URLs
@@ -235,6 +244,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Better prompting and reduced placeholder translation issues
 
 ### 1.3
+
 - Added translation of (standard wordpress) translation functionality
 - Improved translation context and more translation freedom for AI
 - Improved caching and translation performance
@@ -247,6 +257,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Improved contextual translation for single words/slugs
 
 ### 1.2
+
 - Reduced API calls
 - Dynamic content support without breaking cache
 - Added hreflang tags
@@ -257,6 +268,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Improved non-Latin script URL translation
 
 ### 1.1
+
 - Path-based language URLs for SEO
 - Transient cache clearing option
 - Better widget and link translation
@@ -269,6 +281,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Improved hreflang original URL logic
 
 ### 1.0
+
 - Initial release with basic AI translation
 
 ## Provided by

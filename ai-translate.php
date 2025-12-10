@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Plugin Name: AI Translate
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.1.2
+ * Version: 2.1.3
  * Requires PHP: 8.0.0
  * Text Domain: ai-translate
  */
@@ -29,7 +30,8 @@ require_once __DIR__ . '/includes/class-ai-slugs.php';
 
 // Debug logger
 if (!function_exists('ai_translate_dbg')) {
-    function ai_translate_dbg($message, $context = array()) {
+    function ai_translate_dbg($message, $context = array())
+    {
         if (!defined('WP_DEBUG') || !WP_DEBUG) {
             return;
         }
@@ -43,7 +45,7 @@ add_action('init', function () {
     \AITranslate\AI_Slugs::install_table();
 }, 1);
 
- 
+
 
 // Add original-style language-prefixed rewrite rules using 'lang' query var to ensure WP resolves pages via pagename
 add_action('init', function () {
@@ -52,10 +54,14 @@ add_action('init', function () {
     $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
     $default = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
     $langs = array_values(array_unique(array_merge($enabled, $detectable)));
-    if ($default !== '') { $langs = array_diff($langs, array($default)); }
+    if ($default !== '') {
+        $langs = array_diff($langs, array($default));
+    }
     $langs = array_filter(array_map('sanitize_key', $langs));
     if (empty($langs)) return;
-    $regex = '(' . implode('|', array_map(function ($l) { return preg_quote($l, '/'); }, $langs)) . ')';
+    $regex = '(' . implode('|', array_map(function ($l) {
+        return preg_quote($l, '/');
+    }, $langs)) . ')';
     add_rewrite_rule('^' . $regex . '/?$', 'index.php?lang=$matches[1]', 'top');
     // Explicit CPT bases similar to org implementation (keep before generic page/name rules)
     add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(product)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]', 'top');
@@ -67,7 +73,9 @@ add_action('init', function () {
 }, 2);
 
 add_filter('query_vars', function ($vars) {
-    if (!in_array('lang', $vars, true)) { $vars[] = 'lang'; }
+    if (!in_array('lang', $vars, true)) {
+        $vars[] = 'lang';
+    }
     return $vars;
 });
 
@@ -79,13 +87,13 @@ add_action('init', function () {
     if (is_admin() || wp_doing_ajax() || wp_is_json_request()) {
         return;
     }
-    
+
     // Only handle switch_lang parameter - nothing else
     $switchLang = isset($_GET['switch_lang']) ? strtolower(sanitize_key((string) $_GET['switch_lang'])) : '';
     if ($switchLang === '') {
         return;
     }
-    
+
     // Set cookie
     $secure = is_ssl();
     $sameSite = $secure ? 'None' : 'Lax';
@@ -97,13 +105,13 @@ add_action('init', function () {
         'samesite' => $sameSite
     ]);
     $_COOKIE['ai_translate_lang'] = $switchLang;
-    
+
     // Redirect to clean URL (remove switch_lang parameter)
     $defaultLang = \AITranslate\AI_Lang::default();
     $targetUrl = ($switchLang === strtolower((string) $defaultLang)) ? home_url('/') : home_url('/' . $switchLang . '/');
     // Add marker parameter so template_redirect knows this was a switch
     $targetUrl = add_query_arg('_ai_lang_switched', '1', $targetUrl);
-    
+
     wp_safe_redirect($targetUrl, 302);
     exit;
 }, 1);
@@ -159,7 +167,7 @@ add_filter('plugin_row_meta', function (array $links, $file) {
 register_activation_hook(__FILE__, function () {
     // Ensure rules are registered before flushing
     do_action('init');
-    
+
     // Automatically set permalinks to 'post-name' if they're currently 'plain'
     // since the plugin requires rewrite rules to function
     $permalink_structure = get_option('permalink_structure');
@@ -167,7 +175,7 @@ register_activation_hook(__FILE__, function () {
         // Set to 'post-name' structure which is /%postname%/
         update_option('permalink_structure', '/%postname%/');
     }
-    
+
     flush_rewrite_rules();
 });
 
@@ -199,9 +207,9 @@ add_filter('request', function ($vars) {
         if (!empty($vars['name'])) {
             $nm = (string) $vars['name'];
             $src = \AITranslate\AI_Slugs::resolve_any_to_source_slug($nm);
-                if ($src) {
-                    $vars['name'] = $src;
-                }
+            if ($src) {
+                $vars['name'] = $src;
+            }
         }
     }
     return $vars;
@@ -212,24 +220,25 @@ add_filter('request', function ($vars) {
  *
  * @return bool
  */
-function ai_translate_is_xml_request() {
+function ai_translate_is_xml_request()
+{
     $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-    
+
     // Check if path ends with .xml
     if (preg_match('/\.xml$/i', $reqPath)) {
         return true;
     }
-    
+
     // Check for WordPress sitemap query vars
     if (isset($_GET['sitemap']) || isset($_GET['sitemap-index'])) {
         return true;
     }
-    
+
     // Check for sitemap in path (e.g., /wp-sitemap.xml, /sitemap.xml)
     if (preg_match('/sitemap/i', $reqPath)) {
         return true;
     }
-    
+
     return false;
 }
 
@@ -242,53 +251,22 @@ add_action('template_redirect', function () {
     if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed() || ai_translate_is_xml_request()) {
         return;
     }
-    
+
     $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
     $defaultLang = \AITranslate\AI_Lang::default();
-    
+
     // Check if we just switched languages - switcher has HIGHEST priority!
-    if (isset($_GET['_ai_lang_switched']) && $_GET['_ai_lang_switched'] === '1') {
-        // Cookie is already set by init hook, just proceed normally
-        $finalLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : (string) $defaultLang;
-        if ($finalLang === '') {
-            $finalLang = (string) $defaultLang;
-        }
-        
-        // Re-confirm the cookie for this request and future requests
-        $secure = is_ssl();
-        $sameSite = $secure ? 'None' : 'Lax';
-        setcookie('ai_translate_lang', $finalLang, [
-            'expires' => time() + 90 * 86400,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => $sameSite
-        ]);
-        $_COOKIE['ai_translate_lang'] = $finalLang;
-        
-        \AITranslate\AI_Lang::set_current($finalLang);
-        
-        // Set WordPress locale
-        add_filter('locale', function ($locale) {
-            $currentLang = \AITranslate\AI_Lang::current();
-            if ($currentLang) {
-                return strtolower($currentLang) . '_' . strtoupper($currentLang);
-            }
-            return $locale;
-        });
-        
-        \AITranslate\AI_OB::instance()->start();
-        return; // Skip all other logic - switcher priority!
-    }
-    
+    // Block removed because it ignored URL language. Standard logic below handles it.
+
+
     // Extract language from URL
     $langFromUrl = null;
     if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
         $langFromUrl = strtolower(sanitize_key($m[1]));
     }
-    
+
     $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
-    
+
     // RULE 3: Canonicalize default language - /nl/ → /
     if ($langFromUrl !== null && $defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
         if ($reqPath !== '/') {
@@ -296,7 +274,7 @@ add_action('template_redirect', function () {
             exit;
         }
     }
-    
+
     // RULE 4: If cookie exists and on root, ensure language is set to default
     if ($reqPath === '/' && $cookieLang !== '') {
         $secure = is_ssl();
@@ -322,7 +300,7 @@ add_action('template_redirect', function () {
         \AITranslate\AI_OB::instance()->start();
         return;
     }
-    
+
     // RULE 1: First visit (no cookie) on root - detect browser language and redirect
     if ($reqPath === '/' && $cookieLang === '') {
         // True first visit - detect browser language
@@ -332,7 +310,7 @@ add_action('template_redirect', function () {
         if (!$detected) {
             $detected = (string) $defaultLang;
         }
-        
+
         // Set cookie
         $secure = is_ssl();
         $sameSite = $secure ? 'None' : 'Lax';
@@ -344,7 +322,7 @@ add_action('template_redirect', function () {
             'samesite' => $sameSite
         ]);
         $_COOKIE['ai_translate_lang'] = $detected;
-        
+
         // Redirect to language URL if not default
         if ($detected && strtolower($detected) !== strtolower((string) $defaultLang)) {
             wp_safe_redirect(home_url('/' . $detected . '/'), 302);
@@ -352,7 +330,7 @@ add_action('template_redirect', function () {
         }
         // If detected == default, no redirect needed, just set language below
     }
-    
+
     // Sync cookie if URL has language prefix
     if ($langFromUrl !== null && ($cookieLang === '' || $cookieLang !== $langFromUrl)) {
         $secure = is_ssl();
@@ -366,7 +344,7 @@ add_action('template_redirect', function () {
         ]);
         $_COOKIE['ai_translate_lang'] = $langFromUrl;
     }
-    
+
     // Set language for content
     $finalLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : (string) $defaultLang;
     if ($finalLang === '') {
@@ -413,7 +391,7 @@ add_action('template_redirect', function () {
             }
         }
     }
-    
+
     \AITranslate\AI_OB::instance()->start();
 }, 1);
 
@@ -446,9 +424,13 @@ add_action('wp_footer', function () {
     // Determine current path and strip any leading /xx/
     $reqUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
     $path = (string) parse_url($reqUri, PHP_URL_PATH);
-    if ($path === '') { $path = '/'; }
+    if ($path === '') {
+        $path = '/';
+    }
     $pathNoLang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
-    if ($pathNoLang === '') { $pathNoLang = '/'; }
+    if ($pathNoLang === '') {
+        $pathNoLang = '/';
+    }
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
@@ -457,8 +439,12 @@ add_action('wp_footer', function () {
 
     // Current language (from URL or default)
     $currentLang = null;
-    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) { $currentLang = strtolower($m[1]); }
-    if (!$currentLang) { $currentLang = $default; }
+    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) {
+        $currentLang = strtolower($m[1]);
+    }
+    if (!$currentLang) {
+        $currentLang = $default;
+    }
     $currentFlag = esc_url($flags_url . sanitize_key($currentLang) . '.png');
 
     echo '<div id="ai-trans" class="ai-trans">';
@@ -471,19 +457,19 @@ add_action('wp_footer', function () {
         // Always go to the language homepage on switch
         $targetPath = ($code === $default) ? '/' : ('/' . $code . '/');
         // Normalize double slashes
-        $targetPath = preg_replace('#/{2,}#','/',$targetPath);
+        $targetPath = preg_replace('#/{2,}#', '/', $targetPath);
         // Build target URL WITH switch_lang parameter
-        $url = home_url( $targetPath );
+        $url = home_url($targetPath);
         $url = add_query_arg('switch_lang', $code, $url);
-        $url = esc_url( $url );
-        $flag = esc_url( $flags_url . $code . '.png' );
+        $url = esc_url($url);
+        $flag = esc_url($flags_url . $code . '.png');
         echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
     }
 
     echo '</div></div>';
 
     // Minimal toggle script + pure JS cookie handling
-    $restUrl = esc_url_raw( rest_url('ai-translate/v1/batch-strings') );
+    $restUrl = esc_url_raw(rest_url('ai-translate/v1/batch-strings'));
     $nonce = wp_create_nonce('ai_translate_front_nonce');
     $is_ssl = is_ssl() ? 'true' : 'false';
     echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
@@ -525,26 +511,34 @@ add_action('init', function () {
 /**
  * REST endpoint voor dynamische UI-attribuutvertaling (geen admin-ajax).
  */
-add_action('rest_api_init', function(){
+add_action('rest_api_init', function () {
     register_rest_route('ai-translate/v1', '/batch-strings', [
         'methods' => 'POST',
         'permission_callback' => '__return_true',
         'args' => [],
-        'callback' => function(\WP_REST_Request $request){
+        'callback' => function (\WP_REST_Request $request) {
             $arr = $request->get_param('strings');
-            if (!is_array($arr)) { $arr = []; }
-            $texts = array_values(array_unique(array_filter(array_map(function($s){ return trim((string) $s); }, $arr))));
+            if (!is_array($arr)) {
+                $arr = [];
+            }
+            $texts = array_values(array_unique(array_filter(array_map(function ($s) {
+                return trim((string) $s);
+            }, $arr))));
             $langParam = sanitize_key((string) ($request->get_param('lang') ?? ''));
             $lang = $langParam !== '' ? $langParam : \AITranslate\AI_Lang::current();
             $default = \AITranslate\AI_Lang::default();
-            if ($lang === null || $default === null) { return new \WP_REST_Response(['success'=>true,'data'=>['map'=>[]]], 200); }
+            if ($lang === null || $default === null) {
+                return new \WP_REST_Response(['success' => true, 'data' => ['map' => []]], 200);
+            }
             if (strtolower($lang) === strtolower($default)) {
                 $map = [];
-                foreach ($texts as $t) { $map[$t] = $t; }
-                return new \WP_REST_Response(['success'=>true,'data'=>['map'=>$map]], 200);
+                foreach ($texts as $t) {
+                    $map[$t] = $t;
+                }
+                return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);
             }
             $settings = get_option('ai_translate_settings', array());
-            $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14*24);
+            $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
             $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
             $map = [];
             $toTranslate = [];
@@ -557,14 +551,14 @@ add_action('rest_api_init', function(){
                     $cachedText = (string) $cached;
                     $srcLen = mb_strlen($t);
                     $cacheInvalid = false;
-                    
+
                     // Validate cache: check if translation is exactly identical to source
                     // This catches untranslated placeholders like "Voornaam", "Email Adres" etc.
                     // Only skip very short words (≤3 chars) like "van" → "van" which can be valid
                     if ($srcLen > 3 && trim($cachedText) === trim($t)) {
                         $cacheInvalid = true;
                     }
-                    
+
                     // For non-Latin target languages: additional check for Latin ratio
                     // Only for longer texts to avoid false positives with brand names
                     if (!$cacheInvalid && mb_strlen($cachedText) > 100) {
@@ -577,7 +571,7 @@ add_action('rest_api_init', function(){
                             }
                         }
                     }
-                    
+
                     if ($cacheInvalid) {
                         // Cache entry is invalid - delete it and re-translate
                         delete_transient($key);
@@ -594,25 +588,25 @@ add_action('rest_api_init', function(){
                 }
             }
             if (!empty($toTranslate)) {
-                $plan = ['segments'=>[]];
-                foreach ($toTranslate as $id=>$text) {
+                $plan = ['segments' => []];
+                foreach ($toTranslate as $id => $text) {
                     // Use 'node' type for longer texts (full sentences), 'meta' for short UI strings
                     // Count words by splitting on whitespace
                     $words = preg_split('/\s+/', trim($text), -1, PREG_SPLIT_NO_EMPTY);
                     $wordCount = count($words);
                     $segmentType = ($wordCount > 4) ? 'node' : 'meta';
-                    $plan['segments'][] = ['id'=>$id, 'text'=>$text, 'type'=>$segmentType];
+                    $plan['segments'][] = ['id' => $id, 'text' => $text, 'type' => $segmentType];
                 }
                 $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
                 $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
                 $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : array();
-                foreach ($toTranslate as $id=>$orig) {
+                foreach ($toTranslate as $id => $orig) {
                     $tr = isset($segs[$id]) ? (string) $segs[$id] : $orig;
                     $map[$orig] = $tr;
                     set_transient('ai_tr_attr_' . $lang . '_' . md5($orig), $tr, $expiry);
                 }
             }
-            return new \WP_REST_Response(['success'=>true,'data'=>['map'=>$map]], 200);
+            return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);
         }
     ]);
 });
@@ -741,7 +735,7 @@ add_action('parse_request', function ($wp) {
     $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
     if ($post_id) {
         $post = get_post((int) $post_id);
-        $wp->query_vars = array_diff_key($wp->query_vars, ['name'=>1, 'pagename'=>1, 'page_id'=>1, 'p'=>1, 'post_type'=>1]);
+        $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
         $posts_page_id = (int) get_option('page_for_posts');
         if ($post && $post->post_type === 'page') {
             if ($posts_page_id > 0 && (int)$post_id === $posts_page_id) {
@@ -775,14 +769,16 @@ add_action('parse_request', function ($wp) {
         $srcBase = \AITranslate\AI_Slugs::resolve_any_to_source_slug($basename);
         if ($srcBase) {
             $dir = trim((string) dirname($clean), '/');
-            if ($dir === '\\' || $dir === '.') { $dir = ''; }
+            if ($dir === '\\' || $dir === '.') {
+                $dir = '';
+            }
             $sourcePath = $dir !== '' ? ($dir . '/' . $srcBase) : $srcBase;
 
             // Resolve across all public post types (page, post, CPT)
             $public_types = get_post_types(['public' => true], 'names');
             $post = get_page_by_path($sourcePath, OBJECT, array_values($public_types));
             if ($post) {
-                $wp->query_vars = array_diff_key($wp->query_vars, ['name'=>1, 'pagename'=>1, 'page_id'=>1, 'p'=>1]);
+                $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1]);
                 $posts_page_id = (int) get_option('page_for_posts');
                 if ($post->post_type === 'page') {
                     if ($posts_page_id > 0 && (int)$post->ID === $posts_page_id) {
@@ -908,7 +904,7 @@ add_action('init', function () {
     }
     // Warmup all published pages and posts so reverse mapping works immediately
     $pages = get_posts(array(
-        'post_type' => array('page','post'),
+        'post_type' => array('page', 'post'),
         'post_status' => 'publish',
         'posts_per_page' => -1,
         'fields' => 'ids',
@@ -970,7 +966,7 @@ add_filter('pre_handle_404', function ($preempt, $wp_query) {
     // Try slug mapping
     $source = \AITranslate\AI_Slugs::resolve_any_to_source_slug($rest);
     if ($source) {
-        $wp_query->query_vars = array_diff_key($wp_query->query_vars, ['name'=>1, 'pagename'=>1]);
+        $wp_query->query_vars = array_diff_key($wp_query->query_vars, ['name' => 1, 'pagename' => 1]);
         $wp_query->query_vars['pagename'] = $source;
         $wp_query->is_404 = false;
         $wp_query->is_page = true;
@@ -1084,7 +1080,7 @@ add_action('admin_notices', function () {
     if (!current_user_can('manage_options')) {
         return;
     }
-    
+
     // Check if permalinks are set to 'plain'
     $permalink_structure = get_option('permalink_structure');
     if ($permalink_structure === '' || $permalink_structure === null) {
@@ -1101,4 +1097,3 @@ add_action('admin_notices', function () {
         echo '</div>';
     }
 });
-
