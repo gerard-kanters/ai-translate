@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.1.3
+ * Version: 2.1.4
  * Requires PHP: 8.0.0
  * Text Domain: ai-translate
  */
@@ -458,6 +458,7 @@ add_action('wp_footer', function () {
         $targetPath = preg_replace('#/{2,}#', '/', $targetPath);
         // Build target URL WITH switch_lang parameter
         $url = home_url($targetPath);
+        // Switcher param is handled by init hook to set cookie, then redirects to clean URL
         $url = add_query_arg('switch_lang', $code, $url);
         $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');

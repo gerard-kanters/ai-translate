@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.1.3
+Stable tag: 2.1.4
 Requires PHP: 8.0.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -202,9 +202,10 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Changelog
 
-### 2.1.3
+### 2.1.4
 
 - Support for Wordpress 6.9
+- Issue with language parameter on home page fixed.
 
 ### 2.1.2
 
