@@ -109,9 +109,7 @@ add_action('init', function () {
     // Redirect to clean URL (remove switch_lang parameter)
     $defaultLang = \AITranslate\AI_Lang::default();
     $targetUrl = ($switchLang === strtolower((string) $defaultLang)) ? home_url('/') : home_url('/' . $switchLang . '/');
-    // Add marker parameter so template_redirect knows this was a switch
-    $targetUrl = add_query_arg('_ai_lang_switched', '1', $targetUrl);
-
+    
     wp_safe_redirect($targetUrl, 302);
     exit;
 }, 1);
