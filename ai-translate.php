@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 25 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.1.4
+ * Version: 2.1.5
  * Requires PHP: 8.0.0
  * Text Domain: ai-translate
  */
@@ -265,6 +265,23 @@ add_action('template_redirect', function () {
 
     $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
 
+    // Ensure search requests have language-prefixed URL (before RULE 4 to prevent early return)
+    // Check for search parameter 's' in query string
+    $hasSearchParam = isset($_GET['s']) && trim((string) $_GET['s']) !== '';
+    if ($hasSearchParam) {
+        // Use cookie language if available, otherwise use URL language, otherwise default
+        $searchLang = $cookieLang !== '' ? $cookieLang : ($langFromUrl !== null ? $langFromUrl : (string) $defaultLang);
+        if ($searchLang !== '' && $defaultLang && strtolower($searchLang) !== strtolower((string) $defaultLang)) {
+            $pathNow = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+            if ($pathNow === '' || $pathNow === '/' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
+                $base = home_url('/' . $searchLang . '/');
+                $target = add_query_arg($_GET, $base);
+                wp_safe_redirect($target, 302);
+                exit;
+            }
+        }
+    }
+
     // RULE 3: Canonicalize default language - /nl/ → /
     if ($langFromUrl !== null && $defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
         if ($reqPath !== '/') {
@@ -274,7 +291,8 @@ add_action('template_redirect', function () {
     }
 
     // RULE 4: If cookie exists and on root, ensure language is set to default
-    if ($reqPath === '/' && $cookieLang !== '') {
+    // Skip this rule if there's a search parameter (handled above)
+    if ($reqPath === '/' && $cookieLang !== '' && !$hasSearchParam) {
         $secure = is_ssl();
         $sameSite = $secure ? 'None' : 'Lax';
         setcookie('ai_translate_lang', (string) $defaultLang, [
@@ -375,13 +393,13 @@ add_action('template_redirect', function () {
         exit;
     }
 
-    // Ensure search requests have language-prefixed URL
+    // Ensure search requests have language-prefixed URL (fallback for is_search() check)
     if (function_exists('is_search') && is_search()) {
         $cur = \AITranslate\AI_Lang::current();
         $def = \AITranslate\AI_Lang::default();
         $pathNow = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
         if ($cur && $def && strtolower($cur) !== strtolower($def)) {
-            if ($pathNow === '' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
+            if ($pathNow === '' || $pathNow === '/' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
                 $base = home_url('/' . $cur . '/');
                 $target = add_query_arg($_GET, $base);
                 wp_safe_redirect($target, 302);
@@ -993,6 +1011,60 @@ add_action('init', function () {
         update_option('ai_translate_rules_flushed_v2', 1);
     }
 }, 21);
+
+/**
+ * Modify search form action URL to include language code when on a language-prefixed page.
+ * This ensures search forms submit to the correct language URL.
+ */
+add_filter('home_url', function ($url, $path, $scheme) {
+    // Only modify on front-end, skip admin/AJAX/REST
+    if (is_admin() || wp_doing_ajax() || wp_is_json_request()) {
+        return $url;
+    }
+    
+    // Only modify if path is root (/) or empty - this is where search forms typically point to
+    if ($path !== '/' && $path !== '') {
+        return $url;
+    }
+    
+    // Extract language from current URL if present
+    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $langFromUrl = null;
+    if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
+        $langFromUrl = strtolower(sanitize_key($m[1]));
+    }
+    
+    // Only modify if we're currently on a language-prefixed page
+    if ($langFromUrl === null) {
+        return $url;
+    }
+    
+    $defaultLang = \AITranslate\AI_Lang::default();
+    
+    // Only add language prefix if it's not the default language
+    if ($langFromUrl !== '' && $defaultLang && strtolower($langFromUrl) !== strtolower((string) $defaultLang)) {
+        // Check if URL already has language prefix
+        $urlPath = parse_url($url, PHP_URL_PATH);
+        if ($urlPath && !preg_match('#^/([a-z]{2})(?:/|$)#i', $urlPath)) {
+            // Add language prefix to the URL
+            $parsed = parse_url($url);
+            $newPath = '/' . $langFromUrl . '/';
+            $url = $parsed['scheme'] . '://' . $parsed['host'];
+            if (isset($parsed['port'])) {
+                $url .= ':' . $parsed['port'];
+            }
+            $url .= $newPath;
+            if (isset($parsed['query'])) {
+                $url .= '?' . $parsed['query'];
+            }
+            if (isset($parsed['fragment'])) {
+                $url .= '#' . $parsed['fragment'];
+            }
+        }
+    }
+    
+    return $url;
+}, 10, 3);
 
 /**
  * Add Settings quick link on the Plugins page.
