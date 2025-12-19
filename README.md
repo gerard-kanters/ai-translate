@@ -7,6 +7,7 @@ Stable tag: 2.1.5
 Requires PHP: 8.0.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
+Plugin homepage: https://wordpress.org/plugins/ai-translate 
 = AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO. =
 
 ## Short Description
@@ -289,3 +290,4 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 ## Provided by
 
 🌐 [NetCare](https://netcare.nl)
+

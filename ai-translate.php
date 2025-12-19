@@ -317,6 +317,8 @@ add_action('template_redirect', function () {
         return;
     }
 
+    $resolvedLang = null;
+
     // RULE 1: First visit (no cookie) on root - detect browser language and redirect
     if ($reqPath === '/' && $cookieLang === '') {
         // True first visit - detect browser language
@@ -326,6 +328,8 @@ add_action('template_redirect', function () {
         if (!$detected) {
             $detected = (string) $defaultLang;
         }
+
+        $resolvedLang = $detected;
 
         // Set cookie
         $secure = is_ssl();
@@ -345,6 +349,14 @@ add_action('template_redirect', function () {
             exit;
         }
         // If detected == default, no redirect needed, just set language below
+    } elseif ($reqPath === '/' && $cookieLang !== '') {
+        // Returning visitor on root: respect stored preference
+        $resolvedLang = $cookieLang;
+
+        if ($defaultLang && strtolower($cookieLang) !== strtolower((string) $defaultLang)) {
+            wp_safe_redirect(home_url('/' . $cookieLang . '/'), 302);
+            exit;
+        }
     }
 
     // Sync cookie if URL has language prefix
@@ -362,20 +374,38 @@ add_action('template_redirect', function () {
     }
 
     // Set language for content
-    $finalLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : (string) $defaultLang;
+    $finalLang = $resolvedLang;
+    if ($finalLang === null) {
+        $finalLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : (string) $defaultLang;
+    }
     if ($finalLang === '') {
         $finalLang = (string) $defaultLang;
     }
+    $finalLang = strtolower(sanitize_key((string) $finalLang));
+    if ($finalLang !== $cookieLang && $finalLang !== '') {
+        // Keep cookie aligned with the resolved language
+        $secure = is_ssl();
+        $sameSite = $secure ? 'None' : 'Lax';
+        setcookie('ai_translate_lang', $finalLang, [
+            'expires' => time() + 30 * 86400,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => $sameSite
+        ]);
+        $_COOKIE['ai_translate_lang'] = $finalLang;
+    }
+
     \AITranslate\AI_Lang::set_current($finalLang);
 
     // Set WordPress locale
-    add_filter('locale', function ($locale) {
-        $currentLang = \AITranslate\AI_Lang::current();
-        if ($currentLang) {
-            return strtolower($currentLang) . '_' . strtoupper($currentLang);
+    $localeSetter = function ($locale) use ($finalLang) {
+        if ($finalLang) {
+            return strtolower($finalLang) . '_' . strtoupper($finalLang);
         }
         return $locale;
-    });
+    };
+    add_filter('locale', $localeSetter);
 
     // Handle full_reset parameter for testing
     if (isset($_GET['full_reset']) && $_GET['full_reset'] === '1') {
