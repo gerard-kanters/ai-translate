@@ -153,17 +153,23 @@ final class AI_Batch
                             ['role' => 'user', 'content' => $userPayload],
                         ],
                     ];
-                    // Newer models (gpt-5.x, o1-series) use max_completion_tokens instead of max_tokens
+                    // Newer models (gpt-5.x, o1-series, o3-series) and DeepSeek v3.2 use max_completion_tokens instead of max_tokens
                     // These models also don't support temperature != 1, so we omit it
-                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                         $body['max_completion_tokens'] = 4096;
                     } else {
                         $body['max_tokens'] = 4096;
                         $body['temperature'] = 0;
                     }
+                    $headers = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
+                    // OpenRouter requires Referer header (WordPress adds HTTP- prefix automatically)
+                    if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
+                        $headers['Referer'] = home_url();
+                        $headers['X-Title'] = get_bloginfo('name');
+                    }
                     $requests[] = [
                         'url' => $endpoint,
-                        'headers' => [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ],
+                        'headers' => $headers,
                         'data' => wp_json_encode($body),
                         'type' => 'POST',
                         'options' => [ 'timeout' => $timeoutSeconds, 'verify' => true ],
@@ -183,13 +189,18 @@ final class AI_Batch
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             $userPayload = self::buildUserPayload($batchSegs2);
                             $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
-                            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+                            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                                 $body['max_completion_tokens'] = 4096;
                             } else {
                                 $body['max_tokens'] = 4096;
                                 $body['temperature'] = 0;
                             }
-                            $resp = wp_remote_post($endpoint, [ 'headers' => [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ], 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
+                            $fallbackHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
+                            if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
+                                $fallbackHeaders['Referer'] = home_url();
+                                $fallbackHeaders['X-Title'] = get_bloginfo('name');
+                            }
+                            $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                             if (is_wp_error($resp)) { continue; }
                             $code = (int) wp_remote_retrieve_response_code($resp);
                             if ($code !== 200) { continue; }
@@ -229,6 +240,10 @@ final class AI_Batch
                         continue; 
                     }
                     $msg = (string)$choices[0]['message']['content'];
+                    if (trim($msg) === '') {
+                        $failedIndexes[] = (int)$idx;
+                        continue;
+                    }
                     $parsed = json_decode($msg, true);
                     if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
                         $candidate = str_replace(["```json","```JSON","```"], '', $msg);
@@ -236,8 +251,13 @@ final class AI_Batch
                         if ($s !== false && $e !== false && $e >= $s) { $candidate = substr($candidate, $s, $e - $s + 1); }
                         $parsed = json_decode(trim($candidate), true);
                     }
-                    if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations'])) {
-                        foreach ($parsed['translations'] as $k => $v) { $translationsPrimary[(string)$k] = (string)$v; }
+                    if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations']) && !empty($parsed['translations'])) {
+                        foreach ($parsed['translations'] as $k => $v) { 
+                            $translated = trim((string)$v);
+                            if ($translated !== '') {
+                                $translationsPrimary[(string)$k] = $translated;
+                            }
+                        }
                     } else {
                         $failedIndexes[] = (int)$idx;
                     }
@@ -298,37 +318,73 @@ final class AI_Batch
                     $needsRetry[] = $pid;
                 }
             }
+            // If no translations at all, retry all segments with stronger prompt
+            if (empty($translationsPrimary) && !empty($primarySegById)) {
+                $needsRetry = array_keys($primarySegById);
+            }
+            
             if (!empty($needsRetry)) {
-                $strictSystem = $system . "\n\nSTRICT: Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name.";
+                $core = \AITranslate\AI_Translate_Core::get_instance();
+                $targetLangName = '';
+                $availableLangs = $core->get_available_languages();
+                if (isset($availableLangs[$target])) {
+                    $targetLangName = $availableLangs[$target] . ' (' . strtoupper($target) . ')';
+                } else {
+                    $targetLangName = strtoupper($target);
+                }
+                $strictSystem = $system . "\n\nCRITICAL: You MUST translate every segment into " . $targetLangName . ". NEVER return the source text unchanged. If the source text is already in the target language, still translate it to ensure it matches the target language perfectly. Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name that should remain unchanged.";
                 $retrySegs = [];
-                foreach ($needsRetry as $pid) { $retrySegs[] = $primarySegById[$pid]; }
-                $retryChunks = array_chunk($retrySegs, 5);
-                foreach ($retryChunks as $rc) {
-                    $userPayload = self::buildUserPayload($rc);
-                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
-                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
-                        $body['max_completion_tokens'] = 4096;
-                    } else {
-                        $body['max_tokens'] = 4096;
-                        $body['temperature'] = 0;
+                foreach ($needsRetry as $pid) { 
+                    if (isset($primarySegById[$pid])) {
+                        $retrySegs[] = $primarySegById[$pid]; 
                     }
-                    $resp = wp_remote_post($endpoint, [ 'headers' => [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ], 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
-                    if (is_wp_error($resp)) { continue; }
-                    if ((int)wp_remote_retrieve_response_code($resp) !== 200) { continue; }
-                    $rb = (string) wp_remote_retrieve_body($resp);
-                    $d = json_decode($rb, true);
-                    $choices = is_array($d) ? ($d['choices'] ?? []) : [];
-                    if (!$choices || !isset($choices[0]['message']['content'])) { continue; }
-                    $msg = (string) $choices[0]['message']['content'];
-                    $parsed = json_decode($msg, true);
-                    if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                        $cand = str_replace(["```json","```JSON","```"], '', $msg);
-                        $s = strpos($cand, '{'); $e = strrpos($cand, '}');
-                        if ($s !== false && $e !== false && $e >= $s) { $cand = substr($cand, $s, $e - $s + 1); }
-                        $parsed = json_decode(trim($cand), true);
-                    }
-                    if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations'])) {
-                        foreach ($parsed['translations'] as $k => $v) { $translationsPrimary[(string)$k] = (string)$v; }
+                }
+                if (!empty($retrySegs)) {
+                    $retryChunks = array_chunk($retrySegs, 5);
+                    foreach ($retryChunks as $rc) {
+                        $userPayload = self::buildUserPayload($rc);
+                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                        if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
+                            $body['max_completion_tokens'] = 4096;
+                        } else {
+                            $body['max_tokens'] = 4096;
+                            $body['temperature'] = 0;
+                        }
+                        $retryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
+                        if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
+                            $retryHeaders['Referer'] = home_url();
+                            $retryHeaders['X-Title'] = get_bloginfo('name');
+                        }
+                        $resp = wp_remote_post($endpoint, [ 'headers' => $retryHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
+                        if (is_wp_error($resp)) { 
+                            continue; 
+                        }
+                        $code = (int)wp_remote_retrieve_response_code($resp);
+                        if ($code !== 200) { 
+                            continue; 
+                        }
+                        $rb = (string) wp_remote_retrieve_body($resp);
+                        $d = json_decode($rb, true);
+                        $choices = is_array($d) ? ($d['choices'] ?? []) : [];
+                        if (!$choices || !isset($choices[0]['message']['content'])) { 
+                            continue; 
+                        }
+                        $msg = (string) $choices[0]['message']['content'];
+                        $parsed = json_decode($msg, true);
+                        if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
+                            $cand = str_replace(["```json","```JSON","```"], '', $msg);
+                            $s = strpos($cand, '{'); $e = strrpos($cand, '}');
+                            if ($s !== false && $e !== false && $e >= $s) { $cand = substr($cand, $s, $e - $s + 1); }
+                            $parsed = json_decode(trim($cand), true);
+                        }
+                        if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations']) && !empty($parsed['translations'])) {
+                            foreach ($parsed['translations'] as $k => $v) { 
+                                $translated = trim((string)$v);
+                                if ($translated !== '') {
+                                    $translationsPrimary[(string)$k] = $translated;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -362,9 +418,10 @@ final class AI_Batch
                     ['role' => 'user', 'content' => $userPayload],
                 ],
             ];
-            // Newer models (gpt-5.x, o1-series) use max_completion_tokens instead of max_tokens
+            // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens instead of max_tokens
+            // DeepSeek v3.2 also uses max_completion_tokens
             // These models also don't support temperature != 1, so we omit it
-            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                 $body['max_completion_tokens'] = 4096;
             } else {
                 $body['max_tokens'] = 4096;
@@ -380,11 +437,17 @@ final class AI_Batch
                 $timeRemaining = $timeLimit > 0 ? ($timeLimit - (microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true)))) : 60;
                 $safeTimeout = min($timeoutSeconds, max(10, (int)($timeRemaining - 10)));
                 
+                $headers = [
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Content-Type'  => 'application/json',
+                ];
+                // OpenRouter requires Referer header
+                if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
+                    $headers['Referer'] = home_url();
+                    $headers['X-Title'] = get_bloginfo('name');
+                }
                 $response = wp_remote_post($endpoint, [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $apiKey,
-                        'Content-Type'  => 'application/json',
-                    ],
+                    'headers' => $headers,
                     'timeout' => $safeTimeout,
                     'connect_timeout' => 10,
                     'sslverify' => true,
@@ -434,6 +497,104 @@ final class AI_Batch
                 $translationsPrimary[(string) $k] = (string) $v;
             }
         }
+        
+        // Validate coverage and quality; retry missing/unchanged primaries
+        $needsRetry = [];
+        foreach ($primarySegById as $pid => $meta) {
+            if (isset($translationsPrimary[$pid])) {
+                $tr = (string)$translationsPrimary[$pid];
+                $src = (string)$meta['text'];
+                $srcLen = mb_strlen($src);
+                $trLen = mb_strlen($tr);
+                
+                // For ALL languages and ALL lengths: check if translation is exactly identical
+                if ($srcLen > 3 && trim($tr) === trim($src)) {
+                    $needsRetry[] = $pid;
+                }
+                // For non-Latin target languages with longer texts: additional check for Latin ratio
+                elseif ($trLen > 100 && in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'], true)) {
+                    $latinChars = preg_match_all('/[A-Za-z]/', $tr);
+                    $latinRatio = $trLen > 0 ? ($latinChars / $trLen) : 0;
+                    if ($latinRatio > 0.4) {
+                        $needsRetry[] = $pid;
+                    }
+                }
+            } elseif (!isset($cachedPrimary[$pid])) {
+                $needsRetry[] = $pid;
+            }
+        }
+        
+        // If no translations at all, retry all segments with stronger prompt
+        if (empty($translationsPrimary) && !empty($primarySegById)) {
+            $needsRetry = array_keys($primarySegById);
+        }
+        
+        if (!empty($needsRetry)) {
+            $core = \AITranslate\AI_Translate_Core::get_instance();
+            $targetLangName = '';
+            $availableLangs = $core->get_available_languages();
+            if (isset($availableLangs[$targetLang])) {
+                $targetLangName = $availableLangs[$targetLang] . ' (' . strtoupper($targetLang) . ')';
+            } else {
+                $targetLangName = strtoupper($targetLang);
+            }
+            $strictSystem = $system . "\n\nCRITICAL: You MUST translate every segment into " . $targetLangName . ". NEVER return the source text unchanged. If the source text is already in the target language, still translate it to ensure it matches the target language perfectly. Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name that should remain unchanged.";
+            $retrySegs = [];
+            foreach ($needsRetry as $pid) { 
+                if (isset($primarySegById[$pid])) {
+                    $retrySegs[] = $primarySegById[$pid]; 
+                }
+            }
+            if (!empty($retrySegs)) {
+                $retryChunks = array_chunk($retrySegs, 5);
+                foreach ($retryChunks as $rc) {
+                    $userPayload = self::buildUserPayload($rc);
+                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
+                        $body['max_completion_tokens'] = 4096;
+                    } else {
+                        $body['max_tokens'] = 4096;
+                        $body['temperature'] = 0;
+                    }
+                    $seqRetryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
+                    if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
+                        $seqRetryHeaders['Referer'] = home_url();
+                        $seqRetryHeaders['X-Title'] = get_bloginfo('name');
+                    }
+                    $resp = wp_remote_post($endpoint, [ 'headers' => $seqRetryHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
+                    if (is_wp_error($resp)) { 
+                        continue; 
+                    }
+                    $code = (int)wp_remote_retrieve_response_code($resp);
+                    if ($code !== 200) { 
+                        continue; 
+                    }
+                    $rb = (string) wp_remote_retrieve_body($resp);
+                    $d = json_decode($rb, true);
+                    $choices = is_array($d) ? ($d['choices'] ?? []) : [];
+                    if (!$choices || !isset($choices[0]['message']['content'])) { 
+                        continue; 
+                    }
+                    $msg = (string) $choices[0]['message']['content'];
+                    $parsed = json_decode($msg, true);
+                    if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
+                        $cand = str_replace(["```json","```JSON","```"], '', $msg);
+                        $s = strpos($cand, '{'); $e = strrpos($cand, '}');
+                        if ($s !== false && $e !== false && $e >= $s) { $cand = substr($cand, $s, $e - $s + 1); }
+                        $parsed = json_decode(trim($cand), true);
+                    }
+                    if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations']) && !empty($parsed['translations'])) {
+                        foreach ($parsed['translations'] as $k => $v) { 
+                            $translated = trim((string)$v);
+                            if ($translated !== '') {
+                                $translationsPrimary[(string)$k] = $translated;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         // Cache and expand to all ids
         foreach ($translationsPrimary as $pid => $tr) {
             if (isset($primarySegById[$pid])) {
@@ -467,7 +628,7 @@ final class AI_Batch
                 'attr' => isset($seg['attr']) ? (string) $seg['attr'] : null,
             ];
         }
-        $payload['instruction'] = 'Return JSON: {"translations": {"<id>": "<translated>"}}. No extra text.';
+        $payload['instruction'] = 'Translate every segment from the source language to the target language. You MUST translate every segment. Do NOT return the source text unchanged. Return ONLY valid JSON in this exact format: {"translations": {"<id>": "<translated_text>"}}. Every segment ID must have a translated text in the target language. The translated_text must be in the target language, not the source language. No extra text, explanations, or comments outside the JSON.';
         return wp_json_encode($payload);
     }
 }

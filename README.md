@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.1.5
+Stable tag: 2.1.6
 Requires PHP: 8.0.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -154,7 +154,9 @@ Each visitor's language preference is remembered for future visits.
 
 - **💡 OpenAI**: `gpt-4.1-mini` - Do not use GPT 5.1 for translations (slow, expensive, and unnecessarily complex)
 - **💰 Deepseek**: `deepseek-chat` - Slower, but cost-effective
-- **🔧 Custom**: Use OpenRouter or DeepInfra and select a model
+- **🔧 Custom**: Use OpenRouter and select google/gemini-2.5-flash-lite 
+
+Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing. 
 
 ## Development
 
@@ -203,11 +205,12 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Changelog
 
-### 2.1.5
+### 2.1.6
 
 - Support for Wordpress 6.9
 - Issue with language parameter on home page fixed.
 - Issue with search not keeping language code fixed.
+- Improved validation of models, checking account and provider information.
 
 ### 2.1.2
 

@@ -1006,8 +1006,8 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     $core = AI_Translate_Core::get_instance();
 
     try {
-        // Roep de validate_api_settings functie aan in de core class
-        $validation_result = $core->validate_api_settings($provider_key, $api_key, $custom_api_url_value);
+        // Roep de validate_api_settings functie aan in de core class, inclusief model test
+        $validation_result = $core->validate_api_settings($provider_key, $api_key, $custom_api_url_value, $model);
 
         // Als validatie succesvol is, sla settings op
         if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {

@@ -56,19 +56,22 @@ final class AI_Translate_Core
     /**
      * Validate API settings by performing a light request to the provider.
      * - For OpenAI-compatible APIs: GET /models with Bearer key.
+     * - Optionally tests chat/completions endpoint with the selected model.
      * - Throws \Exception on failure.
      *
      * @param string $provider_key
      * @param string $api_key
      * @param string $custom_api_url
+     * @param string $model Optional model to test with chat/completions
      * @return array{ok:bool}
      * @throws \Exception
      */
-    public function validate_api_settings($provider_key, $api_key, $custom_api_url = '')
+    public function validate_api_settings($provider_key, $api_key, $custom_api_url = '', $model = '')
     {
         $provider_key = (string) $provider_key;
         $api_key = (string) $api_key;
         $custom_api_url = (string) $custom_api_url;
+        $model = (string) $model;
 
         if ($provider_key === '') {
             throw new \Exception('Provider ontbreekt');
@@ -86,11 +89,17 @@ final class AI_Translate_Core
         }
 
         $endpoint = rtrim($base, '/') . '/models';
+        $headers = [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type'  => 'application/json',
+        ];
+        // OpenRouter requires Referer header
+        if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
+            $headers['Referer'] = home_url();
+            $headers['X-Title'] = get_bloginfo('name');
+        }
         $resp = wp_remote_get($endpoint, [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type'  => 'application/json',
-            ],
+            'headers' => $headers,
             'timeout' => 15,
             'sslverify' => true,
         ]);
@@ -107,6 +116,68 @@ final class AI_Translate_Core
         if (!is_array($data)) {
             throw new \Exception('Ongeldig antwoord van API');
         }
+
+        // If model is provided, check if it exists in the models list first
+        if ($model !== '') {
+            $modelFound = false;
+            $modelData = null;
+            if (isset($data['data']) && is_array($data['data'])) {
+                foreach ($data['data'] as $m) {
+                    if (is_array($m) && isset($m['id']) && $m['id'] === $model) {
+                        $modelFound = true;
+                        $modelData = $m;
+                        break;
+                    }
+                }
+            }
+            if (!$modelFound) {
+                throw new \Exception('Model "' . $model . '" not found in available models list. Please check the model name.');
+            }
+        }
+
+        // If model is provided, test chat/completions endpoint to ensure model is actually usable
+        if ($model !== '') {
+            $chatEndpoint = rtrim($base, '/') . '/chat/completions';
+            $chatHeaders = [
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type'  => 'application/json',
+            ];
+            // OpenRouter requires Referer header
+            if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
+                $chatHeaders['Referer'] = home_url();
+                $chatHeaders['X-Title'] = get_bloginfo('name');
+            }
+            $chatBody = [
+                'model' => $model,
+                'messages' => [
+                    ['role' => 'user', 'content' => 'Test'],
+                ],
+            ];
+            // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens instead of max_tokens
+            // DeepSeek v3.2 doesn't require max_tokens or max_completion_tokens (per documentation)
+            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
+                $chatBody['max_completion_tokens'] = 5;
+            } elseif (!str_starts_with($model, 'deepseek/deepseek-v3')) {
+                // Only add max_tokens for non-DeepSeek v3 models
+                $chatBody['max_tokens'] = 5;
+                $chatBody['temperature'] = 0;
+            }
+            $chatResp = wp_remote_post($chatEndpoint, [
+                'headers' => $chatHeaders,
+                'timeout' => 20,
+                'sslverify' => true,
+                'body' => wp_json_encode($chatBody),
+            ]);
+            if (is_wp_error($chatResp)) {
+                throw new \Exception('Chat test failed: ' . $chatResp->get_error_message());
+            }
+            $chatCode = (int) wp_remote_retrieve_response_code($chatResp);
+            if ($chatCode !== 200) {
+                $chatBodyText = (string) wp_remote_retrieve_body($chatResp);
+                throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
+            }
+        }
+
         return ['ok' => true];
     }
 
@@ -430,22 +501,29 @@ final class AI_Translate_Core
         $titleHint = isset($context['is_title']) && $context['is_title'] ? "\n- If the text is a title or menu label, keep it concise and natural." : '';
 
         $prompt = sprintf(
-            'You are a professional translation engine.
+            'You are a professional translation engine. Your ONLY job is to translate text from %s to %s.
         
-        Important: The source language is %s and the target language is %s. IGNORE the apparent language of the input text and translate as instructed.%s%s
+        CRITICAL RULES - YOU MUST FOLLOW THESE EXACTLY:
+        1. The input text is in %s (source language). You MUST translate it to %s (target language).
+        2. ALWAYS translate every segment. NEVER return the source text unchanged.
+        3. Even if the input text appears to already be in %s, you MUST still translate it to ensure it is properly in %s.
+        4. Do NOT analyze or detect the language of the input. Simply translate from %s to %s as instructed.
+        5. The output MUST be in %s. Every word must be translated.%s%s
         
         TRANSLATION STYLE:
-        - Make the translation sound natural, fluent, and professional, as if written by a native speaker.
-        - Adapt phrasing slightly to ensure it is persuasive and consistent with standard website language in the target language.
+        - Make the translation sound natural, fluent, and professional, as if written by a native speaker of %s.
+        - Adapt phrasing slightly to ensure it is persuasive and consistent with standard website language in %s.
         - Avoid literal translations that sound awkward or robotic.
-        - Use idiomatic expressions and natural vocabulary appropriate for the audience and context.
-        - Maintain the original tone and intent while ensuring the text flows smoothly and is suitable for publication.
+        - Use idiomatic expressions and natural vocabulary appropriate for %s speakers.
+        - Maintain the original tone and intent while ensuring the text flows smoothly in %s.
+        - ALWAYS translate every word. Do not skip any text. Do not return the source text.
         
         MENU ITEMS:
         - For segments where segment.type is "menu": translate literally and accurately.
         - Keep menu items concise (1-3 words maximum), but always preserve the exact meaning of the original text.
         - NEVER substitute with generic menu labels like "About", "News", or "Services" unless those words appear in the original.
         - Translate the actual words provided, not what you think the menu item should be called.
+        - NEVER return the source text unchanged. Always translate to %s.
         
         URL SLUGS (META TYPE):
         - For segments where segment.type is "meta": these are URL slugs or short keywords.
@@ -453,11 +531,33 @@ final class AI_Translate_Core
         - Use hyphens (-) to separate words if needed in Latin-based languages.
         - For UTF-8 languages use 2-4 characters maximum.
         - Never use full sentences, descriptions, or long phrases.
-        - Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH).%s',
+        - Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH).
+        
+        OUTPUT FORMAT:
+        - Return ONLY valid JSON in this exact format: {"translations": {"<id>": "<translated_text>"}}
+        - Every segment ID must have a translated text in %s (target language).
+        - Do not include any explanations, comments, or extra text outside the JSON.
+        - The translated_text MUST be in %s, not in %s.%s',
             $sourceLangName,
             $targetLangName,
+            $sourceLangName,
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $sourceLangName,
+            $targetLangName,
+            $targetLangName,
             $websiteContext,
-            '',
+            $titleHint,
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $sourceLangName,
+            $targetLangName,
             $titleHint
         );
 
