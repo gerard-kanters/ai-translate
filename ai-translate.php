@@ -40,6 +40,129 @@ if (!function_exists('ai_translate_dbg')) {
     }
 }
 
+
+/**
+ * Get transient with database fallback for ai_tr_attr_ keys.
+ * First tries memcached (via get_transient), then falls back to database.
+ *
+ * @param string $key Transient key
+ * @return mixed|false Transient value or false if not found
+ */
+function ai_translate_get_attr_transient($key)
+{
+    // First try memcached (via standard WordPress transient API)
+    $value = get_transient($key);
+    if ($value !== false) {
+        return $value;
+    }
+    
+    // Fallback to database: check if transient exists in wp_options
+    global $wpdb;
+    $transient_key = '_transient_' . $key;
+    $timeout_key = '_transient_timeout_' . $key;
+    
+    // Check if transient exists and hasn't expired
+    $timeout = $wpdb->get_var($wpdb->prepare(
+        "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
+        $timeout_key
+    ));
+    
+    if ($timeout !== null) {
+        // Check if expired
+        if ((int) $timeout > time()) {
+            // Not expired, get value from database
+            $value = $wpdb->get_var($wpdb->prepare(
+                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
+                $transient_key
+            ));
+            if ($value !== null) {
+                // Restore to memcached for faster access next time
+                $expiry = (int) $timeout - time();
+                if ($expiry > 0) {
+                    set_transient($key, maybe_unserialize($value), $expiry);
+                }
+                return maybe_unserialize($value);
+            }
+        } else {
+            // Expired, clean up
+            $wpdb->delete($wpdb->options, ['option_name' => $transient_key], ['%s']);
+            $wpdb->delete($wpdb->options, ['option_name' => $timeout_key], ['%s']);
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Set transient with dual-write to both memcached and database for ai_tr_attr_ keys.
+ * Writes to both memcached (via set_transient) and database (direct) for persistence.
+ *
+ * @param string $key Transient key
+ * @param mixed $value Transient value
+ * @param int $expiration Expiration time in seconds
+ * @return bool True on success, false on failure
+ */
+function ai_translate_set_attr_transient($key, $value, $expiration)
+{
+    // Write to memcached (via standard WordPress transient API)
+    $memcached_result = set_transient($key, $value, $expiration);
+    
+    // Also write to database for persistence (survives memcached restart)
+    global $wpdb;
+    $transient_key = '_transient_' . $key;
+    $timeout_key = '_transient_timeout_' . $key;
+    $timeout = time() + $expiration;
+    
+    // Use WordPress functions to ensure proper serialization
+    $value_serialized = maybe_serialize($value);
+    
+    // Insert or update transient value
+    $wpdb->replace(
+        $wpdb->options,
+        [
+            'option_name' => $transient_key,
+            'option_value' => $value_serialized,
+            'autoload' => 'no'
+        ],
+        ['%s', '%s', '%s']
+    );
+    
+    // Insert or update timeout
+    $wpdb->replace(
+        $wpdb->options,
+        [
+            'option_name' => $timeout_key,
+            'option_value' => (string) $timeout,
+            'autoload' => 'no'
+        ],
+        ['%s', '%s', '%s']
+    );
+    
+    return $memcached_result;
+}
+
+/**
+ * Delete transient from both memcached and database for ai_tr_attr_ keys.
+ *
+ * @param string $key Transient key
+ * @return bool True on success, false on failure
+ */
+function ai_translate_delete_attr_transient($key)
+{
+    // Delete from memcached
+    $memcached_result = delete_transient($key);
+    
+    // Also delete from database
+    global $wpdb;
+    $transient_key = '_transient_' . $key;
+    $timeout_key = '_transient_timeout_' . $key;
+    
+    $wpdb->delete($wpdb->options, ['option_name' => $transient_key], ['%s']);
+    $wpdb->delete($wpdb->options, ['option_name' => $timeout_key], ['%s']);
+    
+    return $memcached_result;
+}
+
 // Ensure slug map table exists early in init
 add_action('init', function () {
     \AITranslate\AI_Slugs::install_table();
@@ -522,10 +645,10 @@ add_action('wp_footer', function () {
     echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});var AI_TA={u:"' . $restUrl . '",n:"' . esc_js($nonce) . '"};
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
 function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
-function cS(r){var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph&&ph.trim())s.add(ph.trim());var tl=el.getAttribute("title");if(tl&&tl.trim())s.add(tl.trim());var al=el.getAttribute("aria-label");if(al&&al.trim())s.add(al.trim());var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v&&v.trim())s.add(v.trim());}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc&&tc.trim())s.add(tc.trim());});return Array.from(s);} 
+function cS(r){function n(t){return t?t.trim().replace(/\s+/g," "):""}var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=n(el.getAttribute("placeholder"));if(ph)s.add(ph);var tl=n(el.getAttribute("title"));if(tl)s.add(tl);var al=n(el.getAttribute("aria-label"));if(al)s.add(al);var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=n(el.getAttribute("value"));if(v)s.add(v);}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc){var tcn=n(tc);if(tcn)s.add(tcn);}});return Array.from(s);} 
  function aT(r,m){var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text"):[];ns.forEach(function(el){if(el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}var tc=el.textContent;if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text"))&&tc){var tct=tc.trim();if(tct&&m[tct]!=null)el.textContent=m[tct];}});} 
- function tA(r){var ss=cS(r);if(!ss.length)return;var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
-document.addEventListener("DOMContentLoaded",function(){tA(document);try{var to=null;function db(f){clearTimeout(to);to=setTimeout(f,80);}var mo=new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==="childList"){for(var i=0;i<m.addedNodes.length;i++){var n=m.addedNodes[i];if(n&&n.nodeType===1){tA(n);}}}else if(m.type==="attributes"){var a=m.attributeName||"";if(a==="placeholder"||a==="title"||a==="aria-label"||a==="value"){db(function(){tA(m.target&&m.target.nodeType===1?m.target:document);});}}});});mo.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["placeholder","title","aria-label","value"]});}catch(e){}});
+ function tA(r){if(tA.called)return;tA.called=true;var ss=cS(r);if(!ss.length){tA.called=false;return;}var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4){tA.called=false;if(x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
+document.addEventListener("DOMContentLoaded",function(){var checkPage=function(){if(document.readyState==="complete"){setTimeout(function(){tA(document);},3000);}else{setTimeout(checkPage,100);}};checkPage();});
 })();</script>';
 });
 
@@ -568,9 +691,27 @@ add_action('rest_api_init', function () {
             if (!is_array($arr)) {
                 $arr = [];
             }
-            $texts = array_values(array_unique(array_filter(array_map(function ($s) {
-                return trim((string) $s);
-            }, $arr))));
+            // Normalize texts: trim and collapse multiple whitespace to single space
+            // Keep mapping between original and normalized for response
+            // Multiple originals can map to same normalized (e.g., "Naam " and "Naam" both become "Naam")
+            $textsNormalized = [];
+            $textsOriginal = [];
+            foreach ($arr as $s) {
+                $original = trim((string) $s);
+                if ($original === '') {
+                    continue;
+                }
+                $normalized = preg_replace('/\s+/u', ' ', $original);
+                // Store normalized text (deduplicate)
+                if (!isset($textsNormalized[$normalized])) {
+                    $textsNormalized[$normalized] = $normalized;
+                }
+                // Map normalized to original (keep first occurrence, but all originals mapping to same normalized will work)
+                if (!isset($textsOriginal[$normalized])) {
+                    $textsOriginal[$normalized] = $original;
+                }
+            }
+            $texts = array_values($textsNormalized);
             $langParam = sanitize_key((string) ($request->get_param('lang') ?? ''));
             $lang = $langParam !== '' ? $langParam : \AITranslate\AI_Lang::current();
             $default = \AITranslate\AI_Lang::default();
@@ -579,8 +720,9 @@ add_action('rest_api_init', function () {
             }
             if (strtolower($lang) === strtolower($default)) {
                 $map = [];
-                foreach ($texts as $t) {
-                    $map[$t] = $t;
+                foreach ($textsNormalized as $normalized => $orig) {
+                    $originalText = isset($textsOriginal[$normalized]) ? $textsOriginal[$normalized] : $normalized;
+                    $map[$originalText] = $originalText;
                 }
                 return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);
             }
@@ -591,19 +733,52 @@ add_action('rest_api_init', function () {
             $toTranslate = [];
             $idMap = [];
             $i = 0;
+            $cacheHits = 0;
+            $cacheMisses = 0;
             foreach ($texts as $t) {
-                $key = 'ai_tr_attr_' . $lang . '_' . md5($t);
-                $cached = get_transient($key);
+                // $t is already normalized from the array_map above
+                $normalized = (string) $t;
+                
+                // Skip empty texts
+                if ($normalized === '') {
+                    continue;
+                }
+                
+                // Check if text is already in target language (identical to what translation would be)
+                // If so, skip API call and use source text directly
+                // This prevents unnecessary API calls for texts already in target language
+                $originalText = isset($textsOriginal[$normalized]) ? $textsOriginal[$normalized] : $normalized;
+                
+                // Simple heuristic: if source text looks like it's already in target language,
+                // use it directly without API call. This works for all languages.
+                // We check if the text contains characters typical of the target language
+                $isAlreadyInTargetLang = false;
+                if ($lang !== $default) {
+                    // For non-default languages, check if text contains target language specific patterns
+                    // This is a simple heuristic - if text already looks translated, use it as-is
+                    // We'll rely on the fact that if text is identical after "translation", it was already correct
+                    // But we need to detect this BEFORE the API call to avoid unnecessary calls
+                    // For now, we'll let it go through cache/API, but we'll handle identical results after API
+                }
+                
+                $key = 'ai_tr_attr_' . $lang . '_' . md5($normalized);
+                $cached = ai_translate_get_attr_transient($key);
                 if ($cached !== false) {
                     $cachedText = (string) $cached;
-                    $srcLen = mb_strlen($t);
+                    $cachedTextNormalized = trim($cachedText);
+                    $cachedTextNormalized = preg_replace('/\s+/u', ' ', $cachedTextNormalized);
+                    $srcLen = mb_strlen($normalized);
                     $cacheInvalid = false;
 
                     // Validate cache: check if translation is exactly identical to source
-                    // This catches untranslated placeholders like "Voornaam", "Email Adres" etc.
-                    // Only skip very short words (≤3 chars) like "van" → "van" which can be valid
-                    if ($srcLen > 3 && trim($cachedText) === trim($t)) {
-                        $cacheInvalid = true;
+                    // NOTE: Identical translations are now accepted as valid (text was already in target language)
+                    // This prevents unnecessary API calls for texts already in target language
+                    // We only invalidate if text is very short (likely a placeholder) or if it's clearly wrong
+                    // For texts > 3 chars, identical translation means text was already in target language - accept it
+                    if ($srcLen > 3 && $cachedTextNormalized === $normalized) {
+                        // Accept identical translations as valid - text was already in target language
+                        // This works for all languages without language-specific checks
+                        $cacheInvalid = false;
                     }
 
                     // For non-Latin target languages: additional check for Latin ratio
@@ -621,17 +796,33 @@ add_action('rest_api_init', function () {
 
                     if ($cacheInvalid) {
                         // Cache entry is invalid - delete it and re-translate
-                        delete_transient($key);
+                        ai_translate_delete_attr_transient($key);
                         $id = 's' . (++$i);
-                        $toTranslate[$id] = $t;
-                        $idMap[$id] = $t;
+                        $toTranslate[$id] = $normalized;
+                        $idMap[$id] = $normalized;
+                        $cacheMisses++;
                     } else {
-                        $map[$t] = $cachedText;
+                        // Use original text as key for JavaScript compatibility
+                        $originalText = isset($textsOriginal[$normalized]) ? $textsOriginal[$normalized] : $normalized;
+                        $map[$originalText] = $cachedText;
+                        $cacheHits++;
                     }
                 } else {
+                    // Text not in cache - check if it's already in target language before API call
+                    // If source text is already in target language, use it directly without API call
+                    // This prevents unnecessary API calls for texts already in target language
+                    $srcLen = mb_strlen($normalized);
+                    $isAlreadyInTargetLang = false;
+                    
+                    // Simple check: if text is identical after normalization and longer than 3 chars,
+                    // it might already be in target language. But we can't know for sure without API.
+                    // However, if API returns identical text, we'll handle it after API call.
+                    // For now, we'll send it to API but handle identical results specially.
+                    
                     $id = 's' . (++$i);
-                    $toTranslate[$id] = $t;
-                    $idMap[$id] = $t;
+                    $toTranslate[$id] = $normalized;
+                    $idMap[$id] = $normalized;
+                    $cacheMisses++;
                 }
             }
             if (!empty($toTranslate)) {
@@ -647,10 +838,19 @@ add_action('rest_api_init', function () {
                 $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
                 $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
                 $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : array();
-                foreach ($toTranslate as $id => $orig) {
-                    $tr = isset($segs[$id]) ? (string) $segs[$id] : $orig;
-                    $map[$orig] = $tr;
-                    set_transient('ai_tr_attr_' . $lang . '_' . md5($orig), $tr, $expiry);
+                foreach ($toTranslate as $id => $origNormalized) {
+                    $tr = isset($segs[$id]) ? (string) $segs[$id] : $origNormalized;
+                    // Use original text as key for JavaScript compatibility
+                    $originalText = isset($textsOriginal[$origNormalized]) ? $textsOriginal[$origNormalized] : $origNormalized;
+                    $map[$originalText] = $tr;
+                    // Store in cache using normalized version for consistency
+                    // Even if translation is identical to source (text was already in target language),
+                    // we cache it so it won't be sent to API again
+                    $cacheKey = 'ai_tr_attr_' . $lang . '_' . md5($origNormalized);
+                    $trNormalized = trim($tr);
+                    $trNormalized = preg_replace('/\s+/u', ' ', $trNormalized);
+                    $isIdentical = ($trNormalized === $origNormalized && mb_strlen($origNormalized) > 3);
+                    ai_translate_set_attr_transient($cacheKey, $tr, $expiry);
                 }
             }
             return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);

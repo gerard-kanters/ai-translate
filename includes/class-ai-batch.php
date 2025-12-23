@@ -69,6 +69,8 @@ final class AI_Batch
         $primarySegById = [];
         $cachedPrimary = [];
         $workSegments = [];
+        $cacheHits = 0;
+        $cacheMisses = 0;
         foreach ($segments as $seg) {
             $type = isset($seg['type']) ? (string)$seg['type'] : 'node';
             $text = (string) ($seg['text'] ?? '');
@@ -112,11 +114,14 @@ final class AI_Batch
                     
                     if ($cacheInvalid) {
                         $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
+                        $cacheMisses++;
                     } else {
                         $cachedPrimary[$seg['id']] = $cachedText;
+                        $cacheHits++;
                     }
                 } else {
                     $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
+                    $cacheMisses++;
                 }
             } else {
                 $primary = $primaryByKey[$key];
@@ -178,7 +183,9 @@ final class AI_Batch
                 }
                 // Single attempt + optional one retry for failures
                 $doAttempt = function(array $requests) use ($reqClass) {
-                    try { return $reqClass::request_multiple($requests); } catch (\Throwable $e) { return $e; }
+                    try { return $reqClass::request_multiple($requests); } catch (\Throwable $e) { 
+                        return $e; 
+                    }
                 };
                 $responses = $doAttempt($requests);
                 if ($responses instanceof \Throwable) {
@@ -562,7 +569,7 @@ final class AI_Batch
                         $seqRetryHeaders['X-Title'] = get_bloginfo('name');
                     }
                     $resp = wp_remote_post($endpoint, [ 'headers' => $seqRetryHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
-                    if (is_wp_error($resp)) { 
+                        if (is_wp_error($resp)) {
                         continue; 
                     }
                     $code = (int)wp_remote_retrieve_response_code($resp);
@@ -632,5 +639,3 @@ final class AI_Batch
         return wp_json_encode($payload);
     }
 }
-
-
