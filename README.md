@@ -211,6 +211,8 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Issue with language parameter on home page fixed.
 - Issue with search not keeping language code fixed.
 - Improved validation of models, checking account and provider information.
+- Improved UI caching of dynamic elements. 
+- Dual caching strategy for object oriented caching implemented.
 
 ### 2.1.2
 
