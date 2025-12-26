@@ -635,204 +635,29 @@ final class AI_Translate_Core
     }
 
     /**
-     * Generate a website context suggestion using LLM based on homepage content.
-     * Uses default language content and generates a concise tagline (150-200 characters).
+     * Generate a website context suggestion based on homepage content.
+     * This is a lightweight heuristic (no external calls) to avoid failures without API.
      *
      * @return string
-     * @throws \Exception
      */
     public function generate_website_context_suggestion()
     {
-        // Get API settings
-        $settings = get_option('ai_translate_settings', []);
-        $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
-        $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
-        $model = $provider !== '' ? ($models[$provider] ?? '') : '';
-        $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
-        $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
-        $customApiUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
-        $default_lang = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
-        
-        // Check if API is configured
-        if ($provider === '' || $model === '' || $apiKey === '') {
-            throw new \Exception('API settings not configured. Please configure API provider, model, and API key first.');
+        // Try to get the homepage content/title to build a short context
+        $home_id = (int) get_option('page_on_front');
+        $site_name = (string) get_bloginfo('name');
+        if ($home_id > 0) {
+            $post = get_post($home_id);
+            if ($post) {
+                $title = trim((string) $post->post_title);
+                $excerpt = trim(wp_strip_all_tags((string) $post->post_excerpt !== '' ? $post->post_excerpt : $post->post_content));
+                $excerpt = mb_substr($excerpt, 0, 280);
+                $parts = [];
+                if ($site_name !== '') $parts[] = $site_name;
+                if ($title !== '') $parts[] = $title;
+                if ($excerpt !== '') $parts[] = $excerpt;
+                return implode(' — ', $parts);
+            }
         }
-        
-        // Get API base URL
-        $baseUrl = self::get_api_url_for_provider($provider);
-        if ($provider === 'custom') {
-            $baseUrl = $customApiUrl;
-        }
-        if ($baseUrl === '') {
-            throw new \Exception('API URL is missing.');
-        }
-        
-        // Store current language and temporarily set to default
-        $current_lang = AI_Lang::current();
-        if ($default_lang !== '' && $current_lang !== $default_lang) {
-            AI_Lang::set_current($default_lang);
-        }
-        
-        try {
-            // Get homepage content
-            $site_name = (string) get_bloginfo('name');
-            $blogdesc = (string) get_option('blogdescription', '');
-            $home_id = (int) get_option('page_on_front');
-            
-            $homepage_content = '';
-            $homepage_title = '';
-            
-            if ($home_id > 0) {
-                $post = get_post($home_id);
-                if ($post) {
-                    $homepage_title = trim((string) $post->post_title);
-                    $content = (string) $post->post_content;
-                    $content = strip_shortcodes($content); // Remove shortcodes like [mb_section ...]
-                    $content = wp_strip_all_tags($content); // Remove HTML tags
-                    $content = preg_replace('/\s+/', ' ', $content); // Normalize whitespace
-                    $homepage_content = trim($content);
-                }
-            }
-            
-            // Build prompt for LLM
-            $prompt_parts = [];
-            if ($site_name !== '') {
-                $prompt_parts[] = 'Website name: ' . $site_name;
-            }
-            if ($homepage_title !== '') {
-                $prompt_parts[] = 'Page title: ' . $homepage_title;
-            }
-            if ($blogdesc !== '') {
-                $prompt_parts[] = 'Tagline: ' . $blogdesc;
-            }
-            if ($homepage_content !== '') {
-                // Limit content to first 500 words to avoid token limits
-                $content_excerpt = wp_trim_words($homepage_content, 500, '');
-                $prompt_parts[] = 'Homepage content: ' . $content_excerpt;
-            }
-            
-            $context_text = implode("\n\n", $prompt_parts);
-            
-            if ($context_text === '') {
-                throw new \Exception('No homepage content found to generate context from.');
-            }
-            
-            // Get default language name for prompt
-            $default_lang_name = 'the default language';
-            if ($default_lang !== '') {
-                $languages = $this->get_available_languages();
-                if (isset($languages[$default_lang])) {
-                    $default_lang_name = $languages[$default_lang] . ' (' . strtoupper($default_lang) . ')';
-                } else {
-                    $default_lang_name = strtoupper($default_lang);
-                }
-            }
-            
-            $system_prompt = sprintf(
-                'You are a professional copywriter. Generate a concise website tagline/description based on the provided website information. The tagline MUST be written in %s (the website\'s default language). The tagline should be exactly 150-200 characters long, professional, engaging, and accurately represent the website\'s purpose and content. Return only the tagline text in %s, without quotes or additional formatting.',
-                $default_lang_name,
-                $default_lang_name
-            );
-            
-            $user_prompt = sprintf(
-                "Based on the following website information, generate a professional tagline in %s (150-200 characters):\n\n%s",
-                $default_lang_name,
-                $context_text
-            );
-            
-            // Make API call
-            $endpoint = rtrim($baseUrl, '/') . '/chat/completions';
-            $headers = [
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type'  => 'application/json',
-            ];
-            
-            // OpenRouter requires Referer header
-            if ($provider === 'custom' && strpos($customApiUrl, 'openrouter.ai') !== false) {
-                $headers['Referer'] = home_url();
-                $headers['X-Title'] = $site_name;
-            }
-            
-            $body = [
-                'model' => $model,
-                'messages' => [
-                    ['role' => 'system', 'content' => $system_prompt],
-                    ['role' => 'user', 'content' => $user_prompt],
-                ],
-            ];
-            
-            // Handle different model types
-            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                $body['max_completion_tokens'] = 200;
-            } else {
-                $body['max_tokens'] = 200;
-                $body['temperature'] = 0.7; // Slightly creative for tagline generation
-            }
-            
-            $response = wp_remote_post($endpoint, [
-                'headers' => $headers,
-                'timeout' => 30,
-                'sslverify' => true,
-                'body' => wp_json_encode($body),
-            ]);
-            
-            // Restore original language
-            if ($current_lang !== null) {
-                AI_Lang::set_current($current_lang);
-            } else {
-                AI_Lang::reset();
-            }
-            
-            if (is_wp_error($response)) {
-                throw new \Exception('API request failed: ' . $response->get_error_message());
-            }
-            
-            $code = (int) wp_remote_retrieve_response_code($response);
-            if ($code !== 200) {
-                $body_text = (string) wp_remote_retrieve_body($response);
-                throw new \Exception('API returned HTTP ' . $code . ': ' . substr($body_text, 0, 500));
-            }
-            
-            $resp_body = (string) wp_remote_retrieve_body($response);
-            $data = json_decode($resp_body, true);
-            
-            if (!is_array($data) || !isset($data['choices'][0]['message']['content'])) {
-                throw new \Exception('Invalid API response format.');
-            }
-            
-            $generated_text = trim((string) $data['choices'][0]['message']['content']);
-            
-            // Clean up the response (remove quotes if present)
-            $generated_text = trim($generated_text, '"\'');
-            
-            // Ensure reasonable length (if too short or too long, use fallback)
-            if (mb_strlen($generated_text) < 50) {
-                // Too short, use fallback
-                if ($blogdesc !== '' && mb_strlen($blogdesc) >= 20) {
-                    return $site_name !== '' ? $site_name . ' — ' . $blogdesc : $blogdesc;
-                }
-                return $site_name !== '' ? $site_name : 'Website context';
-            }
-            
-            // If too long, trim it
-            if (mb_strlen($generated_text) > 250) {
-                $generated_text = mb_substr($generated_text, 0, 247);
-                $last_space = mb_strrpos($generated_text, ' ');
-                if ($last_space !== false && $last_space > 150) {
-                    $generated_text = mb_substr($generated_text, 0, $last_space);
-                }
-            }
-            
-            return $generated_text;
-            
-        } catch (\Exception $e) {
-            // Restore original language on error
-            if ($current_lang !== null) {
-                AI_Lang::set_current($current_lang);
-            } else {
-                AI_Lang::reset();
-            }
-            throw $e;
-        }
+        return $site_name !== '' ? $site_name : 'Website context';
     }
 }

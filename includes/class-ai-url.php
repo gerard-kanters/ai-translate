@@ -36,8 +36,8 @@ final class AI_URL
         if ($links) {
             foreach ($links as $a) {
                 /** @var \DOMElement $a */
-                // Skip language switcher or marked links
-                if ($a->hasAttribute('data-ai-trans-skip')) {
+                // Skip language switcher or marked links (self or ancestor)
+                if (self::hasSkipFlag($a)) {
                     continue;
                 }
                 $href = (string) $a->getAttribute('href');
@@ -56,8 +56,8 @@ final class AI_URL
         if ($permalinks) {
             foreach ($permalinks as $a) {
                 /** @var \DOMElement $a */
-                // Skip language switcher or marked links
-                if ($a->hasAttribute('data-ai-trans-skip')) {
+                // Skip language switcher or marked links (self or ancestor)
+                if (self::hasSkipFlag($a)) {
                     continue;
                 }
                 $href = (string) $a->getAttribute('href');
@@ -157,6 +157,33 @@ final class AI_URL
         if (strpos($lower, '/wp-json/') !== false) return true;
         if (strpos($lower, 'admin-ajax.php') !== false) return true;
         if (strpos($lower, 'rest_route=') !== false) return true;
+        if (strpos($lower, 'switch_lang=') !== false || strpos($lower, '_lang_switch=') !== false) return true;
+        return false;
+    }
+
+    /**
+     * Check if element or any ancestor is marked to skip rewriting.
+     *
+     * @param \DOMElement $el
+     * @return bool
+     */
+    private static function hasSkipFlag(\DOMElement $el)
+    {
+        $node = $el;
+        while ($node && $node instanceof \DOMElement) {
+            $id = strtolower((string) $node->getAttribute('id'));
+            if ($id === 'ai-trans' || $id === 'ai-trans-menu') {
+                return true;
+            }
+            if ($node->hasAttribute('data-ai-trans-skip')) {
+                return true;
+            }
+            $classAttr = ' ' . strtolower((string) $node->getAttribute('class')) . ' ';
+            if (strpos($classAttr, ' ai-trans-item ') !== false) {
+                return true;
+            }
+            $node = $node->parentNode instanceof \DOMElement ? $node->parentNode : null;
+        }
         return false;
     }
 
@@ -165,6 +192,24 @@ final class AI_URL
         $home = home_url('/');
         $homeParts = wp_parse_url($home);
         $hrefParts = wp_parse_url($href);
+
+        // Hard skip when switcher params are present
+        if (isset($hrefParts['query']) && $hrefParts['query'] !== '') {
+            $params = [];
+            parse_str((string) $hrefParts['query'], $params);
+            if (isset($params['switch_lang']) || isset($params['_lang_switch'])) {
+                return $href; // leave untouched
+            }
+        }
+
+        // Skip pure root or pure /xx/ language-home links to avoid rewriting the switcher
+        $pathOnly = isset($hrefParts['path']) ? (string) $hrefParts['path'] : '/';
+        if ($pathOnly === '' || $pathOnly === '/') {
+            return $href;
+        }
+        if (preg_match('#^/([a-z]{2})/?$#i', $pathOnly)) {
+            return $href;
+        }
 
         // Determine if internal
         $isRelative = !isset($hrefParts['host']) && !isset($hrefParts['scheme']);
@@ -179,6 +224,16 @@ final class AI_URL
         // Build path
         $path = isset($hrefParts['path']) ? $hrefParts['path'] : '/';
         $path = self::normalizePath($path, $homeParts);
+        // Wanneer de href al expliciet een taalprefix heeft die AFWIJKT van de huidige $lang,
+        // laat de link ongemoeid (language switcher moet niet naar huidige taal herschreven worden).
+        if (preg_match('#^/([a-z]{2})(/|$)#i', $path, $pm)) {
+            $hrefLang = strtolower($pm[1]);
+            if ($hrefLang !== strtolower($lang)) {
+                $query = isset($hrefParts['query']) ? ('?' . $hrefParts['query']) : '';
+                $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
+                return $path . $query + $frag;
+            }
+        }
         // Do not attempt to split arbitrary two-letter prefixes; rely on proper rewrite rules
 
         // Special handling for blog pagination links and posts index:

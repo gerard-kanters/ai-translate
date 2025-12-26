@@ -62,7 +62,8 @@ final class AI_Batch
         // Build primary-id set by de-duplicating equal texts per type; cache per string to reduce calls
         $targetLang = (string) $target;
         $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14*24);
-        $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
+        $expiry = $expiry_hours * HOUR_IN_SECONDS;
+        $identicalWhitelist = array_map('strtolower', ['wordpress', 'netcare', 'netcare.nl', 'vioolles', 'vioolles.net']);
 
         $primaryByKey = [];
         $idsByPrimary = [];
@@ -92,10 +93,12 @@ final class AI_Batch
                     $cachedLen = mb_strlen($cachedText);
                     $cacheInvalid = false;
                     
+                    $srcLower = mb_strtolower(trim($trimmed));
+                    $cachedLower = mb_strtolower(trim($cachedText));
                     // For ALL languages and ALL lengths: check if translation is exactly identical
-                    // This catches untranslated placeholders like "Naam", "Email", "Telefoon" etc.
-                    // Only skip very short words (≤3 chars) like "van" → "van" which can be valid
-                    if ($srcLen > 3 && trim($cachedText) === trim($trimmed)) {
+                    // Only invalidate when text is longer than 15 chars and not whitelisted (brand terms allowed)
+                    // Short UI texts (≤15 chars) like "Send Message", "Submit", "Cancel" can legitimately be identical
+                    if ($srcLen > 15 && $srcLower === $cachedLower && !in_array($srcLower, $identicalWhitelist, true)) {
                         $cacheInvalid = true;
                     }
                     
@@ -115,6 +118,12 @@ final class AI_Batch
                     if ($cacheInvalid) {
                         $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
                         $cacheMisses++;
+                        \ai_translate_dbg('Segment cache INVALID (will retranslate)', [
+                            'lang' => $targetLang,
+                            'type' => $type,
+                            'text_preview' => mb_substr($trimmed, 0, 50),
+                            'reason' => $srcLower === $cachedLower ? 'identical' : 'latin_ratio'
+                        ]);
                     } else {
                         $cachedPrimary[$seg['id']] = $cachedText;
                         $cacheHits++;
@@ -130,9 +139,31 @@ final class AI_Batch
             }
         }
 
+        // Log cache statistics before API calls
+        $totalSegments = count($segments);
+        \ai_translate_dbg('Batch translation cache stats', [
+            'lang' => $targetLang,
+            'total_segments' => $totalSegments,
+            'cache_hits' => $cacheHits,
+            'cache_misses' => $cacheMisses,
+            'segments_to_translate' => count($workSegments),
+            'cache_hit_ratio' => $totalSegments > 0 ? round(($cacheHits / $totalSegments) * 100, 1) . '%' : '0%'
+        ]);
+
         // Use smaller chunk sizes to prevent API response truncation issues
         $chunkSize = ($provider === 'deepseek') ? 8 : 5;
         $batches = ($chunkSize < count($workSegments)) ? array_chunk($workSegments, $chunkSize) : [ $workSegments ];
+        
+        // Log API call info
+        if (!empty($workSegments)) {
+            \ai_translate_dbg('Making API call(s) for segments', [
+                'lang' => $targetLang,
+                'provider' => $provider,
+                'model' => $model,
+                'num_batches' => count($batches),
+                'total_segments_in_batches' => count($workSegments)
+            ]);
+        }
 
         // Concurrency: for DeepSeek, parallel chunks using Requests::request_multiple if available
         $translationsPrimary = [];
@@ -308,8 +339,8 @@ final class AI_Batch
                     
                     // For ALL languages and ALL lengths: check if translation is exactly identical
                     // This catches untranslated placeholders like "Naam", "Email", "Telefoon" etc.
-                    // Only skip very short words (≤3 chars) like "van" → "van" which can be valid
-                    if ($srcLen > 3 && trim($tr) === trim($src)) {
+                    // Only skip very short words (≤15 chars) like "Send Message", "Submit", "Cancel" which can be valid UI texts
+                    if ($srcLen > 15 && trim($tr) === trim($src)) {
                         $needsRetry[] = $pid;
                     }
                     // For non-Latin target languages with longer texts: additional check for Latin ratio
@@ -397,11 +428,19 @@ final class AI_Batch
             }
 
             // Write cache for primaries and expand to full id map
+            $newlyCached = 0;
             foreach ($translationsPrimary as $pid => $tr) {
                 if (isset($primarySegById[$pid])) {
                     $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
                     set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
+                    $newlyCached++;
                 }
+            }
+            if ($newlyCached > 0) {
+                \ai_translate_dbg('Cached new segment translations', [
+                    'lang' => $targetLang,
+                    'num_segments_cached' => $newlyCached
+                ]);
             }
             $final = [];
             // include cached primaries as well
@@ -515,7 +554,8 @@ final class AI_Batch
                 $trLen = mb_strlen($tr);
                 
                 // For ALL languages and ALL lengths: check if translation is exactly identical
-                if ($srcLen > 3 && trim($tr) === trim($src)) {
+                // Only skip very short words (≤15 chars) like "Send Message", "Submit", "Cancel" which can be valid UI texts
+                if ($srcLen > 15 && trim($tr) === trim($src)) {
                     $needsRetry[] = $pid;
                 }
                 // For non-Latin target languages with longer texts: additional check for Latin ratio
@@ -603,11 +643,19 @@ final class AI_Batch
         }
         
         // Cache and expand to all ids
+        $newlyCached = 0;
         foreach ($translationsPrimary as $pid => $tr) {
             if (isset($primarySegById[$pid])) {
                 $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
                 set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
+                $newlyCached++;
             }
+        }
+        if ($newlyCached > 0) {
+            \ai_translate_dbg('Cached new segment translations (sequential)', [
+                'lang' => $targetLang,
+                'num_segments_cached' => $newlyCached
+            ]);
         }
         $final = [];
         foreach ($cachedPrimary as $pid => $tr) { $translationsPrimary[$pid] = $tr; }

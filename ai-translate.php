@@ -623,17 +623,14 @@ add_action('wp_footer', function () {
 
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
-        // Always go to the language homepage on switch
-        $targetPath = ($code === $default) ? '/' : ('/' . $code . '/');
-        // Normalize double slashes
+        $label = strtoupper($code === $default ? $default : $code);
+        // Default taal: absolute home zonder filter; andere talen: {home}/{code}/
+        $siteHome = rtrim((string) get_option('home'), '/');
+        $targetPath = ($code === $default) ? ('/' . $default . '/') : ('/' . $code . '/');
         $targetPath = preg_replace('#/{2,}#', '/', $targetPath);
-        // Build target URL WITH switch_lang parameter
-        $url = home_url($targetPath);
-        // Switcher param is handled by init hook to set cookie, then redirects to clean URL
-        $url = add_query_arg('switch_lang', $code, $url);
-        $url = esc_url($url);
+        $url = esc_url($siteHome . $targetPath);
         $flag = esc_url($flags_url . $code . '.png');
-        echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr(strtoupper($code)) . '"><span>' . esc_html(strtoupper($code)) . '</span></a>';
+        echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr($label) . '"><span>' . esc_html($label) . '</span></a>';
     }
 
     echo '</div></div>';
