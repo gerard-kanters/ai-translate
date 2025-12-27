@@ -91,15 +91,39 @@ final class AI_OB
         $route = $this->current_route_id();
         // Allow cache bypass via nocache parameter for testing
         $nocache = isset($_GET['nocache']) || isset($_GET['no_cache']);
-        $key = AI_Cache::key($lang, $route, $this->content_version());
+        // Note: content_version removed from cache key for stability
+        // route_id is already unique per page, making content_version unnecessary
+        // Cache expiry (14+ days) ensures automatic refresh
+        $key = AI_Cache::key($lang, $route, '');
         if (!$bypassUserCache && !$nocache) {
             $cached = AI_Cache::get($key);
+            \ai_translate_dbg('Page cache lookup', [
+                'lang' => $lang,
+                'route' => $route,
+                'key_preview' => substr($key, 0, 50),
+                'cache_found' => $cached !== false
+            ]);
             if ($cached !== false) {
+                \ai_translate_dbg('Page cache HIT', [
+                    'lang' => $lang,
+                    'route' => $route,
+                    'key_preview' => substr($key, 0, 50)
+                ]);
                 // Validate cached content for substantial untranslated text (> 4 words)
                 $defaultLang = AI_Lang::default();
                 if ($defaultLang !== null) {
                     $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang);
-                    if ($untranslatedCheck['has_untranslated']) {
+                    \ai_translate_dbg('Page cache validation', [
+                        'lang' => $lang,
+                        'route' => $route,
+                        'has_untranslated' => $untranslatedCheck['has_untranslated'],
+                        'word_count' => $untranslatedCheck['word_count'] ?? 0,
+                        'reason' => $untranslatedCheck['reason'] ?? ''
+                    ]);
+                    // Only invalidate if there are actually untranslated words (> 4)
+                    // If word_count is 0 or missing, the check is likely a false positive
+                    $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
+                    if ($untranslatedCheck['has_untranslated'] && $wordCount > 4) {
                         // Check retry counter to avoid infinite loops
                         $retryKey = 'ai_translate_retry_' . md5($key);
                         $retryCount = (int) get_transient($retryKey);
@@ -107,6 +131,12 @@ final class AI_OB
                         if ($retryCount < 1) {
                             // Mark as retry and invalidate cache to force retranslation
                             set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
+                            \ai_translate_dbg('Page cache invalidated due to untranslated content, retrying translation', [
+                                'lang' => $lang,
+                                'route' => $route,
+                                'retry_count' => $retryCount + 1,
+                                'word_count' => $wordCount
+                            ]);
                             // Fall through to translation below (don't return cached)
                         } else {
                             // Max retries reached, serve cached version anyway
@@ -115,15 +145,36 @@ final class AI_OB
                         }
                     } else {
                         // Cache is good, return it
+                        \ai_translate_dbg('Page cache validated OK, serving cached page', [
+                            'lang' => $lang,
+                            'route' => $route
+                        ]);
                         $processing = false;
                         return $cached;
                     }
                 } else {
                     // No default language configured, return cache as-is
+                    \ai_translate_dbg('Page cache served (no default lang check)', [
+                        'lang' => $lang,
+                        'route' => $route
+                    ]);
                     $processing = false;
                     return $cached;
                 }
+            } else {
+                \ai_translate_dbg('Page cache MISS', [
+                    'lang' => $lang,
+                    'route' => $route,
+                    'key_preview' => substr($key, 0, 50),
+                    'reason' => 'not_found'
+                ]);
             }
+        } else {
+            \ai_translate_dbg('Page cache BYPASSED', [
+                'lang' => $lang,
+                'route' => $route,
+                'reason' => $bypassUserCache ? 'logged_in_user' : ($nocache ? 'nocache_param' : 'unknown')
+            ]);
         }
         
         // Implement cache locking to prevent race conditions from concurrent requests
@@ -146,6 +197,11 @@ final class AI_OB
                 // Check if cache became available while waiting
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
+                    \ai_translate_dbg('Page cache acquired while waiting for lock', [
+                        'lang' => $lang,
+                        'route' => $route,
+                        'wait_time' => time() - $lockStart . 's'
+                    ]);
                     $processing = false;
                     return $cached;
                 }
@@ -187,8 +243,18 @@ final class AI_OB
         }
 
         $plan = AI_DOM::plan($html);
+        \ai_translate_dbg('Starting page translation', [
+            'lang' => $lang,
+            'route' => $route,
+            'num_segments_in_plan' => isset($plan['segments']) ? count($plan['segments']) : 0
+        ]);
         $res = AI_Batch::translate_plan($plan, AI_Lang::default(), $lang, $this->site_context());
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
+        \ai_translate_dbg('Page translation completed', [
+            'lang' => $lang,
+            'route' => $route,
+            'num_translations' => count($translations)
+        ]);
         if (empty($translations)) {
             $processing = false;
             $html2 = $html;
@@ -244,6 +310,18 @@ final class AI_OB
 
         if (!$bypassUserCache) {
             AI_Cache::set($key, $html3);
+            \ai_translate_dbg('Page cache SAVED', [
+                'lang' => $lang,
+                'route' => $route,
+                'html_size' => strlen($html3) . ' bytes',
+                'key_preview' => substr($key, 0, 50)
+            ]);
+        } else {
+            \ai_translate_dbg('Page cache NOT saved (bypassed)', [
+                'lang' => $lang,
+                'route' => $route,
+                'reason' => 'logged_in_user'
+            ]);
         }
         
         // Release lock after successful cache generation
@@ -375,7 +453,10 @@ final class AI_OB
         $totalChars = mb_strlen($bodyText);
         $latinRatio = $totalChars > 0 ? ($latinChars / $totalChars) : 0;
         
-        $expectedLatinRatio = $targetIsNonLatin ? 0.15 : 0.50;
+        // Use more lenient threshold for non-Latin target languages (0.60 instead of 0.40)
+        // This allows natural Latin content like URLs, brand names, and boilerplate
+        // Many websites have significant Latin content even in non-Latin languages
+        $expectedLatinRatio = $targetIsNonLatin ? 0.60 : 0.50;
         $unexpectedDirection = $targetIsNonLatin ? ($latinRatio > $expectedLatinRatio) : ($latinRatio < $expectedLatinRatio);
         
         if ($unexpectedDirection) {

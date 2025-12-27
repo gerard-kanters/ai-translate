@@ -143,12 +143,36 @@ final class AI_Batch
         $totalSegments = count($segments);
         \ai_translate_dbg('Batch translation cache stats', [
             'lang' => $targetLang,
+            'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
             'total_segments' => $totalSegments,
             'cache_hits' => $cacheHits,
             'cache_misses' => $cacheMisses,
             'segments_to_translate' => count($workSegments),
             'cache_hit_ratio' => $totalSegments > 0 ? round(($cacheHits / $totalSegments) * 100, 1) . '%' : '0%'
         ]);
+
+        // Skip API calls entirely when everything is already cached
+        if (empty($workSegments)) {
+            $final = [];
+            foreach ($idsByPrimary as $pid => $ids) {
+                $tr = isset($cachedPrimary[$pid]) ? (string) $cachedPrimary[$pid] : null;
+                if ($tr === null) {
+                    continue;
+                }
+                foreach ($ids as $oid) {
+                    $final[$oid] = $tr;
+                }
+            }
+            \ai_translate_dbg('All segments served from cache; skipping API call', [
+                'lang' => $targetLang,
+                'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                'total_segments' => $totalSegments,
+                'cache_hits' => $cacheHits,
+                'cache_misses' => $cacheMisses,
+                'segments_to_translate' => 0
+            ]);
+            return ['segments' => $final, 'map' => []];
+        }
 
         // Use smaller chunk sizes to prevent API response truncation issues
         $chunkSize = ($provider === 'deepseek') ? 8 : 5;
@@ -158,6 +182,7 @@ final class AI_Batch
         if (!empty($workSegments)) {
             \ai_translate_dbg('Making API call(s) for segments', [
                 'lang' => $targetLang,
+                'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
                 'provider' => $provider,
                 'model' => $model,
                 'num_batches' => count($batches),
