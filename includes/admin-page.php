@@ -105,6 +105,48 @@ function ajax_generate_website_context()
 add_action('wp_ajax_ai_translate_generate_website_context', __NAMESPACE__ . '\\ajax_generate_website_context');
 
 /**
+ * Handle AJAX request to generate homepage meta description.
+ */
+function ajax_generate_homepage_meta()
+{
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Insufficient permissions to perform this action.']);
+        return;
+    }
+
+    // Validate nonce
+    $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
+    if (!$nonce_value || !wp_verify_nonce($nonce_value, 'generate_homepage_meta_nonce')) {
+        wp_send_json_error(['message' => 'Security check failed (nonce). Refresh the page and try again.']);
+        return;
+    }
+
+    // Generate meta description
+    $translator = AI_Translate_Core::get_instance();
+    try {
+        // Log start
+        if (function_exists('ai_translate_dbg')) {
+            ai_translate_dbg('Generating homepage meta description via AJAX');
+        }
+        
+        $meta_description = $translator->generate_homepage_meta_description();
+        
+        wp_send_json_success([
+            'meta' => $meta_description
+        ]);
+    } catch (\Exception $e) {
+        if (function_exists('ai_translate_dbg')) {
+            ai_translate_dbg('Error generating meta description: ' . $e->getMessage());
+        }
+        wp_send_json_error([
+            'message' => 'Error generating meta description: ' . $e->getMessage()
+        ]);
+    }
+}
+add_action('wp_ajax_ai_translate_generate_homepage_meta', __NAMESPACE__ . '\\ajax_generate_homepage_meta');
+
+/**
  * Clear prompt cache when settings are updated (specifically when website context changes)
  */
 add_action('update_option_ai_translate_settings', function ($old_value, $value) {
@@ -163,16 +205,18 @@ add_action('admin_enqueue_scripts', function ($hook) {
     );
 
     // Localize script with data needed by JavaScript
+    $settings = get_option('ai_translate_settings', []);
     wp_localize_script('ai-translate-admin-js', 'aiTranslateAdmin', array(
         'adminUrl' => esc_url(admin_url('admin.php?page=ai-translate')),
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'getModelsNonce' => wp_create_nonce('ai_translate_get_models_nonce'),
         'validateApiNonce' => wp_create_nonce('ai_translate_validate_api_nonce'),
-        'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce'), // Added nonce for fetching custom URL
-        'generateContextNonce' => wp_create_nonce('generate_website_context_nonce'), // Added nonce for generating website context
-        'apiKeys' => get_option('ai_translate_settings')['api_keys'] ?? [], // Voeg deze regel toe
-        'models' => get_option('ai_translate_settings')['models'] ?? [], // Per-provider models
-        'customModel' => get_option('ai_translate_settings')['custom_model'] ?? '', // Custom model veld
+        'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce'),
+        'generateContextNonce' => wp_create_nonce('generate_website_context_nonce'),
+        'generateMetaNonce' => wp_create_nonce('generate_homepage_meta_nonce'),
+        'apiKeys' => isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [],
+        'models' => isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [],
+        'customModel' => isset($settings['custom_model']) ? $settings['custom_model'] : '',
     ));
 });
 
@@ -190,6 +234,20 @@ add_action('admin_init', function () {
             }
             if (!isset($sanitized['models']) || !is_array($sanitized['models'])) {
                 $sanitized['models'] = [];
+            }
+
+            // API keys array (handle direct updates/AJAX)
+            if (isset($input['api_keys']) && is_array($input['api_keys'])) {
+                foreach ($input['api_keys'] as $pk => $kv) {
+                    $sanitized['api_keys'][$pk] = sanitize_text_field($kv);
+                }
+            }
+
+            // Models array (handle direct updates/AJAX)
+            if (isset($input['models']) && is_array($input['models'])) {
+                foreach ($input['models'] as $pk => $m) {
+                    $sanitized['models'][$pk] = sanitize_text_field($m);
+                }
             }
 
             // Provider
@@ -555,8 +613,10 @@ add_action('admin_init', function () {
         function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['homepage_meta_description']) ? $settings['homepage_meta_description'] : '';
-            echo '<textarea name="ai_translate_settings[homepage_meta_description]" rows="3" class="large-text">' . esc_textarea($value) . '</textarea>';
+            echo '<textarea name="ai_translate_settings[homepage_meta_description]" id="homepage_meta_description_field" rows="3" class="large-text">' . esc_textarea($value) . '</textarea>';
             echo '<p class="description">' . esc_html(__('Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage.', 'ai-translate')) . '</p>';
+            echo '<button type="button" class="button" id="generate-meta-btn" style="margin-top: 10px;">Generate Meta Description</button>';
+            echo '<span id="generate-meta-status" style="margin-left: 10px;"></span>';
         },
         'ai-translate',
         'ai_translate_advanced' // Add to Advanced section
@@ -1012,23 +1072,16 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         // Als validatie succesvol is, sla settings op
         if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
             $current_settings = get_option('ai_translate_settings', []);
-
-            if (isset($current_settings['cache_expiration'])) {
-                $current_settings['cache_expiration'] = intval($current_settings['cache_expiration']) / 24;
-            }
             
             // Zorg ervoor dat 'api_keys' array bestaat
             if (!isset($current_settings['api_keys']) || !is_array($current_settings['api_keys'])) {
-                $current_settings['api_keys'] = [
-                    'openai' => '',
-                    'deepseek' => '',
-                    'custom' => '',
-                ];
+                $current_settings['api_keys'] = [];
             }
 
             // Sla de gevalideerde API-sleutel op voor de geselecteerde provider
             $current_settings['api_keys'][$provider_key] = $api_key;
-            $current_settings['api_provider'] = $provider_key; // Zorg dat de provider ook wordt opgeslagen
+            $current_settings['api_key'] = $api_key; // Voeg deze regel toe voor de sanitize_callback
+            $current_settings['api_provider'] = $provider_key;
             $current_settings['selected_model'] = $model;
 
             // Zorg ervoor dat het model ook per provider wordt weggeschreven (runtime leest dit veld)
@@ -1045,12 +1098,10 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                 $current_settings['custom_model'] = '';
             }
             
-            // Update custom_api_url only if the provider is custom
-            if ($provider_key === 'custom') {
+            // Sla custom_api_url op als deze is meegegeven (voor custom provider of als deze al bestaat)
+            if (!empty($custom_api_url_value)) {
                 $current_settings['custom_api_url'] = $custom_api_url_value;
             }
-            // Note: We don't explicitly set custom_api_url to empty here
-            // because the sanitize_callback handles ensuring it's saved if present.
 
             update_option('ai_translate_settings', $current_settings);
         }

@@ -642,24 +642,251 @@ final class AI_Translate_Core
      *
      * @return string
      */
-    public function generate_website_context_suggestion()
+    /**
+     * Get cleaned homepage content for AI analysis.
+     *
+     * @return string
+     */
+    private function get_clean_homepage_content()
     {
-        // Try to get the homepage content/title to build a short context
+        $content = '';
         $home_id = (int) get_option('page_on_front');
         $site_name = (string) get_bloginfo('name');
+        
         if ($home_id > 0) {
             $post = get_post($home_id);
             if ($post) {
-                $title = trim((string) $post->post_title);
-                $excerpt = trim(wp_strip_all_tags((string) $post->post_excerpt !== '' ? $post->post_excerpt : $post->post_content));
-                $excerpt = mb_substr($excerpt, 0, 280);
-                $parts = [];
-                if ($site_name !== '') $parts[] = $site_name;
-                if ($title !== '') $parts[] = $title;
-                if ($excerpt !== '') $parts[] = $excerpt;
-                return implode(' — ', $parts);
+                // Strip tags and shortcodes
+                $raw_content = $post->post_title . "\n" . ($post->post_excerpt ?: $post->post_content);
+                // Strip shortcodes first, then HTML tags
+                $content = wp_strip_all_tags(strip_shortcodes($raw_content));
+                // Remove extra whitespace and newlines
+                $content = preg_replace('/\s+/', ' ', $content);
+                // Limit length
+                $content = mb_substr($content, 0, 4000); 
             }
         }
-        return $site_name !== '' ? $site_name : 'Website context';
+        
+        if (empty($content)) {
+            $content = $site_name . ' - ' . get_bloginfo('description');
+        }
+        
+        return $content;
+    }
+
+    /**
+     * Generate a website context suggestion using the configured AI provider.
+     * Falls back to local generation if API is not configured or fails.
+     *
+     * @return string
+     */
+    public function generate_website_context_suggestion()
+    {
+        // 1. Get settings
+        $settings = get_option('ai_translate_settings', []);
+        $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
+        $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
+        $model = $provider !== '' ? ($models[$provider] ?? '') : '';
+        $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
+        $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
+        
+        // Custom provider settings
+        $baseUrl = self::get_api_url_for_provider($provider);
+        if ($provider === 'custom') {
+            $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
+        }
+
+        // 2. Prepare content
+        $content = $this->get_clean_homepage_content();
+        $site_name = (string) get_bloginfo('name');
+
+        // 3. Try AI generation if configured
+        if ($provider !== '' && $model !== '' && $apiKey !== '' && $baseUrl !== '') {
+            try {
+                $endpoint = rtrim($baseUrl, '/') . '/chat/completions';
+                
+                $prompt = "Analyze the following website content and generate a concise website context description of maximum 5 lines.\n" .
+                          "This description will be used to inform an AI translator about the nature, tone, and subject matter of the site.\n" .
+                          "Rules:\n" .
+                          "1. Plain text only. No Markdown, no HTML, no special formatting.\n" .
+                          "2. Maximum 5 lines / sentences.\n" .
+                          "3. Focus on what the company/site does, who it serves, and the key terminology.\n" .
+                          "4. Do NOT include navigation menus, footer links, or irrelevant UI text.\n\n" .
+                          "Website Content:\n" . $content;
+
+                $body = [
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You are a helpful assistant that summarizes website content.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                ];
+
+                // Model specific params (consistent with Batch class)
+                if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
+                     $body['max_completion_tokens'] = 500;
+                } else {
+                     $body['max_tokens'] = 500;
+                     $body['temperature'] = 0.3;
+                }
+
+                $headers = [
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Content-Type'  => 'application/json',
+                ];
+                
+                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
+                    $headers['Referer'] = home_url();
+                    $headers['X-Title'] = $site_name;
+                }
+
+                $response = wp_remote_post($endpoint, [
+                    'headers' => $headers,
+                    'timeout' => 30,
+                    'sslverify' => true,
+                    'body' => wp_json_encode($body),
+                ]);
+
+                if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                    $data = json_decode(wp_remote_retrieve_body($response), true);
+                    if (isset($data['choices'][0]['message']['content'])) {
+                        $ai_context = trim($data['choices'][0]['message']['content']);
+                        // Remove markdown code blocks if present
+                        $ai_context = str_replace(["```json", "```JSON", "```"], '', $ai_context);
+                        // Final cleanup
+                        $ai_context = strip_tags($ai_context);
+                        return $ai_context;
+                    }
+                }
+            } catch (\Exception $e) {
+                // Fall through to fallback
+            }
+        }
+
+        // 4. Fallback (Local generation)
+        $parts = [];
+        if ($site_name !== '') $parts[] = $site_name;
+        
+        $desc = get_bloginfo('description');
+        if ($desc) $parts[] = $desc;
+
+        // Use the content we already prepared but much shorter for fallback
+        if (!empty($content)) {
+             // Take a smaller chunk for the simple fallback
+             $fallback_content = mb_substr($content, 0, 280);
+             if ($fallback_content !== $site_name && $fallback_content !== $desc) {
+                 $parts[] = $fallback_content;
+             }
+        }
+        
+        return implode(' — ', $parts);
+    }
+
+    /**
+     * Generate a homepage meta description using the configured AI provider.
+     *
+     * @return string
+     */
+    public function generate_homepage_meta_description()
+    {
+        // 1. Get settings
+        $settings = get_option('ai_translate_settings', []);
+        $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
+        $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
+        $model = $provider !== '' ? ($models[$provider] ?? '') : '';
+        $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
+        $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
+        
+        // Target language (default language of the site)
+        $default_lang = isset($settings['default_language']) ? (string)$settings['default_language'] : 'en';
+        $targetLangName = $this->get_language_name($default_lang);
+
+        // Custom provider settings
+        $baseUrl = self::get_api_url_for_provider($provider);
+        if ($provider === 'custom') {
+            $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
+        }
+
+        // 2. Prepare content
+        $content = $this->get_clean_homepage_content();
+        $site_name = (string) get_bloginfo('name');
+        
+        // Get website context (always include if available)
+        $website_context = isset($settings['website_context']) && !empty($settings['website_context']) 
+            ? (string) $settings['website_context'] 
+            : '';
+
+        // 3. Try AI generation if configured
+        if ($provider !== '' && $model !== '' && $apiKey !== '' && $baseUrl !== '') {
+            try {
+                $endpoint = rtrim($baseUrl, '/') . '/chat/completions';
+                
+                $context_section = '';
+                if ($website_context !== '') {
+                    $context_section = "\n\nWebsite Context (use this to understand the business/industry):\n" . $website_context;
+                }
+                
+                $prompt = "You are creating a <meta name=\"description\"> tag content for a website homepage.\n\n" .
+                          "CRITICAL REQUIREMENTS:\n" .
+                          "1. Language: Write in " . $targetLangName . ".\n" .
+                          "2. Length: EXACTLY 150-160 characters (not 180). This is the optimal length for search engines.\n" .
+                          "3. Content: Extract and use the PRIMARY KEYWORDS from the website content. Be SPECIFIC about what the company/site does.\n" .
+                          "4. NO generic phrases like 'hoogwaardige diensten', 'innovatieve oplossingen', 'expertise en kwaliteit', 'aansluiten bij uw behoeften'.\n" .
+                          "5. Include the company name (" . $site_name . ") if it fits naturally.\n" .
+                          "6. Be SPECIFIC: mention actual services, products, or unique value propositions mentioned in the content.\n" .
+                          "7. Include a subtle call-to-action (e.g., 'Ontdek...', 'Bekijk...', 'Vraag...') but keep it natural.\n" .
+                          "8. Write as if a professional SEO expert wrote it: keyword-rich, specific, compelling, and unique.\n" .
+                          "9. Output ONLY the meta description text. No quotes, no HTML tags, no explanations.\n\n" .
+                          "Website Content:\n" . $content . $context_section;
+
+                $body = [
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You are an expert SEO copywriter specializing in writing compelling, keyword-rich meta descriptions that drive click-through rates. You understand that generic descriptions hurt SEO performance.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                ];
+
+                // Model specific params
+                if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
+                     $body['max_completion_tokens'] = 300;
+                } else {
+                     $body['max_tokens'] = 300;
+                     $body['temperature'] = 0.7;
+                }
+
+                $headers = [
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Content-Type'  => 'application/json',
+                ];
+                
+                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
+                    $headers['Referer'] = home_url();
+                    $headers['X-Title'] = $site_name;
+                }
+
+                $response = wp_remote_post($endpoint, [
+                    'headers' => $headers,
+                    'timeout' => 30,
+                    'sslverify' => true,
+                    'body' => wp_json_encode($body),
+                ]);
+
+                if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                    $data = json_decode(wp_remote_retrieve_body($response), true);
+                    if (isset($data['choices'][0]['message']['content'])) {
+                        $meta = trim($data['choices'][0]['message']['content']);
+                        $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
+                        $meta = strip_tags($meta);
+                        return $meta;
+                    }
+                }
+            } catch (\Exception $e) {
+                // Fall through
+            }
+        }
+
+        // 4. Fallback
+        return mb_substr($content, 0, 160);
     }
 }
