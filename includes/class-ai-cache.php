@@ -98,6 +98,55 @@ final class AI_Cache
     }
 
     /**
+     * Get site-specific cache directory name.
+     * Returns sanitized domain name for use as directory name.
+     * Uses the active domain (HTTP_HOST) instead of the WordPress home URL to support multi-domain setups.
+     *
+     * @return string
+     */
+    private static function get_site_cache_dir()
+    {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        if (!$multi_domain) {
+            return '';
+        }
+        
+        // Use the active domain from HTTP_HOST (the domain the user is actually visiting)
+        // This ensures each domain gets its own cache directory
+        $active_domain = '';
+        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+            // Remove port if present (e.g., "example.com:8080" -> "example.com")
+            if (strpos($active_domain, ':') !== false) {
+                $active_domain = strtok($active_domain, ':');
+            }
+        }
+        
+        // Fallback to SERVER_NAME if HTTP_HOST is not available
+        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+        }
+        
+        // Final fallback to home_url() host (should rarely be needed)
+        if (empty($active_domain)) {
+            $active_domain = parse_url(home_url(), PHP_URL_HOST);
+            if (empty($active_domain)) {
+                $active_domain = 'default';
+            }
+        }
+        
+        // Sanitize domain name for use as directory name
+        $sanitized = sanitize_file_name($active_domain);
+        if (empty($sanitized)) {
+            $sanitized = 'default';
+        }
+        
+        return $sanitized;
+    }
+
+    /**
      * Map key to file path under uploads.
      *
      * @param string $key
@@ -107,6 +156,13 @@ final class AI_Cache
     {
         $uploads = wp_upload_dir();
         $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+        
+        // Add site-specific directory if multi-domain caching is enabled
+        $site_dir = self::get_site_cache_dir();
+        if (!empty($site_dir)) {
+            $base = trailingslashit($base) . $site_dir . '/';
+        }
+        
         // Extract language from key: 
         // - ait:v4:site:lang:route (v4 = database-based site identifier, no content_version)
         // - ait:v3:site:lang:route (v3 = domain-based site identifier, no content_version)

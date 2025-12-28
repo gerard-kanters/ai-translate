@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.1.6
+ * Version: 2.1.7
  * Requires PHP: 8.0.0
  * Text Domain: ai-translate
  */
@@ -603,8 +603,41 @@ add_action('wp_footer', function () {
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
-    // Inline minimal CSS for bottom-LEFT button, popup opens UPWARDS (namespaced classes to avoid theme conflicts)
-    echo '<style>.ai-trans{position:fixed;bottom:20px;left:20px;z-index:2147483000}.ai-trans .ai-trans-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:8px 12px;border-radius:24px;border:none;background:#1e3a8a;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:13px;font-weight:600}.ai-trans .ai-trans-btn img{width:20px;height:14px;border-radius:2px}.ai-trans .ai-trans-menu{position:absolute;bottom:100%;left:0;margin-bottom:8px;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:8px;display:none;min-width:140px}.ai-trans.ai-trans-open .ai-trans-menu{display:block}.ai-trans .ai-trans-item{display:flex;align-items:center;gap:8px;padding:8px 10px;text-decoration:none;color:#222;border-radius:6px;font-size:13px}.ai-trans .ai-trans-item:hover{background:#f3f4f6}.ai-trans .ai-trans-item img{width:20px;height:14px;border-radius:2px}</style>';
+    // Get switcher position from settings (default: bottom-left)
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right');
+    if (!in_array($position, $valid_positions, true)) {
+        $position = 'bottom-left';
+    }
+
+    // Determine CSS based on position
+    $container_css = '';
+    $menu_css = '';
+    
+    if (strpos($position, 'bottom') === 0) {
+        // Bottom positions: menu opens upward
+        $container_css .= 'bottom:20px;';
+        if ($position === 'bottom-left') {
+            $container_css .= 'left:20px;';
+            $menu_css .= 'bottom:100%;left:0;margin-bottom:8px;';
+        } else {
+            $container_css .= 'right:20px;';
+            $menu_css .= 'bottom:100%;right:0;margin-bottom:8px;';
+        }
+    } else {
+        // Top positions: menu opens downward
+        $container_css .= 'top:20px;';
+        if ($position === 'top-left') {
+            $container_css .= 'left:20px;';
+            $menu_css .= 'top:100%;left:0;margin-top:8px;';
+        } else {
+            $container_css .= 'right:20px;';
+            $menu_css .= 'top:100%;right:0;margin-top:8px;';
+        }
+    }
+
+    // Inline minimal CSS with dynamic positioning (namespaced classes to avoid theme conflicts)
+    echo '<style>.ai-trans{position:fixed;' . esc_attr($container_css) . 'z-index:2147483000}.ai-trans .ai-trans-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:8px 12px;border-radius:24px;border:none;background:#1e3a8a;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:13px;font-weight:600}.ai-trans .ai-trans-btn img{width:20px;height:14px;border-radius:2px}.ai-trans .ai-trans-menu{position:absolute;' . esc_attr($menu_css) . 'background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:8px;display:none;min-width:140px}.ai-trans.ai-trans-open .ai-trans-menu{display:block}.ai-trans .ai-trans-item{display:flex;align-items:center;gap:8px;padding:8px 10px;text-decoration:none;color:#222;border-radius:6px;font-size:13px}.ai-trans .ai-trans-item:hover{background:#f3f4f6}.ai-trans .ai-trans-item img{width:20px;height:14px;border-radius:2px}</style>';
 
     // Current language (from URL or default)
     $currentLang = null;
@@ -624,11 +657,20 @@ add_action('wp_footer', function () {
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
         $label = strtoupper($code === $default ? $default : $code);
-        // Default taal: absolute home zonder filter; andere talen: {home}/{code}/
-        $siteHome = rtrim((string) get_option('home'), '/');
+        // Detect current domain from HTTP_HOST to support multi-domain setup
+        // Detect protocol from current request (HTTP or HTTPS)
+        // Default taal: /{default}/; andere talen: /{code}/
+        $currentHost = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
+        if ($currentHost === '') {
+            // Fallback to home_url() if HTTP_HOST is not available
+            $currentHost = parse_url(home_url(), PHP_URL_HOST);
+        }
+        // Detect protocol from current request
+        $protocol = is_ssl() ? 'https' : 'http';
         $targetPath = ($code === $default) ? ('/' . $default . '/') : ('/' . $code . '/');
         $targetPath = preg_replace('#/{2,}#', '/', $targetPath);
-        $url = esc_url($siteHome . $targetPath);
+        $url = $protocol . '://' . $currentHost . $targetPath;
+        $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');
         echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr($label) . '"><span>' . esc_html($label) . '</span></a>';
     }

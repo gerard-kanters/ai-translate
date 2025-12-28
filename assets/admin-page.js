@@ -653,9 +653,19 @@ document.addEventListener('DOMContentLoaded', function () {
             generateContextBtn.disabled = true;
             generateContextStatus.innerHTML = '<span style="color:blue;">Generating context from homepage...</span>';
 
+            // Get active domain from window.location.hostname
+            var activeDomain = window.location.hostname;
+            if (window.location.port) {
+                activeDomain += ':' + window.location.port;
+            }
+            
+            // Debug logging
+            console.log('Generating website context for domain:', activeDomain);
+
             var formData = new FormData();
             formData.append('action', 'ai_translate_generate_website_context');
             formData.append('nonce', aiTranslateAdmin.generateContextNonce);
+            formData.append('domain', activeDomain);
 
             fetch(ajaxurl, {
                 method: 'POST',
@@ -732,9 +742,19 @@ document.addEventListener('DOMContentLoaded', function () {
             generateMetaBtn.disabled = true;
             generateMetaStatus.innerHTML = '<span style="color:blue;">Generating meta description...</span>';
 
+            // Get active domain from window.location.hostname
+            var activeDomain = window.location.hostname;
+            if (window.location.port) {
+                activeDomain += ':' + window.location.port;
+            }
+            
+            // Debug logging
+            console.log('Generating meta description for domain:', activeDomain);
+
             var formData = new FormData();
             formData.append('action', 'ai_translate_generate_homepage_meta');
             formData.append('nonce', aiTranslateAdmin.generateMetaNonce);
+            formData.append('domain', activeDomain);
 
             fetch(ajaxurl, {
                 method: 'POST',

@@ -44,7 +44,10 @@ final class AI_URL
                 if ($href === '' || self::isSkippableHref($href)) {
                     continue;
                 }
-                $new = self::rewriteHref($href, $lang, $default);
+                
+                // Special handling for logo links: rewrite even if they point to homepage
+                $isLogo = self::isLogoLink($a);
+                $new = self::rewriteHref($href, $lang, $default, $isLogo);
                 if ($new !== null) {
                     $a->setAttribute('href', $new);
                 }
@@ -187,7 +190,68 @@ final class AI_URL
         return false;
     }
 
-    private static function rewriteHref($href, $lang, $default)
+    /**
+     * Check if a link element is likely a logo link (homepage link with logo image or logo class/id).
+     *
+     * @param \DOMElement $a
+     * @return bool
+     */
+    private static function isLogoLink(\DOMElement $a)
+    {
+        $href = (string) $a->getAttribute('href');
+        if ($href === '') {
+            return false;
+        }
+        
+        $hrefParts = wp_parse_url($href);
+        $pathOnly = isset($hrefParts['path']) ? (string) $hrefParts['path'] : '/';
+        
+        // Check if link points to homepage (root path)
+        $isHomepage = ($pathOnly === '' || $pathOnly === '/' || preg_match('#^/([a-z]{2})/?$#i', $pathOnly));
+        if (!$isHomepage) {
+            return false;
+        }
+        
+        // Check if link contains an image (common for logo links)
+        $images = $a->getElementsByTagName('img');
+        if ($images && $images->length > 0) {
+            // Check if any image has logo-related attributes
+            foreach ($images as $img) {
+                $alt = strtolower((string) $img->getAttribute('alt'));
+                $src = strtolower((string) $img->getAttribute('src'));
+                $classAttr = ' ' . strtolower((string) $img->getAttribute('class')) . ' ';
+                
+                if (strpos($alt, 'logo') !== false || 
+                    strpos($src, 'logo') !== false ||
+                    strpos($classAttr, ' logo ') !== false ||
+                    strpos($classAttr, ' custom-logo ') !== false) {
+                    return true;
+                }
+            }
+            // If link contains image and points to homepage, assume it's a logo
+            return true;
+        }
+        
+        // Check if link or parent has logo-related class/id
+        $node = $a;
+        while ($node && $node instanceof \DOMElement) {
+            $id = strtolower((string) $node->getAttribute('id'));
+            $classAttr = ' ' . strtolower((string) $node->getAttribute('class')) . ' ';
+            
+            if (strpos($id, 'logo') !== false || 
+                strpos($classAttr, ' logo ') !== false ||
+                strpos($classAttr, ' site-logo ') !== false ||
+                strpos($classAttr, ' custom-logo ') !== false) {
+                return true;
+            }
+            
+            $node = $node->parentNode instanceof \DOMElement ? $node->parentNode : null;
+        }
+        
+        return false;
+    }
+
+    private static function rewriteHref($href, $lang, $default, $isLogo = false)
     {
         $home = home_url('/');
         $homeParts = wp_parse_url($home);
@@ -203,12 +267,15 @@ final class AI_URL
         }
 
         // Skip pure root or pure /xx/ language-home links to avoid rewriting the switcher
+        // Exception: logo links should be rewritten to include language prefix
         $pathOnly = isset($hrefParts['path']) ? (string) $hrefParts['path'] : '/';
-        if ($pathOnly === '' || $pathOnly === '/') {
-            return $href;
-        }
-        if (preg_match('#^/([a-z]{2})/?$#i', $pathOnly)) {
-            return $href;
+        if (!$isLogo) {
+            if ($pathOnly === '' || $pathOnly === '/') {
+                return $href;
+            }
+            if (preg_match('#^/([a-z]{2})/?$#i', $pathOnly)) {
+                return $href;
+            }
         }
 
         // Determine if internal
@@ -226,12 +293,13 @@ final class AI_URL
         $path = self::normalizePath($path, $homeParts);
         // Wanneer de href al expliciet een taalprefix heeft die AFWIJKT van de huidige $lang,
         // laat de link ongemoeid (language switcher moet niet naar huidige taal herschreven worden).
-        if (preg_match('#^/([a-z]{2})(/|$)#i', $path, $pm)) {
+        // Exception: logo links should always use current language
+        if (!$isLogo && preg_match('#^/([a-z]{2})(/|$)#i', $path, $pm)) {
             $hrefLang = strtolower($pm[1]);
             if ($hrefLang !== strtolower($lang)) {
                 $query = isset($hrefParts['query']) ? ('?' . $hrefParts['query']) : '';
                 $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
-                return $path . $query + $frag;
+                return $path . $query . $frag;
             }
         }
         // Do not attempt to split arbitrary two-letter prefixes; rely on proper rewrite rules

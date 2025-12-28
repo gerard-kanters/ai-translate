@@ -61,8 +61,7 @@ final class AI_SEO
         }
         
         if (is_front_page() || is_home()) {
-            $settings = get_option('ai_translate_settings', []);
-            $homepage_setting = isset($settings['homepage_meta_description']) ? trim((string) $settings['homepage_meta_description']) : '';
+            $homepage_setting = self::get_homepage_meta_description();
             $blogdesc = (string) get_option('blogdescription', '');
         }
 
@@ -135,8 +134,7 @@ final class AI_SEO
                 $shouldReplace = true;
             } elseif (is_front_page() || is_home()) {
                 // For default language homepage: replace if empty or if admin setting exists and doesn't match
-                $settings = get_option('ai_translate_settings', []);
-                $homepage = isset($settings['homepage_meta_description']) ? trim((string) $settings['homepage_meta_description']) : '';
+                $homepage = self::get_homepage_meta_description();
                 if ($homepage !== '') {
                     // Admin setting exists: replace if empty or different
                     if ($existingContent === '' || $existingContent !== $homepage) {
@@ -194,8 +192,7 @@ final class AI_SEO
         $shouldReplaceOgDesc = $isTranslatedLang;
         if (!$isTranslatedLang && (is_front_page() || is_home())) {
             // For default language homepage: check if admin setting is set
-            $settings = get_option('ai_translate_settings', []);
-            $homepage = isset($settings['homepage_meta_description']) ? trim((string) $settings['homepage_meta_description']) : '';
+            $homepage = self::get_homepage_meta_description();
             if ($homepage !== '') {
                 $shouldReplaceOgDesc = true;
             }
@@ -424,6 +421,94 @@ final class AI_SEO
     }
 
     /**
+     * Get the active domain for multi-domain caching support.
+     *
+     * @return string
+     */
+    private static function get_active_domain()
+    {
+        $active_domain = '';
+        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+            // Remove port if present (e.g., "example.com:8080" -> "example.com")
+            if (strpos($active_domain, ':') !== false) {
+                $active_domain = strtok($active_domain, ':');
+            }
+        }
+        
+        // Fallback to SERVER_NAME if HTTP_HOST is not available
+        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+        }
+        
+        // Final fallback to home_url() host (should rarely be needed)
+        if (empty($active_domain)) {
+            $active_domain = parse_url(home_url(), PHP_URL_HOST);
+            if (empty($active_domain)) {
+                $active_domain = 'default';
+            }
+        }
+        
+        return $active_domain;
+    }
+
+    /**
+     * Get homepage meta description for the current domain.
+     * Supports per-domain meta descriptions when multi-domain caching is enabled.
+     *
+     * @return string
+     */
+    private static function get_homepage_meta_description()
+    {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        if ($multi_domain) {
+            // Multi-domain caching enabled: use per-domain meta description
+            $active_domain = self::get_active_domain();
+            $domain_meta = isset($settings['homepage_meta_description_per_domain']) && is_array($settings['homepage_meta_description_per_domain']) 
+                ? $settings['homepage_meta_description_per_domain'] 
+                : [];
+            
+            if (isset($domain_meta[$active_domain]) && trim((string) $domain_meta[$active_domain]) !== '') {
+                return trim((string) $domain_meta[$active_domain]);
+            }
+        }
+        
+        // Fallback to global homepage meta description
+        $homepage = isset($settings['homepage_meta_description']) ? (string) $settings['homepage_meta_description'] : '';
+        return trim($homepage);
+    }
+
+    /**
+     * Get website context for the current domain.
+     * Supports per-domain website context when multi-domain caching is enabled.
+     *
+     * @return string
+     */
+    private static function get_website_context()
+    {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        if ($multi_domain) {
+            // Multi-domain caching enabled: use per-domain website context
+            $active_domain = self::get_active_domain();
+            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
+                ? $settings['website_context_per_domain'] 
+                : [];
+            
+            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
+                return trim((string) $domain_context[$active_domain]);
+            }
+        }
+        
+        // Fallback to global website context
+        $context = isset($settings['website_context']) ? (string) $settings['website_context'] : '';
+        return trim($context);
+    }
+
+    /**
      * Compute a meta description candidate in the site's default language.
      *
      * @return string
@@ -432,9 +517,8 @@ final class AI_SEO
     {
         // Homepage setting first
         if (is_front_page() || is_home()) {
-            $settings = get_option('ai_translate_settings', []);
-            $homepage = isset($settings['homepage_meta_description']) ? (string) $settings['homepage_meta_description'] : '';
-            if (trim($homepage) !== '') {
+            $homepage = self::get_homepage_meta_description();
+            if ($homepage !== '') {
                 return $homepage;
             }
         }
@@ -480,9 +564,8 @@ final class AI_SEO
         }
         
         $plan = ['segments' => [ ['id' => 'm', 'text' => (string)$text, 'type' => 'node'] ]];
-        $settings = get_option('ai_translate_settings', []);
         $ctx = [
-            'website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : '',
+            'website_context' => self::get_website_context(),
         ];
         $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);
         $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : [];

@@ -83,10 +83,18 @@ function ajax_generate_website_context()
         return;
     }
 
+    // Get domain from request (for multi-domain caching support)
+    $requested_domain = isset($_POST['domain']) ? sanitize_text_field(wp_unslash($_POST['domain'])) : '';
+    
     // Generate website context suggestion
     $translator = AI_Translate_Core::get_instance();
     try {
-        $context_suggestion = $translator->generate_website_context_suggestion();
+        // Log start
+        if (function_exists('ai_translate_dbg')) {
+            ai_translate_dbg('Generating website context via AJAX', ['domain' => $requested_domain]);
+        }
+        
+        $context_suggestion = $translator->generate_website_context_suggestion($requested_domain);
         
         // Clear prompt cache to ensure new context is used immediately
         $translator->clear_prompt_cache();
@@ -122,15 +130,18 @@ function ajax_generate_homepage_meta()
         return;
     }
 
+    // Get domain from request (for multi-domain caching support)
+    $requested_domain = isset($_POST['domain']) ? sanitize_text_field(wp_unslash($_POST['domain'])) : '';
+    
     // Generate meta description
     $translator = AI_Translate_Core::get_instance();
     try {
         // Log start
         if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('Generating homepage meta description via AJAX');
+            ai_translate_dbg('Generating homepage meta description via AJAX', ['domain' => $requested_domain]);
         }
         
-        $meta_description = $translator->generate_homepage_meta_description();
+        $meta_description = $translator->generate_homepage_meta_description($requested_domain);
         
         wp_send_json_success([
             'meta' => $meta_description
@@ -348,14 +359,73 @@ add_action('admin_init', function () {
                 }
             }
 
-            // Homepage meta description
+            // Homepage meta description (per-domain when multi-domain caching is enabled)
+            $multi_domain = isset($sanitized['multi_domain_caching']) ? (bool) $sanitized['multi_domain_caching'] : false;
             if (isset($input['homepage_meta_description'])) {
-                $sanitized['homepage_meta_description'] = sanitize_textarea_field($input['homepage_meta_description']);
+                if ($multi_domain) {
+                    // Multi-domain caching: store per-domain meta description
+                    $active_domain = '';
+                    if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                        if (strpos($active_domain, ':') !== false) {
+                            $active_domain = strtok($active_domain, ':');
+                        }
+                    }
+                    if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                    }
+                    if (empty($active_domain)) {
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        if (empty($active_domain)) {
+                            $active_domain = 'default';
+                        }
+                    }
+                    
+                    // Initialize per-domain array if not exists
+                    if (!isset($sanitized['homepage_meta_description_per_domain']) || !is_array($sanitized['homepage_meta_description_per_domain'])) {
+                        $sanitized['homepage_meta_description_per_domain'] = [];
+                    }
+                    
+                    // Store meta description for current domain
+                    $sanitized['homepage_meta_description_per_domain'][$active_domain] = sanitize_textarea_field($input['homepage_meta_description']);
+                } else {
+                    // Single domain: use global meta description
+                    $sanitized['homepage_meta_description'] = sanitize_textarea_field($input['homepage_meta_description']);
+                }
             }
 
-            // Website context
+            // Website context (per-domain when multi-domain caching is enabled)
             if (isset($input['website_context'])) {
-                $sanitized['website_context'] = sanitize_textarea_field($input['website_context']);
+                if ($multi_domain) {
+                    // Multi-domain caching: store per-domain website context
+                    $active_domain = '';
+                    if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                        if (strpos($active_domain, ':') !== false) {
+                            $active_domain = strtok($active_domain, ':');
+                        }
+                    }
+                    if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                    }
+                    if (empty($active_domain)) {
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        if (empty($active_domain)) {
+                            $active_domain = 'default';
+                        }
+                    }
+                    
+                    // Initialize per-domain array if not exists
+                    if (!isset($sanitized['website_context_per_domain']) || !is_array($sanitized['website_context_per_domain'])) {
+                        $sanitized['website_context_per_domain'] = [];
+                    }
+                    
+                    // Store website context for current domain
+                    $sanitized['website_context_per_domain'][$active_domain] = sanitize_textarea_field($input['website_context']);
+                } else {
+                    // Single domain: use global website context
+                    $sanitized['website_context'] = sanitize_textarea_field($input['website_context']);
+                }
             }
 
             // Default language
@@ -373,8 +443,24 @@ add_action('admin_init', function () {
                 $sanitized['detectable_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['detectable_languages'])));
             }
 
+            // Switcher position
+            if (isset($input['switcher_position'])) {
+                $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right');
+                $position = sanitize_text_field($input['switcher_position']);
+                if (in_array($position, $valid_positions, true)) {
+                    $sanitized['switcher_position'] = $position;
+                } else {
+                    $sanitized['switcher_position'] = 'bottom-left';
+                }
+            } elseif (!isset($sanitized['switcher_position'])) {
+                $sanitized['switcher_position'] = 'bottom-left';
+            }
+
             // Multilingual search toggle
             $sanitized['enable_multilingual_search'] = isset($input['enable_multilingual_search']) ? (bool)$input['enable_multilingual_search'] : false;
+
+            // Multi-domain caching toggle
+            $sanitized['multi_domain_caching'] = isset($input['multi_domain_caching']) ? (bool)$input['multi_domain_caching'] : false;
 
             return $sanitized;
         }
@@ -554,6 +640,32 @@ add_action('admin_init', function () {
     );
     // --- End Detectable Languages Field ---
 
+    add_settings_field(
+        'switcher_position',
+        'Language Switcher Position',
+        function () {
+            $settings = get_option('ai_translate_settings');
+            $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+            $positions = array(
+                'bottom-left' => 'Bottom Left',
+                'bottom-right' => 'Bottom Right',
+                'top-left' => 'Top Left',
+                'top-right' => 'Top Right',
+            );
+            echo '<fieldset>';
+            foreach ($positions as $value => $label) {
+                echo '<label style="display:block;margin-bottom:8px;">';
+                echo '<input type="radio" name="ai_translate_settings[switcher_position]" value="' . esc_attr($value) . '" ' . checked($position, $value, false) . '> ';
+                echo esc_html($label);
+                echo '</label>';
+            }
+            echo '</fieldset>';
+            echo '<p class="description">' . esc_html(__('Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions.', 'ai-translate')) . '</p>';
+        },
+        'ai-translate',
+        'ai_translate_languages'
+    );
+
     // Cache Settings Section
     add_settings_section(
         'ai_translate_cache',
@@ -597,6 +709,23 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_cache'
     );
+    add_settings_field(
+        'multi_domain_caching',
+        'Multi-Domain Caching',
+        function () {
+            $settings = get_option('ai_translate_settings');
+            $value = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+            echo '<label>';
+            echo '<input type="checkbox" name="ai_translate_settings[multi_domain_caching]" value="1" ' . checked($value, true, false) . '> ';
+            echo esc_html__('Enable separate cache per domain', 'ai-translate');
+            echo '</label>';
+            echo '<p class="description">';
+            echo esc_html__('When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_cache'
+    );
 
     // Advanced Settings Section
     add_settings_section(
@@ -612,9 +741,43 @@ add_action('admin_init', function () {
         'Homepage Meta Description',
         function () {
             $settings = get_option('ai_translate_settings');
-            $value = isset($settings['homepage_meta_description']) ? $settings['homepage_meta_description'] : '';
+            $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+            
+            // Determine active domain
+            $active_domain = '';
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($active_domain, ':') !== false) {
+                    $active_domain = strtok($active_domain, ':');
+                }
+            }
+            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($active_domain)) {
+                $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($active_domain)) {
+                    $active_domain = 'default';
+                }
+            }
+            
+            // Get value based on multi-domain setting
+            if ($multi_domain) {
+                $domain_meta = isset($settings['homepage_meta_description_per_domain']) && is_array($settings['homepage_meta_description_per_domain']) 
+                    ? $settings['homepage_meta_description_per_domain'] 
+                    : [];
+                $value = isset($domain_meta[$active_domain]) ? $domain_meta[$active_domain] : '';
+                echo '<p class="description" style="margin-bottom: 10px;"><strong>' . esc_html__('Active domain:', 'ai-translate') . '</strong> <code>' . esc_html($active_domain) . '</code></p>';
+            } else {
+                $value = isset($settings['homepage_meta_description']) ? $settings['homepage_meta_description'] : '';
+            }
+            
             echo '<textarea name="ai_translate_settings[homepage_meta_description]" id="homepage_meta_description_field" rows="3" class="large-text">' . esc_textarea($value) . '</textarea>';
-            echo '<p class="description">' . esc_html(__('Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage.', 'ai-translate')) . '</p>';
+            if ($multi_domain) {
+                echo '<p class="description">' . esc_html(__('Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage.', 'ai-translate')) . '</p>';
+            } else {
+                echo '<p class="description">' . esc_html(__('Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage.', 'ai-translate')) . '</p>';
+            }
             echo '<button type="button" class="button" id="generate-meta-btn" style="margin-top: 10px;">Generate Meta Description</button>';
             echo '<span id="generate-meta-status" style="margin-left: 10px;"></span>';
         },
@@ -629,9 +792,43 @@ add_action('admin_init', function () {
         'Website Context',
         function () {
             $settings = get_option('ai_translate_settings');
-            $value = isset($settings['website_context']) ? $settings['website_context'] : '';
+            $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+            
+            // Determine active domain
+            $active_domain = '';
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($active_domain, ':') !== false) {
+                    $active_domain = strtok($active_domain, ':');
+                }
+            }
+            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($active_domain)) {
+                $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($active_domain)) {
+                    $active_domain = 'default';
+                }
+            }
+            
+            // Get value based on multi-domain setting
+            if ($multi_domain) {
+                $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
+                    ? $settings['website_context_per_domain'] 
+                    : [];
+                $value = isset($domain_context[$active_domain]) ? $domain_context[$active_domain] : '';
+                echo '<p class="description" style="margin-bottom: 10px;"><strong>' . esc_html__('Active domain:', 'ai-translate') . '</strong> <code>' . esc_html($active_domain) . '</code></p>';
+            } else {
+                $value = isset($settings['website_context']) ? $settings['website_context'] : '';
+            }
+            
             echo '<textarea name="ai_translate_settings[website_context]" id="website_context_field" rows="5" class="large-text" placeholder="Describe your website, business, or organization. For example:&#10;&#10;We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe.&#10;&#10;Or:&#10;&#10;This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden.">' . esc_textarea($value) . '</textarea>';
-            echo '<p class="description">' . esc_html(__('Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. ', 'ai-translate')) . '</p>';
+            if ($multi_domain) {
+                echo '<p class="description">' . esc_html(__('Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations.', 'ai-translate')) . '</p>';
+            } else {
+                echo '<p class="description">' . esc_html(__('Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. ', 'ai-translate')) . '</p>';
+            }
             echo '<button type="button" class="button" id="generate-context-btn" style="margin-top: 10px;">Generate Context from Homepage</button>';
             echo '<span id="generate-context-status" style="margin-left: 10px;"></span>';
         },
@@ -852,7 +1049,47 @@ function render_admin_page()
                 ?>
                 <div class="cache-stats-section">
                     <h4>Cache overview per language</h4>
-
+                    <?php
+                    // Show cache directory info
+                    $settings = get_option('ai_translate_settings', []);
+                    $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+                    if ($multi_domain) {
+                        // Use the active domain from HTTP_HOST (the domain the user is actually visiting)
+                        // This ensures each domain gets its own cache directory
+                        $active_domain = '';
+                        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                            // Remove port if present (e.g., "example.com:8080" -> "example.com")
+                            if (strpos($active_domain, ':') !== false) {
+                                $active_domain = strtok($active_domain, ':');
+                            }
+                        }
+                        
+                        // Fallback to SERVER_NAME if HTTP_HOST is not available
+                        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                        }
+                        
+                        // Final fallback to home_url() host (should rarely be needed)
+                        if (empty($active_domain)) {
+                            $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                            if (empty($active_domain)) {
+                                $active_domain = 'default';
+                            }
+                        }
+                        
+                        $sanitized = sanitize_file_name($active_domain);
+                        if (empty($sanitized)) {
+                            $sanitized = 'default';
+                        }
+                        $uploads = wp_upload_dir();
+                        $cache_dir = trailingslashit($uploads['basedir']) . 'ai-translate/cache/' . $sanitized . '/';
+                        echo '<p class="description" style="margin-bottom: 15px;">';
+                        echo '<strong>' . esc_html__('Cache directory:', 'ai-translate') . '</strong> ';
+                        echo '<code>' . esc_html($cache_dir) . '</code>';
+                        echo '</p>';
+                    }
+                    ?>
                     <?php
                     // Get detailed statistics
                     $languages_details = isset($cache_stats['languages_details']) ? $cache_stats['languages_details'] : [];

@@ -122,7 +122,42 @@ final class AI_Slugs
             'segments' => [ ['id' => 'slug', 'text' => $source_slug, 'type' => 'meta'] ],
         ];
         $settings = get_option('ai_translate_settings', []);
-        $ctx = [ 'website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : '' ];
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        // Get website context (per-domain if multi-domain caching is enabled)
+        $website_context = '';
+        if ($multi_domain) {
+            $active_domain = '';
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($active_domain, ':') !== false) {
+                    $active_domain = strtok($active_domain, ':');
+                }
+            }
+            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($active_domain)) {
+                $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($active_domain)) {
+                    $active_domain = 'default';
+                }
+            }
+            
+            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
+                ? $settings['website_context_per_domain'] 
+                : [];
+            
+            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
+                $website_context = trim((string) $domain_context[$active_domain]);
+            }
+        }
+        
+        if (empty($website_context)) {
+            $website_context = isset($settings['website_context']) ? (string)$settings['website_context'] : '';
+        }
+        
+        $ctx = [ 'website_context' => $website_context ];
         // Always translate from original default language to target
         $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);
         $translations = is_array($res['segments'] ?? null) ? $res['segments'] : [];

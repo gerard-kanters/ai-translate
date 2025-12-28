@@ -244,7 +244,15 @@ final class AI_Translate_Core
         
         // Clear disk cache for this language
         $uploads = wp_upload_dir();
-        $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/' . $lang . '/pages/';
+        $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+        
+        // Add site-specific directory if multi-domain caching is enabled
+        $site_dir = $this->get_site_cache_dir();
+        if (!empty($site_dir)) {
+            $base = trailingslashit($base) . $site_dir . '/';
+        }
+        
+        $base = trailingslashit($base) . $lang . '/pages/';
         $count = 0;
         if (is_dir($base)) {
             $rii = new \RecursiveIteratorIterator(
@@ -309,6 +317,13 @@ final class AI_Translate_Core
     {
         $uploads = wp_upload_dir();
         $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+        
+        // Add site-specific directory if multi-domain caching is enabled
+        $site_dir = $this->get_site_cache_dir();
+        if (!empty($site_dir)) {
+            $root = trailingslashit($root) . $site_dir . '/';
+        }
+        
         if (is_dir($root)) {
             $rii = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
@@ -336,6 +351,13 @@ final class AI_Translate_Core
     {
         $uploads = wp_upload_dir();
         $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+        
+        // Add site-specific directory if multi-domain caching is enabled
+        $site_dir = $this->get_site_cache_dir();
+        if (!empty($site_dir)) {
+            $root = trailingslashit($root) . $site_dir . '/';
+        }
+        
         if (!is_dir($root)) {
             return;
         }
@@ -565,6 +587,55 @@ final class AI_Translate_Core
     }
 
     /**
+     * Get site-specific cache directory name.
+     * Returns sanitized domain name for use as directory name.
+     * Uses the active domain (HTTP_HOST) instead of the WordPress home URL to support multi-domain setups.
+     *
+     * @return string
+     */
+    private function get_site_cache_dir()
+    {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        if (!$multi_domain) {
+            return '';
+        }
+        
+        // Use the active domain from HTTP_HOST (the domain the user is actually visiting)
+        // This ensures each domain gets its own cache directory
+        $active_domain = '';
+        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+            // Remove port if present (e.g., "example.com:8080" -> "example.com")
+            if (strpos($active_domain, ':') !== false) {
+                $active_domain = strtok($active_domain, ':');
+            }
+        }
+        
+        // Fallback to SERVER_NAME if HTTP_HOST is not available
+        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+        }
+        
+        // Final fallback to home_url() host (should rarely be needed)
+        if (empty($active_domain)) {
+            $active_domain = parse_url(home_url(), PHP_URL_HOST);
+            if (empty($active_domain)) {
+                $active_domain = 'default';
+            }
+        }
+        
+        // Sanitize domain name for use as directory name
+        $sanitized = sanitize_file_name($active_domain);
+        if (empty($sanitized)) {
+            $sanitized = 'default';
+        }
+        
+        return $sanitized;
+    }
+
+    /**
      * Compute cache statistics for admin display.
      *
      * @return array{
@@ -576,6 +647,13 @@ final class AI_Translate_Core
     {
         $uploads = wp_upload_dir();
         $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+        
+        // Add site-specific directory if multi-domain caching is enabled
+        $site_dir = $this->get_site_cache_dir();
+        if (!empty($site_dir)) {
+            $root = trailingslashit($root) . $site_dir . '/';
+        }
+        
         $stats = [
             'total_files' => 0,
             'total_size' => 0,
@@ -647,8 +725,110 @@ final class AI_Translate_Core
      *
      * @return string
      */
-    private function get_clean_homepage_content()
+    /**
+     * Get clean homepage content, optionally for a specific domain.
+     *
+     * @param string $domain Optional. Domain to fetch content from. If provided, fetches via HTTP.
+     * @return string
+     */
+    private function get_clean_homepage_content($domain = '')
     {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        // If multi-domain caching is enabled and a specific domain is provided, try to fetch from that domain
+        if ($multi_domain && !empty($domain)) {
+            // Determine protocol (prefer https, fallback to http)
+            $protocol = 'https';
+            if (isset($_SERVER['REQUEST_SCHEME'])) {
+                $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
+            } elseif (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+                $protocol = 'https';
+            }
+            
+            // Build URL for the specific domain
+            $domain_url = $protocol . '://' . $domain . '/';
+            
+            // Fetch homepage content from the specific domain
+            $response = wp_remote_get($domain_url, [
+                'timeout' => 15,
+                'sslverify' => true,
+                'user-agent' => 'WordPress/' . get_bloginfo('version') . '; ' . home_url(),
+                'redirection' => 5,
+            ]);
+            
+            if (!is_wp_error($response)) {
+                $response_code = wp_remote_retrieve_response_code($response);
+                if ($response_code === 200) {
+                    $html = wp_remote_retrieve_body($response);
+                    
+                    if (!empty($html)) {
+                        // Extract text content from HTML
+                        $dom = new \DOMDocument();
+                        libxml_use_internal_errors(true);
+                        @$dom->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+                        libxml_clear_errors();
+                        $xpath = new \DOMXPath($dom);
+                        
+                        // Get title
+                        $title_nodes = $xpath->query('//title');
+                        $title = '';
+                        if ($title_nodes && $title_nodes->length > 0) {
+                            $title = trim($title_nodes->item(0)->textContent);
+                        }
+                        
+                        // Get main content (try common content selectors)
+                        $content_selectors = [
+                            '//main',
+                            '//article',
+                            '//div[@class="entry-content"]',
+                            '//div[@class="content"]',
+                            '//div[@id="content"]',
+                            '//body',
+                        ];
+                        
+                        $content_text = '';
+                        foreach ($content_selectors as $selector) {
+                            $nodes = $xpath->query($selector);
+                            if ($nodes && $nodes->length > 0) {
+                                $content_text = trim($nodes->item(0)->textContent);
+                                if (!empty($content_text) && mb_strlen($content_text) > 100) {
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Combine title and content
+                        $raw_content = $title;
+                        if (!empty($content_text)) {
+                            $raw_content .= "\n" . $content_text;
+                        }
+                        
+                        // Strip HTML entities and clean up
+                        $content = wp_strip_all_tags($raw_content);
+                        $content = preg_replace('/\s+/', ' ', $content);
+                        $content = mb_substr($content, 0, 4000);
+                        
+                        if (!empty($content)) {
+                            if (function_exists('ai_translate_dbg')) {
+                                ai_translate_dbg('Fetched content from domain', ['domain' => $domain, 'content_length' => mb_strlen($content)]);
+                            }
+                            return $content;
+                        }
+                    }
+                } else {
+                    if (function_exists('ai_translate_dbg')) {
+                        ai_translate_dbg('Failed to fetch from domain', ['domain' => $domain, 'code' => $response_code]);
+                    }
+                }
+            } else {
+                if (function_exists('ai_translate_dbg')) {
+                    ai_translate_dbg('Error fetching from domain', ['domain' => $domain, 'error' => $response->get_error_message()]);
+                }
+            }
+        }
+        
+        // Fallback to standard WordPress content fetching
         $content = '';
         $home_id = (int) get_option('page_on_front');
         $site_name = (string) get_bloginfo('name');
@@ -675,12 +855,61 @@ final class AI_Translate_Core
     }
 
     /**
+     * Get website context for a specific domain.
+     * Supports per-domain website context when multi-domain caching is enabled.
+     *
+     * @param string $domain Optional. Domain to get context for. If not provided, uses active domain.
+     * @return string
+     */
+    private function get_website_context_for_domain($domain = '')
+    {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        if ($multi_domain) {
+            // Determine active domain if not provided
+            $active_domain = $domain;
+            if (empty($active_domain)) {
+                if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                    if (strpos($active_domain, ':') !== false) {
+                        $active_domain = strtok($active_domain, ':');
+                    }
+                }
+                if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                }
+                if (empty($active_domain)) {
+                    $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                    if (empty($active_domain)) {
+                        $active_domain = 'default';
+                    }
+                }
+            }
+            
+            // Multi-domain caching enabled: use per-domain website context
+            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
+                ? $settings['website_context_per_domain'] 
+                : [];
+            
+            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
+                return trim((string) $domain_context[$active_domain]);
+            }
+        }
+        
+        // Fallback to global website context
+        $context = isset($settings['website_context']) ? (string) $settings['website_context'] : '';
+        return trim($context);
+    }
+
+    /**
      * Generate a website context suggestion using the configured AI provider.
      * Falls back to local generation if API is not configured or fails.
      *
+     * @param string $domain Optional. Domain to use for content fetching. If not provided, uses active domain.
      * @return string
      */
-    public function generate_website_context_suggestion()
+    public function generate_website_context_suggestion($domain = '')
     {
         // 1. Get settings
         $settings = get_option('ai_translate_settings', []);
@@ -689,16 +918,33 @@ final class AI_Translate_Core
         $model = $provider !== '' ? ($models[$provider] ?? '') : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
-        
+
         // Custom provider settings
         $baseUrl = self::get_api_url_for_provider($provider);
         if ($provider === 'custom') {
             $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
         }
 
-        // 2. Prepare content
-        $content = $this->get_clean_homepage_content();
-        $site_name = (string) get_bloginfo('name');
+        // 2. Prepare content - use provided domain
+        $content = $this->get_clean_homepage_content($domain);
+        
+        // Get site name - use domain-specific if multi-domain caching is enabled
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        $site_name = '';
+        if ($multi_domain && !empty($domain)) {
+            // For multi-domain, try to extract site name from content or use domain
+            $lines = explode("\n", $content);
+            if (!empty($lines[0]) && trim($lines[0]) !== '') {
+                $site_name = trim($lines[0]);
+                if (mb_strlen($site_name) > 100) {
+                    $site_name = mb_substr($site_name, 0, 100);
+                }
+            } else {
+                $site_name = strtok($domain, ':');
+            }
+        } else {
+            $site_name = (string) get_bloginfo('name');
+        }
 
         // 3. Try AI generation if configured
         if ($provider !== '' && $model !== '' && $apiKey !== '' && $baseUrl !== '') {
@@ -736,7 +982,16 @@ final class AI_Translate_Core
                 ];
                 
                 if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
-                    $headers['Referer'] = home_url();
+                    // Use the domain-specific URL if provided
+                    if (!empty($domain)) {
+                        $protocol = is_ssl() ? 'https' : 'http';
+                        if (isset($_SERVER['REQUEST_SCHEME'])) {
+                            $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
+                        }
+                        $headers['Referer'] = $protocol . '://' . $domain . '/';
+                    } else {
+                        $headers['Referer'] = home_url();
+                    }
                     $headers['X-Title'] = $site_name;
                 }
 
@@ -785,9 +1040,10 @@ final class AI_Translate_Core
     /**
      * Generate a homepage meta description using the configured AI provider.
      *
+     * @param string $domain Optional. Domain to use for content fetching. If not provided, uses active domain.
      * @return string
      */
-    public function generate_homepage_meta_description()
+    public function generate_homepage_meta_description($domain = '')
     {
         // 1. Get settings
         $settings = get_option('ai_translate_settings', []);
@@ -807,14 +1063,37 @@ final class AI_Translate_Core
             $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
         }
 
-        // 2. Prepare content
-        $content = $this->get_clean_homepage_content();
-        $site_name = (string) get_bloginfo('name');
+        // 2. Prepare content - use provided domain or active domain
+        $content = $this->get_clean_homepage_content($domain);
         
-        // Get website context (always include if available)
-        $website_context = isset($settings['website_context']) && !empty($settings['website_context']) 
-            ? (string) $settings['website_context'] 
-            : '';
+        // Get site name - use domain-specific if multi-domain caching is enabled
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        $site_name = '';
+        if ($multi_domain && !empty($domain)) {
+            // For multi-domain, try to extract site name from content or use domain
+            // The content should already contain the title from the specific domain
+            // Extract first line (title) if available
+            $lines = explode("\n", $content);
+            if (!empty($lines[0]) && trim($lines[0]) !== '') {
+                $site_name = trim($lines[0]);
+                // Limit to reasonable length for site name
+                if (mb_strlen($site_name) > 100) {
+                    $site_name = mb_substr($site_name, 0, 100);
+                }
+            } else {
+                // Fallback to domain name (remove port if present)
+                $site_name = strtok($domain, ':');
+            }
+            
+            if (function_exists('ai_translate_dbg')) {
+                ai_translate_dbg('Using domain-specific site name', ['domain' => $domain, 'site_name' => $site_name]);
+            }
+        } else {
+            $site_name = (string) get_bloginfo('name');
+        }
+        
+        // Get website context (per-domain if multi-domain caching is enabled)
+        $website_context = $this->get_website_context_for_domain($domain);
 
         // 3. Try AI generation if configured
         if ($provider !== '' && $model !== '' && $apiKey !== '' && $baseUrl !== '') {
@@ -861,7 +1140,16 @@ final class AI_Translate_Core
                 ];
                 
                 if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
-                    $headers['Referer'] = home_url();
+                    // Use the domain-specific URL if provided
+                    if (!empty($domain)) {
+                        $protocol = is_ssl() ? 'https' : 'http';
+                        if (isset($_SERVER['REQUEST_SCHEME'])) {
+                            $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
+                        }
+                        $headers['Referer'] = $protocol . '://' . $domain . '/';
+                    } else {
+                        $headers['Referer'] = home_url();
+                    }
                     $headers['X-Title'] = $site_name;
                 }
 

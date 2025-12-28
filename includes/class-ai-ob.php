@@ -401,11 +401,79 @@ final class AI_OB
     private function site_context()
     {
         $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        
+        // Get website context (per-domain if multi-domain caching is enabled)
+        $website_context = '';
+        if ($multi_domain) {
+            $active_domain = '';
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($active_domain, ':') !== false) {
+                    $active_domain = strtok($active_domain, ':');
+                }
+            }
+            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($active_domain)) {
+                $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($active_domain)) {
+                    $active_domain = 'default';
+                }
+            }
+            
+            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
+                ? $settings['website_context_per_domain'] 
+                : [];
+            
+            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
+                $website_context = trim((string) $domain_context[$active_domain]);
+            }
+        }
+        
+        if (empty($website_context)) {
+            $website_context = isset($settings['website_context']) ? (string)$settings['website_context'] : '';
+        }
+        
+        // Get homepage meta description (per-domain if multi-domain caching is enabled)
+        $homepage_meta = '';
+        if ($multi_domain) {
+            $active_domain = '';
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($active_domain, ':') !== false) {
+                    $active_domain = strtok($active_domain, ':');
+                }
+            }
+            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($active_domain)) {
+                $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($active_domain)) {
+                    $active_domain = 'default';
+                }
+            }
+            
+            $domain_meta = isset($settings['homepage_meta_description_per_domain']) && is_array($settings['homepage_meta_description_per_domain']) 
+                ? $settings['homepage_meta_description_per_domain'] 
+                : [];
+            
+            if (isset($domain_meta[$active_domain]) && trim((string) $domain_meta[$active_domain]) !== '') {
+                $homepage_meta = trim((string) $domain_meta[$active_domain]);
+            }
+        }
+        
+        if (empty($homepage_meta)) {
+            $homepage_meta = isset($settings['homepage_meta_description']) ? (string)$settings['homepage_meta_description'] : '';
+        }
+        
         return [
             'site_name' => (string) get_bloginfo('name'),
             'default_language' => AI_Lang::default(),
-            'website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : '',
-            'homepage_meta_description' => isset($settings['homepage_meta_description']) ? (string)$settings['homepage_meta_description'] : '',
+            'website_context' => $website_context,
+            'homepage_meta_description' => $homepage_meta,
         ];
     }
 
@@ -434,8 +502,27 @@ final class AI_OB
         if (!$bodyNodes || $bodyNodes->length === 0) {
             return $result;
         }
-        
-        $bodyText = trim((string) $bodyNodes->item(0)->textContent);
+
+        // Strip boilerplate (nav/footer/forms/scripts) before text extraction to reduce false positives.
+        $pruneSelectors = ['//script', '//style', '//noscript', '//svg', '//nav', '//header', '//footer', '//form', '//input', '//button', '//select', '//option', '//textarea'];
+        foreach ($pruneSelectors as $selector) {
+            $nodes = $xpath->query($selector);
+            if ($nodes instanceof \DOMNodeList) {
+                foreach ($nodes as $node) {
+                    if ($node->parentNode) {
+                        $node->parentNode->removeChild($node);
+                    }
+                }
+            }
+        }
+
+        // Prefer <main> or <article> content when available; fall back to body.
+        $contentNode = $xpath->query('//main');
+        if (!$contentNode || $contentNode->length === 0) {
+            $contentNode = $xpath->query('//article');
+        }
+        $textSource = ($contentNode && $contentNode->length > 0) ? $contentNode->item(0) : $bodyNodes->item(0);
+        $bodyText = trim((string) $textSource->textContent);
         if (mb_strlen($bodyText) < 50) {
             return $result;
         }
@@ -453,10 +540,10 @@ final class AI_OB
         $totalChars = mb_strlen($bodyText);
         $latinRatio = $totalChars > 0 ? ($latinChars / $totalChars) : 0;
         
-        // Use more lenient threshold for non-Latin target languages (0.60 instead of 0.40)
+        // Use more lenient threshold for non-Latin target languages (0.70 instead of 0.40)
         // This allows natural Latin content like URLs, brand names, and boilerplate
         // Many websites have significant Latin content even in non-Latin languages
-        $expectedLatinRatio = $targetIsNonLatin ? 0.60 : 0.50;
+        $expectedLatinRatio = $targetIsNonLatin ? 0.70 : 0.50;
         $unexpectedDirection = $targetIsNonLatin ? ($latinRatio > $expectedLatinRatio) : ($latinRatio < $expectedLatinRatio);
         
         if ($unexpectedDirection) {
@@ -479,7 +566,13 @@ final class AI_OB
             });
             
             $wordCount = count($filteredWords);
-            if ($wordCount > 4) {
+            $normalizedText = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $bodyText);
+            $allWords = preg_split('/\s+/u', (string) $normalizedText, -1, PREG_SPLIT_NO_EMPTY);
+            $totalWordCount = is_array($allWords) ? count($allWords) : 0;
+            $latinWordRatio = $totalWordCount > 0 ? ($wordCount / $totalWordCount) : 0;
+
+            // Require substantial proportion of Latin words before invalidating non-Latin targets.
+            if ($wordCount > 4 && (!$targetIsNonLatin || $latinWordRatio > 0.55)) {
                 $result['has_untranslated'] = true;
                 $result['word_count'] = $wordCount;
                 

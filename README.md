@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.1.6
+Stable tag: 2.1.7
 Requires PHP: 8.0.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -205,7 +205,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 ## Changelog
 
-### 2.1.6
+### 2.1.7
 
 - Support for Wordpress 6.9
 - Issue with language parameter on home page fixed.
@@ -213,6 +213,8 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Improved validation of models, checking account and provider information.
 - Improved UI caching of dynamic elements. 
 - Dual caching strategy for object oriented caching implemented.
+- Support for multi domain caching
+- Select where to put the Language switcher button on your site. 
 
 ### 2.1.2
 
