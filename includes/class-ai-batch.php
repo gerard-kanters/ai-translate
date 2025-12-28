@@ -79,6 +79,7 @@ final class AI_Batch
             if ($trimmed === '' || mb_strlen($trimmed) < 2) {
                 continue; // skip ultra-short
             }
+            
             $key = strtolower($type) . '|' . md5($trimmed);
             if (!isset($primaryByKey[$key])) {
                 $primaryByKey[$key] = (string)$seg['id'];
@@ -95,10 +96,16 @@ final class AI_Batch
                     
                     $srcLower = mb_strtolower(trim($trimmed));
                     $cachedLower = mb_strtolower(trim($cachedText));
+                    // Check if source and target languages are the same - if so, identical is always valid
+                    $sourceLangLower = $source !== null ? strtolower((string) $source) : '';
+                    $targetLangLower = strtolower($targetLang);
+                    $isSameLanguage = $sourceLangLower !== '' && $sourceLangLower === $targetLangLower;
+                    
                     // For ALL languages and ALL lengths: check if translation is exactly identical
                     // Only invalidate when text is longer than 15 chars and not whitelisted (brand terms allowed)
                     // Short UI texts (≤15 chars) like "Send Message", "Submit", "Cancel" can legitimately be identical
-                    if ($srcLen > 15 && $srcLower === $cachedLower && !in_array($srcLower, $identicalWhitelist, true)) {
+                    // If source and target languages are the same, identical is always valid (e.g., EN→EN)
+                    if (!$isSameLanguage && $srcLen > 15 && $srcLower === $cachedLower && !in_array($srcLower, $identicalWhitelist, true)) {
                         $cacheInvalid = true;
                     }
                     

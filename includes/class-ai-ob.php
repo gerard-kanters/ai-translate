@@ -128,12 +128,40 @@ final class AI_OB
                     
                     // Invalidate if: (1) UI attributes are untranslated (any count), or (2) body text has > 4 untranslated words
                     if ($untranslatedCheck['has_untranslated'] && ($isUIAttributes || $wordCount > 4)) {
-                        // Check retry counter to avoid infinite loops
                         $retryKey = 'ai_translate_retry_' . md5($key);
                         $retryCount = (int) get_transient($retryKey);
                         
-                        if ($retryCount < 1) {
-                            // Mark as retry and invalidate cache to force retranslation
+                        // For UI attributes: only invalidate if there are many (> 5) untranslated attributes
+                        // Small number of missing attributes are likely being translated via batch-strings (JavaScript)
+                        // This prevents cache invalidation while batch-strings is already translating them
+                        if ($isUIAttributes) {
+                            // Only invalidate if there are many untranslated UI attributes (> 5)
+                            // Small number (< 5) are likely being translated via batch-strings, so accept cache
+                            if ($wordCount > 5) {
+                                // UI attributes are now systematically collected, so retry to ensure they get translated
+                                // Reset retry counter for UI attributes to allow retranslation
+                                delete_transient($retryKey);
+                                \ai_translate_dbg('Page cache invalidated due to many untranslated UI attributes, retrying translation', [
+                                    'lang' => $lang,
+                                    'route' => $route,
+                                    'word_count' => $wordCount,
+                                    'reason' => $reason
+                                ]);
+                                // Fall through to translation below (don't return cached)
+                            } else {
+                                // Small number of missing UI attributes - likely being translated via batch-strings
+                                // Accept cache to avoid double translation
+                                \ai_translate_dbg('Page cache accepted despite few untranslated UI attributes (likely being translated via batch-strings)', [
+                                    'lang' => $lang,
+                                    'route' => $route,
+                                    'word_count' => $wordCount,
+                                    'reason' => $reason
+                                ]);
+                                $processing = false;
+                                return $cached;
+                            }
+                        } elseif ($retryCount < 1) {
+                            // Body text: use retry counter to avoid infinite loops
                             set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
                             \ai_translate_dbg('Page cache invalidated due to untranslated content, retrying translation', [
                                 'lang' => $lang,
@@ -144,7 +172,14 @@ final class AI_OB
                             ]);
                             // Fall through to translation below (don't return cached)
                         } else {
-                            // Max retries reached, serve cached version anyway
+                            // Max retries reached for body text, serve cached version anyway
+                            \ai_translate_dbg('Page cache served despite untranslated content (max retries reached)', [
+                                'lang' => $lang,
+                                'route' => $route,
+                                'retry_count' => $retryCount,
+                                'word_count' => $wordCount,
+                                'reason' => $reason
+                            ]);
                             $processing = false;
                             return $cached;
                         }
@@ -373,7 +408,13 @@ final class AI_OB
             }
         }
         // Fallback to request URI (path + query) to ensure unique cache per paginated/archive view
+        // IMPORTANT: Remove language code prefix from URI to prevent cache duplication across languages
+        // This ensures /ka/service/... and /da/service/... use the same route_id (and cache key includes lang)
         $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        if ($req === '') { $req = '/'; }
+        // Remove leading language code (e.g., /ka/ or /da/) from path to normalize route_id
+        // The language is already part of the cache key, so we don't need it in route_id
+        $req = preg_replace('#^/([a-z]{2})(?:/|$)#i', '/', $req);
         if ($req === '') { $req = '/'; }
         return 'path:' . md5($req);
     }

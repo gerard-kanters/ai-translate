@@ -171,6 +171,7 @@ final class AI_Lang
 
     /**
      * Should translate into the given language?
+     * Only translates if language is enabled OR detectable (to prevent unauthorized translation).
      *
      * @param string|null $lang
      * @return bool
@@ -178,7 +179,21 @@ final class AI_Lang
     public static function should_translate($lang)
     {
         $default = self::default();
-        return $lang !== null && $default !== null && strtolower($lang) !== strtolower($default);
+        if ($lang === null || $default === null) {
+            return false;
+        }
+        // Don't translate default language
+        if (strtolower($lang) === strtolower($default)) {
+            return false;
+        }
+        // Only translate if language is enabled OR detectable (prevent unauthorized translation)
+        $enabled = self::enabled();
+        $detectable = self::detectable();
+        $langLower = strtolower($lang);
+        $isEnabled = in_array($langLower, array_map('strtolower', $enabled), true);
+        $isDetectable = in_array($langLower, array_map('strtolower', $detectable), true);
+        // Only translate if language is explicitly enabled or detectable
+        return $isEnabled || $isDetectable;
     }
 
     /**

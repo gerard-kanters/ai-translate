@@ -45,7 +45,7 @@ final class AI_DOM
         $visitedTextNodes = new \SplObjectStorage();
 
         $exclusions = ['script','style','code','pre','noscript'];
-        $translatableTags = ['title','p','h1','h2','h3','h4','h5','h6','li','td','th','caption','figcaption','span','label','a','button','img'];
+        $translatableTags = ['title','p','h1','h2','h3','h4','h5','h6','li','td','th','caption','figcaption','span','label','a','button','img','input','textarea','select'];
         $attrNames = ['title','alt','placeholder','aria-label','value'];
 
         $xpath = new \DOMXPath($doc);
@@ -72,14 +72,20 @@ final class AI_DOM
                 }
                 // Attributes
                 if ($node instanceof \DOMElement) {
+                    // Skip elements with data-ai-trans-skip attribute (matches JavaScript behavior)
+                    if ($node->hasAttribute('data-ai-trans-skip')) {
+                        continue;
+                    }
                     // Include input[type=submit|button|reset] value
                     if (strtolower($node->tagName) === 'input') {
                         $type = strtolower($node->getAttribute('type'));
                         if (in_array($type, ['submit','button','reset'], true)) {
                             $val = trim($node->getAttribute('value'));
                             if ($val !== '') {
+                                // Normalize: replace multiple spaces with single space (matches JavaScript behavior)
+                                $normalized = preg_replace('/\s+/u', ' ', $val);
                                 $id = 'a' . (++$counter);
-                                $segments[] = ['id' => $id, 'text' => $val, 'type' => 'attr', 'attr' => 'value'];
+                                $segments[] = ['id' => $id, 'text' => $normalized, 'type' => 'attr', 'attr' => 'value'];
                                 $nodeIndex[$id] = $node;
                             }
                         }
@@ -90,8 +96,10 @@ final class AI_DOM
                             if ($node->hasAttribute($extra)) {
                                 $val = trim($node->getAttribute($extra));
                                 if ($val !== '') {
+                                    // Normalize: replace multiple spaces with single space (matches JavaScript behavior)
+                                    $normalized = preg_replace('/\s+/u', ' ', $val);
                                     $id = 'a' . (++$counter);
-                                    $segments[] = ['id' => $id, 'text' => $val, 'type' => 'attr', 'attr' => $extra];
+                                    $segments[] = ['id' => $id, 'text' => $normalized, 'type' => 'attr', 'attr' => $extra];
                                     $nodeIndex[$id] = $node;
                                 }
                             }
@@ -101,10 +109,185 @@ final class AI_DOM
                         if ($node->hasAttribute($an)) {
                             $val = trim($node->getAttribute($an));
                             if ($val !== '') {
+                                // Normalize: replace multiple spaces with single space (matches JavaScript behavior)
+                                $normalized = preg_replace('/\s+/u', ' ', $val);
                                 $id = 'a' . (++$counter);
-                                $segments[] = ['id' => $id, 'text' => $val, 'type' => 'attr', 'attr' => $an];
+                                $segments[] = ['id' => $id, 'text' => $normalized, 'type' => 'attr', 'attr' => $an];
                                 $nodeIndex[$id] = $node;
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Systematically collect UI attributes using the EXACT same logic as JavaScript
+        // JavaScript: querySelectorAll("input,textarea,select,button,[title],[aria-label],.initial-greeting,.chatbot-bot-text")
+        // This ensures we collect ALL UI elements that JavaScript also collects, preventing trial-and-error
+        $uiElements = $xpath->query('//input | //textarea | //select | //button | //*[@title] | //*[@aria-label] | //*[contains(@class, "initial-greeting")] | //*[contains(@class, "chatbot-bot-text")]');
+        if ($uiElements) {
+            $processedElements = new \SplObjectStorage();
+            foreach ($uiElements as $node) {
+                if (!$node instanceof \DOMElement) {
+                    continue;
+                }
+                if (self::isExcluded($node, $exclusions)) {
+                    continue;
+                }
+                // Skip elements with data-ai-trans-skip attribute (matches JavaScript behavior)
+                if ($node->hasAttribute('data-ai-trans-skip')) {
+                    continue;
+                }
+                // Skip if already processed in translatableTags loop (to avoid duplicates)
+                if ($processedElements->contains($node)) {
+                    continue;
+                }
+                $processedElements->attach($node);
+                
+                // Normalize function (matches JavaScript: trim and replace multiple spaces)
+                $normalize = function($text) {
+                    return preg_replace('/\s+/u', ' ', trim($text));
+                };
+                
+                // Collect placeholder (for input, textarea, select)
+                $tagName = strtolower($node->tagName ?? '');
+                if (in_array($tagName, ['input', 'textarea', 'select'], true)) {
+                    if ($node->hasAttribute('placeholder')) {
+                        $val = $normalize($node->getAttribute('placeholder'));
+                        if ($val !== '' && mb_strlen($val) >= 2) {
+                            // Check if already collected
+                            $alreadyCollected = false;
+                            foreach ($nodeIndex as $mapped) {
+                                if ($mapped === $node) {
+                                    foreach ($segments as $seg) {
+                                        if (isset($seg['attr']) && $seg['attr'] === 'placeholder' && $nodeIndex[$seg['id']] === $node) {
+                                            $alreadyCollected = true;
+                                            break 2;
+                                        }
+                                    }
+                                }
+                            }
+                            if (!$alreadyCollected) {
+                                $id = 'a' . (++$counter);
+                                $segments[] = ['id' => $id, 'text' => $val, 'type' => 'attr', 'attr' => 'placeholder'];
+                                $nodeIndex[$id] = $node;
+                            }
+                        }
+                    }
+                }
+                
+                // Collect title
+                if ($node->hasAttribute('title')) {
+                    $val = $normalize($node->getAttribute('title'));
+                    if ($val !== '' && mb_strlen($val) >= 2) {
+                        $alreadyCollected = false;
+                        foreach ($nodeIndex as $mapped) {
+                            if ($mapped === $node) {
+                                foreach ($segments as $seg) {
+                                    if (isset($seg['attr']) && $seg['attr'] === 'title' && $nodeIndex[$seg['id']] === $node) {
+                                        $alreadyCollected = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                        if (!$alreadyCollected) {
+                            $id = 'a' . (++$counter);
+                            $segments[] = ['id' => $id, 'text' => $val, 'type' => 'attr', 'attr' => 'title'];
+                            $nodeIndex[$id] = $node;
+                        }
+                    }
+                }
+                
+                // Collect aria-label
+                if ($node->hasAttribute('aria-label')) {
+                    $val = $normalize($node->getAttribute('aria-label'));
+                    if ($val !== '' && mb_strlen($val) >= 2) {
+                        $alreadyCollected = false;
+                        foreach ($nodeIndex as $mapped) {
+                            if ($mapped === $node) {
+                                foreach ($segments as $seg) {
+                                    if (isset($seg['attr']) && $seg['attr'] === 'aria-label' && $nodeIndex[$seg['id']] === $node) {
+                                        $alreadyCollected = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                        if (!$alreadyCollected) {
+                            $id = 'a' . (++$counter);
+                            $segments[] = ['id' => $id, 'text' => $val, 'type' => 'attr', 'attr' => 'aria-label'];
+                            $nodeIndex[$id] = $node;
+                        }
+                    }
+                }
+                
+                // Collect value for input[type=submit|button|reset] (matches JavaScript behavior)
+                if ($tagName === 'input') {
+                    $type = strtolower($node->getAttribute('type') ?? '');
+                    if (in_array($type, ['submit', 'button', 'reset'], true)) {
+                        if ($node->hasAttribute('value')) {
+                            $val = $normalize($node->getAttribute('value'));
+                            if ($val !== '' && mb_strlen($val) >= 2) {
+                                $alreadyCollected = false;
+                                foreach ($nodeIndex as $mapped) {
+                                    if ($mapped === $node) {
+                                        foreach ($segments as $seg) {
+                                            if (isset($seg['attr']) && $seg['attr'] === 'value' && $nodeIndex[$seg['id']] === $node) {
+                                                $alreadyCollected = true;
+                                                break 2;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!$alreadyCollected) {
+                                    $id = 'a' . (++$counter);
+                                    $segments[] = ['id' => $id, 'text' => $val, 'type' => 'attr', 'attr' => 'value'];
+                                    $nodeIndex[$id] = $node;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Collect textContent for .initial-greeting and .chatbot-bot-text (matches JavaScript behavior)
+                $classes = $node->getAttribute('class') ?? '';
+                if (strpos($classes, 'initial-greeting') !== false || strpos($classes, 'chatbot-bot-text') !== false) {
+                    $text = trim($node->textContent ?? '');
+                    if ($text !== '' && mb_strlen($text) >= 2) {
+                        $normalized = $normalize($text);
+                        // Collect text nodes from this element
+                        $textNodes = self::collectTextNodes($node, $exclusions, new \SplObjectStorage());
+                        if (!empty($textNodes)) {
+                            $tn = $textNodes[0];
+                            // Check if this text node is already in index
+                            $existingId = null;
+                            foreach ($nodeIndex as $id => $mapped) {
+                                if ($mapped === $tn) {
+                                    $existingId = $id;
+                                    break;
+                                }
+                            }
+                            if ($existingId !== null) {
+                                // Update existing segment with normalized text
+                                foreach ($segments as &$seg) {
+                                    if ($seg['id'] === $existingId) {
+                                        $seg['text'] = $normalized;
+                                        break;
+                                    }
+                                }
+                                unset($seg);
+                            } else {
+                                // Add new segment
+                                $id = 't' . (++$counter);
+                                $segments[] = ['id' => $id, 'text' => $normalized, 'type' => 'node'];
+                                $nodeIndex[$id] = $tn;
+                            }
+                        } else {
+                            // No text nodes found, use element itself
+                            $id = 't' . (++$counter);
+                            $segments[] = ['id' => $id, 'text' => $normalized, 'type' => 'node'];
+                            $nodeIndex[$id] = $node;
                         }
                     }
                 }

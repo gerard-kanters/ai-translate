@@ -384,6 +384,49 @@ add_action('template_redirect', function () {
     $langFromUrl = null;
     if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
         $langFromUrl = strtolower(sanitize_key($m[1]));
+        
+        // SECURITY: Prevent unauthorized translation by blocking non-enabled/non-detectable languages
+        // If language is in URL but not enabled or detectable, return 404 to prevent API costs
+        if ($langFromUrl !== null && $defaultLang && strtolower($langFromUrl) !== strtolower((string) $defaultLang)) {
+            $enabled = \AITranslate\AI_Lang::enabled();
+            $detectable = \AITranslate\AI_Lang::detectable();
+            $langLower = strtolower($langFromUrl);
+            $isEnabled = in_array($langLower, array_map('strtolower', $enabled), true);
+            $isDetectable = in_array($langLower, array_map('strtolower', $detectable), true);
+            
+            // If language is not enabled and not detectable, return 404 to prevent unauthorized translation
+            if (!$isEnabled && !$isDetectable) {
+                global $wp_query;
+                $wp_query->set_404();
+                status_header(404);
+                nocache_headers();
+                return;
+            }
+            
+            // SECURITY: Prevent DOS attack by blocking language/slug mismatches
+            // If URL contains non-Latin characters (Korean, Chinese, Japanese, Arabic, etc.)
+            // but language code is Latin-based, this is likely an attack
+            $pathWithoutLang = preg_replace('#^/([a-z]{2})/#i', '/', $reqPath);
+            if ($pathWithoutLang !== $reqPath) {
+                // Check if path contains non-Latin characters
+                $hasNonLatin = preg_match('/[\x{0080}-\x{FFFF}]/u', urldecode($pathWithoutLang));
+                
+                if ($hasNonLatin) {
+                    // Define character set mappings for languages
+                    $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi', 'bn', 'ta', 'te', 'ml', 'kn', 'gu', 'pa', 'ur', 'fa', 'ps', 'sd', 'ug', 'kk', 'ky', 'uz', 'mn', 'my', 'km', 'lo', 'ne', 'si', 'dz', 'bo', 'ti', 'am', 'hy', 'az', 'be', 'mk', 'sr', 'hr', 'bs', 'sq', 'mt', 'is', 'fo', 'cy', 'ga', 'gd', 'yi', 'yi'];
+                    $isNonLatinLang = in_array($langLower, $nonLatinLangs, true);
+                    
+                    // If path has non-Latin characters but language code is Latin-based, block it
+                    if (!$isNonLatinLang) {
+                        global $wp_query;
+                        $wp_query->set_404();
+                        status_header(404);
+                        nocache_headers();
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
