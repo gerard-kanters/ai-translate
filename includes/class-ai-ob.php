@@ -120,10 +120,14 @@ final class AI_OB
                         'word_count' => $untranslatedCheck['word_count'] ?? 0,
                         'reason' => $untranslatedCheck['reason'] ?? ''
                     ]);
-                    // Only invalidate if there are actually untranslated words (> 4)
-                    // If word_count is 0 or missing, the check is likely a false positive
+                    // Invalidate if there are untranslated words (> 4) OR untranslated UI attributes (> 0)
+                    // UI attributes are always invalidated regardless of count to ensure proper translation
                     $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
-                    if ($untranslatedCheck['has_untranslated'] && $wordCount > 4) {
+                    $reason = isset($untranslatedCheck['reason']) ? (string) $untranslatedCheck['reason'] : '';
+                    $isUIAttributes = strpos($reason, 'UI attribute') !== false;
+                    
+                    // Invalidate if: (1) UI attributes are untranslated (any count), or (2) body text has > 4 untranslated words
+                    if ($untranslatedCheck['has_untranslated'] && ($isUIAttributes || $wordCount > 4)) {
                         // Check retry counter to avoid infinite loops
                         $retryKey = 'ai_translate_retry_' . md5($key);
                         $retryCount = (int) get_transient($retryKey);
@@ -135,7 +139,8 @@ final class AI_OB
                                 'lang' => $lang,
                                 'route' => $route,
                                 'retry_count' => $retryCount + 1,
-                                'word_count' => $wordCount
+                                'word_count' => $wordCount,
+                                'reason' => $reason
                             ]);
                             // Fall through to translation below (don't return cached)
                         } else {
@@ -481,6 +486,7 @@ final class AI_OB
      * Detect if translated HTML contains substantial untranslated text (> 4 words).
      * Only detects character-set mismatches: Latin ↔ Non-Latin.
      * Does NOT detect Latin → Latin (e.g. EN→DE, NL→FR) as this requires language-specific analysis.
+     * Also checks UI attributes (placeholder, title, aria-label, button values) for untranslated content.
      *
      * @param string $html Translated HTML
      * @param string $targetLang Target language code
@@ -500,6 +506,15 @@ final class AI_OB
         $xpath = new \DOMXPath($doc);
         $bodyNodes = $xpath->query('//body');
         if (!$bodyNodes || $bodyNodes->length === 0) {
+            return $result;
+        }
+
+        // Check UI attributes for untranslated content (works for all languages)
+        $uiAttributesCheck = $this->check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang);
+        if ($uiAttributesCheck['has_untranslated']) {
+            $result['has_untranslated'] = true;
+            $result['word_count'] = $uiAttributesCheck['word_count'];
+            $result['reason'] = $uiAttributesCheck['reason'];
             return $result;
         }
 
@@ -586,6 +601,121 @@ final class AI_OB
                 
                 return $result;
             }
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Check if UI attributes (placeholder, title, aria-label, button values) are untranslated.
+     * Works for all languages by checking if attributes are cached in transient.
+     *
+     * @param \DOMXPath $xpath XPath instance for DOM navigation
+     * @param string $targetLang Target language code
+     * @param string $sourceLang Source language code
+     * @return array{has_untranslated:bool,word_count:int,reason:string}
+     */
+    private function check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang)
+    {
+        $result = ['has_untranslated' => false, 'word_count' => 0, 'reason' => ''];
+        
+        // Skip check for default language
+        if (strtolower($targetLang) === strtolower($sourceLang)) {
+            return $result;
+        }
+        
+        // Collect UI attributes that need translation (same as JavaScript does)
+        $uiStrings = [];
+        $nodes = $xpath->query('//input | //textarea | //select | //button | //*[@title] | //*[@aria-label] | //*[contains(@class, "initial-greeting")] | //*[contains(@class, "chatbot-bot-text")]');
+        
+        if (!$nodes || $nodes->length === 0) {
+            return $result;
+        }
+        
+        foreach ($nodes as $node) {
+            if (!$node instanceof \DOMElement) {
+                continue;
+            }
+            
+            // Skip elements with data-ai-trans-skip attribute
+            if ($node->hasAttribute('data-ai-trans-skip')) {
+                continue;
+            }
+            
+            // Collect placeholder
+            if ($node->hasAttribute('placeholder')) {
+                $text = trim($node->getAttribute('placeholder'));
+                if ($text !== '' && mb_strlen($text) >= 2) {
+                    $normalized = preg_replace('/\s+/u', ' ', $text);
+                    $uiStrings[$normalized] = $normalized;
+                }
+            }
+            
+            // Collect title
+            if ($node->hasAttribute('title')) {
+                $text = trim($node->getAttribute('title'));
+                if ($text !== '' && mb_strlen($text) >= 2) {
+                    $normalized = preg_replace('/\s+/u', ' ', $text);
+                    $uiStrings[$normalized] = $normalized;
+                }
+            }
+            
+            // Collect aria-label
+            if ($node->hasAttribute('aria-label')) {
+                $text = trim($node->getAttribute('aria-label'));
+                if ($text !== '' && mb_strlen($text) >= 2) {
+                    $normalized = preg_replace('/\s+/u', ' ', $text);
+                    $uiStrings[$normalized] = $normalized;
+                }
+            }
+            
+            // Collect value for input buttons
+            $tagName = strtolower($node->tagName ?? '');
+            if ($tagName === 'input') {
+                $type = strtolower($node->getAttribute('type') ?? '');
+                if (in_array($type, ['submit', 'button', 'reset'], true)) {
+                    $text = trim($node->getAttribute('value') ?? '');
+                    if ($text !== '' && mb_strlen($text) >= 2) {
+                        $normalized = preg_replace('/\s+/u', ' ', $text);
+                        $uiStrings[$normalized] = $normalized;
+                    }
+                }
+            }
+            
+            // Collect textContent for chatbot elements
+            if ($node->hasAttribute('class')) {
+                $classes = $node->getAttribute('class');
+                if (strpos($classes, 'initial-greeting') !== false || strpos($classes, 'chatbot-bot-text') !== false) {
+                    $text = trim($node->textContent ?? '');
+                    if ($text !== '' && mb_strlen($text) >= 2) {
+                        $normalized = preg_replace('/\s+/u', ' ', $text);
+                        $uiStrings[$normalized] = $normalized;
+                    }
+                }
+            }
+        }
+        
+        if (empty($uiStrings)) {
+            return $result;
+        }
+        
+        // Check if UI strings are cached (translated)
+        $untranslatedCount = 0;
+        foreach ($uiStrings as $normalized) {
+            $cacheKey = 'ai_tr_attr_' . $targetLang . '_' . md5($normalized);
+            $cached = function_exists('ai_translate_get_attr_transient') 
+                ? ai_translate_get_attr_transient($cacheKey) 
+                : get_transient($cacheKey);
+            
+            if ($cached === false) {
+                $untranslatedCount++;
+            }
+        }
+        
+        if ($untranslatedCount > 0) {
+            $result['has_untranslated'] = true;
+            $result['word_count'] = $untranslatedCount;
+            $result['reason'] = sprintf('Found %d untranslated UI attribute(s) (placeholder/title/aria-label/button values)', $untranslatedCount);
         }
         
         return $result;
