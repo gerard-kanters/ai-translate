@@ -20,11 +20,41 @@ if (!defined('ABSPATH')) {
  *
  * Ensures that translations from the languages directory are available
  * for both admin and frontend contexts.
+ * Handles locale fallback (e.g., nl_NL_formal -> nl_NL).
  *
  * @return void
  */
 function ai_translate_load_textdomain()
 {
+    $locale = get_locale();
+    $plugin_dir = plugin_dir_path(__FILE__);
+    $lang_dir = $plugin_dir . 'languages/';
+    
+    // If locale contains multiple underscores (e.g., nl_NL_formal), try base locale first
+    if (substr_count($locale, '_') >= 2) {
+        $parts = explode('_', $locale);
+        if (count($parts) >= 2) {
+            $base_locale = $parts[0] . '_' . $parts[1];
+            $base_mofile = $lang_dir . 'ai-translate-' . $base_locale . '.mo';
+            if (file_exists($base_mofile)) {
+                load_textdomain('ai-translate', $base_mofile);
+                if (is_textdomain_loaded('ai-translate')) {
+                    return;
+                }
+            }
+        }
+    }
+    
+    // Try exact locale
+    $mofile = $lang_dir . 'ai-translate-' . $locale . '.mo';
+    if (file_exists($mofile)) {
+        load_textdomain('ai-translate', $mofile);
+        if (is_textdomain_loaded('ai-translate')) {
+            return;
+        }
+    }
+    
+    // Fallback to standard load_plugin_textdomain
     load_plugin_textdomain(
         'ai-translate',
         false,
