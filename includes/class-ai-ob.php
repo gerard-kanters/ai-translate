@@ -128,17 +128,17 @@ final class AI_OB
                     $uiRetryKey = 'ai_translate_ui_retry_' . md5($lang . '|' . $route);
                     $uiRetryCount = (int) get_transient($uiRetryKey);
                     
-                    // For UI attributes: only invalidate if there are many (> 5) untranslated attributes
-                    // Small number of missing attributes are likely being translated via batch-strings (JavaScript)
-                    // This prevents cache invalidation while batch-strings is already translating them
+                    // For UI attributes: only invalidate if there are many (> 8) untranslated attributes
+                    // Small number of missing attributes will be translated via batch-strings (JavaScript)
+                    // This prevents cache invalidation - batch-strings will handle these attributes client-side
                     if ($isUIAttributes) {
-                        // Only invalidate if there are many untranslated UI attributes (> 5)
-                        // Small number (< 5) are likely being translated via batch-strings, so accept cache
+                        // Only invalidate if there are many untranslated UI attributes (> 8)
+                        // Small number (<= 8) will be translated via batch-strings (JavaScript), so accept cache
                         // Also: if batch-strings was just called (cooldown), accept cache to avoid re-running full translation
                         // Additionally: cap UI invalidations per route/lang to 1 per 6 hours to avoid repeat loops
                         $maxUIRetriesPerWindow = 1;
                         $uiRetryWindow = 6 * HOUR_IN_SECONDS;
-                        if ($wordCount > 5 && !$recentAttrPing && $uiRetryCount < $maxUIRetriesPerWindow) {
+                        if ($wordCount > 8 && !$recentAttrPing && $uiRetryCount < $maxUIRetriesPerWindow) {
                             set_transient($uiRetryKey, $uiRetryCount + 1, $uiRetryWindow);
                             // UI attributes are now systematically collected, so retry to ensure they get translated
                             // Reset retry counter for UI attributes to allow retranslation
@@ -153,11 +153,11 @@ final class AI_OB
                             ]);
                             // Fall through to translation below (don't return cached)
                         } else {
-                            // Small number of missing UI attributes - likely being translated via batch-strings
-                            // Accept cache to avoid double translation
+                            // Small number of missing UI attributes - will be translated via batch-strings (JavaScript)
+                            // Accept cache to avoid double translation (batch-strings will handle these attributes client-side)
                             $logMsg = $recentAttrPing
                                 ? 'Page cache accepted during UI attribute cooldown (batch-strings recently called)'
-                                : 'Page cache accepted despite few/unseeded untranslated UI attributes (likely being translated via batch-strings)';
+                                : 'Page cache accepted despite few untranslated UI attributes (will be translated via batch-strings JavaScript)';
                             \ai_translate_dbg($logMsg, [
                                 'lang' => $lang,
                                 'route' => $route,

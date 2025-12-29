@@ -847,6 +847,11 @@ add_action('rest_api_init', function () {
             // If a response for this exact payload was recently cached, return it immediately
             $cachedResponse = get_transient($respCacheKey);
             if (is_array($cachedResponse)) {
+                \ai_translate_dbg('Batch-strings response served from cache (full payload cache)', [
+                    'lang' => $lang,
+                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                    'num_strings' => count($cachedResponse)
+                ]);
                 return new \WP_REST_Response(['success' => true, 'data' => ['map' => $cachedResponse]], 200);
             }
             
@@ -895,6 +900,7 @@ add_action('rest_api_init', function () {
             $i = 0;
             $cacheHits = 0;
             $cacheMisses = 0;
+            $totalStrings = count($texts);
             foreach ($texts as $t) {
                 // $t is already normalized from the array_map above
                 $normalized = (string) $t;
@@ -1030,6 +1036,19 @@ add_action('rest_api_init', function () {
                 }
             }
             
+            // Log cache statistics before API calls
+            if ($totalStrings > 0) {
+                \ai_translate_dbg('Batch-strings cache stats', [
+                    'lang' => $lang,
+                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                    'total_strings' => $totalStrings,
+                    'cache_hits' => $cacheHits,
+                    'cache_misses' => $cacheMisses,
+                    'strings_to_translate' => count($toTranslate),
+                    'cache_hit_ratio' => $totalStrings > 0 ? round(($cacheHits / $totalStrings) * 100, 1) . '%' : '0%'
+                ]);
+            }
+            
             // Only make API call if there are still segments to translate and (stop_translations is not enabled OR it's a search page)
             if (!empty($toTranslate) && (!$stop_translations || $is_search_page)) {
                     $plan = ['segments' => []];
@@ -1062,6 +1081,17 @@ add_action('rest_api_init', function () {
             // Cache full response map to avoid repeated API calls for identical payloads
             set_transient($respCacheKey, $map, $expiry);
             delete_transient($inflightKey);
+            
+            // Log if all strings were served from cache (no API call needed)
+            if (empty($toTranslate) && $totalStrings > 0) {
+                \ai_translate_dbg('Batch-strings: all strings served from cache, no API call needed', [
+                    'lang' => $lang,
+                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                    'total_strings' => $totalStrings,
+                    'cache_hits' => $cacheHits
+                ]);
+            }
+            
             return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);
         }
     ]);

@@ -213,8 +213,10 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 - Improved validation of models, checking account and provider information.
 - Improved UI caching of dynamic elements. 
 - Dual caching strategy for object oriented caching implemented.
-- Support for multi domain caching
+- Support for multi domain caching.
 - Select where to put the Language switcher button on your site. 
+- Implemented stop API calls in admin.
+- Improved caching and reduce API calls of UI elements
 
 ### 2.1.2
 
