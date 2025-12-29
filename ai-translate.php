@@ -836,12 +836,26 @@ add_action('rest_api_init', function () {
             $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
             
             // Check if translations are stopped (except for cache invalidation)
+            // Exception: search pages should always be translated even if stop_translations is enabled
             // For batch-strings, we block ALL new translations when stop_translations is enabled
             // This is different from page translations where we allow cache invalidation
             // Batch-strings are UI attributes that should not be translated if stop_translations is enabled
             $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
             
-            if ($stop_translations) {
+            // Check if request is from a search page by examining referer
+            $is_search_page = false;
+            if (isset($_SERVER['HTTP_REFERER'])) {
+                $referer = (string) $_SERVER['HTTP_REFERER'];
+                $referer_path = parse_url($referer, PHP_URL_PATH);
+                $referer_query = parse_url($referer, PHP_URL_QUERY);
+                // Check if referer has search parameter or is a search URL
+                if (($referer_query && (strpos($referer_query, 's=') !== false || preg_match('/[?&]s=/i', $referer_query))) ||
+                    ($referer_path && preg_match('#/search#i', $referer_path))) {
+                    $is_search_page = true;
+                }
+            }
+            
+            if ($stop_translations && !$is_search_page) {
                 \ai_translate_dbg('Stop translations enabled for batch-strings - blocking all new translations', [
                     'lang' => $lang,
                     'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : ''
@@ -901,8 +915,9 @@ add_action('rest_api_init', function () {
                     $srcLen = mb_strlen($normalized);
                     $cacheInvalid = false;
 
-                    // If stop_translations is enabled, always use cache (don't validate)
-                    if (!$stop_translations) {
+                    // If stop_translations is enabled (but not for search pages), always use cache (don't validate)
+                    // Exception: search pages should always validate cache to ensure quality
+                    if (!$stop_translations || $is_search_page) {
                         // Validate cache: check if translation is exactly identical to source
                         // NOTE: Identical translations are now accepted as valid (text was already in target language)
                         // This prevents unnecessary API calls for texts already in target language
@@ -928,8 +943,9 @@ add_action('rest_api_init', function () {
                         }
                     }
 
-                    if ($cacheInvalid && !$stop_translations) {
+                    if ($cacheInvalid && (!$stop_translations || $is_search_page)) {
                         // Cache entry is invalid - delete it and re-translate
+                        // Exception: search pages should always re-translate invalid cache
                         ai_translate_delete_attr_transient($attrCacheKey);
                         $id = 's' . (++$i);
                         $toTranslate[$id] = $normalized;
@@ -943,8 +959,9 @@ add_action('rest_api_init', function () {
                     }
                 } else {
                     // Text not in cache
-                    if ($stop_translations) {
+                    if ($stop_translations && !$is_search_page) {
                         // Stop translations enabled: use source text without API call
+                        // Exception: search pages should always be translated
                         $originalText = isset($textsOriginal[$normalized]) ? $textsOriginal[$normalized] : $normalized;
                         $map[$originalText] = $originalText;
                         $cacheHits++;
@@ -968,8 +985,9 @@ add_action('rest_api_init', function () {
                 }
             }
             if (!empty($toTranslate)) {
-                if ($stop_translations) {
+                if ($stop_translations && !$is_search_page) {
                     // Stop translations enabled: block API calls, use source texts
+                    // Exception: search pages should always be translated
                     \ai_translate_dbg('Batch-strings API call blocked: stop_translations enabled', [
                         'lang' => $lang,
                         'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
@@ -985,8 +1003,8 @@ add_action('rest_api_init', function () {
                 }
             }
             
-            // Only make API call if there are still segments to translate and stop_translations is not enabled
-            if (!empty($toTranslate) && !$stop_translations) {
+            // Only make API call if there are still segments to translate and (stop_translations is not enabled OR it's a search page)
+            if (!empty($toTranslate) && (!$stop_translations || $is_search_page)) {
                     $plan = ['segments' => []];
                     foreach ($toTranslate as $id => $text) {
                         // Use 'node' type for longer texts (full sentences), 'meta' for short UI strings
