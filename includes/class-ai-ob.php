@@ -484,6 +484,8 @@ final class AI_OB
         // This ensures /ka/service/... and /da/service/... use the same route_id (and cache key includes lang)
         $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         if ($req === '') { $req = '/'; }
+        // Normalize multiple slashes to avoid separate cache keys for // or /// paths
+        $req = preg_replace('#/+#', '/', $req);
         // Remove leading language code (e.g., /ka/ or /da/) from path to normalize route_id
         // The language is already part of the cache key, so we don't need it in route_id
         $req = preg_replace('#^/([a-z]{2})(?:/|$)#i', '/', $req);
