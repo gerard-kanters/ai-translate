@@ -63,7 +63,7 @@ final class AI_Batch
         $targetLang = (string) $target;
         $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14*24);
         $expiry = $expiry_hours * HOUR_IN_SECONDS;
-        $identicalWhitelist = array_map('strtolower', ['wordpress', 'netcare', 'netcare.nl', 'vioolles', 'vioolles.net']);
+        $identicalWhitelist = array_map('strtolower', ['wordpress', 'netcare', 'netcare.nl', 'vioolles', 'vioolles.net', 'veiligebuurt']);
 
         $primaryByKey = [];
         $idsByPrimary = [];
@@ -106,6 +106,7 @@ final class AI_Batch
                     // Short UI texts (≤15 chars) like "Send Message", "Submit", "Cancel" can legitimately be identical
                     // If source and target languages are the same, identical is always valid (e.g., EN→EN)
                     // Also accept if text contains whitelisted brand names (case-insensitive)
+                    // Also accept if text looks like a person name (starts with "- " or contains "van " or "de ")
                     $containsWhitelisted = false;
                     foreach ($identicalWhitelist as $brand) {
                         if (stripos($srcLower, $brand) !== false) {
@@ -113,7 +114,10 @@ final class AI_Batch
                             break;
                         }
                     }
-                    if (!$isSameLanguage && $srcLen > 15 && $srcLower === $cachedLower && !in_array($srcLower, $identicalWhitelist, true) && !$containsWhitelisted) {
+                    // Check if text looks like a person name (starts with "- " or contains "van " or "de ")
+                    $looksLikeName = (strpos($trimmed, '- ') === 0) || 
+                                     preg_match('/\b(van|de|der|den|het|een)\s+/i', $trimmed);
+                    if (!$isSameLanguage && $srcLen > 15 && $srcLower === $cachedLower && !in_array($srcLower, $identicalWhitelist, true) && !$containsWhitelisted && !$looksLikeName) {
                         $cacheInvalid = true;
                     }
                     
@@ -482,6 +486,15 @@ final class AI_Batch
                 if (isset($primarySegById[$pid])) {
                     $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
                     set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
+                    // Also seed UI attribute cache so batch-strings doesn't need to retranslate
+                    if ($primarySegById[$pid]['type'] === 'attr') {
+                        $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
+                        if (function_exists('ai_translate_set_attr_transient')) {
+                            ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
+                        } else {
+                            set_transient($attrKey, (string) $tr, $expiry);
+                        }
+                    }
                     $newlyCached++;
                 }
             }
@@ -706,6 +719,15 @@ final class AI_Batch
             if (isset($primarySegById[$pid])) {
                 $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
                 set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
+                // Also seed UI attribute cache to avoid follow-up batch-strings API calls
+                if ($primarySegById[$pid]['type'] === 'attr') {
+                    $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
+                    if (function_exists('ai_translate_set_attr_transient')) {
+                        ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
+                    } else {
+                        set_transient($attrKey, (string) $tr, $expiry);
+                    }
+                }
                 $newlyCached++;
             }
         }

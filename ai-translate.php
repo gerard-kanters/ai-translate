@@ -835,6 +835,33 @@ add_action('rest_api_init', function () {
             $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
             $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
             
+            // Mark recent batch-strings activity for this language (used to throttle UI-attribute invalidations)
+            set_transient('ai_tr_attr_recent_' . $lang, time(), 180);
+            
+            // Deduplicate identical batch-strings requests (same lang + same normalized texts)
+            $hashInput = $lang . '|' . implode('|', $texts);
+            $requestHash = md5($hashInput);
+            $respCacheKey = 'ai_tr_attr_resp_' . $lang . '_' . $requestHash;
+            $inflightKey = 'ai_tr_attr_inflight_' . $lang . '_' . $requestHash;
+            
+            // If a response for this exact payload was recently cached, return it immediately
+            $cachedResponse = get_transient($respCacheKey);
+            if (is_array($cachedResponse)) {
+                return new \WP_REST_Response(['success' => true, 'data' => ['map' => $cachedResponse]], 200);
+            }
+            
+            // If another request is already handling this payload, wait briefly for its result
+            if (get_transient($inflightKey)) {
+                for ($i = 0; $i < 5; $i++) {
+                    usleep(150000); // 150ms
+                    $cachedResponse = get_transient($respCacheKey);
+                    if (is_array($cachedResponse)) {
+                        return new \WP_REST_Response(['success' => true, 'data' => ['map' => $cachedResponse]], 200);
+                    }
+                }
+            }
+            set_transient($inflightKey, 1, 30); // mark inflight for 30s to dedupe concurrent calls
+            
             // Check if translations are stopped (except for cache invalidation)
             // Exception: search pages should always be translated even if stop_translations is enabled
             // For batch-strings, we block ALL new translations when stop_translations is enabled
@@ -1032,6 +1059,9 @@ add_action('rest_api_init', function () {
                         ai_translate_set_attr_transient($cacheKey, $tr, $expiry);
                     }
             }
+            // Cache full response map to avoid repeated API calls for identical payloads
+            set_transient($respCacheKey, $map, $expiry);
+            delete_transient($inflightKey);
             return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);
         }
     ]);

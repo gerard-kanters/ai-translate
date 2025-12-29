@@ -122,36 +122,47 @@ final class AI_OB
                     
                     // Invalidate if: (1) UI attributes are untranslated (any count), or (2) body text has > 4 untranslated words
                     if ($untranslatedCheck['has_untranslated'] && ($isUIAttributes || $wordCount > 4)) {
-                        $retryKey = 'ai_translate_retry_' . md5($key);
-                        $retryCount = (int) get_transient($retryKey);
-                        
-                        // For UI attributes: only invalidate if there are many (> 5) untranslated attributes
-                        // Small number of missing attributes are likely being translated via batch-strings (JavaScript)
-                        // This prevents cache invalidation while batch-strings is already translating them
-                        if ($isUIAttributes) {
-                            // Only invalidate if there are many untranslated UI attributes (> 5)
-                            // Small number (< 5) are likely being translated via batch-strings, so accept cache
-                            if ($wordCount > 5) {
-                                // UI attributes are now systematically collected, so retry to ensure they get translated
-                                // Reset retry counter for UI attributes to allow retranslation
-                                delete_transient($retryKey);
-                                \ai_translate_dbg('Page cache invalidated due to many untranslated UI attributes, retrying translation', [
-                                    'lang' => $lang,
-                                    'route' => $route,
-                                    'url' => $url,
-                                    'word_count' => $wordCount,
-                                    'reason' => $reason,
-                                    'untranslated_attributes' => $untranslatedCheck['untranslated_attributes'] ?? []
-                                ]);
-                                // Fall through to translation below (don't return cached)
-                            } else {
-                                // Small number of missing UI attributes - likely being translated via batch-strings
-                                // Accept cache to avoid double translation
-                                \ai_translate_dbg('Page cache accepted despite few untranslated UI attributes (likely being translated via batch-strings)', [
-                                    'lang' => $lang,
-                                    'route' => $route,
-                                    'url' => $url,
-                                    'word_count' => $wordCount,
+                    $retryKey = 'ai_translate_retry_' . md5($key);
+                    $retryCount = (int) get_transient($retryKey);
+                    $recentAttrPing = get_transient('ai_tr_attr_recent_' . $lang);
+                    $uiRetryKey = 'ai_translate_ui_retry_' . md5($lang . '|' . $route);
+                    $uiRetryCount = (int) get_transient($uiRetryKey);
+                    
+                    // For UI attributes: only invalidate if there are many (> 5) untranslated attributes
+                    // Small number of missing attributes are likely being translated via batch-strings (JavaScript)
+                    // This prevents cache invalidation while batch-strings is already translating them
+                    if ($isUIAttributes) {
+                        // Only invalidate if there are many untranslated UI attributes (> 5)
+                        // Small number (< 5) are likely being translated via batch-strings, so accept cache
+                        // Also: if batch-strings was just called (cooldown), accept cache to avoid re-running full translation
+                        // Additionally: cap UI invalidations per route/lang to 1 per 6 hours to avoid repeat loops
+                        $maxUIRetriesPerWindow = 1;
+                        $uiRetryWindow = 6 * HOUR_IN_SECONDS;
+                        if ($wordCount > 5 && !$recentAttrPing && $uiRetryCount < $maxUIRetriesPerWindow) {
+                            set_transient($uiRetryKey, $uiRetryCount + 1, $uiRetryWindow);
+                            // UI attributes are now systematically collected, so retry to ensure they get translated
+                            // Reset retry counter for UI attributes to allow retranslation
+                            delete_transient($retryKey);
+                            \ai_translate_dbg('Page cache invalidated due to many untranslated UI attributes, retrying translation', [
+                                'lang' => $lang,
+                                'route' => $route,
+                                'url' => $url,
+                                'word_count' => $wordCount,
+                                'reason' => $reason,
+                                'untranslated_attributes' => $untranslatedCheck['untranslated_attributes'] ?? []
+                            ]);
+                            // Fall through to translation below (don't return cached)
+                        } else {
+                            // Small number of missing UI attributes - likely being translated via batch-strings
+                            // Accept cache to avoid double translation
+                            $logMsg = $recentAttrPing
+                                ? 'Page cache accepted during UI attribute cooldown (batch-strings recently called)'
+                                : 'Page cache accepted despite few/unseeded untranslated UI attributes (likely being translated via batch-strings)';
+                            \ai_translate_dbg($logMsg, [
+                                'lang' => $lang,
+                                'route' => $route,
+                                'url' => $url,
+                                'word_count' => $wordCount,
                                     'reason' => $reason,
                                     'untranslated_attributes' => $untranslatedCheck['untranslated_attributes'] ?? []
                                 ]);
@@ -223,8 +234,15 @@ final class AI_OB
             // Try to acquire lock, wait if another process is generating this page
             while (($lockTime = get_transient($lockKey)) !== false) {
                 if ((time() - $lockStart) > $maxLockWait) {
-                    // Lock timeout - proceed anyway to avoid infinite wait
-                    break;
+                    // Another request is still generating this page; avoid duplicate API calls
+                    // Serve the current HTML without starting a second translation pass
+                    \ai_translate_dbg('Translation in progress for page, returning original HTML to avoid duplicate translation', [
+                        'lang' => $lang,
+                        'route' => $route,
+                        'url' => $url
+                    ]);
+                    $processing = false;
+                    return $html;
                 }
                 // Wait 200ms before checking again
                 usleep(200000);
@@ -834,9 +852,26 @@ final class AI_OB
             }
             
             if ($cached === false) {
-                $untranslatedCount++;
-                if (isset($uiStringsWithAttr[$normalized])) {
-                    $untranslatedAttributes[] = $uiStringsWithAttr[$normalized];
+                // Heuristic: if text already appears to be in target language, seed cache to prevent repeated invalidations
+                $textSample = isset($uiStringsWithAttr[$normalized]['text']) ? (string) $uiStringsWithAttr[$normalized]['text'] : $normalized;
+                $looksTarget = $this->looks_like_target_lang($textSample, $targetLang, $sourceLang);
+                if ($looksTarget) {
+                    // Seed attr cache with the original text as translation
+                    if (function_exists('ai_translate_set_attr_transient')) {
+                        ai_translate_set_attr_transient($attrCacheKey, $textSample, DAY_IN_SECONDS);
+                    } else {
+                        set_transient($attrCacheKey, $textSample, DAY_IN_SECONDS);
+                    }
+                    if (isset($uiStringsWithAttr[$normalized])) {
+                        $uiStringsWithAttr[$normalized]['seeded'] = true;
+                    }
+                    // Mark as cached to skip counting as untranslated
+                    $cached = $textSample;
+                } else {
+                    $untranslatedCount++;
+                    if (isset($uiStringsWithAttr[$normalized])) {
+                        $untranslatedAttributes[] = $uiStringsWithAttr[$normalized];
+                    }
                 }
             }
         }
@@ -857,5 +892,35 @@ final class AI_OB
         }
         
         return $result;
+    }
+
+    /**
+     * Simple heuristic to detect if a text already matches the target language script.
+     * For non-Latin targets: accept when Latin char ratio < 0.30.
+     * For Latin targets: accept when Latin char ratio >= 0.30 and Cyrillic/Arabic/etc. are minimal.
+     */
+    private function looks_like_target_lang($text, $targetLang, $sourceLang)
+    {
+        $text = trim((string) $text);
+        if ($text === '') {
+            return false;
+        }
+        $latinCount = preg_match_all('/[A-Za-z]/', $text);
+        $totalChars = max(1, mb_strlen($text));
+        $latinRatio = $latinCount / $totalChars;
+        
+        $nonLatinTargets = ['zh','ja','ko','ar','he','th','ka','ru','uk','bg','el','hi'];
+        $targetIsNonLatin = in_array(strtolower($targetLang), $nonLatinTargets, true);
+        $sourceIsNonLatin = in_array(strtolower($sourceLang), $nonLatinTargets, true);
+        
+        // If target is non-Latin: consider translated when Latin ratio is low
+        if ($targetIsNonLatin && $latinRatio < 0.30) {
+            return true;
+        }
+        // If target is Latin and source is non-Latin: consider translated when Latin ratio is reasonable
+        if (!$targetIsNonLatin && $sourceIsNonLatin && $latinRatio >= 0.30) {
+            return true;
+        }
+        return false;
     }
 }
