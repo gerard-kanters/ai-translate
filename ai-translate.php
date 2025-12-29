@@ -16,11 +16,19 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Load plugin textdomain for translations.
+ * Load plugin textdomain for translations with comprehensive locale fallback.
  *
- * Ensures that translations from the languages directory are available
- * for both admin and frontend contexts.
- * Handles locale fallback (e.g., nl_NL_formal -> nl_NL).
+ * WordPress supports various locale variants:
+ * - Standard: nl_NL, de_DE, en_US
+ * - Formal: nl_NL_formal, de_DE_formal
+ * - Regional: nl_BE, de_AT, de_CH, pt_BR, es_MX, etc.
+ * - Informal: (less common, but possible)
+ *
+ * This function implements a fallback chain:
+ * 1. Try exact locale (e.g., nl_NL_formal)
+ * 2. Try base locale (e.g., nl_NL)
+ * 3. Try language code only (e.g., nl) - as last resort
+ * 4. Fallback to standard load_plugin_textdomain()
  *
  * @return void
  */
@@ -30,31 +38,39 @@ function ai_translate_load_textdomain()
     $plugin_dir = plugin_dir_path(__FILE__);
     $lang_dir = $plugin_dir . 'languages/';
     
-    // If locale contains multiple underscores (e.g., nl_NL_formal), try base locale first
-    if (substr_count($locale, '_') >= 2) {
+    // Build fallback chain: exact -> base -> language code
+    $fallback_locales = array($locale);
+    
+    // If locale has underscores, extract base locale (e.g., nl_NL_formal -> nl_NL)
+    if (strpos($locale, '_') !== false) {
         $parts = explode('_', $locale);
         if (count($parts) >= 2) {
             $base_locale = $parts[0] . '_' . $parts[1];
-            $base_mofile = $lang_dir . 'ai-translate-' . $base_locale . '.mo';
-            if (file_exists($base_mofile)) {
-                load_textdomain('ai-translate', $base_mofile);
-                if (is_textdomain_loaded('ai-translate')) {
-                    return;
-                }
+            if (!in_array($base_locale, $fallback_locales, true)) {
+                $fallback_locales[] = $base_locale;
+            }
+        }
+        // Also try language code only (e.g., nl_NL -> nl)
+        if (count($parts) >= 1) {
+            $lang_only = $parts[0];
+            if (!in_array($lang_only, $fallback_locales, true)) {
+                $fallback_locales[] = $lang_only;
             }
         }
     }
     
-    // Try exact locale
-    $mofile = $lang_dir . 'ai-translate-' . $locale . '.mo';
-    if (file_exists($mofile)) {
-        load_textdomain('ai-translate', $mofile);
-        if (is_textdomain_loaded('ai-translate')) {
-            return;
+    // Try each locale in fallback chain
+    foreach ($fallback_locales as $try_locale) {
+        $mofile = $lang_dir . 'ai-translate-' . $try_locale . '.mo';
+        if (file_exists($mofile)) {
+            load_textdomain('ai-translate', $mofile);
+            if (is_textdomain_loaded('ai-translate')) {
+                return;
+            }
         }
     }
     
-    // Fallback to standard load_plugin_textdomain
+    // Final fallback to standard load_plugin_textdomain
     load_plugin_textdomain(
         'ai-translate',
         false,
@@ -62,7 +78,7 @@ function ai_translate_load_textdomain()
     );
 }
 
-add_action('plugins_loaded', 'ai_translate_load_textdomain');
+add_action('plugins_loaded', 'ai_translate_load_textdomain', 1);
 
 // Include core/admin and runtime classes.
 require_once __DIR__ . '/includes/class-ai-translate-core.php';
