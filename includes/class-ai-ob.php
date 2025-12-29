@@ -275,24 +275,67 @@ final class AI_OB
         $settings = get_option('ai_translate_settings', []);
         $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
         if ($stop_translations) {
-            // Only allow translation if cache is expired (cache invalidation)
-            // Check if cache exists and is not expired by attempting to get it
-            // AI_Cache::get() returns false if cache doesn't exist or is expired
-            $cached_content = AI_Cache::get($key);
-            if ($cached_content !== false) {
-                // Cache exists and is not expired, block translation
+            // Only allow translation if cache exists and is expired (cache invalidation)
+            // Block new translations for pages that don't have a cache yet
+            // Use reflection or direct file check to determine if cache exists and is expired
+            $uploads = wp_upload_dir();
+            $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+            $site_dir = '';
+            if (isset($settings['multi_domain_caching']) && (bool) $settings['multi_domain_caching']) {
+                $active_domain = '';
+                if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                    if (strpos($active_domain, ':') !== false) {
+                        $active_domain = strtok($active_domain, ':');
+                    }
+                }
+                if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                }
+                if (empty($active_domain)) {
+                    $active_domain = 'default';
+                }
+                $site_dir = sanitize_file_name($active_domain);
+                if (empty($site_dir)) {
+                    $site_dir = 'default';
+                }
+            }
+            if (!empty($site_dir)) {
+                $base = trailingslashit($base) . $site_dir . '/';
+            }
+            $parts = explode(':', (string) $key);
+            $lang_part = isset($parts[3]) ? sanitize_key($parts[3]) : 'xx';
+            $dir = $base . $lang_part . '/pages/';
+            $hash = md5($key);
+            $cache_file = $dir . substr($hash, 0, 2) . '/' . $hash . '.html';
+            
+            $cache_exists = is_file($cache_file);
+            $cache_is_expired = false;
+            if ($cache_exists) {
+                $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
+                $expiry_seconds = $expiry_hours * HOUR_IN_SECONDS;
+                $mtime = @filemtime($cache_file);
+                if ($mtime) {
+                    $age_seconds = time() - (int) $mtime;
+                    $cache_is_expired = $age_seconds > $expiry_seconds;
+                }
+            }
+            
+            if (!$cache_exists || !$cache_is_expired) {
+                // Cache doesn't exist or is not expired, block translation
                 if ($lockAcquired) {
                     delete_transient($lockKey);
                 }
-                \ai_translate_dbg('Translation blocked: stop_translations enabled and cache not expired', [
+                \ai_translate_dbg('Translation blocked: stop_translations enabled', [
                     'lang' => $lang,
                     'route' => $route,
-                    'url' => $url
+                    'url' => $url,
+                    'reason' => $cache_exists ? 'cache_not_expired' : 'cache_not_exists'
                 ]);
                 $processing = false;
                 return $html; // Return untranslated HTML
             }
-            // Cache is expired or doesn't exist, allow translation (cache invalidation)
+            // Cache exists and is expired, allow translation (cache invalidation)
             \ai_translate_dbg('Translation allowed: cache expired (cache invalidation)', [
                 'lang' => $lang,
                 'route' => $route,

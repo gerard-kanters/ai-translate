@@ -459,9 +459,6 @@ add_action('admin_init', function () {
                 $sanitized['switcher_position'] = 'bottom-left';
             }
 
-            // Multilingual search toggle
-            $sanitized['enable_multilingual_search'] = isset($input['enable_multilingual_search']) ? (bool)$input['enable_multilingual_search'] : false;
-
             // Multi-domain caching toggle
             $sanitized['multi_domain_caching'] = isset($input['multi_domain_caching']) ? (bool)$input['multi_domain_caching'] : false;
 
@@ -856,24 +853,6 @@ add_action('admin_init', function () {
         'ai_translate_advanced'
     );
     // --- End Website Context Field ---
-
-    // --- Add Multilingual Search Field ---
-    add_settings_field(
-        'enable_multilingual_search',
-        'Enable Multilingual Search',
-        function () {
-            $settings = get_option('ai_translate_settings');
-            $enabled = isset($settings['enable_multilingual_search']) ? $settings['enable_multilingual_search'] : false;
-            echo '<label style="display:block;margin-bottom:10px;">';
-            echo '<input type="checkbox" name="ai_translate_settings[enable_multilingual_search]" value="1" ' . checked($enabled, true, false) . '> ';
-            echo esc_html__('Enable multilingual search functionality', 'ai-translate');
-            echo '</label>';
-            echo '<p class="description">' . esc_html__('When enabled, users can search in their own language. The search terms will be translated to the default language to find relevant content in the database.', 'ai-translate') . '</p>';
-        },
-        'ai-translate',
-        'ai_translate_advanced'
-    );
-    // --- End Multilingual Search Field ---
 
 });
 

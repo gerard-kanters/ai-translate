@@ -834,6 +834,20 @@ add_action('rest_api_init', function () {
             $settings = get_option('ai_translate_settings', array());
             $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
             $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
+            
+            // Check if translations are stopped (except for cache invalidation)
+            // For batch-strings, we block ALL new translations when stop_translations is enabled
+            // This is different from page translations where we allow cache invalidation
+            // Batch-strings are UI attributes that should not be translated if stop_translations is enabled
+            $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
+            
+            if ($stop_translations) {
+                \ai_translate_dbg('Stop translations enabled for batch-strings - blocking all new translations', [
+                    'lang' => $lang,
+                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : ''
+                ]);
+            }
+            
             $map = [];
             $toTranslate = [];
             $idMap = [];
@@ -887,31 +901,34 @@ add_action('rest_api_init', function () {
                     $srcLen = mb_strlen($normalized);
                     $cacheInvalid = false;
 
-                    // Validate cache: check if translation is exactly identical to source
-                    // NOTE: Identical translations are now accepted as valid (text was already in target language)
-                    // This prevents unnecessary API calls for texts already in target language
-                    // We only invalidate if text is very short (likely a placeholder) or if it's clearly wrong
-                    // For texts > 3 chars, identical translation means text was already in target language - accept it
-                    if ($srcLen > 3 && $cachedTextNormalized === $normalized) {
-                        // Accept identical translations as valid - text was already in target language
-                        // This works for all languages without language-specific checks
-                        $cacheInvalid = false;
-                    }
+                    // If stop_translations is enabled, always use cache (don't validate)
+                    if (!$stop_translations) {
+                        // Validate cache: check if translation is exactly identical to source
+                        // NOTE: Identical translations are now accepted as valid (text was already in target language)
+                        // This prevents unnecessary API calls for texts already in target language
+                        // We only invalidate if text is very short (likely a placeholder) or if it's clearly wrong
+                        // For texts > 3 chars, identical translation means text was already in target language - accept it
+                        if ($srcLen > 3 && $cachedTextNormalized === $normalized) {
+                            // Accept identical translations as valid - text was already in target language
+                            // This works for all languages without language-specific checks
+                            $cacheInvalid = false;
+                        }
 
-                    // For non-Latin target languages: additional check for Latin ratio
-                    // Only for longer texts to avoid false positives with brand names
-                    if (!$cacheInvalid && mb_strlen($cachedText) > 100) {
-                        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'];
-                        if (in_array($lang, $nonLatinLangs, true)) {
-                            $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
-                            $latinRatio = mb_strlen($cachedText) > 0 ? ($latinCount / mb_strlen($cachedText)) : 0;
-                            if ($latinRatio > 0.4) {
-                                $cacheInvalid = true;
+                        // For non-Latin target languages: additional check for Latin ratio
+                        // Only for longer texts to avoid false positives with brand names
+                        if (!$cacheInvalid && mb_strlen($cachedText) > 100) {
+                            $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'];
+                            if (in_array($lang, $nonLatinLangs, true)) {
+                                $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
+                                $latinRatio = mb_strlen($cachedText) > 0 ? ($latinCount / mb_strlen($cachedText)) : 0;
+                                if ($latinRatio > 0.4) {
+                                    $cacheInvalid = true;
+                                }
                             }
                         }
                     }
 
-                    if ($cacheInvalid) {
+                    if ($cacheInvalid && !$stop_translations) {
                         // Cache entry is invalid - delete it and re-translate
                         ai_translate_delete_attr_transient($attrCacheKey);
                         $id = 's' . (++$i);
@@ -925,50 +942,77 @@ add_action('rest_api_init', function () {
                         $cacheHits++;
                     }
                 } else {
-                    // Text not in cache - check if it's already in target language before API call
-                    // If source text is already in target language, use it directly without API call
-                    // This prevents unnecessary API calls for texts already in target language
-                    $srcLen = mb_strlen($normalized);
-                    $isAlreadyInTargetLang = false;
-                    
-                    // Simple check: if text is identical after normalization and longer than 3 chars,
-                    // it might already be in target language. But we can't know for sure without API.
-                    // However, if API returns identical text, we'll handle it after API call.
-                    // For now, we'll send it to API but handle identical results specially.
-                    
-                    $id = 's' . (++$i);
-                    $toTranslate[$id] = $normalized;
-                    $idMap[$id] = $normalized;
-                    $cacheMisses++;
+                    // Text not in cache
+                    if ($stop_translations) {
+                        // Stop translations enabled: use source text without API call
+                        $originalText = isset($textsOriginal[$normalized]) ? $textsOriginal[$normalized] : $normalized;
+                        $map[$originalText] = $originalText;
+                        $cacheHits++;
+                    } else {
+                        // Text not in cache - check if it's already in target language before API call
+                        // If source text is already in target language, use it directly without API call
+                        // This prevents unnecessary API calls for texts already in target language
+                        $srcLen = mb_strlen($normalized);
+                        $isAlreadyInTargetLang = false;
+                        
+                        // Simple check: if text is identical after normalization and longer than 3 chars,
+                        // it might already be in target language. But we can't know for sure without API.
+                        // However, if API returns identical text, we'll handle it after API call.
+                        // For now, we'll send it to API but handle identical results specially.
+                        
+                        $id = 's' . (++$i);
+                        $toTranslate[$id] = $normalized;
+                        $idMap[$id] = $normalized;
+                        $cacheMisses++;
+                    }
                 }
             }
             if (!empty($toTranslate)) {
-                $plan = ['segments' => []];
-                foreach ($toTranslate as $id => $text) {
-                    // Use 'node' type for longer texts (full sentences), 'meta' for short UI strings
-                    // Count words by splitting on whitespace
-                    $words = preg_split('/\s+/', trim($text), -1, PREG_SPLIT_NO_EMPTY);
-                    $wordCount = count($words);
-                    $segmentType = ($wordCount > 4) ? 'node' : 'meta';
-                    $plan['segments'][] = ['id' => $id, 'text' => $text, 'type' => $segmentType];
+                if ($stop_translations) {
+                    // Stop translations enabled: block API calls, use source texts
+                    \ai_translate_dbg('Batch-strings API call blocked: stop_translations enabled', [
+                        'lang' => $lang,
+                        'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+                        'num_segments_blocked' => count($toTranslate)
+                    ]);
+                    // Use source texts for all segments that would have been translated
+                    foreach ($toTranslate as $id => $origNormalized) {
+                        $originalText = isset($textsOriginal[$origNormalized]) ? $textsOriginal[$origNormalized] : $origNormalized;
+                        $map[$originalText] = $originalText;
+                    }
+                    // Clear $toTranslate to prevent API call
+                    $toTranslate = [];
                 }
-                $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
-                $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
-                $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : array();
-                foreach ($toTranslate as $id => $origNormalized) {
-                    $tr = isset($segs[$id]) ? (string) $segs[$id] : $origNormalized;
-                    // Use original text as key for JavaScript compatibility
-                    $originalText = isset($textsOriginal[$origNormalized]) ? $textsOriginal[$origNormalized] : $origNormalized;
-                    $map[$originalText] = $tr;
-                    // Store in cache using normalized version for consistency
-                    // Even if translation is identical to source (text was already in target language),
-                    // we cache it so it won't be sent to API again
-                    $cacheKey = 'ai_tr_attr_' . $lang . '_' . md5($origNormalized);
-                    $trNormalized = trim($tr);
-                    $trNormalized = preg_replace('/\s+/u', ' ', $trNormalized);
-                    $isIdentical = ($trNormalized === $origNormalized && mb_strlen($origNormalized) > 3);
-                    ai_translate_set_attr_transient($cacheKey, $tr, $expiry);
-                }
+            }
+            
+            // Only make API call if there are still segments to translate and stop_translations is not enabled
+            if (!empty($toTranslate) && !$stop_translations) {
+                    $plan = ['segments' => []];
+                    foreach ($toTranslate as $id => $text) {
+                        // Use 'node' type for longer texts (full sentences), 'meta' for short UI strings
+                        // Count words by splitting on whitespace
+                        $words = preg_split('/\s+/', trim($text), -1, PREG_SPLIT_NO_EMPTY);
+                        $wordCount = count($words);
+                        $segmentType = ($wordCount > 4) ? 'node' : 'meta';
+                        $plan['segments'][] = ['id' => $id, 'text' => $text, 'type' => $segmentType];
+                    }
+                    $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
+                    $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
+                    $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : array();
+                    foreach ($toTranslate as $id => $origNormalized) {
+                        $tr = isset($segs[$id]) ? (string) $segs[$id] : $origNormalized;
+                        // Use original text as key for JavaScript compatibility
+                        $originalText = isset($textsOriginal[$origNormalized]) ? $textsOriginal[$origNormalized] : $origNormalized;
+                        $map[$originalText] = $tr;
+                        // Store in cache using normalized version for consistency
+                        // Even if translation is identical to source (text was already in target language),
+                        // we cache it so it won't be sent to API again
+                        $cacheKey = 'ai_tr_attr_' . $lang . '_' . md5($origNormalized);
+                        $trNormalized = trim($tr);
+                        $trNormalized = preg_replace('/\s+/u', ' ', $trNormalized);
+                        $isIdentical = ($trNormalized === $origNormalized && mb_strlen($origNormalized) > 3);
+                        ai_translate_set_attr_transient($cacheKey, $tr, $expiry);
+                    }
             }
             return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);
         }
