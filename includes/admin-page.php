@@ -318,6 +318,9 @@ add_action('admin_init', function () {
             // Auto-clear pages on menu update (checkbox)
             $sanitized['auto_clear_pages_on_menu_update'] = isset($input['auto_clear_pages_on_menu_update']) ? true : false;
 
+            // Stop translations except cache invalidation (checkbox)
+            $sanitized['stop_translations_except_cache_invalidation'] = isset($input['stop_translations_except_cache_invalidation']) ? true : false;
+
             // Model selection (per provider)
             if (isset($input['selected_model'])) {
                 $selected_provider = $sanitized['api_provider'] ?? ($current_settings['api_provider'] ?? null);
@@ -721,6 +724,23 @@ add_action('admin_init', function () {
             echo '</label>';
             echo '<p class="description">';
             echo esc_html__('When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_cache'
+    );
+    add_settings_field(
+        'stop_translations_except_cache_invalidation',
+        'Stop translations (except cache invalidation)',
+        function () {
+            $settings = get_option('ai_translate_settings');
+            $value = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
+            echo '<label>';
+            echo '<input type="checkbox" name="ai_translate_settings[stop_translations_except_cache_invalidation]" value="1" ' . checked($value, true, false) . '> ';
+            echo esc_html__('Stop translations (except cache invalidation)', 'ai-translate');
+            echo '</label>';
+            echo '<p class="description">';
+            echo esc_html__('When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed.', 'ai-translate');
             echo '</p>';
         },
         'ai-translate',

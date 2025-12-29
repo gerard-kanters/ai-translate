@@ -105,7 +105,15 @@ final class AI_Batch
                     // Only invalidate when text is longer than 15 chars and not whitelisted (brand terms allowed)
                     // Short UI texts (≤15 chars) like "Send Message", "Submit", "Cancel" can legitimately be identical
                     // If source and target languages are the same, identical is always valid (e.g., EN→EN)
-                    if (!$isSameLanguage && $srcLen > 15 && $srcLower === $cachedLower && !in_array($srcLower, $identicalWhitelist, true)) {
+                    // Also accept if text contains whitelisted brand names (case-insensitive)
+                    $containsWhitelisted = false;
+                    foreach ($identicalWhitelist as $brand) {
+                        if (stripos($srcLower, $brand) !== false) {
+                            $containsWhitelisted = true;
+                            break;
+                        }
+                    }
+                    if (!$isSameLanguage && $srcLen > 15 && $srcLower === $cachedLower && !in_array($srcLower, $identicalWhitelist, true) && !$containsWhitelisted) {
                         $cacheInvalid = true;
                     }
                     
@@ -372,7 +380,16 @@ final class AI_Batch
                     // For ALL languages and ALL lengths: check if translation is exactly identical
                     // This catches untranslated placeholders like "Naam", "Email", "Telefoon" etc.
                     // Only skip very short words (≤15 chars) like "Send Message", "Submit", "Cancel" which can be valid UI texts
-                    if ($srcLen > 15 && trim($tr) === trim($src)) {
+                    // Also accept if text contains whitelisted brand names (case-insensitive)
+                    $srcLower = mb_strtolower(trim($src));
+                    $containsWhitelisted = false;
+                    foreach ($identicalWhitelist as $brand) {
+                        if (stripos($srcLower, $brand) !== false) {
+                            $containsWhitelisted = true;
+                            break;
+                        }
+                    }
+                    if ($srcLen > 15 && trim($tr) === trim($src) && !$containsWhitelisted) {
                         $needsRetry[] = $pid;
                     }
                     // For non-Latin target languages with longer texts: additional check for Latin ratio
@@ -587,7 +604,16 @@ final class AI_Batch
                 
                 // For ALL languages and ALL lengths: check if translation is exactly identical
                 // Only skip very short words (≤15 chars) like "Send Message", "Submit", "Cancel" which can be valid UI texts
-                if ($srcLen > 15 && trim($tr) === trim($src)) {
+                // Also accept if text contains whitelisted brand names (case-insensitive)
+                $srcLower = mb_strtolower(trim($src));
+                $containsWhitelisted = false;
+                foreach ($identicalWhitelist as $brand) {
+                    if (stripos($srcLower, $brand) !== false) {
+                        $containsWhitelisted = true;
+                        break;
+                    }
+                }
+                if ($srcLen > 15 && trim($tr) === trim($src) && !$containsWhitelisted) {
                     $needsRetry[] = $pid;
                 }
                 // For non-Latin target languages with longer texts: additional check for Latin ratio

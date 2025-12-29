@@ -139,10 +139,10 @@ final class AI_DOM
                     continue;
                 }
                 // Skip if already processed in translatableTags loop (to avoid duplicates)
-                if ($processedElements->contains($node)) {
+                if (isset($processedElements[$node])) {
                     continue;
                 }
-                $processedElements->attach($node);
+                $processedElements[$node] = true;
                 
                 // Normalize function (matches JavaScript: trim and replace multiple spaces)
                 $normalize = function($text) {
@@ -531,8 +531,8 @@ final class AI_DOM
             foreach (iterator_to_array($n->childNodes ?? []) as $child) {
                 if ($child->nodeType === XML_TEXT_NODE) {
                     // Check if text node has any excluded ancestor
-                    if (!$visited->contains($child) && !self::isExcluded($child, $exclusions)) {
-                        $visited->attach($child);
+                    if (!isset($visited[$child]) && !self::isExcluded($child, $exclusions)) {
+                        $visited[$child] = true;
                         $result[] = $child;
                     }
                 } else {

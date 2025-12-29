@@ -89,6 +89,7 @@ final class AI_OB
         }
 
         $route = $this->current_route_id();
+        $url = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         // Allow cache bypass via nocache parameter for testing
         $nocache = isset($_GET['nocache']) || isset($_GET['no_cache']);
         // Note: content_version removed from cache key for stability
@@ -97,29 +98,22 @@ final class AI_OB
         $key = AI_Cache::key($lang, $route, '');
         if (!$bypassUserCache && !$nocache) {
             $cached = AI_Cache::get($key);
-            \ai_translate_dbg('Page cache lookup', [
-                'lang' => $lang,
-                'route' => $route,
-                'key_preview' => substr($key, 0, 50),
-                'cache_found' => $cached !== false
-            ]);
             if ($cached !== false) {
-                \ai_translate_dbg('Page cache HIT', [
-                    'lang' => $lang,
-                    'route' => $route,
-                    'key_preview' => substr($key, 0, 50)
-                ]);
                 // Validate cached content for substantial untranslated text (> 4 words)
                 $defaultLang = AI_Lang::default();
                 if ($defaultLang !== null) {
-                    $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang);
-                    \ai_translate_dbg('Page cache validation', [
-                        'lang' => $lang,
-                        'route' => $route,
-                        'has_untranslated' => $untranslatedCheck['has_untranslated'],
-                        'word_count' => $untranslatedCheck['word_count'] ?? 0,
-                        'reason' => $untranslatedCheck['reason'] ?? ''
-                    ]);
+                    $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang, $url);
+                    // Only log validation if there are problems
+                    if ($untranslatedCheck['has_untranslated']) {
+                        \ai_translate_dbg('Page cache validation', [
+                            'lang' => $lang,
+                            'route' => $route,
+                            'url' => $url,
+                            'has_untranslated' => $untranslatedCheck['has_untranslated'],
+                            'word_count' => $untranslatedCheck['word_count'] ?? 0,
+                            'reason' => $untranslatedCheck['reason'] ?? ''
+                        ]);
+                    }
                     // Invalidate if there are untranslated words (> 4) OR untranslated UI attributes (> 0)
                     // UI attributes are always invalidated regardless of count to ensure proper translation
                     $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
@@ -144,8 +138,10 @@ final class AI_OB
                                 \ai_translate_dbg('Page cache invalidated due to many untranslated UI attributes, retrying translation', [
                                     'lang' => $lang,
                                     'route' => $route,
+                                    'url' => $url,
                                     'word_count' => $wordCount,
-                                    'reason' => $reason
+                                    'reason' => $reason,
+                                    'untranslated_attributes' => $untranslatedCheck['untranslated_attributes'] ?? []
                                 ]);
                                 // Fall through to translation below (don't return cached)
                             } else {
@@ -154,8 +150,10 @@ final class AI_OB
                                 \ai_translate_dbg('Page cache accepted despite few untranslated UI attributes (likely being translated via batch-strings)', [
                                     'lang' => $lang,
                                     'route' => $route,
+                                    'url' => $url,
                                     'word_count' => $wordCount,
-                                    'reason' => $reason
+                                    'reason' => $reason,
+                                    'untranslated_attributes' => $untranslatedCheck['untranslated_attributes'] ?? []
                                 ]);
                                 $processing = false;
                                 return $cached;
@@ -166,6 +164,7 @@ final class AI_OB
                             \ai_translate_dbg('Page cache invalidated due to untranslated content, retrying translation', [
                                 'lang' => $lang,
                                 'route' => $route,
+                                'url' => $url,
                                 'retry_count' => $retryCount + 1,
                                 'word_count' => $wordCount,
                                 'reason' => $reason
@@ -176,6 +175,7 @@ final class AI_OB
                             \ai_translate_dbg('Page cache served despite untranslated content (max retries reached)', [
                                 'lang' => $lang,
                                 'route' => $route,
+                                'url' => $url,
                                 'retry_count' => $retryCount,
                                 'word_count' => $wordCount,
                                 'reason' => $reason
@@ -185,19 +185,11 @@ final class AI_OB
                         }
                     } else {
                         // Cache is good, return it
-                        \ai_translate_dbg('Page cache validated OK, serving cached page', [
-                            'lang' => $lang,
-                            'route' => $route
-                        ]);
                         $processing = false;
                         return $cached;
                     }
                 } else {
                     // No default language configured, return cache as-is
-                    \ai_translate_dbg('Page cache served (no default lang check)', [
-                        'lang' => $lang,
-                        'route' => $route
-                    ]);
                     $processing = false;
                     return $cached;
                 }
@@ -205,6 +197,7 @@ final class AI_OB
                 \ai_translate_dbg('Page cache MISS', [
                     'lang' => $lang,
                     'route' => $route,
+                    'url' => $url,
                     'key_preview' => substr($key, 0, 50),
                     'reason' => 'not_found'
                 ]);
@@ -213,6 +206,7 @@ final class AI_OB
             \ai_translate_dbg('Page cache BYPASSED', [
                 'lang' => $lang,
                 'route' => $route,
+                'url' => $url,
                 'reason' => $bypassUserCache ? 'logged_in_user' : ($nocache ? 'nocache_param' : 'unknown')
             ]);
         }
@@ -237,11 +231,6 @@ final class AI_OB
                 // Check if cache became available while waiting
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
-                    \ai_translate_dbg('Page cache acquired while waiting for lock', [
-                        'lang' => $lang,
-                        'route' => $route,
-                        'wait_time' => time() - $lockStart . 's'
-                    ]);
                     $processing = false;
                     return $cached;
                 }
@@ -282,19 +271,44 @@ final class AI_OB
             return $html; // Return untranslated incomplete HTML without caching
         }
 
+        // Check if translations are stopped (except for cache invalidation)
+        $settings = get_option('ai_translate_settings', []);
+        $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
+        if ($stop_translations) {
+            // Only allow translation if cache is expired (cache invalidation)
+            // Check if cache exists and is not expired by attempting to get it
+            // AI_Cache::get() returns false if cache doesn't exist or is expired
+            $cached_content = AI_Cache::get($key);
+            if ($cached_content !== false) {
+                // Cache exists and is not expired, block translation
+                if ($lockAcquired) {
+                    delete_transient($lockKey);
+                }
+                \ai_translate_dbg('Translation blocked: stop_translations enabled and cache not expired', [
+                    'lang' => $lang,
+                    'route' => $route,
+                    'url' => $url
+                ]);
+                $processing = false;
+                return $html; // Return untranslated HTML
+            }
+            // Cache is expired or doesn't exist, allow translation (cache invalidation)
+            \ai_translate_dbg('Translation allowed: cache expired (cache invalidation)', [
+                'lang' => $lang,
+                'route' => $route,
+                'url' => $url
+            ]);
+        }
+
         $plan = AI_DOM::plan($html);
         \ai_translate_dbg('Starting page translation', [
             'lang' => $lang,
             'route' => $route,
+            'url' => $url,
             'num_segments_in_plan' => isset($plan['segments']) ? count($plan['segments']) : 0
         ]);
         $res = AI_Batch::translate_plan($plan, AI_Lang::default(), $lang, $this->site_context());
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
-        \ai_translate_dbg('Page translation completed', [
-            'lang' => $lang,
-            'route' => $route,
-            'num_translations' => count($translations)
-        ]);
         if (empty($translations)) {
             $processing = false;
             $html2 = $html;
@@ -350,16 +364,11 @@ final class AI_OB
 
         if (!$bypassUserCache) {
             AI_Cache::set($key, $html3);
-            \ai_translate_dbg('Page cache SAVED', [
-                'lang' => $lang,
-                'route' => $route,
-                'html_size' => strlen($html3) . ' bytes',
-                'key_preview' => substr($key, 0, 50)
-            ]);
         } else {
             \ai_translate_dbg('Page cache NOT saved (bypassed)', [
                 'lang' => $lang,
                 'route' => $route,
+                'url' => $url,
                 'reason' => 'logged_in_user'
             ]);
         }
@@ -532,9 +541,10 @@ final class AI_OB
      * @param string $html Translated HTML
      * @param string $targetLang Target language code
      * @param string $sourceLang Source language code
-     * @return array{has_untranslated:bool,word_count:int,reason:string}
+     * @param string $url Request URL for logging
+     * @return array{has_untranslated:bool,word_count:int,reason:string,untranslated_attributes?:array}
      */
-    private function detect_untranslated_content($html, $targetLang, $sourceLang)
+    private function detect_untranslated_content($html, $targetLang, $sourceLang, $url = '')
     {
         $result = ['has_untranslated' => false, 'word_count' => 0, 'reason' => ''];
         
@@ -551,11 +561,12 @@ final class AI_OB
         }
 
         // Check UI attributes for untranslated content (works for all languages)
-        $uiAttributesCheck = $this->check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang);
+        $uiAttributesCheck = $this->check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang, $url);
         if ($uiAttributesCheck['has_untranslated']) {
             $result['has_untranslated'] = true;
             $result['word_count'] = $uiAttributesCheck['word_count'];
             $result['reason'] = $uiAttributesCheck['reason'];
+            $result['untranslated_attributes'] = $uiAttributesCheck['untranslated_attributes'] ?? [];
             return $result;
         }
 
@@ -654,11 +665,12 @@ final class AI_OB
      * @param \DOMXPath $xpath XPath instance for DOM navigation
      * @param string $targetLang Target language code
      * @param string $sourceLang Source language code
-     * @return array{has_untranslated:bool,word_count:int,reason:string}
+     * @param string $url Request URL for logging
+     * @return array{has_untranslated:bool,word_count:int,reason:string,untranslated_attributes:array}
      */
-    private function check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang)
+    private function check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang, $url = '')
     {
-        $result = ['has_untranslated' => false, 'word_count' => 0, 'reason' => ''];
+        $result = ['has_untranslated' => false, 'word_count' => 0, 'reason' => '', 'untranslated_attributes' => []];
         
         // Skip check for default language
         if (strtolower($targetLang) === strtolower($sourceLang)) {
@@ -667,6 +679,7 @@ final class AI_OB
         
         // Collect UI attributes that need translation (same as JavaScript does)
         $uiStrings = [];
+        $uiStringsWithAttr = [];
         $nodes = $xpath->query('//input | //textarea | //select | //button | //*[@title] | //*[@aria-label] | //*[contains(@class, "initial-greeting")] | //*[contains(@class, "chatbot-bot-text")]');
         
         if (!$nodes || $nodes->length === 0) {
@@ -689,6 +702,7 @@ final class AI_OB
                 if ($text !== '' && mb_strlen($text) >= 2) {
                     $normalized = preg_replace('/\s+/u', ' ', $text);
                     $uiStrings[$normalized] = $normalized;
+                    $uiStringsWithAttr[$normalized] = ['attr' => 'placeholder', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
                 }
             }
             
@@ -698,6 +712,9 @@ final class AI_OB
                 if ($text !== '' && mb_strlen($text) >= 2) {
                     $normalized = preg_replace('/\s+/u', ' ', $text);
                     $uiStrings[$normalized] = $normalized;
+                    if (!isset($uiStringsWithAttr[$normalized])) {
+                        $uiStringsWithAttr[$normalized] = ['attr' => 'title', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
+                    }
                 }
             }
             
@@ -707,6 +724,9 @@ final class AI_OB
                 if ($text !== '' && mb_strlen($text) >= 2) {
                     $normalized = preg_replace('/\s+/u', ' ', $text);
                     $uiStrings[$normalized] = $normalized;
+                    if (!isset($uiStringsWithAttr[$normalized])) {
+                        $uiStringsWithAttr[$normalized] = ['attr' => 'aria-label', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
+                    }
                 }
             }
             
@@ -719,6 +739,9 @@ final class AI_OB
                     if ($text !== '' && mb_strlen($text) >= 2) {
                         $normalized = preg_replace('/\s+/u', ' ', $text);
                         $uiStrings[$normalized] = $normalized;
+                        if (!isset($uiStringsWithAttr[$normalized])) {
+                            $uiStringsWithAttr[$normalized] = ['attr' => 'value', 'text' => $text, 'tag' => 'input[' . $type . ']'];
+                        }
                     }
                 }
             }
@@ -731,6 +754,9 @@ final class AI_OB
                     if ($text !== '' && mb_strlen($text) >= 2) {
                         $normalized = preg_replace('/\s+/u', ' ', $text);
                         $uiStrings[$normalized] = $normalized;
+                        if (!isset($uiStringsWithAttr[$normalized])) {
+                            $uiStringsWithAttr[$normalized] = ['attr' => 'textContent', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
+                        }
                     }
                 }
             }
@@ -741,15 +767,32 @@ final class AI_OB
         }
         
         // Check if UI strings are cached (translated)
+        // UI attributes can be cached in two places:
+        // 1. ai_tr_attr_* (JavaScript batch-strings cache)
+        // 2. ai_tr_seg_* (PHP translation plan cache, format: ai_tr_seg_{lang}_{md5('attr|md5(text)')})
         $untranslatedCount = 0;
+        $untranslatedAttributes = [];
         foreach ($uiStrings as $normalized) {
-            $cacheKey = 'ai_tr_attr_' . $targetLang . '_' . md5($normalized);
+            $cached = false;
+            
+            // First check JavaScript cache (ai_tr_attr_*)
+            $attrCacheKey = 'ai_tr_attr_' . $targetLang . '_' . md5($normalized);
             $cached = function_exists('ai_translate_get_attr_transient') 
-                ? ai_translate_get_attr_transient($cacheKey) 
-                : get_transient($cacheKey);
+                ? ai_translate_get_attr_transient($attrCacheKey) 
+                : get_transient($attrCacheKey);
+            
+            // If not found in JavaScript cache, check PHP translation plan cache (ai_tr_seg_*)
+            if ($cached === false) {
+                $segKey = 'attr|' . md5($normalized);
+                $segCacheKey = 'ai_tr_seg_' . $targetLang . '_' . md5($segKey);
+                $cached = get_transient($segCacheKey);
+            }
             
             if ($cached === false) {
                 $untranslatedCount++;
+                if (isset($uiStringsWithAttr[$normalized])) {
+                    $untranslatedAttributes[] = $uiStringsWithAttr[$normalized];
+                }
             }
         }
         
@@ -757,6 +800,15 @@ final class AI_OB
             $result['has_untranslated'] = true;
             $result['word_count'] = $untranslatedCount;
             $result['reason'] = sprintf('Found %d untranslated UI attribute(s) (placeholder/title/aria-label/button values)', $untranslatedCount);
+            $result['untranslated_attributes'] = $untranslatedAttributes;
+            
+            // Log details about untranslated attributes
+            \ai_translate_dbg('Untranslated UI attributes detected', [
+                'url' => $url,
+                'lang' => $targetLang,
+                'count' => $untranslatedCount,
+                'attributes' => $untranslatedAttributes
+            ]);
         }
         
         return $result;
