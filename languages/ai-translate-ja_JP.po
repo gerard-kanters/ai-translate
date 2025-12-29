@@ -1,0 +1,484 @@
+# Copyright (C) 2025 Netcare
+# This file is distributed under the same license as the AI Translate plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: AI Translate 2.1.7\n"
+"Report-Msgid-Bugs-To: https://netcare.nl/\n"
+"POT-Creation-Date: 2025-12-29 22:00+0000\n"
+"PO-Revision-Date: 2025-12-29 22:00+0000\n"
+"Last-Translator: Netcare <info@netcare.nl>\n"
+"Language-Team: 日本語\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: includes/admin-page.php:184
+msgid "AI Translate"
+msgstr "AI Translate"
+
+#: includes/admin-page.php:472
+msgid "API Settings"
+msgstr "API設定"
+
+#: includes/admin-page.php:478
+msgid "API Provider"
+msgstr "APIプロバイダー"
+
+#: includes/admin-page.php:485
+msgid "— Select provider —"
+msgstr "— プロバイダーを選択 —"
+
+#: includes/admin-page.php:492
+msgid "Note:"
+msgstr "注意："
+
+#: includes/admin-page.php:492
+msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
+msgstr "GPT-5はブロックされています。推論を無効にできず、翻訳には不要であり、非常に遅く高価であるためです。"
+
+#: includes/admin-page.php:497
+msgid "Enter the endpoint URL for your custom API provider. Example: %s"
+msgstr "カスタムAPIプロバイダーのエンドポイントURLを入力してください。例：%s"
+
+#: includes/admin-page.php:506
+msgid "API Key"
+msgstr "APIキー"
+
+#: includes/admin-page.php:521
+msgid "Translation Model"
+msgstr "翻訳モデル"
+
+#: includes/admin-page.php:529
+msgid "— Select model —"
+msgstr "— モデルを選択 —"
+
+#: includes/admin-page.php:533
+msgid "Select..."
+msgstr "選択..."
+
+#: includes/admin-page.php:536
+msgid "E.g.: deepseek-chat, gpt-4o, ..."
+msgstr "例：deepseek-chat, gpt-4o, ..."
+
+#: includes/admin-page.php:538
+msgid "Validate API settings"
+msgstr "API設定を検証"
+
+#: includes/admin-page.php:549
+msgid "Language Settings"
+msgstr "言語設定"
+
+#: includes/admin-page.php:551
+msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
+msgstr "サイトのデフォルト言語と、言語スイッチャーで利用可能にする言語を選択します。訪問者のブラウザ設定が一致する場合、検出可能な言語が使用されますが、スイッチャーには表示されません。"
+
+#: includes/admin-page.php:557
+msgid "Default Language"
+msgstr "デフォルト言語"
+
+#: includes/admin-page.php:564
+msgid "— Select default language —"
+msgstr "— デフォルト言語を選択 —"
+
+#: includes/admin-page.php:567
+msgid "Current"
+msgstr "現在"
+
+#: includes/admin-page.php:579
+msgid "Enabled Languages (in Switcher)"
+msgstr "有効な言語（スイッチャー内）"
+
+#: includes/admin-page.php:599
+msgid "Languages selected here will appear in the language switcher."
+msgstr "ここで選択した言語が言語スイッチャーに表示されます。"
+
+#: includes/admin-page.php:607
+msgid "Detectable Languages (Auto-Translate)"
+msgstr "検出可能な言語（自動翻訳）"
+
+#: includes/admin-page.php:636
+msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
+msgstr "訪問者のブラウザ言語がこれらのいずれかと一致する場合、サイトは自動的に翻訳されます（有効な場合）。ただし、これらの言語はスイッチャーには表示されません。"
+
+#: includes/admin-page.php:644
+msgid "Language Switcher Position"
+msgstr "言語スイッチャーの位置"
+
+#: includes/admin-page.php:650
+msgid "Bottom Left"
+msgstr "左下"
+
+#: includes/admin-page.php:651
+msgid "Bottom Right"
+msgstr "右下"
+
+#: includes/admin-page.php:652
+msgid "Top Left"
+msgstr "左上"
+
+#: includes/admin-page.php:653
+msgid "Top Right"
+msgstr "右上"
+
+#: includes/admin-page.php:663
+msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
+msgstr "言語スイッチャーの表示位置を選択してください。下の位置の場合はメニューが上に、上の位置の場合はメニューが下に開きます。"
+
+#: includes/admin-page.php:672
+msgid "Cache Settings"
+msgstr "キャッシュ設定"
+
+#: includes/admin-page.php:681
+msgid "Cache Duration (days)"
+msgstr "キャッシュ保持期間（日）"
+
+#: includes/admin-page.php:685
+msgid "days"
+msgstr "日"
+
+#: includes/admin-page.php:686
+msgid "minimum 14 days"
+msgstr "最小14日間"
+
+#: includes/admin-page.php:693
+msgid "Auto-Clear Pages on Menu Update"
+msgstr "メニュー更新時にページを自動クリア"
+
+#: includes/admin-page.php:699
+msgid "Automatically clear all page caches when menu items are updated"
+msgstr "メニュー項目が更新されたときに、すべてのページキャッシュを自動的にクリアします"
+
+#: includes/admin-page.php:702
+msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
+msgstr "この設定に関係なく、メニューを更新するとメニュー翻訳キャッシュ（transients）は常にクリアされます。"
+
+#: includes/admin-page.php:705
+msgid "When enabled:"
+msgstr "有効な場合："
+
+#: includes/admin-page.php:706
+msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
+msgstr "翻訳されたすべてのページHTMLキャッシュもクリアされます。メニューの変更はすぐに反映されますが、次回の訪問時にページの再翻訳が必要になります（多くの言語を持つ大規模サイトでは高コストになります）。"
+
+#: includes/admin-page.php:708
+msgid "When disabled:"
+msgstr "無効な場合："
+
+#: includes/admin-page.php:709
+msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
+msgstr "メニューキャッシュのみがクリアされます。ページHTMLキャッシュは残ります。すでにキャッシュされているページのメニュー変更は、キャッシュが期限切れになるか、「キャッシュ」タブから手動でクリアした後にのみ表示されます。"
+
+#: includes/admin-page.php:717
+msgid "Multi-Domain Caching"
+msgstr "マルチドメインキャッシュ"
+
+#: includes/admin-page.php:723
+msgid "Enable separate cache per domain"
+msgstr "ドメインごとの個別キャッシュを有効にする"
+
+#: includes/admin-page.php:726
+msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
+msgstr "有効にすると、各ドメインにサイト名にちなんだ独自のキャッシュディレクトリが作成されます。これにより、複数のドメインが同じWordPressインストールを共有している場合のキャッシュの競合を防ぎます。"
+
+#: includes/admin-page.php:734
+msgid "Stop translations (except cache invalidation)"
+msgstr "翻訳を停止（キャッシュの無効化を除く）"
+
+#: includes/admin-page.php:743
+msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
+msgstr "有効にすると、APIを介した新しい翻訳がブロックされます。翻訳は、キャッシュされたページが期限切れになり、更新が必要な場合にのみ行われます。"
+
+#: includes/admin-page.php:753
+msgid "Advanced Settings"
+msgstr "詳細設定"
+
+#: includes/admin-page.php:761
+msgid "Homepage Meta Description"
+msgstr "ホームページのメタ説明"
+
+#: includes/admin-page.php:809
+msgid "Website Context"
+msgstr "ウェブサイトのコンテキスト"
+
+#: includes/admin-page.php:28
+msgid "Insufficient permissions to perform this action."
+msgstr "このアクションを実行する権限が不足しています。"
+
+#: includes/admin-page.php:35
+msgid "Security check failed (nonce). Refresh the page and try again."
+msgstr "セキュリティチェックに失敗しました（nonce）。ページを更新してもう一度お試しください。"
+
+#: includes/admin-page.php:41
+msgid "No language selected."
+msgstr "言語が選択されていません。"
+
+#: includes/admin-page.php:52
+msgid "Cache for language \"%s\" cleared. %d files removed."
+msgstr "言語 \"%s\" のキャッシュがクリアされました。%d 個のファイルが削除されました。"
+
+#: includes/admin-page.php:57
+msgid "Error clearing cache:"
+msgstr "キャッシュのクリア中にエラーが発生しました："
+
+#: includes/admin-page.php:107
+msgid "Error generating context:"
+msgstr "コンテキストの生成中にエラーが発生しました："
+
+#: includes/admin-page.php:154
+msgid "Error generating meta description:"
+msgstr "メタ説明の生成中にエラーが発生しました："
+
+#: includes/admin-page.php:274
+msgid "Invalid API provider selected."
+msgstr "選択されたAPIプロバイダーが無効です。"
+
+#: includes/admin-page.php:294
+msgid "Custom API URL is required for the custom provider."
+msgstr "カスタムプロバイダーにはカスタムAPI URLが必要です。"
+
+#: includes/admin-page.php:307
+msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
+msgstr "キャッシュ保持期間を14日未満にすることはできません。自動的に14日に設定されました。"
+
+#: includes/admin-page.php:335
+msgid "Custom model name is required when selecting a custom model."
+msgstr "カスタムモデルを選択する場合は、カスタムモデル名が必要です。"
+
+#: includes/admin-page.php:358
+msgid "API key is required for the selected provider."
+msgstr "選択したプロバイダーにはAPIキーが必要です。"
+
+#: includes/admin-page.php:930
+msgid "General"
+msgstr "一般"
+
+#: includes/admin-page.php:931
+msgid "Cache"
+msgstr "キャッシュ"
+
+#: includes/admin-page.php:945
+msgid "Cache Management"
+msgstr "キャッシュ管理"
+
+#: includes/admin-page.php:949
+msgid "Clear all language caches"
+msgstr "すべての言語キャッシュをクリア"
+
+#: includes/admin-page.php:950
+msgid "Clear all language caches."
+msgstr "すべての言語キャッシュをクリア。"
+
+#: includes/admin-page.php:950
+msgid "Menu and slug cache are preserved to maintain URL stability."
+msgstr "URLの安定性を維持するため、メニューとスラッグのキャッシュは保持されます。"
+
+#: includes/admin-page.php:967
+msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
+msgstr "すべての言語キャッシュと翻訳transientsがクリアされました。メニューとスラッグのキャッシュは保持されます。"
+
+#: includes/admin-page.php:978
+msgid "Clear menu cache"
+msgstr "メニューキャッシュをクリア"
+
+#: includes/admin-page.php:979
+msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
+msgstr "すべてのメニュー項目翻訳を含むメニューキャッシュをクリアします。これにより、すべてのメニュー項目の新しい翻訳が強制されます。言語とスラッグマップは影響を受けません。"
+
+#: includes/admin-page.php:992
+msgid "Menu cache cleared"
+msgstr "メニューキャッシュがクリアされました"
+
+#: includes/admin-page.php:994
+msgid "%d menu-item translation removed"
+msgid_plural "%d menu-item translations removed"
+msgstr[0] "%d 個のメニュー項目翻訳が削除されました"
+
+#: includes/admin-page.php:998
+msgid "and tables truncated: %s"
+msgstr "およびテーブルが切り捨てられました：%s"
+
+#: includes/admin-page.php:1022
+msgid "Clear slug cache"
+msgstr "スラッグキャッシュをクリア"
+
+#: includes/admin-page.php:1023
+msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
+msgstr "翻訳されたURLに使用されるスラッグテーブルをクリアします。言語およびメニューのキャッシュは影響を受けません。"
+
+#: includes/admin-page.php:1034
+msgid "Slug cache cleared. Rows removed: %d."
+msgstr "スラッグキャッシュがクリアされました。削除された行数：%d。"
+
+#: includes/admin-page.php:1037
+msgid "Unknown error"
+msgstr "不明なエラー"
+
+#: includes/admin-page.php:1037
+msgid "Failed to clear slug cache: %s."
+msgstr "スラッグキャッシュのクリアに失敗しました：%s。"
+
+#: includes/admin-page.php:1050
+msgid "Clear cache per language"
+msgstr "言語ごとのキャッシュをクリア"
+
+#: includes/admin-page.php:1063
+msgid "Cache overview per language"
+msgstr "言語ごとのキャッシュ概要"
+
+#: includes/admin-page.php:1100
+msgid "Cache directory:"
+msgstr "キャッシュディレクトリ："
+
+#: includes/admin-page.php:1114
+msgid "Unknown"
+msgstr "不明"
+
+#: includes/admin-page.php:1119
+msgid "Total number of files:"
+msgstr "ファイル総数："
+
+#: includes/admin-page.php:1122
+msgid "Total size:"
+msgstr "合計サイズ："
+
+#: includes/admin-page.php:1125
+msgid "Expired files:"
+msgstr "期限切れファイル："
+
+#: includes/admin-page.php:1128
+msgid "Last update:"
+msgstr "最終更新："
+
+#: includes/admin-page.php:1135
+msgid "Language"
+msgstr "言語"
+
+#: includes/admin-page.php:1136
+msgid "Cache files"
+msgstr "キャッシュファイル"
+
+#: includes/admin-page.php:1137
+msgid "Size"
+msgstr "サイズ"
+
+#: includes/admin-page.php:1138
+msgid "Expired"
+msgstr "期限切れ"
+
+#: includes/admin-page.php:1139
+msgid "Last update"
+msgstr "最終更新"
+
+#: includes/admin-page.php:1140
+msgid "Action"
+msgstr "操作"
+
+#: includes/admin-page.php:1158
+msgid "files"
+msgstr "ファイル"
+
+#: includes/admin-page.php:1165
+msgid "Cache clear"
+msgstr "キャッシュクリア"
+
+#: includes/admin-page.php:1168
+msgid "No cache files"
+msgstr "キャッシュファイルなし"
+
+#: includes/admin-page.php:1176
+msgid "Total"
+msgstr "合計"
+
+#: includes/admin-page.php:1212
+msgid "API Provider is missing."
+msgstr "APIプロバイダーがありません。"
+
+#: includes/admin-page.php:1229
+msgid "API Provider, API Key or Custom API URL is missing or invalid."
+msgstr "APIプロバイダー、APIキー、またはカスタムAPI URLが不足しているか無効です。"
+
+#: includes/admin-page.php:1248
+msgid "API error:"
+msgstr "APIエラー："
+
+#: includes/admin-page.php:1252
+msgid "Invalid response from API"
+msgstr "APIからの応答が無効です"
+
+#: includes/admin-page.php:1344
+msgid "API and model are working. API settings have been saved."
+msgstr "APIとモデルは動作しています。API設定が保存されました。"
+
+#: includes/admin-page.php:1347
+msgid "API validation failed:"
+msgstr "API検証に失敗しました："
+
+#: ai-translate.php:1543
+msgid "Settings"
+msgstr "設定"
+
+#: ai-translate.php:1630
+msgid "AI Translate Warning:"
+msgstr "AI Translate 警告："
+
+#: ai-translate.php:1631
+msgid "This plugin requires a permalink structure other than \"Plain\". "
+msgstr "このプラグインには「基本」以外のパーマリンク設定が必要です。"
+
+#: ai-translate.php:1632
+msgid "Please set your permalinks to \"Post name\" or another structure."
+msgstr "パーマリンクを「投稿名」または別の構造に設定してください。"
+
+#: ai-translate.php:1634
+msgid "Configure Permalinks"
+msgstr "パーマリンクを設定"
+
+#: ai-translate.php:272
+msgid "Rate on WordPress.org"
+msgstr "WordPress.org で評価"
+
+#: includes/admin-page.php:801
+msgid "Generate Meta Description"
+msgstr "メタ説明を生成"
+
+#: includes/admin-page.php:852
+msgid "Generate Context from Homepage"
+msgstr "ホームページからコンテキストを生成"
+
+#: includes/admin-page.php:846
+msgid "Describe your website, business, or organization. For example:"
+msgstr "ウェブサイト、ビジネス、または組織について説明してください。例："
+
+#: includes/admin-page.php:847
+msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
+msgstr "当社は患者管理システムを専門とするヘルスケアテクノロジー企業です。当社のサービスには、電子健康記録、予約スケジュール、テレメディシンソリューションが含まれます。ヨーロッパ全土の病院、クリニック、ヘルスケアプロバイダーにサービスを提供しています。"
+
+#: includes/admin-page.php:848
+msgid "Or:"
+msgstr "または："
+
+#: includes/admin-page.php:849
+msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr "これは持続可能なガーデニングと有機農業技術に関する個人のブログです。自分の庭でのヒント、チュートリアル、経験を共有しています。"
+
+#: ai-translate.php:299
+msgid "AI based translation plugin. Adding 35 languages in a few clicks."
+msgstr "AIベースの翻訳プラグイン。数クリックで35言語を追加できます。"
+
+#: includes/admin-page.php:797
+msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "現在のドメインのホームページに特定のメタ説明を入力してください（デフォルト言語）。これは、ホームページ上のサイトのキャッチフレーズまたは生成された抜粋を上書きします。"
+
+#: includes/admin-page.php:799
+msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "ホームページの特定のメタ説明を入力してください（デフォルト言語）。これは、ホームページ上のサイトのキャッチフレーズまたは生成された抜粋を上書きします。"
+
+#: includes/admin-page.php:852
+msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
+msgstr "AIがより正確で文脈に即した翻訳を生成できるように、現在のドメインのウェブサイトまたはビジネスに関するコンテキストを提供してください。"
+
+#: includes/admin-page.php:854
+msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
+msgstr "AIがより正確で文脈に即した翻訳を生成できるように、ウェブサイトまたはビジネスに関するコンテキストを提供してください。"

@@ -1,0 +1,486 @@
+# Copyright (C) 2025 Netcare
+# This file is distributed under the same license as the AI Translate plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: AI Translate 2.1.7\n"
+"Report-Msgid-Bugs-To: https://netcare.nl/\n"
+"POT-Creation-Date: 2025-12-29 22:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: includes/admin-page.php:184
+msgid "AI Translate"
+msgstr ""
+
+#: includes/admin-page.php:472
+msgid "API Settings"
+msgstr ""
+
+#: includes/admin-page.php:478
+msgid "API Provider"
+msgstr ""
+
+#: includes/admin-page.php:485
+msgid "— Select provider —"
+msgstr ""
+
+#: includes/admin-page.php:492
+msgid "Note:"
+msgstr ""
+
+#: includes/admin-page.php:492
+msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
+msgstr ""
+
+#: includes/admin-page.php:497
+msgid "Enter the endpoint URL for your custom API provider. Example: %s"
+msgstr ""
+
+#: includes/admin-page.php:506
+msgid "API Key"
+msgstr ""
+
+#: includes/admin-page.php:521
+msgid "Translation Model"
+msgstr ""
+
+#: includes/admin-page.php:529
+msgid "— Select model —"
+msgstr ""
+
+#: includes/admin-page.php:533
+msgid "Select..."
+msgstr ""
+
+#: includes/admin-page.php:536
+msgid "E.g.: deepseek-chat, gpt-4o, ..."
+msgstr ""
+
+#: includes/admin-page.php:538
+msgid "Validate API settings"
+msgstr ""
+
+#: includes/admin-page.php:549
+msgid "Language Settings"
+msgstr ""
+
+#: includes/admin-page.php:551
+msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
+msgstr ""
+
+#: includes/admin-page.php:557
+msgid "Default Language"
+msgstr ""
+
+#: includes/admin-page.php:564
+msgid "— Select default language —"
+msgstr ""
+
+#: includes/admin-page.php:567
+msgid "Current"
+msgstr ""
+
+#: includes/admin-page.php:579
+msgid "Enabled Languages (in Switcher)"
+msgstr ""
+
+#: includes/admin-page.php:599
+msgid "Languages selected here will appear in the language switcher."
+msgstr ""
+
+#: includes/admin-page.php:607
+msgid "Detectable Languages (Auto-Translate)"
+msgstr ""
+
+#: includes/admin-page.php:636
+msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
+msgstr ""
+
+#: includes/admin-page.php:644
+msgid "Language Switcher Position"
+msgstr ""
+
+#: includes/admin-page.php:650
+msgid "Bottom Left"
+msgstr ""
+
+#: includes/admin-page.php:651
+msgid "Bottom Right"
+msgstr ""
+
+#: includes/admin-page.php:652
+msgid "Top Left"
+msgstr ""
+
+#: includes/admin-page.php:653
+msgid "Top Right"
+msgstr ""
+
+#: includes/admin-page.php:663
+msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
+msgstr ""
+
+#: includes/admin-page.php:672
+msgid "Cache Settings"
+msgstr ""
+
+#: includes/admin-page.php:681
+msgid "Cache Duration (days)"
+msgstr ""
+
+#: includes/admin-page.php:685
+msgid "days"
+msgstr ""
+
+#: includes/admin-page.php:686
+msgid "minimum 14 days"
+msgstr ""
+
+#: includes/admin-page.php:693
+msgid "Auto-Clear Pages on Menu Update"
+msgstr ""
+
+#: includes/admin-page.php:699
+msgid "Automatically clear all page caches when menu items are updated"
+msgstr ""
+
+#: includes/admin-page.php:702
+msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
+msgstr ""
+
+#: includes/admin-page.php:705
+msgid "When enabled:"
+msgstr ""
+
+#: includes/admin-page.php:706
+msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
+msgstr ""
+
+#: includes/admin-page.php:708
+msgid "When disabled:"
+msgstr ""
+
+#: includes/admin-page.php:709
+msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
+msgstr ""
+
+#: includes/admin-page.php:717
+msgid "Multi-Domain Caching"
+msgstr ""
+
+#: includes/admin-page.php:723
+msgid "Enable separate cache per domain"
+msgstr ""
+
+#: includes/admin-page.php:726
+msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
+msgstr ""
+
+#: includes/admin-page.php:734
+msgid "Stop translations (except cache invalidation)"
+msgstr ""
+
+#: includes/admin-page.php:743
+msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
+msgstr ""
+
+#: includes/admin-page.php:753
+msgid "Advanced Settings"
+msgstr ""
+
+#: includes/admin-page.php:761
+msgid "Homepage Meta Description"
+msgstr ""
+
+#: includes/admin-page.php:809
+msgid "Website Context"
+msgstr ""
+
+#: includes/admin-page.php:28
+msgid "Insufficient permissions to perform this action."
+msgstr ""
+
+#: includes/admin-page.php:35
+msgid "Security check failed (nonce). Refresh the page and try again."
+msgstr ""
+
+#: includes/admin-page.php:41
+msgid "No language selected."
+msgstr ""
+
+#: includes/admin-page.php:52
+msgid "Cache for language \"%s\" cleared. %d files removed."
+msgstr ""
+
+#: includes/admin-page.php:57
+msgid "Error clearing cache:"
+msgstr ""
+
+#: includes/admin-page.php:107
+msgid "Error generating context:"
+msgstr ""
+
+#: includes/admin-page.php:154
+msgid "Error generating meta description:"
+msgstr ""
+
+#: includes/admin-page.php:274
+msgid "Invalid API provider selected."
+msgstr ""
+
+#: includes/admin-page.php:294
+msgid "Custom API URL is required for the custom provider."
+msgstr ""
+
+#: includes/admin-page.php:307
+msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
+msgstr ""
+
+#: includes/admin-page.php:335
+msgid "Custom model name is required when selecting a custom model."
+msgstr ""
+
+#: includes/admin-page.php:358
+msgid "API key is required for the selected provider."
+msgstr ""
+
+#: includes/admin-page.php:930
+msgid "General"
+msgstr ""
+
+#: includes/admin-page.php:931
+msgid "Cache"
+msgstr ""
+
+#: includes/admin-page.php:945
+msgid "Cache Management"
+msgstr ""
+
+#: includes/admin-page.php:949
+msgid "Clear all language caches"
+msgstr ""
+
+#: includes/admin-page.php:950
+msgid "Clear all language caches."
+msgstr ""
+
+#: includes/admin-page.php:950
+msgid "Menu and slug cache are preserved to maintain URL stability."
+msgstr ""
+
+#: includes/admin-page.php:967
+msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
+msgstr ""
+
+#: includes/admin-page.php:978
+msgid "Clear menu cache"
+msgstr ""
+
+#: includes/admin-page.php:979
+msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
+msgstr ""
+
+#: includes/admin-page.php:992
+msgid "Menu cache cleared"
+msgstr ""
+
+#: includes/admin-page.php:994
+msgid "%d menu-item translation removed"
+msgid_plural "%d menu-item translations removed"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/admin-page.php:998
+msgid "and tables truncated: %s"
+msgstr ""
+
+#: includes/admin-page.php:1022
+msgid "Clear slug cache"
+msgstr ""
+
+#: includes/admin-page.php:1023
+msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
+msgstr ""
+
+#: includes/admin-page.php:1034
+msgid "Slug cache cleared. Rows removed: %d."
+msgstr ""
+
+#: includes/admin-page.php:1037
+msgid "Unknown error"
+msgstr ""
+
+#: includes/admin-page.php:1037
+msgid "Failed to clear slug cache: %s."
+msgstr ""
+
+#: includes/admin-page.php:1050
+msgid "Clear cache per language"
+msgstr ""
+
+#: includes/admin-page.php:1063
+msgid "Cache overview per language"
+msgstr ""
+
+#: includes/admin-page.php:1100
+msgid "Cache directory:"
+msgstr ""
+
+#: includes/admin-page.php:1114
+msgid "Unknown"
+msgstr ""
+
+#: includes/admin-page.php:1119
+msgid "Total number of files:"
+msgstr ""
+
+#: includes/admin-page.php:1122
+msgid "Total size:"
+msgstr ""
+
+#: includes/admin-page.php:1125
+msgid "Expired files:"
+msgstr ""
+
+#: includes/admin-page.php:1128
+msgid "Last update:"
+msgstr ""
+
+#: includes/admin-page.php:1135
+msgid "Language"
+msgstr ""
+
+#: includes/admin-page.php:1136
+msgid "Cache files"
+msgstr ""
+
+#: includes/admin-page.php:1137
+msgid "Size"
+msgstr ""
+
+#: includes/admin-page.php:1138
+msgid "Expired"
+msgstr ""
+
+#: includes/admin-page.php:1139
+msgid "Last update"
+msgstr ""
+
+#: includes/admin-page.php:1140
+msgid "Action"
+msgstr ""
+
+#: includes/admin-page.php:1158
+msgid "files"
+msgstr ""
+
+#: includes/admin-page.php:1165
+msgid "Cache clear"
+msgstr ""
+
+#: includes/admin-page.php:1168
+msgid "No cache files"
+msgstr ""
+
+#: includes/admin-page.php:1176
+msgid "Total"
+msgstr ""
+
+#: includes/admin-page.php:1212
+msgid "API Provider is missing."
+msgstr ""
+
+#: includes/admin-page.php:1229
+msgid "API Provider, API Key or Custom API URL is missing or invalid."
+msgstr ""
+
+#: includes/admin-page.php:1248
+msgid "API error:"
+msgstr ""
+
+#: includes/admin-page.php:1252
+msgid "Invalid response from API"
+msgstr ""
+
+#: includes/admin-page.php:1344
+msgid "API and model are working. API settings have been saved."
+msgstr ""
+
+#: includes/admin-page.php:1347
+msgid "API validation failed:"
+msgstr ""
+
+#: ai-translate.php:1543
+msgid "Settings"
+msgstr ""
+
+#: ai-translate.php:1630
+msgid "AI Translate Warning:"
+msgstr ""
+
+#: ai-translate.php:1631
+msgid "This plugin requires a permalink structure other than \"Plain\". "
+msgstr ""
+
+#: ai-translate.php:1632
+msgid "Please set your permalinks to \"Post name\" or another structure."
+msgstr ""
+
+#: ai-translate.php:1634
+msgid "Configure Permalinks"
+msgstr ""
+
+#: ai-translate.php:272
+msgid "Rate on WordPress.org"
+msgstr ""
+
+#: includes/admin-page.php:801
+msgid "Generate Meta Description"
+msgstr ""
+
+#: includes/admin-page.php:852
+msgid "Generate Context from Homepage"
+msgstr ""
+
+#: includes/admin-page.php:846
+msgid "Describe your website, business, or organization. For example:"
+msgstr ""
+
+#: includes/admin-page.php:847
+msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
+msgstr ""
+
+#: includes/admin-page.php:848
+msgid "Or:"
+msgstr ""
+
+#: includes/admin-page.php:849
+msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr ""
+
+#: ai-translate.php:299
+msgid "AI based translation plugin. Adding 35 languages in a few clicks."
+msgstr ""
+
+#: includes/admin-page.php:797
+msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr ""
+
+#: includes/admin-page.php:799
+msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr ""
+
+#: includes/admin-page.php:852
+msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
+msgstr ""
+
+#: includes/admin-page.php:854
+msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
+msgstr ""
+

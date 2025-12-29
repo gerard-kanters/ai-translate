@@ -25,20 +25,20 @@ function ajax_clear_cache_language()
 {
     // Check permissions
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Insufficient permissions to perform this action.']);
+        wp_send_json_error(['message' => __('Insufficient permissions to perform this action.', 'ai-translate')]);
         return;
     }
 
     // Validate nonce
     $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
     if (!$nonce_value || !wp_verify_nonce($nonce_value, 'clear_cache_language_action')) {
-        wp_send_json_error(['message' => 'Security check failed (nonce). Refresh the page and try again.']);
+        wp_send_json_error(['message' => __('Security check failed (nonce). Refresh the page and try again.', 'ai-translate')]);
         return;
     }
 
     // Validate language code
     if (!isset($_POST['lang_code']) || empty($_POST['lang_code'])) {
-        wp_send_json_error(['message' => 'No language selected.']);
+        wp_send_json_error(['message' => __('No language selected.', 'ai-translate')]);
         return;
     }
 
@@ -49,12 +49,12 @@ function ajax_clear_cache_language()
     try {
         $count = $translator->clear_cache_for_language($lang_code);
         wp_send_json_success([
-            'message' => sprintf('Cache for language "%s" cleared. %d files removed.', $lang_code, $count),
+            'message' => sprintf(__('Cache for language "%s" cleared. %d files removed.', 'ai-translate'), $lang_code, $count),
             'count' => $count
         ]);
     } catch (\Exception $e) {
         wp_send_json_error([
-            'message' => 'Error clearing cache: ' . $e->getMessage()
+            'message' => __('Error clearing cache:', 'ai-translate') . ' ' . $e->getMessage()
         ]);
     }
 }
@@ -72,14 +72,14 @@ function ajax_generate_website_context()
 {
     // Check permissions
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Insufficient permissions to perform this action.']);
+        wp_send_json_error(['message' => __('Insufficient permissions to perform this action.', 'ai-translate')]);
         return;
     }
 
     // Validate nonce
     $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
     if (!$nonce_value || !wp_verify_nonce($nonce_value, 'generate_website_context_nonce')) {
-        wp_send_json_error(['message' => 'Security check failed (nonce). Refresh the page and try again.']);
+        wp_send_json_error(['message' => __('Security check failed (nonce). Refresh the page and try again.', 'ai-translate')]);
         return;
     }
 
@@ -104,7 +104,7 @@ function ajax_generate_website_context()
         ]);
     } catch (\Exception $e) {
         wp_send_json_error([
-            'message' => 'Error generating context: ' . $e->getMessage()
+            'message' => __('Error generating context:', 'ai-translate') . ' ' . $e->getMessage()
         ]);
     }
 }
@@ -119,14 +119,14 @@ function ajax_generate_homepage_meta()
 {
     // Check permissions
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Insufficient permissions to perform this action.']);
+        wp_send_json_error(['message' => __('Insufficient permissions to perform this action.', 'ai-translate')]);
         return;
     }
 
     // Validate nonce
     $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
     if (!$nonce_value || !wp_verify_nonce($nonce_value, 'generate_homepage_meta_nonce')) {
-        wp_send_json_error(['message' => 'Security check failed (nonce). Refresh the page and try again.']);
+        wp_send_json_error(['message' => __('Security check failed (nonce). Refresh the page and try again.', 'ai-translate')]);
         return;
     }
 
@@ -151,7 +151,7 @@ function ajax_generate_homepage_meta()
             ai_translate_dbg('Error generating meta description: ' . $e->getMessage());
         }
         wp_send_json_error([
-            'message' => 'Error generating meta description: ' . $e->getMessage()
+            'message' => __('Error generating meta description:', 'ai-translate') . ' ' . $e->getMessage()
         ]);
     }
 }
@@ -181,8 +181,8 @@ add_action('update_option_ai_translate_settings', function ($old_value, $value) 
 // Add admin menu
 add_action('admin_menu', function () {
     add_menu_page(
-        'AI Translate',
-        'AI Translate',
+        __('AI Translate', 'ai-translate'),
+        __('AI Translate', 'ai-translate'),
         'manage_options',
         'ai-translate',
         __NAMESPACE__ . '\\render_admin_page',
@@ -469,32 +469,35 @@ add_action('admin_init', function () {
     // API Settings Section
     add_settings_section(
         'ai_translate_api',
-        'API Settings',
+        __('API Settings', 'ai-translate'),
         null,
         'ai-translate'
     );
     add_settings_field(
         'api_provider',
-        'API Provider',
+        __('API Provider', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $providers = AI_Translate_Core::get_api_providers();
 
             echo '<select id="api_provider_select" name="ai_translate_settings[api_provider]">';
-            echo '<option value="" ' . selected($current_provider_key, '', false) . ' disabled hidden>— Select provider —</option>';
+            echo '<option value="" ' . selected($current_provider_key, '', false) . ' disabled hidden>' . esc_html__('— Select provider —', 'ai-translate') . '</option>';
             foreach ($providers as $key => $provider_details) {
                 echo '<option value="' . esc_attr($key) . '" ' . selected($current_provider_key, $key, false) . '>' . esc_html($provider_details['name']) . '</option>';
             }
             echo '</select>';
             // GPT-5 warning for OpenAI
             echo '<div id="openai_gpt5_warning" style="margin-top:10px; display:none;">';
-            echo '<p class="description" style="color: #d63638;"><strong>Note:</strong> GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive.</p>';
+            echo '<p class="description" style="color: #d63638;"><strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ' . esc_html__('GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive.', 'ai-translate') . '</p>';
             echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
             echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://your-custom-api.com/v1/" class="regular-text">';
-            echo '<p class="description">Enter the endpoint URL for your custom API provider. Example: <a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a></p>';
+            echo '<p class="description">' . sprintf(
+                esc_html__('Enter the endpoint URL for your custom API provider. Example: %s', 'ai-translate'),
+                '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>'
+            ) . '</p>';
             echo '</div>';
 
         },
@@ -503,7 +506,7 @@ add_action('admin_init', function () {
     );
     add_settings_field(
         'api_key',
-        'API Key',
+        __('API Key', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
@@ -518,7 +521,7 @@ add_action('admin_init', function () {
     );
     add_settings_field(
         'selected_model',
-        'Translation Model',
+        __('Translation Model', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : '';
@@ -526,16 +529,16 @@ add_action('admin_init', function () {
             $selected_model = $current_provider !== '' ? ($models[$current_provider] ?? '') : '';
             $custom_model = isset($settings['custom_model']) ? $settings['custom_model'] : '';
             echo '<select name="ai_translate_settings[selected_model]" id="selected_model">';
-            echo '<option value="" ' . selected($selected_model, '', false) . ' disabled hidden>— Select model —</option>';
+            echo '<option value="" ' . selected($selected_model, '', false) . ' disabled hidden>' . esc_html__('— Select model —', 'ai-translate') . '</option>';
             if ($selected_model) {
                 echo '<option value="' . esc_attr($selected_model) . '" selected>' . esc_html($selected_model) . '</option>';
             }
-            echo '<option value="custom">Select...</option>';
+            echo '<option value="custom">' . esc_html__('Select...', 'ai-translate') . '</option>';
             echo '</select> ';
             echo '<div id="custom_model_div" style="margin-top:10px; display:none;">';
-            echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($custom_model) . '" placeholder="E.g.: deepseek-chat, gpt-4o, ..." class="regular-text">';
+            echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($custom_model) . '" placeholder="' . esc_attr__('E.g.: deepseek-chat, gpt-4o, ...', 'ai-translate') . '" class="regular-text">';
             echo '</div>';
-            echo '<button type="button" class="button" id="ai-translate-validate-api">Validate API settings</button>';
+            echo '<button type="button" class="button" id="ai-translate-validate-api">' . esc_html__('Validate API settings', 'ai-translate') . '</button>';
             echo '<span id="ai-translate-api-status" style="margin-left:10px;"></span>';
 
         },
@@ -546,7 +549,7 @@ add_action('admin_init', function () {
     // Language Settings Section
     add_settings_section(
         'ai_translate_languages',
-        'Language Settings',
+        __('Language Settings', 'ai-translate'),
         function () {
             echo '<p>' . esc_html(__('Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor\'s browser preference matches, but won\'t show in the switcher.', 'ai-translate')) . '</p>';
         },
@@ -554,17 +557,17 @@ add_action('admin_init', function () {
     );
     add_settings_field(
         'default_language',
-        'Default Language',
+        __('Default Language', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['default_language']) ? $settings['default_language'] : '';
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Get all available languages
             echo '<select name="ai_translate_settings[default_language]">';
-            echo '<option value="" ' . selected($value, '', false) . ' disabled hidden>— Select default language —</option>';
+            echo '<option value="" ' . selected($value, '', false) . ' disabled hidden>' . esc_html__('— Select default language —', 'ai-translate') . '</option>';
             // Ensure current saved language stays visible if not in list
             if ($value !== '' && !isset($languages[$value])) {
-                echo '<option value="' . esc_attr($value) . '" selected>' . esc_html(ucfirst($value)) . ' (Current)</option>';
+                echo '<option value="' . esc_attr($value) . '" selected>' . esc_html(ucfirst($value)) . ' (' . esc_html__('Current', 'ai-translate') . ')</option>';
             }
             foreach ($languages as $code => $name) {
                 echo '<option value="' . esc_attr($code) . '" ' . selected($value, $code, false) . '>' . esc_html($name . ' (' . $code . ')') . '</option>';
@@ -576,7 +579,7 @@ add_action('admin_init', function () {
     );
     add_settings_field(
         'enabled_languages',
-        'Enabled Languages (in Switcher)',
+        __('Enabled Languages (in Switcher)', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $enabled = isset($settings['enabled_languages']) ? (array)$settings['enabled_languages'] : [];
@@ -604,7 +607,7 @@ add_action('admin_init', function () {
     // --- Add Detectable Languages Field ---
     add_settings_field(
         'detectable_languages',
-        'Detectable Languages (Auto-Translate)',
+        __('Detectable Languages (Auto-Translate)', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : [];
@@ -642,15 +645,15 @@ add_action('admin_init', function () {
 
     add_settings_field(
         'switcher_position',
-        'Language Switcher Position',
+        __('Language Switcher Position', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
             $positions = array(
-                'bottom-left' => 'Bottom Left',
-                'bottom-right' => 'Bottom Right',
-                'top-left' => 'Top Left',
-                'top-right' => 'Top Right',
+                'bottom-left' => __('Bottom Left', 'ai-translate'),
+                'bottom-right' => __('Bottom Right', 'ai-translate'),
+                'top-left' => __('Top Left', 'ai-translate'),
+                'top-right' => __('Top Right', 'ai-translate'),
             );
             echo '<fieldset>';
             foreach ($positions as $value => $label) {
@@ -669,17 +672,17 @@ add_action('admin_init', function () {
     // Cache Settings Section
     add_settings_section(
         'ai_translate_cache',
-        'Cache Settings',
+        __('Cache Settings', 'ai-translate'),
         null,
         'ai-translate'
     );
     add_settings_field(
         'cache_expiration',
-        'Cache Duration (days)',
+        __('Cache Duration (days)', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['cache_expiration']) ? intval($settings['cache_expiration'] / 24) : 14; // Default to 14 if it doesn't exist
-            echo '<input type="number" name="ai_translate_settings[cache_expiration]" value="' . esc_attr($value) . '" class="small-text" min="14"> days';
+            echo '<input type="number" name="ai_translate_settings[cache_expiration]" value="' . esc_attr($value) . '" class="small-text" min="14"> ' . esc_html__('days', 'ai-translate');
             echo ' <em style="margin-left:10px;">(' . esc_html__('minimum 14 days', 'ai-translate') . ')</em>';
         },
         'ai-translate',
@@ -687,7 +690,7 @@ add_action('admin_init', function () {
     );
     add_settings_field(
         'auto_clear_pages_on_menu_update',
-        'Auto-Clear Pages on Menu Update',
+        __('Auto-Clear Pages on Menu Update', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['auto_clear_pages_on_menu_update']) ? (bool) $settings['auto_clear_pages_on_menu_update'] : true;
@@ -711,7 +714,7 @@ add_action('admin_init', function () {
     );
     add_settings_field(
         'multi_domain_caching',
-        'Multi-Domain Caching',
+        __('Multi-Domain Caching', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
@@ -728,7 +731,7 @@ add_action('admin_init', function () {
     );
     add_settings_field(
         'stop_translations_except_cache_invalidation',
-        'Stop translations (except cache invalidation)',
+        __('Stop translations (except cache invalidation)', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $value = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
@@ -747,7 +750,7 @@ add_action('admin_init', function () {
     // Advanced Settings Section
     add_settings_section(
         'ai_translate_advanced',
-        'Advanced Settings',
+        __('Advanced Settings', 'ai-translate'),
         null,
         'ai-translate'
     );
@@ -755,7 +758,7 @@ add_action('admin_init', function () {
     // --- Add Homepage Meta Description Field ---
     add_settings_field(
         'homepage_meta_description',
-        'Homepage Meta Description',
+        __('Homepage Meta Description', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
@@ -795,7 +798,7 @@ add_action('admin_init', function () {
             } else {
                 echo '<p class="description">' . esc_html(__('Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage.', 'ai-translate')) . '</p>';
             }
-            echo '<button type="button" class="button" id="generate-meta-btn" style="margin-top: 10px;">Generate Meta Description</button>';
+            echo '<button type="button" class="button" id="generate-meta-btn" style="margin-top: 10px;">' . esc_html__('Generate Meta Description', 'ai-translate') . '</button>';
             echo '<span id="generate-meta-status" style="margin-left: 10px;"></span>';
         },
         'ai-translate',
@@ -806,7 +809,7 @@ add_action('admin_init', function () {
     // --- Add Website Context Field ---
     add_settings_field(
         'website_context',
-        'Website Context',
+        __('Website Context', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
             $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
@@ -840,13 +843,17 @@ add_action('admin_init', function () {
                 $value = isset($settings['website_context']) ? $settings['website_context'] : '';
             }
             
-            echo '<textarea name="ai_translate_settings[website_context]" id="website_context_field" rows="5" class="large-text" placeholder="Describe your website, business, or organization. For example:&#10;&#10;We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe.&#10;&#10;Or:&#10;&#10;This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden.">' . esc_textarea($value) . '</textarea>';
+            $placeholder = __('Describe your website, business, or organization. For example:', 'ai-translate') . "\n\n" .
+                __('We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe.', 'ai-translate') . "\n\n" .
+                __('Or:', 'ai-translate') . "\n\n" .
+                __('This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden.', 'ai-translate');
+            echo '<textarea name="ai_translate_settings[website_context]" id="website_context_field" rows="5" class="large-text" placeholder="' . esc_attr($placeholder) . '">' . esc_textarea($value) . '</textarea>';
             if ($multi_domain) {
                 echo '<p class="description">' . esc_html(__('Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations.', 'ai-translate')) . '</p>';
             } else {
                 echo '<p class="description">' . esc_html(__('Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. ', 'ai-translate')) . '</p>';
             }
-            echo '<button type="button" class="button" id="generate-context-btn" style="margin-top: 10px;">Generate Context from Homepage</button>';
+            echo '<button type="button" class="button" id="generate-context-btn" style="margin-top: 10px;">' . esc_html__('Generate Context from Homepage', 'ai-translate') . '</button>';
             echo '<span id="generate-context-status" style="margin-left: 10px;"></span>';
         },
         'ai-translate',
@@ -894,24 +901,34 @@ function render_admin_page()
             if ($result['count'] > 0) {
                 $notice_class = isset($result['warning']) ? 'notice-warning' : 'notice-success';
                 $cache_language_message = '<div class="notice ' . esc_attr($notice_class) . '" id="cache-cleared-message">
-                    <p>Cache voor taal <strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong> gewist. 
-                    <br>Verwijderde bestanden: ' . intval($result['count']) . ' 
-                    <br>Resterende bestanden: ' . intval($after_count) . '</p>';
+                    <p>' . sprintf(
+                        __('Cache for language %s cleared.', 'ai-translate'),
+                        '<strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>'
+                    ) . ' 
+                    <br>' . sprintf(__('Files removed: %d', 'ai-translate'), intval($result['count'])) . ' 
+                    <br>' . sprintf(__('Remaining files: %d', 'ai-translate'), intval($after_count)) . '</p>';
 
                 if (isset($result['warning'])) {
-                    $cache_language_message .= '<p class="error-message">Note: ' . esc_html($result['warning']) . '</p>';
+                    $cache_language_message .= '<p class="error-message">' . esc_html__('Note:', 'ai-translate') . ' ' . esc_html($result['warning']) . '</p>';
                 }
 
                 $cache_language_message .= '</div>';
             } else {
                 $cache_language_message = '<div class="notice notice-info" id="cache-cleared-message">
-                    <p>Er waren geen cachebestanden voor taal <strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>.</p>
+                    <p>' . sprintf(
+                        __('No cache files found for language %s.', 'ai-translate'),
+                        '<strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>'
+                    ) . '</p>
                 </div>';
             }
         } else {
-            $error_message = isset($result['error']) ? $result['error'] : 'Unknown error';
+            $error_message = isset($result['error']) ? $result['error'] : __('Unknown error', 'ai-translate');
             $cache_language_message = '<div class="notice notice-error" id="cache-cleared-message">
-                <p>Error clearing cache for language <strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>: ' . esc_html($error_message) . '</p>
+                <p>' . sprintf(
+                    __('Error clearing cache for language %s: %s', 'ai-translate'),
+                    '<strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>',
+                    esc_html($error_message)
+                ) . '</p>
             </div>';
         }
     }
@@ -924,8 +941,8 @@ function render_admin_page()
         <?php settings_errors(); // Display admin notices, including those from add_settings_error ?>
         <!-- Tab navigation -->
         <h2 class="nav-tab-wrapper">
-            <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo esc_attr($active_tab === 'general' ? 'nav-tab-active' : ''); ?>">General</a>
-            <a href="?page=ai-translate&tab=cache" class="nav-tab <?php echo esc_attr($active_tab === 'cache' ? 'nav-tab-active' : ''); ?>">Cache</a>
+            <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo esc_attr($active_tab === 'general' ? 'nav-tab-active' : ''); ?>"><?php echo esc_html__('General', 'ai-translate'); ?></a>
+            <a href="?page=ai-translate&tab=cache" class="nav-tab <?php echo esc_attr($active_tab === 'cache' ? 'nav-tab-active' : ''); ?>"><?php echo esc_html__('Cache', 'ai-translate'); ?></a>
 
         </h2>
         <div id="tab-content">
@@ -939,12 +956,12 @@ function render_admin_page()
                 </form>
             </div>
               <div id="cache" class="tab-panel" style="<?php echo esc_attr($active_tab === 'cache' ? 'display:block;' : 'display:none;'); ?>">
-                <h2>Cache Management</h2>
+                <h2><?php echo esc_html__('Cache Management', 'ai-translate'); ?></h2>
                 <?php wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce'); // Nonce for AJAX clear language cache ?>
                 
                 <!-- Clear all caches -->
-                <h3>Clear all language caches</h3>
-                <p>Clear all language caches. <strong>Menu and slug cache are preserved to maintain URL stability.</strong></p>
+                <h3><?php echo esc_html__('Clear all language caches', 'ai-translate'); ?></h3>
+                <p><?php echo esc_html__('Clear all language caches.', 'ai-translate'); ?> <strong><?php echo esc_html__('Menu and slug cache are preserved to maintain URL stability.', 'ai-translate'); ?></strong></p>
                 <?php
                 if (isset($_POST['clear_cache']) && check_admin_referer('clear_cache_action', 'clear_cache_nonce')) {
                     if (!class_exists('AI_Translate_Core')) {
@@ -961,23 +978,23 @@ function render_admin_page()
                     if (function_exists('opcache_reset')) {
                         opcache_reset();
                     }
-                    echo '<div class="notice notice-success"><p>All language caches and translation transients cleared. Menu and slug cache preserved.</p></div>';
+                    echo '<div class="notice notice-success"><p>' . esc_html__('All language caches and translation transients cleared. Menu and slug cache preserved.', 'ai-translate') . '</p></div>';
                 }
                 ?>
                 <form method="post">
                     <?php wp_nonce_field('clear_cache_action', 'clear_cache_nonce'); ?>
-                    <?php submit_button('Clear all language caches', 'delete', 'clear_cache', false); ?>
+                    <?php submit_button(__('Clear all language caches', 'ai-translate'), 'delete', 'clear_cache', false); ?>
                 </form>
 
                 <hr style="margin: 20px 0;">
 
                 <!-- Clear menu cache (including menu translation tables) -->
-                <h3>Clear menu cache</h3>
-                <p>Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected.</p>
+                <h3><?php echo esc_html__('Clear menu cache', 'ai-translate'); ?></h3>
+                <p><?php echo esc_html__('Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected.', 'ai-translate'); ?></p>
                 <?php
                 if (isset($_POST['clear_menu_cache']) && check_admin_referer('clear_menu_cache_action', 'clear_menu_cache_nonce')) {
                     if (!current_user_can('manage_options')) {
-                        echo '<div class="notice notice-error"><p>Insufficient permissions.</p></div>';
+                        echo '<div class="notice notice-error"><p>' . esc_html__('Insufficient permissions.', 'ai-translate') . '</p></div>';
                     } else {
                         if (!class_exists('AI_Translate_Core')) {
                             require_once __DIR__ . '/class-ai-translate-core.php';
@@ -986,13 +1003,13 @@ function render_admin_page()
                         $res = $core->clear_menu_cache();
                         $tables = isset($res['tables_cleared']) && is_array($res['tables_cleared']) ? $res['tables_cleared'] : [];
                         $transients = isset($res['transients_cleared']) ? (int) $res['transients_cleared'] : 0;
-                        $msg = 'Menu cache cleared';
+                        $msg = __('Menu cache cleared', 'ai-translate');
                         if ($transients > 0) {
-                            $msg .= ' (' . $transients . ' menu-item translations removed)';
+                            $msg .= ' (' . sprintf(_n('%d menu-item translation removed', '%d menu-item translations removed', $transients, 'ai-translate'), $transients) . ')';
                         }
                         if (!empty($tables)) {
                             $safe = array_map('esc_html', $tables);
-                            $msg .= ' and tables truncated: ' . implode(', ', $safe);
+                            $msg .= ' ' . sprintf(__('and tables truncated: %s', 'ai-translate'), implode(', ', $safe));
                         }
                         echo '<div class="notice notice-success"><p>' . esc_html($msg) . '.</p></div>';
                     }
@@ -1000,41 +1017,41 @@ function render_admin_page()
                 ?>
                 <form method="post">
                     <?php wp_nonce_field('clear_menu_cache_action', 'clear_menu_cache_nonce'); ?>
-                    <?php submit_button('Clear menu cache', 'delete', 'clear_menu_cache', false); ?>
+                    <?php submit_button(__('Clear menu cache', 'ai-translate'), 'delete', 'clear_menu_cache', false); ?>
                 </form>
 
                 <hr style="margin: 20px 0;">
 
                 <!-- Clear slug cache (truncate slug table) -->
-                <h3>Clear slug cache</h3>
-                <p>Clear the slug table used for translated URLs. Language and menu caches are not affected.</p>
+                <h3><?php echo esc_html__('Clear slug cache', 'ai-translate'); ?></h3>
+                <p><?php echo esc_html__('Clear the slug table used for translated URLs. Language and menu caches are not affected.', 'ai-translate'); ?></p>
                 <?php
                 if (isset($_POST['clear_slug_cache']) && check_admin_referer('clear_slug_cache_action', 'clear_slug_cache_nonce')) {
                     if (!current_user_can('manage_options')) {
-                        echo '<div class="notice notice-error"><p>Insufficient permissions.</p></div>';
+                        echo '<div class="notice notice-error"><p>' . esc_html__('Insufficient permissions.', 'ai-translate') . '</p></div>';
                     } else {
                         if (!class_exists('AI_Translate_Core')) { require_once __DIR__ . '/class-ai-translate-core.php'; }
                         $core = AI_Translate_Core::get_instance();
                         $res = $core->clear_slug_map();
                         if (!empty($res['success'])) {
                             $num = isset($res['cleared']) ? (int) $res['cleared'] : 0;
-                            echo '<div class="notice notice-success"><p>Slug cache cleared. Rows removed: ' . intval($num) . '.</p></div>';
+                            echo '<div class="notice notice-success"><p>' . sprintf(__('Slug cache cleared. Rows removed: %d.', 'ai-translate'), intval($num)) . '</p></div>';
                         } else {
-                            $msg = isset($res['message']) ? $res['message'] : 'Unknown error';
-                            echo '<div class="notice notice-error"><p>Failed to clear slug cache: ' . esc_html($msg) . '.</p></div>';
+                            $msg = isset($res['message']) ? $res['message'] : __('Unknown error', 'ai-translate');
+                            echo '<div class="notice notice-error"><p>' . sprintf(__('Failed to clear slug cache: %s.', 'ai-translate'), esc_html($msg)) . '</p></div>';
                         }
                     }
                 }
                 ?>
                 <form method="post">
                     <?php wp_nonce_field('clear_slug_cache_action', 'clear_slug_cache_nonce'); ?>
-                    <?php submit_button('Clear slug cache', 'delete', 'clear_slug_cache', false); ?>
+                    <?php submit_button(__('Clear slug cache', 'ai-translate'), 'delete', 'clear_slug_cache', false); ?>
                 </form>
 
                 <hr style="margin: 20px 0;">
 
                 
-                <h3>Clear cache per language</h3>
+                <h3><?php echo esc_html__('Clear cache per language', 'ai-translate'); ?></h3>
                 <?php
                 if (!empty($cache_language_message)) {
                     echo wp_kses_post($cache_language_message);
@@ -1047,7 +1064,7 @@ function render_admin_page()
                 $language_counts = $cache_stats['languages'] ?? [];
                 ?>
                 <div class="cache-stats-section">
-                    <h4>Cache overview per language</h4>
+                    <h4><?php echo esc_html__('Cache overview per language', 'ai-translate'); ?></h4>
                     <?php
                     // Show cache directory info
                     $settings = get_option('ai_translate_settings', []);
@@ -1098,33 +1115,33 @@ function render_admin_page()
                     $total_size_mb = isset($cache_stats['total_size']) ? number_format($cache_stats['total_size'] / (1024 * 1024), 2) : 0;
 
                     // Last update timestamp
-                    $last_modified = isset($cache_stats['last_modified']) ? wp_date('d-m-Y H:i:s', $cache_stats['last_modified']) : 'Unknown';
+                    $last_modified = isset($cache_stats['last_modified']) ? wp_date('d-m-Y H:i:s', $cache_stats['last_modified']) : __('Unknown', 'ai-translate');
                     ?>
 
                     <div class="cache-summary" style="margin-bottom: 15px; display: flex; gap: 20px;">
                         <div class="summary-item">
-                            <strong>Total number of files:</strong> <span id="total-cache-count"><?php echo intval($cache_stats['total_files'] ?? 0); ?></span>
+                            <strong><?php echo esc_html__('Total number of files:', 'ai-translate'); ?></strong> <span id="total-cache-count"><?php echo intval($cache_stats['total_files'] ?? 0); ?></span>
                         </div>
                         <div class="summary-item">
-                            <strong>Total size:</strong> <?php echo esc_html($total_size_mb); ?> MB
+                            <strong><?php echo esc_html__('Total size:', 'ai-translate'); ?></strong> <?php echo esc_html($total_size_mb); ?> MB
                         </div>
                         <div class="summary-item">
-                            <strong>Expired files:</strong> <?php echo intval($total_expired); ?>
+                            <strong><?php echo esc_html__('Expired files:', 'ai-translate'); ?></strong> <?php echo intval($total_expired); ?>
                         </div>
                         <div class="summary-item">
-                            <strong>Last update:</strong> <?php echo esc_html($last_modified); ?>
+                            <strong><?php echo esc_html__('Last update:', 'ai-translate'); ?></strong> <?php echo esc_html($last_modified); ?>
                         </div>
                     </div>
 
                     <table class="widefat striped" style="width: 100%;">
                         <thead>
                             <tr>
-                                <th>Language</th>
-                                <th>Cache files</th>
-                                <th>Size</th>
-                                <th>Expired</th>
-                                <th>Last update</th>
-                                <th>Action</th>
+                                <th><?php echo esc_html__('Language', 'ai-translate'); ?></th>
+                                <th><?php echo esc_html__('Cache files', 'ai-translate'); ?></th>
+                                <th><?php echo esc_html__('Size', 'ai-translate'); ?></th>
+                                <th><?php echo esc_html__('Expired', 'ai-translate'); ?></th>
+                                <th><?php echo esc_html__('Last update', 'ai-translate'); ?></th>
+                                <th><?php echo esc_html__('Action', 'ai-translate'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1142,17 +1159,17 @@ function render_admin_page()
                             ?>
                                 <tr id="cache-row-<?php echo esc_attr($code); ?>" class="<?php echo ($count > 0) ? 'has-cache' : 'no-cache'; ?>">
                                     <td><?php echo esc_html($name); ?> (<?php echo esc_html($code); ?>)</td>
-                                    <td><span class="cache-count" data-lang="<?php echo esc_attr($code); ?>"><?php echo intval($count); ?></span> files</td>
+                                    <td><span class="cache-count" data-lang="<?php echo esc_attr($code); ?>"><?php echo intval($count); ?></span> <?php echo esc_html__('files', 'ai-translate'); ?></td>
                                     <td><?php echo esc_html($size_mb); ?> MB</td>
                                     <td><?php echo intval($expired); ?></td>
                                     <td><?php echo esc_html($last_mod); ?></td>
                                     <td>
                                         <?php if ($count > 0): ?>
                                             <button type="button" class="button button-small quick-clear-cache" data-lang="<?php echo esc_attr($code); ?>">
-                                                Cache clear
+                                                <?php echo esc_html__('Cache clear', 'ai-translate'); ?>
                                             </button>
                                         <?php else: ?>
-                                            <span class="dashicons dashicons-yes-alt" style="color: #46b450;" title="No cache files"></span>
+                                            <span class="dashicons dashicons-yes-alt" style="color: #46b450;" title="<?php echo esc_attr__('No cache files', 'ai-translate'); ?>"></span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1160,8 +1177,8 @@ function render_admin_page()
                         </tbody>
                         <tfoot>
                             <tr>
-                                <th>Total</th>
-                                <th><span id="table-total-count"><?php echo intval($total_files); ?></span> files</th>
+                                <th><?php echo esc_html__('Total', 'ai-translate'); ?></th>
+                                <th><span id="table-total-count"><?php echo intval($total_files); ?></span> <?php echo esc_html__('files', 'ai-translate'); ?></th>
                                 <th><?php echo esc_html($total_size_mb); ?> MB</th>
                                 <th><?php echo intval($total_expired); ?></th>
                                 <th><?php echo esc_html($last_modified); ?></th>
@@ -1181,7 +1198,7 @@ function render_admin_page()
 add_action('wp_ajax_ai_translate_get_models', function () {
     check_ajax_referer('ai_translate_get_models_nonce', 'nonce'); // Add nonce verification
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Geen rechten']);
+        wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
     }
     // Haal actuele waarden uit POST als aanwezig
     $provider_key = isset($_POST['api_provider']) ? sanitize_text_field(wp_unslash($_POST['api_provider'])) : null;
@@ -1213,7 +1230,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     }
 
     if (empty($api_url) || empty($api_key)) {
-        wp_send_json_error(['message' => 'API Provider, API Key of Custom API URL ontbreekt of is ongeldig.']);
+        wp_send_json_error(['message' => __('API Provider, API Key or Custom API URL is missing or invalid.', 'ai-translate')]);
         return;
     }
 
@@ -1232,11 +1249,11 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     $code = wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
     if ($code !== 200) {
-        wp_send_json_error(['message' => 'API fout: ' . $body]);
+        wp_send_json_error(['message' => __('API error:', 'ai-translate') . ' ' . $body]);
     }
     $data = json_decode($body, true);
     if (!isset($data['data']) || !is_array($data['data'])) {
-        wp_send_json_error(['message' => 'Ongeldig antwoord van API']);
+        wp_send_json_error(['message' => __('Invalid response from API', 'ai-translate')]);
     }
     $models = array_map(function ($m) {
         return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
@@ -1255,7 +1272,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
 add_action('wp_ajax_ai_translate_get_custom_url', function () {
     check_ajax_referer('ai_translate_get_custom_url_nonce', 'nonce'); // Nonce verification
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Geen rechten']);
+        wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
     }
 
     $settings = get_option('ai_translate_settings', []);
@@ -1267,7 +1284,7 @@ add_action('wp_ajax_ai_translate_get_custom_url', function () {
 add_action('wp_ajax_ai_translate_validate_api', function () {
     check_ajax_referer('ai_translate_validate_api_nonce', 'nonce'); // Add nonce verification
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Geen rechten']);
+        wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
     }
 
     // Haal actuele waarden uit POST als aanwezig
@@ -1341,10 +1358,10 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
 
             update_option('ai_translate_settings', $current_settings);
         }
-        wp_send_json_success(['message' => 'API en model werken. API instellingen zijn opgeslagen.']);
+        wp_send_json_success(['message' => __('API and model are working. API settings have been saved.', 'ai-translate')]);
 
     } catch (\Exception $e) {
-        wp_send_json_error(['message' => 'API validatie mislukt: ' . $e->getMessage()]);
+        wp_send_json_error(['message' => __('API validation failed:', 'ai-translate') . ' ' . $e->getMessage()]);
     }
 });
 

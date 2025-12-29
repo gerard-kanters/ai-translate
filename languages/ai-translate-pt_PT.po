@@ -1,0 +1,485 @@
+# Copyright (C) 2025 Netcare
+# This file is distributed under the same license as the AI Translate plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: AI Translate 2.1.7\n"
+"Report-Msgid-Bugs-To: https://netcare.nl/\n"
+"POT-Creation-Date: 2025-12-29 22:00+0000\n"
+"PO-Revision-Date: 2025-12-29 22:00+0000\n"
+"Last-Translator: Netcare <info@netcare.nl>\n"
+"Language-Team: Português\n"
+"Language: pt_PT\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: includes/admin-page.php:184
+msgid "AI Translate"
+msgstr "AI Translate"
+
+#: includes/admin-page.php:472
+msgid "API Settings"
+msgstr "Configurações de API"
+
+#: includes/admin-page.php:478
+msgid "API Provider"
+msgstr "Fornecedor de API"
+
+#: includes/admin-page.php:485
+msgid "— Select provider —"
+msgstr "— Selecionar fornecedor —"
+
+#: includes/admin-page.php:492
+msgid "Note:"
+msgstr "Nota:"
+
+#: includes/admin-page.php:492
+msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
+msgstr "O GPT-5 está bloqueado, uma vez que o raciocínio não pode ser desativado e não é necessário para traduções, sendo, portanto, demasiado lento e dispendioso."
+
+#: includes/admin-page.php:497
+msgid "Enter the endpoint URL for your custom API provider. Example: %s"
+msgstr "Introduza o URL do endpoint para o seu fornecedor de API personalizado. Exemplo: %s"
+
+#: includes/admin-page.php:506
+msgid "API Key"
+msgstr "Chave de API"
+
+#: includes/admin-page.php:521
+msgid "Translation Model"
+msgstr "Modelo de Tradução"
+
+#: includes/admin-page.php:529
+msgid "— Select model —"
+msgstr "— Selecionar modelo —"
+
+#: includes/admin-page.php:533
+msgid "Select..."
+msgstr "Selecionar..."
+
+#: includes/admin-page.php:536
+msgid "E.g.: deepseek-chat, gpt-4o, ..."
+msgstr "Ex.: deepseek-chat, gpt-4o, ..."
+
+#: includes/admin-page.php:538
+msgid "Validate API settings"
+msgstr "Validar configurações de API"
+
+#: includes/admin-page.php:549
+msgid "Language Settings"
+msgstr "Configurações de Idioma"
+
+#: includes/admin-page.php:551
+msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
+msgstr "Selecione o idioma predefinido para o seu site e quais os idiomas que devem estar disponíveis no seletor de idiomas. Os idiomas detetáveis serão utilizados se a preferência do navegador do visitante coincidir, mas não aparecerão no seletor."
+
+#: includes/admin-page.php:557
+msgid "Default Language"
+msgstr "Idioma Predefinido"
+
+#: includes/admin-page.php:564
+msgid "— Select default language —"
+msgstr "— Selecionar idioma predefinido —"
+
+#: includes/admin-page.php:567
+msgid "Current"
+msgstr "Atual"
+
+#: includes/admin-page.php:579
+msgid "Enabled Languages (in Switcher)"
+msgstr "Idiomas Ativados (no Seletor)"
+
+#: includes/admin-page.php:599
+msgid "Languages selected here will appear in the language switcher."
+msgstr "Os idiomas selecionados aqui aparecerão no seletor de idiomas."
+
+#: includes/admin-page.php:607
+msgid "Detectable Languages (Auto-Translate)"
+msgstr "Idiomas Detetáveis (Tradução Automática)"
+
+#: includes/admin-page.php:636
+msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
+msgstr "Se o idioma do navegador de um visitante coincidir com um destes, o site será automaticamente traduzido (se ativado), mas estes idiomas não aparecerão no seletor."
+
+#: includes/admin-page.php:644
+msgid "Language Switcher Position"
+msgstr "Posição do Seletor de Idiomas"
+
+#: includes/admin-page.php:650
+msgid "Bottom Left"
+msgstr "Canto Inferior Esquerdo"
+
+#: includes/admin-page.php:651
+msgid "Bottom Right"
+msgstr "Canto Inferior Direito"
+
+#: includes/admin-page.php:652
+msgid "Top Left"
+msgstr "Canto Superior Esquerdo"
+
+#: includes/admin-page.php:653
+msgid "Top Right"
+msgstr "Canto Superior Direito"
+
+#: includes/admin-page.php:663
+msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
+msgstr "Escolha onde o seletor de idiomas aparece no seu website. O menu abrirá para cima para as posições inferiores e para baixo para as posições superiores."
+
+#: includes/admin-page.php:672
+msgid "Cache Settings"
+msgstr "Configurações de Cache"
+
+#: includes/admin-page.php:681
+msgid "Cache Duration (days)"
+msgstr "Duração da Cache (dias)"
+
+#: includes/admin-page.php:685
+msgid "days"
+msgstr "dias"
+
+#: includes/admin-page.php:686
+msgid "minimum 14 days"
+msgstr "mínimo 14 dias"
+
+#: includes/admin-page.php:693
+msgid "Auto-Clear Pages on Menu Update"
+msgstr "Limpeza Automática de Páginas na Atualização do Menu"
+
+#: includes/admin-page.php:699
+msgid "Automatically clear all page caches when menu items are updated"
+msgstr "Limpar automaticamente todos os caches de páginas quando os itens do menu forem atualizados"
+
+#: includes/admin-page.php:702
+msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
+msgstr "Os caches de tradução de menus (transients) são SEMPRE limpos quando atualiza os menus, independentemente desta configuração."
+
+#: includes/admin-page.php:705
+msgid "When enabled:"
+msgstr "Quando ativado:"
+
+#: includes/admin-page.php:706
+msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
+msgstr "Todos os caches HTML das páginas traduzidas também serão limpos. As alterações no menu ficam visíveis imediatamente, mas requerem a retradução das páginas na próxima visita (dispendioso para sites grandes com muitos idiomas)."
+
+#: includes/admin-page.php:708
+msgid "When disabled:"
+msgstr "Quando desativado:"
+
+#: includes/admin-page.php:709
+msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
+msgstr "Apenas os caches de menu são limpos. Os caches HTML das páginas permanecem. As alterações no menu em páginas já em cache só serão visíveis após a expiração da cache ou limpeza manual através do separador Cache."
+
+#: includes/admin-page.php:717
+msgid "Multi-Domain Caching"
+msgstr "Cache Multi-Domínio"
+
+#: includes/admin-page.php:723
+msgid "Enable separate cache per domain"
+msgstr "Ativar cache separada por domínio"
+
+#: includes/admin-page.php:726
+msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
+msgstr "Quando ativado, cada domínio terá o seu próprio diretório de cache com o nome do site. Isto evita conflitos de cache quando vários domínios partilham a mesma instalação do WordPress."
+
+#: includes/admin-page.php:734
+msgid "Stop translations (except cache invalidation)"
+msgstr "Parar traduções (exceto invalidação de cache)"
+
+#: includes/admin-page.php:743
+msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
+msgstr "Quando ativado, as novas traduções via API serão bloqueadas. As traduções só ocorrerão quando as páginas em cache expirarem e precisarem de ser atualizadas."
+
+#: includes/admin-page.php:753
+msgid "Advanced Settings"
+msgstr "Configurações Avançadas"
+
+#: includes/admin-page.php:761
+msgid "Homepage Meta Description"
+msgstr "Meta Descrição da Página Inicial"
+
+#: includes/admin-page.php:809
+msgid "Website Context"
+msgstr "Contexto do Website"
+
+#: includes/admin-page.php:28
+msgid "Insufficient permissions to perform this action."
+msgstr "Permissões insuficientes para realizar esta ação."
+
+#: includes/admin-page.php:35
+msgid "Security check failed (nonce). Refresh the page and try again."
+msgstr "Falha na verificação de segurança (nonce). Atualize a página e tente novamente."
+
+#: includes/admin-page.php:41
+msgid "No language selected."
+msgstr "Nenhum idioma selecionado."
+
+#: includes/admin-page.php:52
+msgid "Cache for language \"%s\" cleared. %d files removed."
+msgstr "Cache para o idioma \"%s\" limpa. %d ficheiros removidos."
+
+#: includes/admin-page.php:57
+msgid "Error clearing cache:"
+msgstr "Erro ao limpar a cache:"
+
+#: includes/admin-page.php:107
+msgid "Error generating context:"
+msgstr "Erro ao gerar contexto:"
+
+#: includes/admin-page.php:154
+msgid "Error generating meta description:"
+msgstr "Erro ao gerar meta descrição:"
+
+#: includes/admin-page.php:274
+msgid "Invalid API provider selected."
+msgstr "Fornecedor de API selecionado inválido."
+
+#: includes/admin-page.php:294
+msgid "Custom API URL is required for the custom provider."
+msgstr "O URL da API personalizada é obrigatório para o fornecedor personalizado."
+
+#: includes/admin-page.php:307
+msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
+msgstr "A duração da cache não pode ser inferior a 14 dias. Foi definida automaticamente para 14 dias."
+
+#: includes/admin-page.php:335
+msgid "Custom model name is required when selecting a custom model."
+msgstr "O nome do modelo personalizado é obrigatório ao selecionar um modelo personalizado."
+
+#: includes/admin-page.php:358
+msgid "API key is required for the selected provider."
+msgstr "A chave de API é obrigatória para o fornecedor selecionado."
+
+#: includes/admin-page.php:930
+msgid "General"
+msgstr "Geral"
+
+#: includes/admin-page.php:931
+msgid "Cache"
+msgstr "Cache"
+
+#: includes/admin-page.php:945
+msgid "Cache Management"
+msgstr "Gestão de Cache"
+
+#: includes/admin-page.php:949
+msgid "Clear all language caches"
+msgstr "Limpar todos os caches de idiomas"
+
+#: includes/admin-page.php:950
+msgid "Clear all language caches."
+msgstr "Limpar todos os caches de idiomas."
+
+#: includes/admin-page.php:950
+msgid "Menu and slug cache are preserved to maintain URL stability."
+msgstr "O cache de menu e slug são preservados para manter a estabilidade do URL."
+
+#: includes/admin-page.php:967
+msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
+msgstr "Todos os caches de idiomas e transients de tradução foram limpos. Cache de menu e slug preservados."
+
+#: includes/admin-page.php:978
+msgid "Clear menu cache"
+msgstr "Limpar cache de menu"
+
+#: includes/admin-page.php:979
+msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
+msgstr "Limpar caches de menu, incluindo todas as traduções de itens de menu. Isto forçará novas traduções para todos os itens de menu. Idiomas e mapa de slugs não são afetados."
+
+#: includes/admin-page.php:992
+msgid "Menu cache cleared"
+msgstr "Cache de menu limpa"
+
+#: includes/admin-page.php:994
+msgid "%d menu-item translation removed"
+msgid_plural "%d menu-item translations removed"
+msgstr[0] "%d tradução de item de menu removida"
+msgstr[1] "%d traduções de itens de menu removidas"
+
+#: includes/admin-page.php:998
+msgid "and tables truncated: %s"
+msgstr "e tabelas truncadas: %s"
+
+#: includes/admin-page.php:1022
+msgid "Clear slug cache"
+msgstr "Limpar cache de slugs"
+
+#: includes/admin-page.php:1023
+msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
+msgstr "Limpar a tabela de slugs utilizada para URLs traduzidos. Os caches de idioma e menu não são afetados."
+
+#: includes/admin-page.php:1034
+msgid "Slug cache cleared. Rows removed: %d."
+msgstr "Cache de slugs limpa. Linhas removidas: %d."
+
+#: includes/admin-page.php:1037
+msgid "Unknown error"
+msgstr "Erro desconhecido"
+
+#: includes/admin-page.php:1037
+msgid "Failed to clear slug cache: %s."
+msgstr "Falha ao limpar cache de slugs: %s."
+
+#: includes/admin-page.php:1050
+msgid "Clear cache per language"
+msgstr "Limpar cache por idioma"
+
+#: includes/admin-page.php:1063
+msgid "Cache overview per language"
+msgstr "Visão geral da cache por idioma"
+
+#: includes/admin-page.php:1100
+msgid "Cache directory:"
+msgstr "Diretório de cache:"
+
+#: includes/admin-page.php:1114
+msgid "Unknown"
+msgstr "Desconhecido"
+
+#: includes/admin-page.php:1119
+msgid "Total number of files:"
+msgstr "Número total de ficheiros:"
+
+#: includes/admin-page.php:1122
+msgid "Total size:"
+msgstr "Tamanho total:"
+
+#: includes/admin-page.php:1125
+msgid "Expired files:"
+msgstr "Ficheiros expirados:"
+
+#: includes/admin-page.php:1128
+msgid "Last update:"
+msgstr "Última atualização:"
+
+#: includes/admin-page.php:1135
+msgid "Language"
+msgstr "Idioma"
+
+#: includes/admin-page.php:1136
+msgid "Cache files"
+msgstr "Ficheiros de cache"
+
+#: includes/admin-page.php:1137
+msgid "Size"
+msgstr "Tamanho"
+
+#: includes/admin-page.php:1138
+msgid "Expired"
+msgstr "Expirado"
+
+#: includes/admin-page.php:1139
+msgid "Last update"
+msgstr "Última atualização"
+
+#: includes/admin-page.php:1140
+msgid "Action"
+msgstr "Ação"
+
+#: includes/admin-page.php:1158
+msgid "files"
+msgstr "ficheiros"
+
+#: includes/admin-page.php:1165
+msgid "Cache clear"
+msgstr "Limpar cache"
+
+#: includes/admin-page.php:1168
+msgid "No cache files"
+msgstr "Nenhum ficheiro de cache"
+
+#: includes/admin-page.php:1176
+msgid "Total"
+msgstr "Total"
+
+#: includes/admin-page.php:1212
+msgid "API Provider is missing."
+msgstr "O fornecedor de API está em falta."
+
+#: includes/admin-page.php:1229
+msgid "API Provider, API Key or Custom API URL is missing or invalid."
+msgstr "O fornecedor de API, a chave de API ou o URL da API personalizada estão em falta ou são inválidos."
+
+#: includes/admin-page.php:1248
+msgid "API error:"
+msgstr "Erro de API:"
+
+#: includes/admin-page.php:1252
+msgid "Invalid response from API"
+msgstr "Resposta inválida da API"
+
+#: includes/admin-page.php:1344
+msgid "API and model are working. API settings have been saved."
+msgstr "A API e o modelo estão a funcionar. As configurações de API foram guardadas."
+
+#: includes/admin-page.php:1347
+msgid "API validation failed:"
+msgstr "Falha na validação da API:"
+
+#: ai-translate.php:1543
+msgid "Settings"
+msgstr "Configurações"
+
+#: ai-translate.php:1630
+msgid "AI Translate Warning:"
+msgstr "Aviso do AI Translate:"
+
+#: ai-translate.php:1631
+msgid "This plugin requires a permalink structure other than \"Plain\". "
+msgstr "Este plugin requer uma estrutura de permalinks diferente de \"Simples\". "
+
+#: ai-translate.php:1632
+msgid "Please set your permalinks to \"Post name\" or another structure."
+msgstr "Por favor, defina os seus permalinks para \"Nome do artigo\" ou outra estrutura."
+
+#: ai-translate.php:1634
+msgid "Configure Permalinks"
+msgstr "Configurar Permalinks"
+
+#: ai-translate.php:272
+msgid "Rate on WordPress.org"
+msgstr "Avaliar no WordPress.org"
+
+#: includes/admin-page.php:801
+msgid "Generate Meta Description"
+msgstr "Gerar Meta Descrição"
+
+#: includes/admin-page.php:852
+msgid "Generate Context from Homepage"
+msgstr "Gerar Contexto a partir da Página Inicial"
+
+#: includes/admin-page.php:846
+msgid "Describe your website, business, or organization. For example:"
+msgstr "Descreva o seu website, negócio ou organização. Por exemplo:"
+
+#: includes/admin-page.php:847
+msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
+msgstr "Somos uma empresa de tecnologia de saúde especializada em sistemas de gestão de pacientes. Os nossos serviços incluem registos de saúde eletrónicos, agendamento de consultas e soluções de telemedicina. Atendemos hospitais, clínicas e prestadores de cuidados de saúde em toda a Europa."
+
+#: includes/admin-page.php:848
+msgid "Or:"
+msgstr "Ou:"
+
+#: includes/admin-page.php:849
+msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr "Este é um blog pessoal sobre jardinagem sustentável e técnicas de agricultura biológica. Partilho dicas, tutoriais e experiências do meu próprio jardim."
+
+#: ai-translate.php:299
+msgid "AI based translation plugin. Adding 35 languages in a few clicks."
+msgstr "Plugin de tradução baseado em IA. Adicione 35 idiomas em poucos cliques."
+
+#: includes/admin-page.php:797
+msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "Introduza a meta descrição específica para a página inicial para o domínio atual (no idioma predefinido). Isto substituirá o slogan do site ou o excerto gerado na página inicial."
+
+#: includes/admin-page.php:799
+msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "Introduza a meta descrição específica para a página inicial (no idioma predefinido). Isto substituirá o slogan do site ou o excerto gerado na página inicial."
+
+#: includes/admin-page.php:852
+msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
+msgstr "Forneça contexto sobre o seu website ou negócio para o domínio atual para ajudar a IA a gerar traduções mais precisas e contextualmente apropriadas."
+
+#: includes/admin-page.php:854
+msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
+msgstr "Forneça contexto sobre o seu website ou negócio para ajudar a IA a gerar traduções mais precisas e contextualmente apropriadas."
