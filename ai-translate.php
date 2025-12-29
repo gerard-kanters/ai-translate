@@ -15,6 +15,25 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Load plugin textdomain for translations.
+ *
+ * Ensures that translations from the languages directory are available
+ * for both admin and frontend contexts.
+ *
+ * @return void
+ */
+function ai_translate_load_textdomain()
+{
+    load_plugin_textdomain(
+        'ai-translate',
+        false,
+        dirname(plugin_basename(__FILE__)) . '/languages/'
+    );
+}
+
+add_action('plugins_loaded', 'ai_translate_load_textdomain');
+
 // Include core/admin and runtime classes.
 require_once __DIR__ . '/includes/class-ai-translate-core.php';
 require_once __DIR__ . '/includes/admin-page.php';
