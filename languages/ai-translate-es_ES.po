@@ -198,6 +198,14 @@ msgstr "Ajustes avanzados"
 msgid "Homepage Meta Description"
 msgstr "Meta descripción de la página de inicio"
 
+#: includes/admin-page.php:790
+msgid "Active domain:"
+msgstr "Dominio activo:"
+
+#: includes/admin-page.php:841
+msgid "Active domain:"
+msgstr "Dominio activo:"
+
 #: includes/admin-page.php:809
 msgid "Website Context"
 msgstr "Contexto del sitio web"
@@ -221,6 +229,26 @@ msgstr "Caché para el idioma \"%s\" borrada. %d archivos eliminados."
 #: includes/admin-page.php:57
 msgid "Error clearing cache:"
 msgstr "Error al borrar la caché:"
+
+#: includes/admin-page.php:919
+msgid "No cache files found for language %s."
+msgstr "No se encontraron archivos de caché para el idioma %s."
+
+#: includes/admin-page.php:905
+msgid "Cache for language %s cleared."
+msgstr "Caché para el idioma %s borrada."
+
+#: includes/admin-page.php:908
+msgid "Files removed: %d"
+msgstr "Archivos eliminados: %d"
+
+#: includes/admin-page.php:909
+msgid "Remaining files: %d"
+msgstr "Archivos restantes: %d"
+
+#: includes/admin-page.php:928
+msgid "Error clearing cache for language %s: %s"
+msgstr "Error al borrar la caché para el idioma %s: %s"
 
 #: includes/admin-page.php:107
 msgid "Error generating context:"
@@ -312,6 +340,14 @@ msgstr "Borrar la tabla de slugs utilizada para las URL traducidas. Las cachés 
 msgid "Slug cache cleared. Rows removed: %d."
 msgstr "Caché de slugs borrada. Filas eliminadas: %d."
 
+#: includes/admin-page.php:997
+msgid "Insufficient permissions."
+msgstr "Permisos insuficientes."
+
+#: includes/admin-page.php:1031
+msgid "Insufficient permissions."
+msgstr "Permisos insuficientes."
+
 #: includes/admin-page.php:1037
 msgid "Unknown error"
 msgstr "Error desconocido"
@@ -392,6 +428,10 @@ msgstr "No hay archivos de caché"
 msgid "Total"
 msgstr "Total"
 
+#: includes/admin-page.php:1201
+msgid "Insufficient permissions."
+msgstr "Permisos insuficientes."
+
 #: includes/admin-page.php:1212
 msgid "API Provider is missing."
 msgstr "Falta el proveedor de API."
@@ -411,6 +451,14 @@ msgstr "Respuesta no válida de la API"
 #: includes/admin-page.php:1344
 msgid "API and model are working. API settings have been saved."
 msgstr "La API y el modelo están funcionando. Los ajustes de la API se han guardado."
+
+#: includes/admin-page.php:1275
+msgid "Insufficient permissions."
+msgstr "Permisos insuficientes."
+
+#: includes/admin-page.php:1287
+msgid "Insufficient permissions."
+msgstr "Permisos insuficientes."
 
 #: includes/admin-page.php:1347
 msgid "API validation failed:"

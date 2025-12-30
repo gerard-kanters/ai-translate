@@ -6,8 +6,11 @@
  * Author: Netcare
  * Author URI: https://netcare.nl/
  * Version: 2.1.7
+ * Requires at least: 5.0
+ * Tested up to: 6.9
  * Requires PHP: 8.0.0
  * Text Domain: ai-translate
+ * Domain Path: /languages
  */
 
 // Do not allow direct access.
