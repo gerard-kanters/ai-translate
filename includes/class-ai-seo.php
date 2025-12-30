@@ -201,25 +201,33 @@ final class AI_SEO
         if ($ogDescMissing) {
             $shouldReplaceOgDesc = true;
         }
+        
+        // On homepage: always replace og:image with domain logo (if available via site_icon)
+        $shouldReplaceOgImage = (is_front_page() || is_home());
 
-        if ($ogTitleMissing || $shouldReplaceOgDesc || $ogImageMissing || $ogUrlMissing) {
-            $siteName = (string) get_bloginfo('name');
+        if ($ogTitleMissing || $shouldReplaceOgDesc || $ogImageMissing || $ogUrlMissing || $shouldReplaceOgImage) {
             $ogTitle = '';
             if ($ogTitleMissing) {
-                if (is_singular()) {
-                    $postId = get_queried_object_id();
-                    if ($postId) {
-                        $ogTitle = (string) get_the_title($postId);
+                // Use the title tag content directly (without adding site name)
+                $titleNode = $doc->getElementsByTagName('title')->item(0);
+                if ($titleNode) {
+                    $ogTitle = trim((string) $titleNode->textContent);
+                }
+                // Fallback if title tag is not available
+                if ($ogTitle === '') {
+                    if (is_singular()) {
+                        $postId = get_queried_object_id();
+                        if ($postId) {
+                            $ogTitle = (string) get_the_title($postId);
+                        }
+                    } elseif (is_front_page() || is_home()) {
+                        $ogTitle = (string) get_bloginfo('description');
+                    } elseif (is_archive()) {
+                        $ogTitle = (string) get_the_archive_title();
                     }
-                } elseif (is_front_page() || is_home()) {
-                    $ogTitle = (string) get_bloginfo('description');
-                } elseif (is_archive()) {
-                    $ogTitle = (string) get_the_archive_title();
                 }
-                if ($ogTitle !== '' && $siteName !== '') {
-                    $ogTitle = trim($ogTitle) . ' - ' . $siteName;
-                }
-                if ($ogTitle !== '') {
+                // Translate og:title for translated languages
+                if ($ogTitle !== '' && $isTranslatedLang) {
                     $ogTitle = self::maybeTranslateMeta($ogTitle, $default, $lang);
                 }
             }
@@ -234,8 +242,20 @@ final class AI_SEO
             }
 
             $ogImage = '';
-            if ($ogImageMissing) {
-                if (is_singular()) {
+            if ($ogImageMissing || $shouldReplaceOgImage) {
+                // On homepage: check if a custom logo ID is provided via filter (only for sites that want to replace)
+                if ($shouldReplaceOgImage) {
+                    $logoId = apply_filters('ai_translate_homepage_logo_id', null);
+                    if ($logoId && $logoId > 0) {
+                        $url = wp_get_attachment_image_url($logoId, 'large');
+                        if (is_string($url) && $url !== '') {
+                            $ogImage = (string) $url;
+                        }
+                    }
+                }
+                
+                // Normal logic: use featured image for singular pages (including homepage if it's a page)
+                if ($ogImage === '' && is_singular()) {
                     $postId = get_queried_object_id();
                     if ($postId && has_post_thumbnail($postId)) {
                         $imgId = get_post_thumbnail_id($postId);
@@ -245,6 +265,8 @@ final class AI_SEO
                         }
                     }
                 }
+                
+                // Final fallback to theme logo
                 if ($ogImage === '') {
                     $logoId = get_theme_mod('custom_logo');
                     if ($logoId) {
@@ -261,7 +283,12 @@ final class AI_SEO
                 $currentAbs = self::currentPageUrlAbsolute();
                 $path = AI_URL::rewrite_single_href($currentAbs, $lang, $default);
                 if (is_string($path) && $path !== '') {
-                    $ogUrl = home_url($path);
+                    // Check if path is already a full URL (starts with http:// or https://)
+                    if (preg_match('#^https?://#i', $path)) {
+                        $ogUrl = $path;
+                    } else {
+                        $ogUrl = home_url($path);
+                    }
                 }
                 if ($ogUrl === '') {
                     $ogUrl = $currentAbs;
@@ -309,12 +336,23 @@ final class AI_SEO
                     }
                 }
             }
-            if ($ogImageMissing && $ogImage !== '') {
-                $meta = $doc->createElement('meta');
-                $meta->setAttribute('property', 'og:image');
-                $meta->setAttribute('content', esc_url($ogImage));
-                $head->appendChild($meta);
-                $head->appendChild($doc->createTextNode("\n"));
+            if (($ogImageMissing || $shouldReplaceOgImage) && $ogImage !== '') {
+                // Find existing og:image to replace, or add new one
+                $existingOgImage = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image"]');
+                if ($existingOgImage && $existingOgImage->length > 0) {
+                    // Replace existing og:image
+                    $ogImageElem = $existingOgImage->item(0);
+                    if ($ogImageElem instanceof \DOMElement) {
+                        $ogImageElem->setAttribute('content', esc_url($ogImage));
+                    }
+                } else {
+                    // Add new og:image
+                    $meta = $doc->createElement('meta');
+                    $meta->setAttribute('property', 'og:image');
+                    $meta->setAttribute('content', esc_url($ogImage));
+                    $head->appendChild($meta);
+                    $head->appendChild($doc->createTextNode("\n"));
+                }
             }
             if ($ogUrlMissing && $ogUrl !== '') {
                 $meta = $doc->createElement('meta');
