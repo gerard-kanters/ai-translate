@@ -1,0 +1,583 @@
+# Copyright (C) 2025 Netcare
+# This file is distributed under the same license as the AI Translate plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: AI Translate 2.1.7\n"
+"Report-Msgid-Bugs-To: https://netcare.nl/\n"
+"POT-Creation-Date: 2025-01-02 12:00+0000\n"
+"PO-Revision-Date: 2025-01-02 12:00+0000\n"
+"Last-Translator: Netcare <info@netcare.nl>\n"
+"Language-Team: 简体中文\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. Plugin Name
+msgid "AI Translate"
+msgstr "AI Translate"
+
+msgid "Short Description"
+msgstr "简短描述"
+
+#. Short Description
+msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
+msgstr "支持35种语言的自动网站翻译AI插件。增加流量并改善您的SEO。"
+
+#. Description
+msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
+msgstr "AI Translate自动使您的WordPress网站支持35+种语言。无需手动工作即可扩大覆盖范围并改善您的SEO。"
+
+msgid "AI Translate automatically translates your entire website using advanced artificial intelligence. The plugin translates pages, posts, titles, menus, and more in real-time or via smart caching."
+msgstr "AI Translate使用先进的人工智能自动翻译您的整个网站。该插件实时或通过智能缓存翻译页面、文章、标题、菜单等。"
+
+msgid "What makes AI Translate unique?"
+msgstr "是什么让AI Translate与众不同？"
+
+msgid "<strong>🎯 Smart AI Analysis</strong>\nThe AI first analyzes your website to understand what you do and how you communicate. This ensures translations are always tailored to your brand, terminology, and tone of voice."
+msgstr "<strong>🎯 智能AI分析</strong>\nAI首先分析您的网站，了解您的工作内容和沟通方式。这确保翻译始终符合您的品牌、术语和语调。"
+
+msgid "<strong>⚡ Intelligent Caching</strong>\nWith intelligent caching, your site runs fast, even with many translations. Translations are automatically updated when you change original content, without extra API costs."
+msgstr "<strong>⚡ 智能缓存</strong>\n通过智能缓存，即使有很多翻译，您的网站也能快速运行。当您更改原始内容时，翻译会自动更新，无需额外的API成本。"
+
+msgid "<strong>🌍 SEO-Friendly</strong>\nAutomatic hreflang tags, translated URL slugs, and proper indexing ensure search engines can properly index all language versions of your site."
+msgstr "<strong>🌍 SEO友好</strong>\n自动hreflang标签、翻译的URL slug和适当的索引确保搜索引擎能够正确索引您网站的所有语言版本。"
+
+msgid "Features"
+msgstr "功能"
+
+msgid "<strong>🌐 Automatic Translation</strong> - Pages, posts, and custom post types are automatically translated"
+msgstr "<strong>🌐 自动翻译</strong> - 页面、文章和自定义文章类型会自动翻译"
+
+msgid "<strong>✨ Smart AI</strong> - Generates a summary of your site for context-aware translations."
+msgstr "<strong>✨ 智能AI</strong> - 为上下文感知翻译生成您网站的摘要。"
+
+msgid "<strong>🌍 35+ Languages</strong> - Support for all major world languages and much more."
+msgstr "<strong>🌍 35+种语言</strong> - 支持所有主要世界语言及更多。"
+
+msgid "<strong>⚡ Fast Caching</strong> - Intelligent cache for better performance and lower costs."
+msgstr "<strong>⚡ 快速缓存</strong> - 智能缓存以提高性能并降低成本。"
+
+msgid "<strong>🔄 Automatic Updates</strong> - Translations are automatically updated when content changes."
+msgstr "<strong>🔄 自动更新</strong> - 内容更改时翻译会自动更新。"
+
+msgid "<strong>🍪 Remembers Preferences</strong> - Saves each visitor's language preference (via cookies)."
+msgstr "<strong>🍪 记住偏好</strong> - 保存每位访问者的语言偏好（通过cookie）。"
+
+msgid "<strong>🎨 Easy to Use</strong> - Simple language switcher in the left corner of your website."
+msgstr "<strong>🎨 易于使用</strong> - 在您网站左下角的简单语言切换器。"
+
+msgid "<strong>🔧 Flexible</strong> - Choose your own AI model (OpenAI, Deepseek, or other APIs)."
+msgstr "<strong>🔧 灵活</strong> - 选择您自己的AI模型（OpenAI、Deepseek或其他API）。"
+
+msgid "<strong>🔗 SEO-Friendly</strong> - Also translates URLs for better search engine optimization."
+msgstr "<strong>🔗 SEO友好</strong> - 还翻译URL以更好地进行搜索引擎优化。"
+
+msgid "Installation"
+msgstr "安装"
+
+msgid "<strong>Install the plugin</strong> - Upload to <code>/wp-content/plugins/ai-translate/</code> or install directly via the WordPress plugin screen"
+msgstr "<strong>安装插件</strong> - 上传到 <code>/wp-content/plugins/ai-translate/</code> 或通过WordPress插件屏幕直接安装"
+
+msgid "<strong>Activate</strong> - Go to the 'Plugins' menu and activate AI Translate"
+msgstr "<strong>激活</strong> - 转到“插件”菜单并激活AI Translate"
+
+msgid "<strong>Configure</strong> - Go to 'Admin &gt; AI Translate' to configure settings"
+msgstr "<strong>配置</strong> - 转到“管理 &gt; AI Translate”以配置设置"
+
+msgid "<strong>Add API key</strong> - Add your API key and select which languages you want to support"
+msgstr "<strong>添加API密钥</strong> - 添加您的API密钥并选择要支持的语言"
+
+msgid "<strong>Tip for best performance</strong> - Use Memcached or Redis for even faster caching (optional)"
+msgstr "<strong>最佳性能提示</strong> - 使用Memcached或Redis以获得更快的缓存（可选）"
+
+msgid "Permalinks"
+msgstr "固定链接"
+
+msgid "AI Translate requires <strong>friendly permalinks</strong> to function properly. The plugin automatically sets your permalinks to the \"Post name\" structure (<code>/%postname%/</code>) during activation if they are currently set to \"Plain\". This is necessary for the language-prefixed URLs (e.g., <code>/de/</code>, <code>/en/</code>) to work correctly."
+msgstr "AI Translate需要<strong>友好的固定链接</strong>才能正常工作。如果当前设置为“简单”，插件在激活期间会自动将您的固定链接设置为“文章名”结构（<code>/%postname%/</code>）。这对于带语言前缀的URL（例如，<code>/de/</code>、<code>/en/</code>）正常工作是必需的。"
+
+msgid "If you manually change permalinks to \"Plain\" after activation, you will see a warning in the WordPress admin, and the language switching will not work as expected."
+msgstr "如果您在激活后手动将固定链接更改为“简单”，您将在WordPress管理后台看到警告，语言切换将无法按预期工作。"
+
+msgid "Frequently Asked Questions"
+msgstr "常见问题"
+
+msgid "What are the costs for using AI Translate?"
+msgstr "使用AI Translate的费用是多少？"
+
+msgid "AI Translate is free to use, but you need an API key from an AI service provider like OpenAI or Deepseek. Costs depend on your usage and the provider you choose. At OpenAI, translating an average 500-word page costs approximately €0.01."
+msgstr "AI Translate可免费使用，但您需要来自OpenAI或Deepseek等AI服务提供商的API密钥。费用取决于您的使用情况和您选择的提供商。在OpenAI，翻译平均500字的页面大约需要€0.01。"
+
+msgid "Which languages are supported?"
+msgstr "支持哪些语言？"
+
+msgid "AI Translate supports 35+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Georgian, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian, and more."
+msgstr "AI Translate支持35+种语言，包括荷兰语、英语、德语、法语、西班牙语、意大利语、葡萄牙语、俄语、中文、日语、韩语、阿拉伯语、印地语、泰语、格鲁吉亚语、瑞典语、挪威语、丹麦语、芬兰语、波兰语、捷克语、希腊语、罗马尼亚语等。"
+
+msgid "How does caching work?"
+msgstr "缓存如何工作？"
+
+msgid "AI Translate uses a smart caching system that stores translations in WordPress and files. Translations are only regenerated when the original content changes. This saves API costs and improves your website speed."
+msgstr "AI Translate使用智能缓存系统，将翻译存储在WordPress和文件中。只有在原始内容更改时才重新生成翻译。这节省了API成本并提高了您的网站速度。"
+
+msgid "Does AI Translate work with all themes?"
+msgstr "AI Translate是否适用于所有主题？"
+
+msgid "Yes! AI Translate is designed to work with all WordPress themes. The plugin uses standard WordPress functions, so compatibility is guaranteed."
+msgstr "是的！AI Translate设计为适用于所有WordPress主题。该插件使用标准WordPress函数，因此保证了兼容性。"
+
+msgid "How is my privacy protected?"
+msgstr "我的隐私如何受到保护？"
+
+msgid "AI Translate only sends website content for translation to the AI service. No personal data, IP addresses, or other privacy-sensitive information is shared. All translations are stored locally in the cache."
+msgstr "AI Translate仅将网站内容发送给AI服务进行翻译。不共享个人数据、IP地址或其他隐私敏感信息。所有翻译都本地存储在缓存中。"
+
+msgid "What happens if the AI service is unavailable?"
+msgstr "如果AI服务不可用会怎样？"
+
+msgid "If the AI service is temporarily unavailable, AI Translate displays the original content in the default language. Cached translations remain available and your website continues to work normally."
+msgstr "如果AI服务暂时不可用，AI Translate会以默认语言显示原始内容。缓存的翻译仍然可用，您的网站继续正常工作。"
+
+msgid "How can I optimize performance?"
+msgstr "如何优化性能？"
+
+msgid "For optimal performance, we recommend:"
+msgstr "为了获得最佳性能，我们建议："
+
+msgid "Using a caching plugin like Jetpack, WP Rocket, or W3 Total Cache"
+msgstr "使用Jetpack、WP Rocket或W3 Total Cache等缓存插件"
+
+msgid "Configuring Memcached or Redis for database caching"
+msgstr "配置Memcached或Redis进行数据库缓存"
+
+msgid "Adjusting cache duration based on how often you update content"
+msgstr "根据您更新内容的频率调整缓存持续时间"
+
+msgid "Can I use AI Translate for a multilingual webshop?"
+msgstr "我可以将AI Translate用于多语言网店吗？"
+
+msgid "Yes! AI Translate works perfectly with WooCommerce and other e-commerce plugins. Product titles, descriptions, and categories are automatically translated. Note: prices and technical specifications are not translated."
+msgstr "是的！AI Translate与WooCommerce和其他电子商务插件完美配合。产品标题、描述和类别会自动翻译。注意：价格和技术规格不会翻译。"
+
+msgid "How often are translations updated?"
+msgstr "翻译多久更新一次？"
+
+msgid "Translations are only updated when the original content changes. This happens automatically and prevents unnecessary API costs. You can also manually clear the cache via the admin settings."
+msgstr "只有在原始内容更改时才更新翻译。这会自动发生并防止不必要的API成本。您也可以通过管理设置手动清除缓存。"
+
+msgid "Is AI Translate SEO-friendly?"
+msgstr "AI Translate是否对SEO友好？"
+
+msgid "Yes! AI Translate is fully SEO-friendly. It automatically generates hreflang tags, translates URL slugs, and ensures search engines can properly index all language versions."
+msgstr "是的！AI Translate完全对SEO友好。它自动生成hreflang标签，翻译URL slug，并确保搜索引擎能够正确索引所有语言版本。"
+
+msgid "Can I customize the AI prompts?"
+msgstr "我可以自定义AI提示吗？"
+
+msgid "The AI prompts are optimized for the best translations by analyzing your website and adjusting the tone. You can add extra context about your site in the admin settings, but this is usually not necessary."
+msgstr "AI提示通过分析您的网站并调整语调来优化最佳翻译。您可以在管理设置中添加有关您网站的额外上下文，但这通常不是必需的。"
+
+msgid "What's the difference between \"Enabled Languages\" and \"Detectable Languages\"?"
+msgstr "\"已启用语言\"和\"可检测语言\"之间有什么区别？"
+
+msgid "<strong>Enabled Languages</strong> are languages visible in the language switcher (the flag button on your website). Visitors can directly select these languages."
+msgstr "<strong>已启用语言</strong>是语言切换器中可见的语言（您网站上的旗帜按钮）。访问者可以直接选择这些语言。"
+
+msgid "<strong>Detectable Languages</strong> are automatically detected based on the visitor's browser language, but are not visible in the switcher. Ideal for languages you want to support without cluttering the interface."
+msgstr "<strong>可检测语言</strong>根据访问者的浏览器语言自动检测，但在切换器中不可见。非常适合您想要支持但不想使界面混乱的语言。"
+
+msgid "Configuration"
+msgstr "配置"
+
+msgid "All plugin settings can be found under 'AI Translate' in your WordPress admin menu."
+msgstr "所有插件设置都可以在WordPress管理菜单中的“AI Translate”下找到。"
+
+msgid "API Settings"
+msgstr "API设置"
+
+msgid "<strong>🔑 API URL</strong> - The address of your AI translation API (e.g., <code>https://api.openai.com/v1/</code>)"
+msgstr "<strong>🔑 API URL</strong> - 您的AI翻译API地址（例如，<code>https://api.openai.com/v1/</code>）"
+
+msgid "<strong>🔐 API Key</strong> - Your API authentication key"
+msgstr "<strong>🔐 API密钥</strong> - 您的API身份验证密钥"
+
+msgid "<strong>🤖 Translation Model</strong> - Choose your preferred AI model"
+msgstr "<strong>🤖 翻译模型</strong> - 选择您首选的AI模型"
+
+msgid "Language Settings"
+msgstr "语言设置"
+
+msgid "<strong>🌍 Default Language</strong> - The main language of your website"
+msgstr "<strong>🌍 默认语言</strong> - 您网站的主要语言"
+
+msgid "<strong>🎯 Enabled Languages</strong> - Languages visible in the language switcher"
+msgstr "<strong>🎯 已启用语言</strong> - 语言切换器中可见的语言"
+
+msgid "<strong>🔍 Detectable Languages</strong> - Automatic translation on browser match, but not in switcher"
+msgstr "<strong>🔍 可检测语言</strong> - 浏览器匹配时自动翻译，但不在切换器中"
+
+msgid "Cache Settings"
+msgstr "缓存设置"
+
+msgid "<strong>⏱️ Cache Duration (days)</strong> - How long translated content stays cached"
+msgstr "<strong>⏱️ 缓存持续时间（天）</strong> - 翻译内容缓存多长时间"
+
+msgid "<strong>🗑️ Cache Management</strong> - Clear all cache, only transient cache, or cache per language"
+msgstr "<strong>🗑️ 缓存管理</strong> - 清除所有缓存、仅临时缓存或按语言缓存"
+
+msgid "<strong>🔄 Automatic cache invalidation</strong> - Cache is only refreshed on content changes"
+msgstr "<strong>🔄 自动缓存失效</strong> - 仅在内容更改时刷新缓存"
+
+msgid "Advanced Settings"
+msgstr "高级设置"
+
+msgid "<strong>📄 Homepage Meta Description</strong> - Set a custom meta description that is automatically translated"
+msgstr "<strong>📄 首页Meta描述</strong> - 设置会自动翻译的自定义meta描述"
+
+msgid "<strong>✨ Auto-generate site context</strong> - Let the AI automatically analyze your site for better translations"
+msgstr "<strong>✨ 自动生成网站上下文</strong> - 让AI自动分析您的网站以获得更好的翻译"
+
+msgid "Usage"
+msgstr "使用"
+
+msgid "After configuration, AI Translate automatically adds a language switcher to your website (default: bottom left). Visitors can select their preferred language; content is translated instantly or loaded from cache."
+msgstr "配置后，AI Translate会自动在您的网站上添加语言切换器（默认：左下角）。访问者可以选择他们首选的语言；内容会立即翻译或从缓存加载。"
+
+msgid "Each visitor's language preference is remembered for future visits."
+msgstr "每位访问者的语言偏好都会被记住，以便将来访问。"
+
+msgid "Cache"
+msgstr "缓存"
+
+msgid "<strong>📁 Location</strong> - Translations are cached in <code>/wp-content/uploads/ai-translate/cache/</code>"
+msgstr "<strong>📁 位置</strong> - 翻译缓存在 <code>/wp-content/uploads/ai-translate/cache/</code>"
+
+msgid "<strong>🧹 Auto-cleanup</strong> - Expired cache is automatically cleaned up"
+msgstr "<strong>🧹 自动清理</strong> - 过期的缓存会自动清理"
+
+msgid "<strong>🔧 Manual clearing</strong> - Clear cache manually via plugin settings"
+msgstr "<strong>🔧 手动清除</strong> - 通过插件设置手动清除缓存"
+
+msgid "Recommended Model Selection"
+msgstr "推荐的模型选择"
+
+msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code> - Do not use GPT 5.1 for translations (slow, expensive, and unnecessarily complex)"
+msgstr "<strong>💡 OpenAI</strong>：<code>gpt-4.1-mini</code> - 不要使用GPT 5.1进行翻译（慢、昂贵且不必要地复杂）"
+
+msgid "<strong>💰 Deepseek</strong>: <code>deepseek-chat</code> - Slower, but cost-effective"
+msgstr "<strong>💰 Deepseek</strong>：<code>deepseek-chat</code> - 较慢，但具有成本效益"
+
+msgid "<strong>🔧 Custom</strong>: Use OpenRouter and select google/gemini-2.5-flash-lite "
+msgstr "<strong>🔧 自定义</strong>：使用OpenRouter并选择google/gemini-2.5-flash-lite "
+
+msgid "Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing. "
+msgstr "Gemini flash是目前可用的最佳性价比模型。它速度快，支持所有语言，价格低廉。 "
+
+msgid "Development"
+msgstr "开发"
+
+msgid "🔗 Path-based language URLs for SEO"
+msgstr "🔗 用于SEO的基于路径的语言URL"
+
+msgid "🚀 Support for more content types and translation improvements are in development"
+msgstr "🚀 更多内容类型和翻译改进的支持正在开发中"
+
+msgid "⚡ Caching and API optimization are continuously improved"
+msgstr "⚡ 缓存和API优化不断改进"
+
+msgid "External Services"
+msgstr "外部服务"
+
+msgid "AI Translate requires an API key from one of the supported providers:"
+msgstr "AI Translate需要来自受支持提供商之一的API密钥："
+
+msgid "Supported AI Translation Services"
+msgstr "支持的AI翻译服务"
+
+msgid "OpenAI API"
+msgstr "OpenAI API"
+
+msgid "<strong>What it is</strong>: OpenAI's GPT models for text translation"
+msgstr "<strong>它是什么</strong>：OpenAI用于文本翻译的GPT模型"
+
+msgid "<strong>What data is sent</strong>: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information"
+msgstr "<strong>发送的数据</strong>：需要翻译的网站内容（文章、页面、标题、菜单项、小部件标题），以及源语言和目标语言信息"
+
+msgid "<strong>When data is sent</strong>: When a visitor accesses your website in a language different from the default language, and the content is not already cached"
+msgstr "<strong>何时发送数据</strong>：当访问者以不同于默认语言的语言访问您的网站，且内容尚未缓存时"
+
+msgid "<strong>Service provider</strong>: OpenAI"
+msgstr "<strong>服务提供商</strong>：OpenAI"
+
+msgid "<strong>Terms of service</strong>: <a href=\"https://openai.com/terms/\">https://openai.com/terms/</a>"
+msgstr "<strong>服务条款</strong>：<a href=\"https://openai.com/terms/\">https://openai.com/terms/</a>"
+
+msgid "<strong>Privacy policy</strong>: <a href=\"https://openai.com/privacy/\">https://openai.com/privacy/</a>"
+msgstr "<strong>隐私政策</strong>：<a href=\"https://openai.com/privacy/\">https://openai.com/privacy/</a>"
+
+msgid "Data Handling"
+msgstr "数据处理"
+
+msgid "🔒 Only website content for translation is sent—no visitor IP or personal data"
+msgstr "🔒 仅发送用于翻译的网站内容—不发送访问者IP或个人数据"
+
+msgid "💾 All translations are cached locally; nothing is shared externally"
+msgstr "💾 所有翻译都本地缓存；不对外共享任何内容"
+
+msgid "Requirements"
+msgstr "要求"
+
+msgid "✅ WordPress 5.0 or higher"
+msgstr "✅ WordPress 5.0或更高版本"
+
+msgid "✅ PHP 8 or higher"
+msgstr "✅ PHP 8或更高版本"
+
+msgid "🔑 API key for OpenAI, Deepseek, or compatible service"
+msgstr "🔑 OpenAI、Deepseek或兼容服务的API密钥"
+
+msgid "Crawler/Spider Best Practices"
+msgstr "爬虫/蜘蛛最佳实践"
+
+msgid "When using automated crawlers or spiders to warm up the cache (e.g., wget, curl), follow these guidelines to prevent race conditions and ensure proper cache generation:"
+msgstr "使用自动爬虫或蜘蛛预热缓存时（例如，wget、curl），请遵循这些指南以防止竞争条件并确保正确生成缓存："
+
+msgid "Recommended Spider Settings"
+msgstr "推荐的蜘蛛设置"
+
+msgid "Good: Sequential crawling with adequate delays"
+msgstr "良好：具有适当延迟的顺序爬取"
+
+msgid "wget --spider --no-directories --delete-after --recursive --level=10 \\\n     --wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \\\n     https://yoursite.com"
+msgstr "wget --spider --no-directories --delete-after --recursive --level=10 \\\n     --wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \\\n     https://yoursite.com"
+
+msgid "Changelog"
+msgstr "更新日志"
+
+msgid "2.1.7"
+msgstr "2.1.7"
+
+msgid "Support for Wordpress 6.9"
+msgstr "支持WordPress 6.9"
+
+msgid "Issue with language parameter on home page fixed."
+msgstr "修复了首页语言参数的问题。"
+
+msgid "Issue with search not keeping language code fixed."
+msgstr "修复了搜索不保留语言代码的问题。"
+
+msgid "Improved validation of models, checking account and provider information."
+msgstr "改进了模型验证，检查账户和提供商信息。"
+
+msgid "Improved UI caching of dynamic elements. "
+msgstr "改进了动态元素的UI缓存。 "
+
+msgid "Dual caching strategy for object oriented caching implemented."
+msgstr "实现了面向对象缓存的双缓存策略。"
+
+msgid "Support for multi domain caching."
+msgstr "支持多域缓存。"
+
+msgid "Select where to put the Language switcher button on your site. "
+msgstr "选择在您网站上的何处放置语言切换器按钮。 "
+
+msgid "Implemented stop API calls in admin."
+msgstr "在管理后台实现了停止API调用。"
+
+msgid "Improved caching and reduce API calls of UI elements"
+msgstr "改进了缓存并减少了UI元素的API调用"
+
+msgid "2.1.2"
+msgstr "2.1.2"
+
+msgid "Fixed JS issue with speculationrules"
+msgstr "修复了speculationrules的JS问题"
+
+msgid "Removed debug logging."
+msgstr "移除了调试日志记录。"
+
+msgid "Fix browser language detection."
+msgstr "修复浏览器语言检测。"
+
+msgid "Fix admin setting selecting default language."
+msgstr "修复选择默认语言的管理设置。"
+
+msgid "Set permalink structure on initialization to post-name"
+msgstr "在初始化时将固定链接结构设置为文章名"
+
+msgid "Fixed issue with existing meta tags in default language"
+msgstr "修复了默认语言中现有meta标签的问题"
+
+msgid "Exclude xml files from processing"
+msgstr "从处理中排除xml文件"
+
+msgid "Added 10 languages"
+msgstr "添加了10种语言"
+
+msgid "2.0.4"
+msgstr "2.0.4"
+
+msgid "Fix switching back and forth with default language"
+msgstr "修复了与默认语言来回切换的问题"
+
+msgid "Fix race condition causing white pages for spiders/crawlers"
+msgstr "修复了导致爬虫/蜘蛛出现白页的竞争条件"
+
+msgid "Fixed hreflang tags for default language"
+msgstr "修复了默认语言的hreflang标签"
+
+msgid "Fix issue SEO engine inject that might mess up already troubled HTML"
+msgstr "修复了可能破坏已有问题的HTML的SEO引擎注入问题"
+
+msgid "More efficient merge of translated output resulting in faster load"
+msgstr "更高效地合并翻译输出，从而加快加载速度"
+
+msgid "Detect untranslated text in cached pages and translated them"
+msgstr "检测缓存页面中未翻译的文本并翻译它们"
+
+msgid "Reduced url length and system prompt to generate slug"
+msgstr "减少了URL长度和生成slug的系统提示"
+
+msgid "Placeholder translation improved"
+msgstr "改进了占位符翻译"
+
+msgid "2.0.1"
+msgstr "2.0.1"
+
+msgid "Total rework, changing the translation architecture"
+msgstr "全面重做，更改翻译架构"
+
+msgid "Reduced cost of translation (increasing batch)"
+msgstr "降低了翻译成本（增加批次）"
+
+msgid "Great performance boost"
+msgstr "大幅提升性能"
+
+msgid "Better support for third party plugins and themes"
+msgstr "更好地支持第三方插件和主题"
+
+msgid "1.34"
+msgstr "1.34"
+
+msgid "Fix pagination with pretty URL"
+msgstr "修复了美观URL的分页"
+
+msgid "Remove hallucinated html tags from ALT image tags"
+msgstr "从ALT图像标签中移除幻觉HTML标签"
+
+msgid "Fix menu issues with translated URLs"
+msgstr "修复了翻译URL的菜单问题"
+
+msgid "Implemented translated open graph tags"
+msgstr "实现了翻译的open graph标签"
+
+msgid "Better prompting and reduced placeholder translation issues"
+msgstr "更好的提示并减少了占位符翻译问题"
+
+msgid "1.3"
+msgstr "1.3"
+
+msgid "Added translation of (standard wordpress) translation functionality"
+msgstr "添加了（标准WordPress）翻译功能的翻译"
+
+msgid "Improved translation context and more translation freedom for AI"
+msgstr "改进了翻译上下文并为AI提供更多翻译自由度"
+
+msgid "Improved caching and translation performance"
+msgstr "改进了缓存和翻译性能"
+
+msgid "Stable translated URLs: slugs only change if original changes"
+msgstr "稳定的翻译URL：只有在原始内容更改时slug才会更改"
+
+msgid "Added Greek and Romanian"
+msgstr "添加了希腊语和罗马尼亚语"
+
+msgid "Fixed 404 redirects to correct language homepage"
+msgstr "修复了404重定向到正确的语言首页"
+
+msgid "Fixed cache clearing by language"
+msgstr "修复了按语言清除缓存"
+
+msgid "Fixed non-Latin language URL translations"
+msgstr "修复了非拉丁语言URL翻译"
+
+msgid "Better AI prompting for tags/placeholders"
+msgstr "为标签/占位符提供更好的AI提示"
+
+msgid "Improved contextual translation for single words/slugs"
+msgstr "改进了单个单词/slug的上下文翻译"
+
+msgid "1.2"
+msgstr "1.2"
+
+msgid "Reduced API calls"
+msgstr "减少了API调用"
+
+msgid "Dynamic content support without breaking cache"
+msgstr "在不破坏缓存的情况下支持动态内容"
+
+msgid "Added hreflang tags"
+msgstr "添加了hreflang标签"
+
+msgid "Automatic re-translation when original content changes"
+msgstr "原始内容更改时自动重新翻译"
+
+msgid "Fixed language code issues for Ukrainian"
+msgstr "修复了乌克兰语的语言代码问题"
+
+msgid "Improved API settings UI"
+msgstr "改进了API设置UI"
+
+msgid "Custom post type support"
+msgstr "支持自定义文章类型"
+
+msgid "Improved non-Latin script URL translation"
+msgstr "改进了非拉丁文字URL翻译"
+
+msgid "1.1"
+msgstr "1.1"
+
+msgid "Path-based language URLs for SEO"
+msgstr "用于SEO的基于路径的语言URL"
+
+msgid "Transient cache clearing option"
+msgstr "临时缓存清除选项"
+
+msgid "Better widget and link translation"
+msgstr "更好的小部件和链接翻译"
+
+msgid "Homepage meta description option"
+msgstr "首页meta描述选项"
+
+msgid "API error handling with backoff"
+msgstr "带退避的API错误处理"
+
+msgid "Detectable (auto-detect, no switcher) languages"
+msgstr "可检测（自动检测，无切换器）语言"
+
+msgid "Improved cache statistics in admin"
+msgstr "改进了管理后台的缓存统计"
+
+msgid "Remembers each visitor's language preference"
+msgstr "记住每位访问者的语言偏好"
+
+msgid "Bugfixes and style improvements"
+msgstr "错误修复和样式改进"
+
+msgid "Improved hreflang original URL logic"
+msgstr "改进了hreflang原始URL逻辑"
+
+msgid "1.0"
+msgstr "1.0"
+
+msgid "Initial release with basic AI translation"
+msgstr "具有基本AI翻译的初始版本"
+
+msgid "Provided by"
+msgstr "由以下提供"
+
+msgid "🌐 <a href=\"https://netcare.nl\">NetCare</a>"
+msgstr "🌐 <a href=\"https://netcare.nl\">NetCare</a>"
+

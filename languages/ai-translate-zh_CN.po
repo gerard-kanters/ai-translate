@@ -222,6 +222,39 @@ msgstr "已清除语言 \"%s\" 的缓存。删除了 %d 个文件。"
 msgid "Error clearing cache:"
 msgstr "清除缓存时出错："
 
+#: includes/admin-page.php:790
+#: includes/admin-page.php:841
+msgid "Active domain:"
+msgstr "活动域名："
+
+#: includes/admin-page.php:905
+msgid "Cache for language %s cleared."
+msgstr "已清除语言 %s 的缓存。"
+
+#: includes/admin-page.php:908
+msgid "Files removed: %d"
+msgstr "已删除文件：%d"
+
+#: includes/admin-page.php:909
+msgid "Remaining files: %d"
+msgstr "剩余文件：%d"
+
+#: includes/admin-page.php:919
+msgid "No cache files found for language %s."
+msgstr "未找到语言 %s 的缓存文件。"
+
+#: includes/admin-page.php:928
+msgid "Error clearing cache for language %s: %s"
+msgstr "清除语言 %s 的缓存时出错：%s"
+
+#: includes/admin-page.php:997
+#: includes/admin-page.php:1031
+#: includes/admin-page.php:1201
+#: includes/admin-page.php:1275
+#: includes/admin-page.php:1287
+msgid "Insufficient permissions."
+msgstr "权限不足。"
+
 #: includes/admin-page.php:107
 msgid "Error generating context:"
 msgstr "生成背景信息时出错："

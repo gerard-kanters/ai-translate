@@ -1,0 +1,523 @@
+# Copyright (C) 2025 Netcare
+# This file is distributed under the same license as the AI Translate plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: AI Translate 2.1.7\n"
+"Report-Msgid-Bugs-To: https://netcare.nl/\n"
+"POT-Creation-Date: 2025-12-29 22:00+0000\n"
+"PO-Revision-Date: 2025-01-02 12:00+0000\n"
+"Last-Translator: Netcare <info@netcare.nl>\n"
+"Language-Team: العربية\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);\n"
+
+#: includes/admin-page.php:184
+msgid "AI Translate"
+msgstr "AI Translate"
+
+#: includes/admin-page.php:472
+msgid "API Settings"
+msgstr "إعدادات API"
+
+#: includes/admin-page.php:478
+msgid "API Provider"
+msgstr "مزود API"
+
+#: includes/admin-page.php:485
+msgid "— Select provider —"
+msgstr "— اختر المزود —"
+
+#: includes/admin-page.php:492
+msgid "Note:"
+msgstr "ملاحظة:"
+
+#: includes/admin-page.php:492
+msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
+msgstr "GPT-5 محظور، لأن التفكير لا يمكن تعطيله وغير مطلوب للترجمات وبالتالي بطيء جدًا ومكلف."
+
+#: includes/admin-page.php:497
+msgid "Enter the endpoint URL for your custom API provider. Example: %s"
+msgstr "أدخل عنوان URL للنقطة النهائية لمزود API المخصص. مثال: %s"
+
+#: includes/admin-page.php:506
+msgid "API Key"
+msgstr "مفتاح API"
+
+#: includes/admin-page.php:521
+msgid "Translation Model"
+msgstr "نموذج الترجمة"
+
+#: includes/admin-page.php:529
+msgid "— Select model —"
+msgstr "— اختر النموذج —"
+
+#: includes/admin-page.php:533
+msgid "Select..."
+msgstr "اختر..."
+
+#: includes/admin-page.php:536
+msgid "E.g.: deepseek-chat, gpt-4o, ..."
+msgstr "مثال: deepseek-chat، gpt-4o، ..."
+
+#: includes/admin-page.php:538
+msgid "Validate API settings"
+msgstr "التحقق من إعدادات API"
+
+#: includes/admin-page.php:549
+msgid "Language Settings"
+msgstr "إعدادات اللغة"
+
+#: includes/admin-page.php:551
+msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
+msgstr "اختر اللغة الافتراضية لموقعك وأي اللغات يجب أن تكون متاحة في محول اللغة. سيتم استخدام اللغات القابلة للكشف إذا تطابقت تفضيلات متصفح الزائر، لكنها لن تظهر في المحول."
+
+#: includes/admin-page.php:557
+msgid "Default Language"
+msgstr "اللغة الافتراضية"
+
+#: includes/admin-page.php:564
+msgid "— Select default language —"
+msgstr "— اختر اللغة الافتراضية —"
+
+#: includes/admin-page.php:567
+msgid "Current"
+msgstr "الحالي"
+
+#: includes/admin-page.php:579
+msgid "Enabled Languages (in Switcher)"
+msgstr "اللغات المفعّلة (في المحول)"
+
+#: includes/admin-page.php:599
+msgid "Languages selected here will appear in the language switcher."
+msgstr "اللغات المحددة هنا ستظهر في محول اللغة."
+
+#: includes/admin-page.php:607
+msgid "Detectable Languages (Auto-Translate)"
+msgstr "اللغات القابلة للكشف (ترجمة تلقائية)"
+
+#: includes/admin-page.php:636
+msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
+msgstr "إذا تطابقت لغة متصفح الزائر مع إحدى هذه اللغات، سيتم ترجمة الموقع تلقائيًا (إذا تم التفعيل)، لكن هذه اللغات لن تظهر في المحول."
+
+#: includes/admin-page.php:644
+msgid "Language Switcher Position"
+msgstr "موضع محول اللغة"
+
+#: includes/admin-page.php:650
+msgid "Bottom Left"
+msgstr "أسفل اليسار"
+
+#: includes/admin-page.php:651
+msgid "Bottom Right"
+msgstr "أسفل اليمين"
+
+#: includes/admin-page.php:652
+msgid "Top Left"
+msgstr "أعلى اليسار"
+
+#: includes/admin-page.php:653
+msgid "Top Right"
+msgstr "أعلى اليمين"
+
+#: includes/admin-page.php:663
+msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
+msgstr "اختر مكان ظهور محول اللغة على موقعك الإلكتروني. سيفتح القائمة لأعلى للمواضع السفلية ولأسفل للمواضع العلوية."
+
+#: includes/admin-page.php:672
+msgid "Cache Settings"
+msgstr "إعدادات التخزين المؤقت"
+
+#: includes/admin-page.php:681
+msgid "Cache Duration (days)"
+msgstr "مدة التخزين المؤقت (أيام)"
+
+#: includes/admin-page.php:685
+msgid "days"
+msgstr "أيام"
+
+#: includes/admin-page.php:686
+msgid "minimum 14 days"
+msgstr "الحد الأدنى 14 يومًا"
+
+#: includes/admin-page.php:693
+msgid "Auto-Clear Pages on Menu Update"
+msgstr "مسح الصفحات تلقائيًا عند تحديث القائمة"
+
+#: includes/admin-page.php:699
+msgid "Automatically clear all page caches when menu items are updated"
+msgstr "مسح جميع ذاكرة التخزين المؤقت للصفحات تلقائيًا عند تحديث عناصر القائمة"
+
+#: includes/admin-page.php:702
+msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
+msgstr "يتم مسح ذاكرة التخزين المؤقت لترجمة القائمة (المؤقتة) دائمًا عند تحديث القوائم، بغض النظر عن هذا الإعداد."
+
+#: includes/admin-page.php:705
+msgid "When enabled:"
+msgstr "عند التفعيل:"
+
+#: includes/admin-page.php:706
+msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
+msgstr "سيتم أيضًا مسح جميع ذاكرة التخزين المؤقت لصفحات HTML المترجمة. التغييرات في القائمة مرئية فورًا، لكنها تتطلب إعادة ترجمة الصفحات في الزيارة التالية (مكلفة للمواقع الكبيرة مع العديد من اللغات)."
+
+#: includes/admin-page.php:708
+msgid "When disabled:"
+msgstr "عند التعطيل:"
+
+#: includes/admin-page.php:709
+msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
+msgstr "يتم مسح ذاكرة التخزين المؤقت للقائمة فقط. تبقى ذاكرة التخزين المؤقت لصفحات HTML. التغييرات في القائمة في الصفحات المخزنة مؤقتًا بالفعل ستكون مرئية فقط بعد انتهاء صلاحية التخزين المؤقت أو المسح اليدوي عبر علامة تبويب التخزين المؤقت."
+
+#: includes/admin-page.php:717
+msgid "Multi-Domain Caching"
+msgstr "التخزين المؤقت متعدد النطاقات"
+
+#: includes/admin-page.php:723
+msgid "Enable separate cache per domain"
+msgstr "تفعيل تخزين مؤقت منفصل لكل نطاق"
+
+#: includes/admin-page.php:726
+msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
+msgstr "عند التفعيل، سيكون لكل نطاق مجلد تخزين مؤقت خاص به باسم الموقع. هذا يمنع تعارضات التخزين المؤقت عندما تشارك عدة نطاقات نفس تثبيت WordPress."
+
+#: includes/admin-page.php:734
+msgid "Stop translations (except cache invalidation)"
+msgstr "إيقاف الترجمات (باستثناء إبطال التخزين المؤقت)"
+
+#: includes/admin-page.php:743
+msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
+msgstr "عند التفعيل، سيتم حظر الترجمات الجديدة عبر API. ستحدث الترجمات فقط عندما تنتهي صلاحية الصفحات المخزنة مؤقتًا وتحتاج إلى التحديث."
+
+#: includes/admin-page.php:753
+msgid "Advanced Settings"
+msgstr "الإعدادات المتقدمة"
+
+#: includes/admin-page.php:761
+msgid "Homepage Meta Description"
+msgstr "وصف الصفحة الرئيسية"
+
+#: includes/admin-page.php:809
+msgid "Website Context"
+msgstr "سياق الموقع الإلكتروني"
+
+#: includes/admin-page.php:28
+msgid "Insufficient permissions to perform this action."
+msgstr "أذونات غير كافية لتنفيذ هذا الإجراء."
+
+#: includes/admin-page.php:35
+msgid "Security check failed (nonce). Refresh the page and try again."
+msgstr "فشل فحص الأمان (nonce). قم بتحديث الصفحة وحاول مرة أخرى."
+
+#: includes/admin-page.php:41
+msgid "No language selected."
+msgstr "لم يتم اختيار لغة."
+
+#: includes/admin-page.php:52
+msgid "Cache for language \"%s\" cleared. %d files removed."
+msgstr "تم مسح ذاكرة التخزين المؤقت للغة \"%s\". تمت إزالة %d ملفًا."
+
+#: includes/admin-page.php:790
+#: includes/admin-page.php:841
+msgid "Active domain:"
+msgstr "النطاق النشط:"
+
+#: includes/admin-page.php:905
+msgid "Cache for language %s cleared."
+msgstr "تم مسح ذاكرة التخزين المؤقت للغة %s."
+
+#: includes/admin-page.php:908
+msgid "Files removed: %d"
+msgstr "الملفات المحذوفة: %d"
+
+#: includes/admin-page.php:909
+msgid "Remaining files: %d"
+msgstr "الملفات المتبقية: %d"
+
+#: includes/admin-page.php:919
+msgid "No cache files found for language %s."
+msgstr "لم يتم العثور على ملفات تخزين مؤقت للغة %s."
+
+#: includes/admin-page.php:928
+msgid "Error clearing cache for language %s: %s"
+msgstr "خطأ في مسح ذاكرة التخزين المؤقت للغة %s: %s"
+
+#: includes/admin-page.php:997
+#: includes/admin-page.php:1031
+#: includes/admin-page.php:1201
+#: includes/admin-page.php:1275
+#: includes/admin-page.php:1287
+msgid "Insufficient permissions."
+msgstr "أذونات غير كافية."
+
+#: includes/admin-page.php:57
+msgid "Error clearing cache:"
+msgstr "خطأ في مسح ذاكرة التخزين المؤقت:"
+
+#: includes/admin-page.php:107
+msgid "Error generating context:"
+msgstr "خطأ في إنشاء السياق:"
+
+#: includes/admin-page.php:154
+msgid "Error generating meta description:"
+msgstr "خطأ في إنشاء وصف الصفحة:"
+
+#: includes/admin-page.php:274
+msgid "Invalid API provider selected."
+msgstr "تم اختيار مزود API غير صالح."
+
+#: includes/admin-page.php:294
+msgid "Custom API URL is required for the custom provider."
+msgstr "عنوان URL لـ API مخصص مطلوب لمزود API المخصص."
+
+#: includes/admin-page.php:307
+msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
+msgstr "لا يمكن أن تكون مدة التخزين المؤقت أقل من 14 يومًا. تم تعيينها تلقائيًا إلى 14 يومًا."
+
+#: includes/admin-page.php:335
+msgid "Custom model name is required when selecting a custom model."
+msgstr "اسم النموذج المخصص مطلوب عند اختيار نموذج مخصص."
+
+#: includes/admin-page.php:358
+msgid "API key is required for the selected provider."
+msgstr "مفتاح API مطلوب للمزود المحدد."
+
+#: includes/admin-page.php:930
+msgid "General"
+msgstr "عام"
+
+#: includes/admin-page.php:931
+msgid "Cache"
+msgstr "التخزين المؤقت"
+
+#: includes/admin-page.php:945
+msgid "Cache Management"
+msgstr "إدارة التخزين المؤقت"
+
+#: includes/admin-page.php:949
+msgid "Clear all language caches"
+msgstr "مسح جميع ذاكرة التخزين المؤقت للغات"
+
+#: includes/admin-page.php:950
+msgid "Clear all language caches."
+msgstr "مسح جميع ذاكرة التخزين المؤقت للغات."
+
+#: includes/admin-page.php:950
+msgid "Menu and slug cache are preserved to maintain URL stability."
+msgstr "يتم الحفاظ على ذاكرة التخزين المؤقت للقائمة والرابط للحفاظ على استقرار URL."
+
+#: includes/admin-page.php:967
+msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
+msgstr "تم مسح جميع ذاكرة التخزين المؤقت للغات والترجمات المؤقتة. تم الحفاظ على ذاكرة التخزين المؤقت للقائمة والرابط."
+
+#: includes/admin-page.php:978
+msgid "Clear menu cache"
+msgstr "مسح ذاكرة التخزين المؤقت للقائمة"
+
+#: includes/admin-page.php:979
+msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
+msgstr "مسح ذاكرة التخزين المؤقت للقائمة بما في ذلك جميع ترجمات عناصر القائمة. سيؤدي هذا إلى فرض ترجمات جديدة لجميع عناصر القائمة. اللغات وخريطة الرابط غير متأثرة."
+
+#: includes/admin-page.php:992
+msgid "Menu cache cleared"
+msgstr "تم مسح ذاكرة التخزين المؤقت للقائمة"
+
+#: includes/admin-page.php:994
+msgid "%d menu-item translation removed"
+msgid_plural "%d menu-item translations removed"
+msgstr[0] "تمت إزالة ترجمة عنصر قائمة واحد"
+msgstr[1] "تمت إزالة ترجمتين لعنصر القائمة"
+msgstr[2] "تمت إزالة %d ترجمات لعنصر القائمة"
+msgstr[3] "تمت إزالة %d ترجمة لعنصر القائمة"
+msgstr[4] "تمت إزالة %d ترجمة لعنصر القائمة"
+msgstr[5] "تمت إزالة %d ترجمة لعنصر القائمة"
+
+#: includes/admin-page.php:998
+msgid "and tables truncated: %s"
+msgstr "وتم اقتطاع الجداول: %s"
+
+#: includes/admin-page.php:1022
+msgid "Clear slug cache"
+msgstr "مسح ذاكرة التخزين المؤقت للرابط"
+
+#: includes/admin-page.php:1023
+msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
+msgstr "مسح جدول الرابط المستخدم لروابط URL المترجمة. ذاكرة التخزين المؤقت للغة والقائمة غير متأثرة."
+
+#: includes/admin-page.php:1034
+msgid "Slug cache cleared. Rows removed: %d."
+msgstr "تم مسح ذاكرة التخزين المؤقت للرابط. تمت إزالة الصفوف: %d."
+
+#: includes/admin-page.php:1037
+msgid "Unknown error"
+msgstr "خطأ غير معروف"
+
+#: includes/admin-page.php:1037
+msgid "Failed to clear slug cache: %s."
+msgstr "فشل في مسح ذاكرة التخزين المؤقت للرابط: %s."
+
+#: includes/admin-page.php:1050
+msgid "Clear cache per language"
+msgstr "مسح ذاكرة التخزين المؤقت لكل لغة"
+
+#: includes/admin-page.php:1063
+msgid "Cache overview per language"
+msgstr "نظرة عامة على التخزين المؤقت لكل لغة"
+
+#: includes/admin-page.php:1100
+msgid "Cache directory:"
+msgstr "مجلد التخزين المؤقت:"
+
+#: includes/admin-page.php:1114
+msgid "Unknown"
+msgstr "غير معروف"
+
+#: includes/admin-page.php:1119
+msgid "Total number of files:"
+msgstr "إجمالي عدد الملفات:"
+
+#: includes/admin-page.php:1122
+msgid "Total size:"
+msgstr "الحجم الإجمالي:"
+
+#: includes/admin-page.php:1125
+msgid "Expired files:"
+msgstr "الملفات المنتهية الصلاحية:"
+
+#: includes/admin-page.php:1128
+msgid "Last update:"
+msgstr "آخر تحديث:"
+
+#: includes/admin-page.php:1135
+msgid "Language"
+msgstr "اللغة"
+
+#: includes/admin-page.php:1136
+msgid "Cache files"
+msgstr "ملفات التخزين المؤقت"
+
+#: includes/admin-page.php:1137
+msgid "Size"
+msgstr "الحجم"
+
+#: includes/admin-page.php:1138
+msgid "Expired"
+msgstr "منتهي الصلاحية"
+
+#: includes/admin-page.php:1139
+msgid "Last update"
+msgstr "آخر تحديث"
+
+#: includes/admin-page.php:1140
+msgid "Action"
+msgstr "إجراء"
+
+#: includes/admin-page.php:1158
+msgid "files"
+msgstr "ملفات"
+
+#: includes/admin-page.php:1165
+msgid "Cache clear"
+msgstr "مسح التخزين المؤقت"
+
+#: includes/admin-page.php:1168
+msgid "No cache files"
+msgstr "لا توجد ملفات تخزين مؤقت"
+
+#: includes/admin-page.php:1176
+msgid "Total"
+msgstr "الإجمالي"
+
+#: includes/admin-page.php:1212
+msgid "API Provider is missing."
+msgstr "مزود API مفقود."
+
+#: includes/admin-page.php:1229
+msgid "API Provider, API Key or Custom API URL is missing or invalid."
+msgstr "مزود API أو مفتاح API أو عنوان URL لـ API المخصص مفقود أو غير صالح."
+
+#: includes/admin-page.php:1248
+msgid "API error:"
+msgstr "خطأ في API:"
+
+#: includes/admin-page.php:1252
+msgid "Invalid response from API"
+msgstr "استجابة غير صالحة من API"
+
+#: includes/admin-page.php:1344
+msgid "API and model are working. API settings have been saved."
+msgstr "API والنموذج يعملان. تم حفظ إعدادات API."
+
+#: includes/admin-page.php:1347
+msgid "API validation failed:"
+msgstr "فشل التحقق من API:"
+
+#: ai-translate.php:1543
+msgid "Settings"
+msgstr "الإعدادات"
+
+#: ai-translate.php:1630
+msgid "AI Translate Warning:"
+msgstr "تحذير AI Translate:"
+
+#: ai-translate.php:1631
+msgid "This plugin requires a permalink structure other than \"Plain\". "
+msgstr "تتطلب هذه الإضافة بنية رابط دائم بخلاف \"عادي\". "
+
+#: ai-translate.php:1632
+msgid "Please set your permalinks to \"Post name\" or another structure."
+msgstr "يرجى تعيين الروابط الدائمة إلى \"اسم المنشور\" أو بنية أخرى."
+
+#: ai-translate.php:1634
+msgid "Configure Permalinks"
+msgstr "تكوين الروابط الدائمة"
+
+#: ai-translate.php:272
+msgid "Rate on WordPress.org"
+msgstr "قيم على WordPress.org"
+
+#: includes/admin-page.php:801
+msgid "Generate Meta Description"
+msgstr "إنشاء وصف الصفحة"
+
+#: includes/admin-page.php:852
+msgid "Generate Context from Homepage"
+msgstr "إنشاء السياق من الصفحة الرئيسية"
+
+#: includes/admin-page.php:846
+msgid "Describe your website, business, or organization. For example:"
+msgstr "اوصف موقعك الإلكتروني أو عملك أو مؤسستك. على سبيل المثال:"
+
+#: includes/admin-page.php:847
+msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
+msgstr "نحن شركة تقنية صحية متخصصة في أنظمة إدارة المرضى. تشمل خدماتنا السجلات الصحية الإلكترونية وجدولة المواعيد وحلول التطبيب عن بُعد. نخدم المستشفيات والعيادات ومقدمي الرعاية الصحية في جميع أنحاء أوروبا."
+
+#: includes/admin-page.php:848
+msgid "Or:"
+msgstr "أو:"
+
+#: includes/admin-page.php:849
+msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr "هذه مدونة شخصية عن البستنة المستدامة وتقنيات الزراعة العضوية. أشارك نصائح ودروسًا وتجارب من حديقتي الخاصة."
+
+#: ai-translate.php:299
+msgid "AI based translation plugin. Adding 35 languages in a few clicks."
+msgstr "إضافة ترجمة قائمة على الذكاء الاصطناعي. إضافة 35 لغة بنقرة واحدة."
+
+#: includes/admin-page.php:797
+msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "أدخل وصف الصفحة المحدد للصفحة الرئيسية للنطاق الحالي (باللغة الافتراضية). سيؤدي هذا إلى تجاوز شعار الموقع أو المقتطف المولد على الصفحة الرئيسية."
+
+#: includes/admin-page.php:799
+msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "أدخل وصف الصفحة المحدد للصفحة الرئيسية (باللغة الافتراضية). سيؤدي هذا إلى تجاوز شعار الموقع أو المقتطف المولد على الصفحة الرئيسية."
+
+#: includes/admin-page.php:852
+msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
+msgstr "قدم سياقًا حول موقعك الإلكتروني أو عملك للنطاق الحالي لمساعدة الذكاء الاصطناعي على إنشاء ترجمات أكثر دقة ومناسبة للسياق."
+
+#: includes/admin-page.php:854
+msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
+msgstr "قدم سياقًا حول موقعك الإلكتروني أو عملك لمساعدة الذكاء الاصطناعي على إنشاء ترجمات أكثر دقة ومناسبة للسياق. "
+

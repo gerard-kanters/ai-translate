@@ -379,10 +379,10 @@ final class AI_DOM
             // Extract full tag including content
             $fullTag = substr($html, $start, $closePos - $start + strlen($closeTag));
             
-            // Create placeholder using data attribute to preserve through DOM parsing
-            // HTML comments can be removed by DOMDocument, so use a script tag instead
+            // Create placeholder using a div with data attribute - divs are reliably preserved by DOMDocument
+            // Script tags with type="text/plain" may be removed, and HTML comments can also be removed
             $placeholderId = strtoupper($tagName) . '_PLACEHOLDER_' . (++$counter);
-            $placeholder = '<script type="text/plain" data-ai-placeholder="' . $placeholderId . '"></script>';
+            $placeholder = '<div data-ai-placeholder="' . $placeholderId . '" style="display:none;"></div>';
             $placeholders[$placeholderId] = $fullTag;
             $result .= $placeholder;
             
@@ -464,9 +464,18 @@ final class AI_DOM
         }
         
         // Restore preserved script and style tags from placeholders
+        // Div placeholders are reliably preserved by DOMDocument
         if (isset($plan['placeholders']) && is_array($plan['placeholders'])) {
             foreach ($plan['placeholders'] as $placeholderId => $original_tag) {
-                $result = str_replace('<script type="text/plain" data-ai-placeholder="' . $placeholderId . '"></script>', $original_tag, $result);
+                // Escape special regex characters in placeholderId for safety
+                $escapedId = preg_quote($placeholderId, '/');
+                
+                // Match div placeholder with data-ai-placeholder attribute
+                // Handle various attribute orderings and whitespace variations
+                $pattern = '/<div\s+[^>]*data-ai-placeholder=["\']' . $escapedId . '["\'][^>]*><\/div>/is';
+                if (preg_match($pattern, $result)) {
+                    $result = preg_replace($pattern, $original_tag, $result, 1);
+                }
             }
         }
         
