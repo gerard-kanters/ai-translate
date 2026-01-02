@@ -107,24 +107,32 @@ msgid "Language Switcher Position"
 msgstr "भाषा स्विचर की स्थिति"
 
 #: includes/admin-page.php:650
+msgid "Start of Navigation Menu"
+msgstr "नेविगेशन मेनू की शुरुआत"
+
+#: includes/admin-page.php:651
+msgid "End of Navigation Menu"
+msgstr "नेविगेशन मेनू का अंत"
+
+#: includes/admin-page.php:652
 msgid "Bottom Left"
 msgstr "नीचे बाईं ओर"
 
-#: includes/admin-page.php:651
+#: includes/admin-page.php:653
 msgid "Bottom Right"
 msgstr "नीचे दाईं ओर"
 
-#: includes/admin-page.php:652
+#: includes/admin-page.php:654
 msgid "Top Left"
 msgstr "ऊपर बाईं ओर"
 
-#: includes/admin-page.php:653
+#: includes/admin-page.php:655
 msgid "Top Right"
 msgstr "ऊपर दाईं ओर"
 
 #: includes/admin-page.php:663
-msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-msgstr "चुनें कि आपकी वेबसाइट पर भाषा स्विचर कहां दिखाई दे। नीचे की स्थितियों के लिए मेनू ऊपर की ओर खुलेगा और ऊपर की स्थितियों के लिए नीचे की ओर।"
+msgid "Choose where the language switcher appears on your website. Navigation menu positions will add the switcher to your main navigation menu. Floating positions will show a fixed switcher in the corner. The menu will open upward for bottom positions and downward for top positions."
+msgstr "चुनें कि आपकी वेबसाइट पर भाषा स्विचर कहां दिखाई दे। नेविगेशन मेनू स्थितियां स्विचर को आपके मुख्य नेविगेशन मेनू में जोड़ देंगी। फ्लोटिंग स्थितियां कोने में एक निश्चित स्विचर दिखाएंगी। नीचे की स्थितियों के लिए मेनू ऊपर की ओर खुलेगा और ऊपर की स्थितियों के लिए नीचे की ओर।"
 
 #: includes/admin-page.php:672
 msgid "Cache Settings"
@@ -182,13 +190,25 @@ msgstr "प्रति डोमेन अलग कैश सक्षम क�
 msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
 msgstr "सक्षम होने पर, प्रत्येक डोमेन की अपनी कैश निर्देशिका होगी जिसका नाम साइट के नाम पर होगा। यह तब कैश संघर्षों को रोकता है जब कई डोमेन एक ही वर्डप्रेस इंस्टॉलेशन साझा करते हैं।"
 
-#: includes/admin-page.php:734
+#: includes/admin-page.php:745
+msgid "Stop vertalingen"
+msgstr "अनुवाद रोकें"
+
+#: includes/admin-page.php:756
 msgid "Stop translations (except cache invalidation)"
 msgstr "अनुवाद रोकें (कैश अमान्यकरण को छोड़कर)"
 
-#: includes/admin-page.php:743
+#: includes/admin-page.php:759
 msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
 msgstr "सक्षम होने पर, API के माध्यम से नए अनुवाद ब्लॉक कर दिए जाएंगे। अनुवाद केवल तभी होंगे जब कैश किए गए पेज समाप्त हो जाएंगे और उन्हें रीफ्रेश करने की आवश्यकता होगी।"
+
+#: includes/admin-page.php:763
+msgid "Stop translation of archive pages"
+msgstr "आर्काइव पेजों का अनुवाद रोकें"
+
+#: includes/admin-page.php:766
+msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
+msgstr "सक्षम होने पर, आर्काइव पेज (श्रेणियां, टैग, दिनांक आर्काइव, आदि) का अनुवाद नहीं किया जाएगा। एकवचन पेज (पोस्ट, पेज, कस्टम पोस्ट प्रकार) अभी भी अनुवादित किए जाएंगे।"
 
 #: includes/admin-page.php:753
 msgid "Advanced Settings"

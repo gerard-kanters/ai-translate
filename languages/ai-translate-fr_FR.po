@@ -107,24 +107,32 @@ msgid "Language Switcher Position"
 msgstr "Position du sélecteur de langue"
 
 #: includes/admin-page.php:650
+msgid "Start of Navigation Menu"
+msgstr "Début du menu de navigation"
+
+#: includes/admin-page.php:651
+msgid "End of Navigation Menu"
+msgstr "Fin du menu de navigation"
+
+#: includes/admin-page.php:652
 msgid "Bottom Left"
 msgstr "En bas à gauche"
 
-#: includes/admin-page.php:651
+#: includes/admin-page.php:653
 msgid "Bottom Right"
 msgstr "En bas à droite"
 
-#: includes/admin-page.php:652
+#: includes/admin-page.php:654
 msgid "Top Left"
 msgstr "En haut à gauche"
 
-#: includes/admin-page.php:653
+#: includes/admin-page.php:655
 msgid "Top Right"
 msgstr "En haut à droite"
 
 #: includes/admin-page.php:663
-msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-msgstr "Choisissez l'endroit où le sélecteur de langue apparaît sur votre site Web. Le menu s'ouvrira vers le haut pour les positions inférieures et vers le bas pour les positions supérieures."
+msgid "Choose where the language switcher appears on your website. Navigation menu positions will add the switcher to your main navigation menu. Floating positions will show a fixed switcher in the corner. The menu will open upward for bottom positions and downward for top positions."
+msgstr "Choisissez l'endroit où le sélecteur de langue apparaît sur votre site Web. Les positions du menu de navigation ajouteront le sélecteur à votre menu de navigation principal. Les positions flottantes afficheront un sélecteur fixe dans le coin. Le menu s'ouvrira vers le haut pour les positions inférieures et vers le bas pour les positions supérieures."
 
 #: includes/admin-page.php:672
 msgid "Cache Settings"
@@ -182,13 +190,25 @@ msgstr "Activer un cache séparé par domaine"
 msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
 msgstr "Lorsqu'il est activé, chaque domaine aura son propre répertoire de cache nommé d'après le nom du site. Cela évite les conflits de cache lorsque plusieurs domaines partagent la même installation WordPress."
 
-#: includes/admin-page.php:734
+#: includes/admin-page.php:745
+msgid "Stop vertalingen"
+msgstr "Arrêter les traductions"
+
+#: includes/admin-page.php:756
 msgid "Stop translations (except cache invalidation)"
 msgstr "Arrêter les traductions (sauf l'invalidation du cache)"
 
-#: includes/admin-page.php:743
+#: includes/admin-page.php:759
 msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
 msgstr "Lorsqu'il est activé, les nouvelles traductions via l'API seront bloquées. Les traductions n'auront lieu que lorsque les pages mises en cache expirent et doivent être actualisées."
+
+#: includes/admin-page.php:763
+msgid "Stop translation of archive pages"
+msgstr "Arrêter la traduction des pages d'archive"
+
+#: includes/admin-page.php:766
+msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
+msgstr "Lorsqu'il est activé, les pages d'archive (catégories, tags, archives de dates, etc.) ne seront pas traduites. Les pages singulières (articles, pages, types de publication personnalisés) seront toujours traduites."
 
 #: includes/admin-page.php:753
 msgid "Advanced Settings"

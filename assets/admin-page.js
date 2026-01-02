@@ -653,19 +653,9 @@ document.addEventListener('DOMContentLoaded', function () {
             generateContextBtn.disabled = true;
             generateContextStatus.innerHTML = '<span style="color:blue;">Generating context from homepage...</span>';
 
-            // Get active domain from window.location.hostname
-            var activeDomain = window.location.hostname;
-            if (window.location.port) {
-                activeDomain += ':' + window.location.port;
-            }
-            
-            // Debug logging
-            console.log('Generating website context for domain:', activeDomain);
-
             var formData = new FormData();
             formData.append('action', 'ai_translate_generate_website_context');
             formData.append('nonce', aiTranslateAdmin.generateContextNonce);
-            formData.append('domain', activeDomain);
 
             fetch(ajaxurl, {
                 method: 'POST',
@@ -712,86 +702,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 setTimeout(function () {
                     if (generateContextStatus.innerHTML.includes('✓')) {
                         generateContextStatus.innerHTML = '';
-                    }
-                }, 5000);
-            });
-        });
-    }
-
-    // Generate Homepage Meta Description functionality
-    var generateMetaBtn = document.getElementById('generate-meta-btn');
-    var generateMetaStatus = document.getElementById('generate-meta-status');
-    var metaDescriptionField = document.getElementById('homepage_meta_description_field');
-
-    if (generateMetaBtn && generateMetaStatus && metaDescriptionField) {
-        generateMetaBtn.addEventListener('click', function () {
-            // Check if API is configured
-            var apiKey = apiKeyInput ? apiKeyInput.value : '';
-            if (!apiKey) {
-                generateMetaStatus.innerHTML = '<span style="color:red;">Please configure API key first</span>';
-                return;
-            }
-
-            // Check if field is empty
-            if (metaDescriptionField.value.trim()) {
-                if (!confirm('The meta description field already has content. Do you want to replace it with a generated suggestion?')) {
-                    return;
-                }
-            }
-
-            generateMetaBtn.disabled = true;
-            generateMetaStatus.innerHTML = '<span style="color:blue;">Generating meta description...</span>';
-
-            // Get active domain from window.location.hostname
-            var activeDomain = window.location.hostname;
-            if (window.location.port) {
-                activeDomain += ':' + window.location.port;
-            }
-            
-            // Debug logging
-            console.log('Generating meta description for domain:', activeDomain);
-
-            var formData = new FormData();
-            formData.append('action', 'ai_translate_generate_homepage_meta');
-            formData.append('nonce', aiTranslateAdmin.generateMetaNonce);
-            formData.append('domain', activeDomain);
-
-            fetch(ajaxurl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Server response was not ok: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(function (data) {
-                if (data.success && data.data && data.data.meta) {
-                    metaDescriptionField.value = data.data.meta;
-                    generateMetaStatus.innerHTML = '<span style="color:green;">✓ Generated successfully!</span>';
-                } else {
-                    var errorMsg = 'Failed to generate meta description';
-                    if (data.data && data.data.message) {
-                        errorMsg += ': ' + data.data.message;
-                    } else if (data.message) {
-                        errorMsg += ': ' + data.message;
-                    }
-                    generateMetaStatus.innerHTML = '<span style="color:red;">✗ ' + errorMsg + '</span>';
-                }
-            })
-            .catch(function (error) {
-                console.error('AJAX Error:', error);
-                generateMetaStatus.innerHTML = '<span style="color:red;">✗ Error: ' + error.message + '</span>';
-            })
-            .finally(function () {
-                generateMetaBtn.disabled = false;
-                
-                // Clear status message after 5 seconds
-                setTimeout(function () {
-                    if (generateMetaStatus.innerHTML.includes('✓')) {
-                        generateMetaStatus.innerHTML = '';
                     }
                 }, 5000);
             });

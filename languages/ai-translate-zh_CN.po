@@ -107,24 +107,32 @@ msgid "Language Switcher Position"
 msgstr "语言切换器位置"
 
 #: includes/admin-page.php:650
+msgid "Start of Navigation Menu"
+msgstr "导航菜单开始"
+
+#: includes/admin-page.php:651
+msgid "End of Navigation Menu"
+msgstr "导航菜单结束"
+
+#: includes/admin-page.php:652
 msgid "Bottom Left"
 msgstr "左下角"
 
-#: includes/admin-page.php:651
+#: includes/admin-page.php:653
 msgid "Bottom Right"
 msgstr "右下角"
 
-#: includes/admin-page.php:652
+#: includes/admin-page.php:654
 msgid "Top Left"
 msgstr "左上角"
 
-#: includes/admin-page.php:653
+#: includes/admin-page.php:655
 msgid "Top Right"
 msgstr "右上角"
 
 #: includes/admin-page.php:663
-msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-msgstr "选择语言切换器在网站上的显示位置。对于底部位置，菜单将向上打开；对于顶部位置，菜单将向下打开。"
+msgid "Choose where the language switcher appears on your website. Navigation menu positions will add the switcher to your main navigation menu. Floating positions will show a fixed switcher in the corner. The menu will open upward for bottom positions and downward for top positions."
+msgstr "选择语言切换器在网站上的显示位置。导航菜单位置会将切换器添加到主导航菜单中。浮动位置将在角落显示固定切换器。对于底部位置，菜单将向上打开；对于顶部位置，菜单将向下打开。"
 
 #: includes/admin-page.php:672
 msgid "Cache Settings"
@@ -182,13 +190,25 @@ msgstr "启用每个域的独立缓存"
 msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
 msgstr "启用后，每个域将拥有自己以网站名称命名的缓存目录。这可以防止多个域共享同一个 WordPress 安装时发生缓存冲突。"
 
-#: includes/admin-page.php:734
+#: includes/admin-page.php:745
+msgid "Stop vertalingen"
+msgstr "停止翻译"
+
+#: includes/admin-page.php:756
 msgid "Stop translations (except cache invalidation)"
 msgstr "停止翻译（缓存失效除外）"
 
-#: includes/admin-page.php:743
+#: includes/admin-page.php:759
 msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
 msgstr "启用后，将阻止通过 API 进行的新翻译。翻译仅在缓存页面过期并需要刷新时才会发生。"
+
+#: includes/admin-page.php:763
+msgid "Stop translation of archive pages"
+msgstr "停止归档页面翻译"
+
+#: includes/admin-page.php:766
+msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
+msgstr "启用后，归档页面（类别、标签、日期归档等）将不会被翻译。单个页面（文章、页面、自定义文章类型）仍将被翻译。"
 
 #: includes/admin-page.php:753
 msgid "Advanced Settings"

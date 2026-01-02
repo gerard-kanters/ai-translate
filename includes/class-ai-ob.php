@@ -292,8 +292,8 @@ final class AI_OB
         // Check if translations are stopped (except for cache invalidation)
         // Exception: search pages should always be translated even if stop_translations is enabled
         $settings = get_option('ai_translate_settings', []);
-        $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
         $is_search_page = function_exists('is_search') && is_search();
+        $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
         if ($stop_translations && !$is_search_page) {
             // Only allow translation if cache exists and is expired (cache invalidation)
             // Block new translations for pages that don't have a cache yet

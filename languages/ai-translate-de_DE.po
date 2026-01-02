@@ -107,24 +107,32 @@ msgid "Language Switcher Position"
 msgstr "Position des Sprachumschalters"
 
 #: includes/admin-page.php:650
+msgid "Start of Navigation Menu"
+msgstr "Anfang des Navigationsmenüs"
+
+#: includes/admin-page.php:651
+msgid "End of Navigation Menu"
+msgstr "Ende des Navigationsmenüs"
+
+#: includes/admin-page.php:652
 msgid "Bottom Left"
 msgstr "Unten links"
 
-#: includes/admin-page.php:651
+#: includes/admin-page.php:653
 msgid "Bottom Right"
 msgstr "Unten rechts"
 
-#: includes/admin-page.php:652
+#: includes/admin-page.php:654
 msgid "Top Left"
 msgstr "Oben links"
 
-#: includes/admin-page.php:653
+#: includes/admin-page.php:655
 msgid "Top Right"
 msgstr "Oben rechts"
 
 #: includes/admin-page.php:663
-msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-msgstr "Wählen Sie aus, wo der Sprachumschalter auf Ihrer Website angezeigt wird. Das Menü öffnet sich nach oben für untere Positionen und nach unten für obere Positionen."
+msgid "Choose where the language switcher appears on your website. Navigation menu positions will add the switcher to your main navigation menu. Floating positions will show a fixed switcher in the corner. The menu will open upward for bottom positions and downward for top positions."
+msgstr "Wählen Sie aus, wo der Sprachumschalter auf Ihrer Website angezeigt wird. Navigationsmenü-Positionen fügen den Umschalter zu Ihrem Hauptnavigationsmenü hinzu. Schwebende Positionen zeigen einen festen Umschalter in der Ecke. Das Menü öffnet sich nach oben für untere Positionen und nach unten für obere Positionen."
 
 #: includes/admin-page.php:672
 msgid "Cache Settings"
@@ -182,13 +190,25 @@ msgstr "Separaten Cache pro Domain aktivieren"
 msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
 msgstr "Wenn aktiviert, hat jede Domain ihr eigenes Cache-Verzeichnis, benannt nach dem Seitennamen. Dies verhindert Cache-Konflikte, wenn mehrere Domains dieselbe WordPress-Installation teilen."
 
-#: includes/admin-page.php:734
+#: includes/admin-page.php:745
+msgid "Stop vertalingen"
+msgstr "Übersetzungen stoppen"
+
+#: includes/admin-page.php:756
 msgid "Stop translations (except cache invalidation)"
 msgstr "Übersetzungen stoppen (außer Cache-Invalidierung)"
 
-#: includes/admin-page.php:743
+#: includes/admin-page.php:759
 msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
 msgstr "Wenn aktiviert, werden neue Übersetzungen über die API blockiert. Übersetzungen erfolgen nur, wenn gecachte Seiten ablaufen und aktualisiert werden müssen."
+
+#: includes/admin-page.php:763
+msgid "Stop translation of archive pages"
+msgstr "Übersetzung von Archivseiten stoppen"
+
+#: includes/admin-page.php:766
+msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
+msgstr "Wenn aktiviert, werden Archivseiten (Kategorien, Tags, Datumsarchive usw.) nicht übersetzt. Einzelseiten (Beiträge, Seiten, benutzerdefinierte Beitragstypen) werden weiterhin übersetzt."
 
 #: includes/admin-page.php:753
 msgid "Advanced Settings"

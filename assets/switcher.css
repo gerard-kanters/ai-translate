@@ -1,0 +1,157 @@
+/* AI Translate language switcher (nav + floating)
+ *
+ * Requirements:
+ * - Dropdown shows only flags in nav
+ * - Dropdown items stacked vertically (no flex)
+ * - Menu width = flag width (20px) + 5px padding left/right
+ * - Align with nav menu
+ */
+
+.ai-trans {
+  position: relative;
+  z-index: 2147483000;
+}
+
+.ai-trans-btn {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 24px;
+  text-decoration: none;
+}
+
+.ai-trans-btn img {
+  width: 20px;
+  height: 14px;
+  display: block;
+  margin: 25px 0 0 0;
+  padding: 0;
+  border-radius: 2px;
+}
+
+.ai-trans-code {
+  display: none;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ai-trans-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 2147483001;
+}
+
+.ai-trans.ai-trans-open .ai-trans-menu {
+  display: block;
+}
+
+.ai-trans-item {
+  display: block; /* vertical list */
+  text-decoration: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ai-trans-item img {
+  width: 20px;
+  height: 14px;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border-radius: 2px;
+}
+
+/* Add vertical spacing between flags */
+.ai-trans-item + .ai-trans-item {
+  margin-top: 6px;
+}
+
+/* NAV menu integration (compact) */
+.ai-trans-nav-container {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 30px;
+  min-width: 30px;
+  line-height: 1;
+}
+
+.ai-trans-nav {
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  line-height: 1;
+  width: 30px;
+  min-width: 30px;
+  text-align: center;
+}
+
+/* Dropdown width: 20px flag + 5px padding left/right */
+.ai-trans-nav .ai-trans-menu {
+  width: 35px;
+  min-width: 30px;
+  padding: 7px;
+  right: 0;
+  top: 100%;
+  margin-top: 16px;
+}
+
+/* Floating positions */
+.ai-trans-floating {
+  position: fixed;
+}
+
+.ai-trans-floating.ai-trans-pos-bottom-left {
+  left: 20px;
+  bottom: 20px;
+}
+.ai-trans-floating.ai-trans-pos-bottom-right {
+  right: 20px;
+  bottom: 20px;
+}
+.ai-trans-floating.ai-trans-pos-top-left {
+  left: 20px;
+  top: 20px;
+}
+.ai-trans-floating.ai-trans-pos-top-right {
+  right: 20px;
+  top: 20px;
+}
+
+/* Floating menu opens upward for bottom positions, downward for top positions */
+.ai-trans-floating.ai-trans-pos-bottom-left .ai-trans-menu,
+.ai-trans-floating.ai-trans-pos-bottom-right .ai-trans-menu {
+  bottom: 100%;
+  top: auto;
+  margin-bottom: 8px;
+}
+.ai-trans-floating.ai-trans-pos-top-left .ai-trans-menu,
+.ai-trans-floating.ai-trans-pos-top-right .ai-trans-menu {
+  top: 100%;
+  bottom: auto;
+  margin-top: 8px;
+}
+
+/* Floating dropdown: same compact width as flags (can be overridden by theme if desired) */
+.ai-trans-floating .ai-trans-menu {
+  width: 30px;
+  min-width: 30px;
+  padding: 5px;
+  right: 0;
+}
+
+
+

@@ -518,6 +518,18 @@ add_action('template_redirect', function () {
 
     // RULE 3: Canonicalize default language - /nl/ → /
     if ($langFromUrl !== null && $defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
+        // Explicitly set cookie to default language when user accesses default language URL (e.g. via switcher)
+        $secure = is_ssl();
+        $sameSite = $secure ? 'None' : 'Lax';
+        setcookie('ai_translate_lang', (string) $defaultLang, [
+            'expires' => time() + 30 * 86400,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => $sameSite
+        ]);
+        $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+
         if ($reqPath !== '/') {
             wp_safe_redirect(home_url('/'), 302);
             exit;
@@ -681,12 +693,142 @@ add_action('template_redirect', function () {
  */
 // Removed pagination forcing; theme handles pagination
 
+// Enqueue switcher CSS and JS only for nav menu integration (not for floating positions)
+add_action('wp_enqueue_scripts', function () {
+    if (is_admin()) {
+        return;
+    }
+    
+    $settings = get_option('ai_translate_settings', array());
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    
+    // Only enqueue switcher assets for nav menu positions (not floating positions)
+    if ($position === 'nav-start' || $position === 'nav-end') {
+        wp_enqueue_style(
+            'ai-translate-switcher',
+            plugin_dir_url(__FILE__) . 'assets/switcher.css',
+            array(),
+            '2.1.7'
+        );
+        wp_enqueue_script(
+            'ai-translate-switcher',
+            plugin_dir_url(__FILE__) . 'assets/switcher.js',
+            array(),
+            '2.1.7',
+            true
+        );
+    }
+});
+
 // Never adjust admin URLs or rewrite menu items in admin or default language
 add_filter('nav_menu_link_attributes', function ($atts, $item) {
     if (is_admin() || \AITranslate\AI_Lang::is_exempt_request()) {
         return $atts;
     }
     return $atts;
+}, 10, 2);
+
+/**
+ * Generate language switcher HTML for navigation menu.
+ * 
+ * @return string Switcher HTML or empty string if not applicable
+ */
+function ai_translate_get_nav_switcher_html() {
+    if (is_admin()) {
+        return '';
+    }
+    
+    $settings = get_option('ai_translate_settings', array());
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    
+    // Only generate if nav-start or nav-end is selected
+    if ($position !== 'nav-start' && $position !== 'nav-end') {
+        return '';
+    }
+    
+    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_values($settings['enabled_languages']) : array();
+    $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    if ($default === '' && !empty($enabled)) {
+        $default = (string) $enabled[0];
+    }
+    if (empty($enabled) || $default === '') {
+        return '';
+    }
+    
+    // Determine current path and strip any leading /xx/
+    $reqUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+    $path = (string) parse_url($reqUri, PHP_URL_PATH);
+    if ($path === '') {
+        $path = '/';
+    }
+    
+    // Current language (from URL or default)
+    $currentLang = null;
+    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) {
+        $currentLang = strtolower($m[1]);
+    }
+    if (!$currentLang) {
+        $currentLang = $default;
+    }
+    
+    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
+    $currentFlag = esc_url($flags_url . sanitize_key($currentLang) . '.png');
+    
+    // Generate unique ID for this menu instance
+    $menu_id = 'ai-trans-menu-' . uniqid();
+    
+    // Build switcher HTML (compact nav version)
+    $switcher_html = '<li class="menu-item ai-trans-nav-container"><div class="ai-trans ai-trans-nav">';
+    // Gebruik <a> i.p.v. <button> zodat themes die op <a> stylen het item zichtbaar houden.
+    $switcher_html .= '<a href="#" class="ai-trans-btn" role="button" aria-haspopup="true" aria-expanded="false" aria-controls="' . esc_attr($menu_id) . '" title="' . esc_attr(strtoupper($currentLang)) . '">';
+    $switcher_html .= '<img src="' . $currentFlag . '" alt="' . esc_attr($currentLang) . '"><span class="ai-trans-code">' . esc_html(strtoupper($currentLang)) . '</span>';
+    $switcher_html .= '</a>';
+    $switcher_html .= '<div id="' . esc_attr($menu_id) . '" class="ai-trans-menu" role="menu">';
+    
+    foreach ($enabled as $code) {
+        $code = sanitize_key($code);
+        $label = strtoupper($code === $default ? $default : $code);
+        $currentHost = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
+        if ($currentHost === '') {
+            $currentHost = parse_url(home_url(), PHP_URL_HOST);
+        }
+        $protocol = is_ssl() ? 'https' : 'http';
+        $targetPath = ($code === $default) ? ('/' . $default . '/') : ('/' . $code . '/');
+        $targetPath = preg_replace('#/{2,}#', '/', $targetPath);
+        $url = $protocol . '://' . $currentHost . $targetPath;
+        $url = esc_url($url);
+        $flag = esc_url($flags_url . $code . '.png');
+        $switcher_html .= '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1">';
+        $switcher_html .= '<img src="' . $flag . '" alt="' . esc_attr($label) . '">';
+        $switcher_html .= '</a>';
+    }
+    
+    $switcher_html .= '</div></div></li>';
+    
+    return $switcher_html;
+}
+
+/**
+ * Inject language switcher into navigation menu when nav-start or nav-end is selected.
+ */
+add_filter('wp_nav_menu_items', function ($items, $args) {
+    $switcher_html = ai_translate_get_nav_switcher_html();
+    if (empty($switcher_html)) {
+        return $items;
+    }
+    if (!is_string($items)) {
+        $items = '';
+    }
+    
+    $settings = get_option('ai_translate_settings', array());
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    
+    // Inject at start or end based on position
+    if ($position === 'nav-start') {
+        return $switcher_html . $items;
+    } else {
+        return $items . $switcher_html;
+    }
 }, 10, 2);
 
 // Language switcher is intentionally removed as per request
@@ -716,9 +858,14 @@ add_action('wp_footer', function () {
 
     // Get switcher position from settings (default: bottom-left)
     $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
-    $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right');
+    $valid_positions = array('nav-start', 'nav-end', 'bottom-left', 'bottom-right', 'top-left', 'top-right');
     if (!in_array($position, $valid_positions, true)) {
         $position = 'bottom-left';
+    }
+    
+    // Skip footer switcher if nav-start or nav-end is selected (switcher will be in menu)
+    if ($position === 'nav-start' || $position === 'nav-end') {
+        return;
     }
 
     // Determine CSS based on position

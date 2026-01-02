@@ -107,24 +107,32 @@ msgid "Language Switcher Position"
 msgstr "Positie taalschakelaar"
 
 #: includes/admin-page.php:650
+msgid "Start of Navigation Menu"
+msgstr "Begin navigatiemenu"
+
+#: includes/admin-page.php:651
+msgid "End of Navigation Menu"
+msgstr "Einde navigatiemenu"
+
+#: includes/admin-page.php:652
 msgid "Bottom Left"
 msgstr "Linksonder"
 
-#: includes/admin-page.php:651
+#: includes/admin-page.php:653
 msgid "Bottom Right"
 msgstr "Rechtsonder"
 
-#: includes/admin-page.php:652
+#: includes/admin-page.php:654
 msgid "Top Left"
 msgstr "Linksboven"
 
-#: includes/admin-page.php:653
+#: includes/admin-page.php:655
 msgid "Top Right"
 msgstr "Rechtsboven"
 
 #: includes/admin-page.php:663
-msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-msgstr "Kies waar de taalschakelaar op uw website verschijnt. Het menu opent omhoog voor onderste posities en omlaag voor bovenste posities."
+msgid "Choose where the language switcher appears on your website. Navigation menu positions will add the switcher to your main navigation menu. Floating positions will show a fixed switcher in the corner. The menu will open upward for bottom positions and downward for top positions."
+msgstr "Kies waar de taalschakelaar op uw website verschijnt. Navigatiemenu posities voegen de schakelaar toe aan uw hoofdmenu. Zwevende posities tonen een vaste schakelaar in de hoek. Het menu opent omhoog voor onderste posities en omlaag voor bovenste posities."
 
 #: includes/admin-page.php:672
 msgid "Cache Settings"
@@ -182,13 +190,25 @@ msgstr "Schakel aparte cache per domein in"
 msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
 msgstr "Wanneer ingeschakeld, heeft elk domein zijn eigen cache-directory genoemd naar de sitenaam. Dit voorkomt cacheconflicten wanneer meerdere domeinen dezelfde WordPress-installatie delen."
 
-#: includes/admin-page.php:734
+#: includes/admin-page.php:745
+msgid "Stop vertalingen"
+msgstr "Stop vertalingen"
+
+#: includes/admin-page.php:756
 msgid "Stop translations (except cache invalidation)"
 msgstr "Stop vertalingen (behalve cache invalidatie)"
 
-#: includes/admin-page.php:743
+#: includes/admin-page.php:759
 msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
 msgstr "Wanneer ingeschakeld, worden nieuwe vertalingen via API geblokkeerd. Vertalingen vinden alleen plaats wanneer gecachte pagina's verlopen en moeten worden vernieuwd."
+
+#: includes/admin-page.php:763
+msgid "Stop translation of archive pages"
+msgstr "Stop vertaling van archief pagina's"
+
+#: includes/admin-page.php:766
+msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
+msgstr "Wanneer ingeschakeld, worden archief pagina's (categorieën, tags, datum-archieven, etc.) niet vertaald. Enkele pagina's (berichten, pagina's, aangepaste berichttypes) worden nog steeds vertaald."
 
 #: includes/admin-page.php:753
 msgid "Advanced Settings"
