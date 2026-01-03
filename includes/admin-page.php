@@ -1565,6 +1565,9 @@ function render_admin_page()
                 }
                 $core = \AITranslate\AI_Translate_Core::get_instance();
                 $languages = $core->get_available_languages();
+                
+                // Sort languages alphabetically by name (ascending)
+                asort($languages);
 
                 // Haal cache statistieken op
                 $cache_stats = $core->get_cache_statistics();
@@ -1640,14 +1643,29 @@ function render_admin_page()
                         </div>
                     </div>
 
-                    <table class="widefat striped" style="width: 100%;">
+                    <table id="cache-language-table" class="widefat striped" style="width: 100%;">
                         <thead>
                             <tr>
-                                <th><?php echo esc_html__('Language', 'ai-translate'); ?></th>
-                                <th><?php echo esc_html__('Cache files', 'ai-translate'); ?></th>
-                                <th><?php echo esc_html__('Size', 'ai-translate'); ?></th>
-                                <th><?php echo esc_html__('Expired', 'ai-translate'); ?></th>
-                                <th><?php echo esc_html__('Last update', 'ai-translate'); ?></th>
+                                <th class="sortable" data-sort="language" data-sort-type="text">
+                                    <?php echo esc_html__('Language', 'ai-translate'); ?>
+                                    <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" data-sort="files" data-sort-type="number">
+                                    <?php echo esc_html__('Cache files', 'ai-translate'); ?>
+                                    <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" data-sort="size" data-sort-type="number">
+                                    <?php echo esc_html__('Size', 'ai-translate'); ?>
+                                    <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" data-sort="expired" data-sort-type="number">
+                                    <?php echo esc_html__('Expired', 'ai-translate'); ?>
+                                    <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" data-sort="lastupdate" data-sort-type="date">
+                                    <?php echo esc_html__('Last update', 'ai-translate'); ?>
+                                    <span class="sort-indicator"></span>
+                                </th>
                                 <th><?php echo esc_html__('Action', 'ai-translate'); ?></th>
                             </tr>
                         </thead>
@@ -1664,7 +1682,12 @@ function render_admin_page()
                                 $expired = isset($details['expired_count']) ? $details['expired_count'] : 0;
                                 $last_mod = isset($details['last_modified']) ? wp_date('d-m-Y H:i:s', $details['last_modified']) : 'N/A';
                             ?>
-                                <tr id="cache-row-<?php echo esc_attr($code); ?>" class="<?php echo ($count > 0) ? 'has-cache' : 'no-cache'; ?>">
+                                <tr id="cache-row-<?php echo esc_attr($code); ?>" class="<?php echo ($count > 0) ? 'has-cache' : 'no-cache'; ?>" 
+                                    data-language="<?php echo esc_attr(strtolower($name)); ?>"
+                                    data-files="<?php echo intval($count); ?>"
+                                    data-size="<?php echo esc_attr($details['size'] ?? 0); ?>"
+                                    data-expired="<?php echo intval($expired); ?>"
+                                    data-lastupdate="<?php echo esc_attr($details['last_modified'] ?? 0); ?>">
                                     <td><?php echo esc_html($name); ?> (<?php echo esc_html($code); ?>)</td>
                                     <td><span class="cache-count" data-lang="<?php echo esc_attr($code); ?>"><?php echo intval($count); ?></span> <?php echo esc_html__('files', 'ai-translate'); ?></td>
                                     <td><?php echo esc_html($size_mb); ?> MB</td>

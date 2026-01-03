@@ -136,5 +136,106 @@ jQuery(document).ready(function($) {
             }
         });
     });
+    
+    // Table sorting functionality for cache language table
+    var currentSort = {
+        column: 'language',
+        direction: 'asc'
+    };
+    
+    // Initialize: sort by language ascending by default
+    function initTableSort() {
+        var $table = $('#cache-language-table');
+        if ($table.length === 0) {
+            return;
+        }
+        
+        // Set initial sort indicator
+        $table.find('th.sortable[data-sort="language"]').addClass('sort-asc');
+        
+        // Sort table by language (ascending) on load
+        sortTable('language', 'asc');
+    }
+    
+    // Sort table function
+    function sortTable(column, direction) {
+        var $table = $('#cache-language-table');
+        var $tbody = $table.find('tbody');
+        var $rows = $tbody.find('tr').toArray();
+        var sortType = $table.find('th.sortable[data-sort="' + column + '"]').data('sort-type') || 'text';
+        
+        $rows.sort(function(a, b) {
+            var $a = $(a);
+            var $b = $(b);
+            var valA, valB;
+            
+            switch(column) {
+                case 'language':
+                    valA = $a.data('language') || '';
+                    valB = $b.data('language') || '';
+                    break;
+                case 'files':
+                    valA = parseInt($a.data('files')) || 0;
+                    valB = parseInt($b.data('files')) || 0;
+                    break;
+                case 'size':
+                    valA = parseFloat($a.data('size')) || 0;
+                    valB = parseFloat($b.data('size')) || 0;
+                    break;
+                case 'expired':
+                    valA = parseInt($a.data('expired')) || 0;
+                    valB = parseInt($b.data('expired')) || 0;
+                    break;
+                case 'lastupdate':
+                    valA = parseInt($a.data('lastupdate')) || 0;
+                    valB = parseInt($b.data('lastupdate')) || 0;
+                    break;
+                default:
+                    return 0;
+            }
+            
+            var result = 0;
+            if (sortType === 'number' || sortType === 'date') {
+                result = valA - valB;
+            } else {
+                // Text comparison
+                if (valA < valB) result = -1;
+                else if (valA > valB) result = 1;
+                else result = 0;
+            }
+            
+            return direction === 'asc' ? result : -result;
+        });
+        
+        // Re-append sorted rows
+        $.each($rows, function(index, row) {
+            $tbody.append(row);
+        });
+        
+        // Update sort indicators
+        $table.find('th.sortable').removeClass('sort-asc sort-desc');
+        $table.find('th.sortable[data-sort="' + column + '"]').addClass('sort-' + direction);
+        
+        currentSort.column = column;
+        currentSort.direction = direction;
+    }
+    
+    // Handle column header clicks
+    $(document).on('click', '#cache-language-table th.sortable', function(e) {
+        e.preventDefault();
+        var $th = $(this);
+        var column = $th.data('sort');
+        var newDirection = 'asc';
+        
+        // Toggle direction if clicking the same column
+        if (currentSort.column === column && currentSort.direction === 'asc') {
+            newDirection = 'desc';
+        }
+        
+        sortTable(column, newDirection);
+    });
+    
+    // Initialize sorting on page load
+    initTableSort();
 });
 
