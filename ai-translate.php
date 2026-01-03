@@ -572,9 +572,17 @@ add_action('template_redirect', function () {
     }
 
     // Set language for content
+    // IMPORTANT: If URL has a language code, use it. Otherwise, use default language.
+    // Cookie should ONLY influence behavior on root /, not on other pages!
     $finalLang = $resolvedLang;
     if ($finalLang === null) {
-        $finalLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : (string) $defaultLang;
+        // If URL has language code, use it. Otherwise, use default.
+        // Do NOT use cookie for pages without language code in URL!
+        if ($langFromUrl !== null) {
+            $finalLang = $langFromUrl;
+        } else {
+            $finalLang = (string) $defaultLang;
+        }
     }
     if ($finalLang === '') {
         $finalLang = (string) $defaultLang;
@@ -585,6 +593,15 @@ add_action('template_redirect', function () {
     }
 
     \AITranslate\AI_Lang::set_current($finalLang);
+
+    // Log final language determination for debugging
+    ai_translate_dbg('🎯 FINAL LANGUAGE DETERMINED', [
+        'reqPath' => $reqPath,
+        'langFromUrl' => $langFromUrl ?? 'NONE',
+        'cookieLang' => $cookieLang !== '' ? $cookieLang : 'NOT SET',
+        'finalLang' => $finalLang,
+        'defaultLang' => $defaultLang,
+    ]);
 
     // Set WordPress locale
     $localeSetter = function ($locale) use ($finalLang) {
@@ -721,14 +738,8 @@ function ai_translate_get_nav_switcher_html() {
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
         $label = strtoupper($code === $default ? $default : $code);
-        $currentHost = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
-        if ($currentHost === '') {
-            $currentHost = parse_url(home_url(), PHP_URL_HOST);
-        }
-        $protocol = is_ssl() ? 'https' : 'http';
-        $targetPath = ($code === $default) ? ('/' . $default . '/') : ('/' . $code . '/');
-        $targetPath = preg_replace('#/{2,}#', '/', $targetPath);
-        $url = $protocol . '://' . $currentHost . $targetPath;
+        // Use ?switch_lang= parameter to ensure cookie is set via init hook
+        $url = add_query_arg('switch_lang', $code, home_url('/'));
         $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');
         $switcher_html .= '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1">';
@@ -856,11 +867,8 @@ add_action('wp_footer', function () {
             // Fallback to home_url() if HTTP_HOST is not available
             $currentHost = parse_url(home_url(), PHP_URL_HOST);
         }
-        // Detect protocol from current request
-        $protocol = is_ssl() ? 'https' : 'http';
-        $targetPath = ($code === $default) ? ('/' . $default . '/') : ('/' . $code . '/');
-        $targetPath = preg_replace('#/{2,}#', '/', $targetPath);
-        $url = $protocol . '://' . $currentHost . $targetPath;
+        // Use ?switch_lang= parameter to ensure cookie is set via init hook
+        $url = add_query_arg('switch_lang', $code, home_url('/'));
         $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');
         echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr($label) . '"><span>' . esc_html($label) . '</span></a>';
