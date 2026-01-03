@@ -44,14 +44,11 @@
     // Set cookie and preserve hash when switching language
     qsAll(".ai-trans-item").forEach(function (a) {
       a.addEventListener("click", function (e) {
-        console.log("[AI-Translate] Language switcher clicked", a);
-        
         // Get language code from data-lang attribute (primary method)
         var lang = a.getAttribute("data-lang") || "";
         if (!lang) {
           // Fallback: Try to extract from href
           var href = a.getAttribute("href") || "";
-          console.log("[AI-Translate] Extracting lang from href", href);
           
           // Try ?switch_lang=xx
           var match = href.match(/[?&]switch_lang=([a-z]{2})/i);
@@ -65,8 +62,6 @@
             }
           }
         }
-        
-        console.log("[AI-Translate] Language code extracted:", lang, "from data-lang:", a.getAttribute("data-lang"));
         
         // Set cookie immediately via JavaScript (before navigation)
         if (lang) {
@@ -86,10 +81,6 @@
           
           var cookieStr = "ai_translate_lang=" + lang + ";path=/;domain=" + domain + ";expires=" + expires.toUTCString() + ";samesite=lax" + secure;
           document.cookie = cookieStr;
-          console.log("[AI-Translate] Cookie set via JS:", cookieStr);
-          console.log("[AI-Translate] Current cookies:", document.cookie);
-        } else {
-          console.warn("[AI-Translate] No language code found, cookie NOT set");
         }
         
         // Preserve current hash (#...) when switching language

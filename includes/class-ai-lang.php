@@ -109,18 +109,12 @@ final class AI_Lang
     {
         $lang = strtolower(sanitize_key((string) $lang));
         if ($lang === '') {
-            if (function_exists('ai_translate_dbg')) {
-                ai_translate_dbg('Cookie NOT set: empty lang', []);
-            }
             return;
         }
 
         $file = '';
         $line = 0;
         if (headers_sent($file, $line)) {
-            if (function_exists('ai_translate_dbg')) {
-                ai_translate_dbg('❌ CANNOT SET COOKIE: headers already sent', ['lang' => $lang, 'file' => $file, 'line' => $line]);
-            }
             return;
         }
 
@@ -144,16 +138,6 @@ final class AI_Lang
                     $domain = '.' . $host;
                 }
             }
-        }
-        
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('✅ ATTEMPTING TO SET COOKIE', [
-                'lang' => $lang, 
-                'domain' => $domain ?: 'none', 
-                'secure' => $secure,
-                'expire' => date('Y-m-d H:i:s', $expire),
-                'php_version' => PHP_VERSION_ID
-            ]);
         }
 
         // Set cookie with domain attribute (critical for multi-page cookie persistence)
@@ -186,20 +170,8 @@ final class AI_Lang
             }
         }
         
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('✅ SETCOOKIE CALLED', [
-                'result' => $setCookieResult ? 'SUCCESS' : 'FAILED',
-                'domain' => $domain ?: 'empty',
-                'samesite' => 'Lax'
-            ]);
-        }
-        
         // Always update $_COOKIE immediately so it's available for the rest of the request
         $_COOKIE['ai_translate_lang'] = $lang;
-        
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('✅ $_COOKIE UPDATED', ['lang' => $lang, 'verify' => $_COOKIE['ai_translate_lang'] ?? 'NOT SET']);
-        }
     }
 
     /**

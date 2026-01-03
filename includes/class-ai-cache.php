@@ -91,12 +91,6 @@ final class AI_Cache
         if ($mtime) {
             $age_seconds = time() - (int) $mtime;
             if ($age_seconds > $expiry_seconds) {
-                \ai_translate_dbg('Page cache expired', [
-                    'key_preview' => substr($key, 0, 50),
-                    'age_hours' => round($age_seconds / HOUR_IN_SECONDS, 1),
-                    'expiry_hours' => $expiry_hours,
-                    'expiry_days' => round($expiry_hours / 24, 1)
-                ]);
                 return false; // expired → force refresh via API
             }
         }
@@ -120,6 +114,26 @@ final class AI_Cache
             wp_mkdir_p($dir);
         }
         @file_put_contents($file, $html);
+        
+        // Track cache metadata for admin table
+        // Extract post_id from route_id in cache key: ait:v4:site:lang:route_id
+        $parts = explode(':', (string) $key);
+        if (isset($parts[4])) {
+            $route_id = $parts[4];
+            // Check if route_id is in format 'post:123'
+            if (strpos($route_id, 'post:') === 0) {
+                $post_id = (int) substr($route_id, 5);
+                if ($post_id > 0) {
+                    // Extract language from key
+                    $lang = isset($parts[3]) ? sanitize_key($parts[3]) : '';
+                    if ($lang !== '') {
+                        // Insert metadata
+                        $cache_hash = md5($key);
+                        AI_Cache_Meta::insert($post_id, $lang, $file, $cache_hash);
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -169,6 +183,17 @@ final class AI_Cache
         }
         
         return $sanitized;
+    }
+
+    /**
+     * Get file path for a cache key (public method for metadata tracking)
+     *
+     * @param string $key
+     * @return string
+     */
+    public static function get_file_path($key)
+    {
+        return self::file_path($key);
     }
 
     /**

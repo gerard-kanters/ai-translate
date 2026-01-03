@@ -137,12 +137,6 @@ final class AI_Batch
                     if ($cacheInvalid) {
                         $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
                         $cacheMisses++;
-                        \ai_translate_dbg('Segment cache INVALID (will retranslate)', [
-                            'lang' => $targetLang,
-                            'type' => $type,
-                            'text_preview' => mb_substr($trimmed, 0, 50),
-                            'reason' => $srcLower === $cachedLower ? 'identical' : 'latin_ratio'
-                        ]);
                     } else {
                         $cachedPrimary[$seg['id']] = $cachedText;
                         $cacheHits++;
@@ -158,18 +152,6 @@ final class AI_Batch
             }
         }
 
-        // Log cache statistics before API calls
-        $totalSegments = count($segments);
-        \ai_translate_dbg('Batch translation cache stats', [
-            'lang' => $targetLang,
-            'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-            'total_segments' => $totalSegments,
-            'cache_hits' => $cacheHits,
-            'cache_misses' => $cacheMisses,
-            'segments_to_translate' => count($workSegments),
-            'cache_hit_ratio' => $totalSegments > 0 ? round(($cacheHits / $totalSegments) * 100, 1) . '%' : '0%'
-        ]);
-
         // Skip API calls entirely when everything is already cached
         if (empty($workSegments)) {
             $final = [];
@@ -182,32 +164,12 @@ final class AI_Batch
                     $final[$oid] = $tr;
                 }
             }
-            \ai_translate_dbg('All segments served from cache; skipping API call', [
-                'lang' => $targetLang,
-                'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                'total_segments' => $totalSegments,
-                'cache_hits' => $cacheHits,
-                'cache_misses' => $cacheMisses,
-                'segments_to_translate' => 0
-            ]);
             return ['segments' => $final, 'map' => []];
         }
 
         // Use smaller chunk sizes to prevent API response truncation issues
         $chunkSize = ($provider === 'deepseek') ? 8 : 5;
         $batches = ($chunkSize < count($workSegments)) ? array_chunk($workSegments, $chunkSize) : [ $workSegments ];
-        
-        // Log API call info
-        if (!empty($workSegments)) {
-            \ai_translate_dbg('Making API call(s) for segments', [
-                'lang' => $targetLang,
-                'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                'provider' => $provider,
-                'model' => $model,
-                'num_batches' => count($batches),
-                'total_segments_in_batches' => count($workSegments)
-            ]);
-        }
 
         // Concurrency: for DeepSeek, parallel chunks using Requests::request_multiple if available
         $translationsPrimary = [];
@@ -498,12 +460,6 @@ final class AI_Batch
                     $newlyCached++;
                 }
             }
-            if ($newlyCached > 0) {
-                \ai_translate_dbg('Cached new segment translations', [
-                    'lang' => $targetLang,
-                    'num_segments_cached' => $newlyCached
-                ]);
-            }
             $final = [];
             // include cached primaries as well
             foreach ($cachedPrimary as $pid => $tr) {
@@ -730,12 +686,6 @@ final class AI_Batch
                 }
                 $newlyCached++;
             }
-        }
-        if ($newlyCached > 0) {
-            \ai_translate_dbg('Cached new segment translations (sequential)', [
-                'lang' => $targetLang,
-                'num_segments_cached' => $newlyCached
-            ]);
         }
         $final = [];
         foreach ($cachedPrimary as $pid => $tr) { $translationsPrimary[$pid] = $tr; }

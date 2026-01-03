@@ -110,17 +110,6 @@ final class AI_OB
                 $defaultLang = AI_Lang::default();
                 if ($defaultLang !== null) {
                     $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang, $url);
-                    // Only log validation if there are problems
-                    if ($untranslatedCheck['has_untranslated']) {
-                        \ai_translate_dbg('Page cache validation', [
-                            'lang' => $lang,
-                            'route' => $route,
-                            'url' => $url,
-                            'has_untranslated' => $untranslatedCheck['has_untranslated'],
-                            'word_count' => $untranslatedCheck['word_count'] ?? 0,
-                            'reason' => $untranslatedCheck['reason'] ?? ''
-                        ]);
-                    }
                     // Invalidate if there are untranslated words (> 4) OR untranslated UI attributes (> 0)
                     // UI attributes are always invalidated regardless of count to ensure proper translation
                     $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
@@ -150,54 +139,19 @@ final class AI_OB
                             // UI attributes are now systematically collected, so retry to ensure they get translated
                             // Reset retry counter for UI attributes to allow retranslation
                             delete_transient($retryKey);
-                            \ai_translate_dbg('Page cache invalidated due to many untranslated UI attributes, retrying translation', [
-                                'lang' => $lang,
-                                'route' => $route,
-                                'url' => $url,
-                                'word_count' => $wordCount,
-                                'reason' => $reason,
-                                'untranslated_attributes' => $untranslatedCheck['untranslated_attributes'] ?? []
-                            ]);
                             // Fall through to translation below (don't return cached)
                         } else {
                             // Small number of missing UI attributes - will be translated via batch-strings (JavaScript)
                             // Accept cache to avoid double translation (batch-strings will handle these attributes client-side)
-                            $logMsg = $recentAttrPing
-                                ? 'Page cache accepted during UI attribute cooldown (batch-strings recently called)'
-                                : 'Page cache accepted despite few untranslated UI attributes (will be translated via batch-strings JavaScript)';
-                            \ai_translate_dbg($logMsg, [
-                                'lang' => $lang,
-                                'route' => $route,
-                                'url' => $url,
-                                'word_count' => $wordCount,
-                                    'reason' => $reason,
-                                    'untranslated_attributes' => $untranslatedCheck['untranslated_attributes'] ?? []
-                                ]);
-                                $processing = false;
-                                return $cached;
+                            $processing = false;
+                            return $cached;
                             }
                         } elseif ($retryCount < 1) {
                             // Body text: use retry counter to avoid infinite loops
                             set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
-                            \ai_translate_dbg('Page cache invalidated due to untranslated content, retrying translation', [
-                                'lang' => $lang,
-                                'route' => $route,
-                                'url' => $url,
-                                'retry_count' => $retryCount + 1,
-                                'word_count' => $wordCount,
-                                'reason' => $reason
-                            ]);
                             // Fall through to translation below (don't return cached)
                         } else {
                             // Max retries reached for body text, serve cached version anyway
-                            \ai_translate_dbg('Page cache served despite untranslated content (max retries reached)', [
-                                'lang' => $lang,
-                                'route' => $route,
-                                'url' => $url,
-                                'retry_count' => $retryCount,
-                                'word_count' => $wordCount,
-                                'reason' => $reason
-                            ]);
                             $processing = false;
                             return $cached;
                         }
@@ -211,24 +165,9 @@ final class AI_OB
                     $processing = false;
                     return $cached;
                 }
-            } else {
-                \ai_translate_dbg('Page cache MISS', [
-                    'lang' => $lang,
-                    'route' => $route,
-                    'url' => $url,
-                    'key_preview' => substr($key, 0, 50),
-                    'reason' => 'not_found'
-                ]);
             }
         } else {
             $bypassReason = $bypassUserCache ? 'logged_in_user' : ($nocache ? 'nocache_param' : 'unknown');
-            \ai_translate_dbg('Page cache BYPASSED', [
-                'lang' => $lang,
-                'route' => $route,
-                'url' => $url,
-                'reason' => $bypassReason,
-                'stop_translations' => $stopTranslations ? 'enabled_but_cache_used' : 'disabled'
-            ]);
         }
         
         // Implement cache locking to prevent race conditions from concurrent requests
@@ -245,11 +184,6 @@ final class AI_OB
                 if ((time() - $lockStart) > $maxLockWait) {
                     // Another request is still generating this page; avoid duplicate API calls
                     // Serve the current HTML without starting a second translation pass
-                    \ai_translate_dbg('Translation in progress for page, returning original HTML to avoid duplicate translation', [
-                        'lang' => $lang,
-                        'route' => $route,
-                        'url' => $url
-                    ]);
                     $processing = false;
                     return $html;
                 }
@@ -356,12 +290,6 @@ final class AI_OB
                     delete_transient($lockKey);
                 }
                 $reason = $cache_exists ? 'cache_not_expired' : 'cache_not_exists';
-                \ai_translate_dbg('Translation blocked: stop_translations enabled', [
-                    'lang' => $lang,
-                    'route' => $route,
-                    'url' => $url,
-                    'reason' => $reason
-                ]);
                 
                 // If cache doesn't exist, inject warning message for logged-in admins
                 if (!$cache_exists && function_exists('current_user_can') && current_user_can('manage_options')) {
@@ -372,21 +300,9 @@ final class AI_OB
                 $processing = false;
                 return $html; // Return untranslated HTML (or cached if exists)
             }
-            // Cache exists and is expired, allow translation (cache invalidation)
-            \ai_translate_dbg('Translation allowed: cache expired (cache invalidation)', [
-                'lang' => $lang,
-                'route' => $route,
-                'url' => $url
-            ]);
         }
 
         $plan = AI_DOM::plan($html);
-        \ai_translate_dbg('Starting page translation', [
-            'lang' => $lang,
-            'route' => $route,
-            'url' => $url,
-            'num_segments_in_plan' => isset($plan['segments']) ? count($plan['segments']) : 0
-        ]);
         $res = AI_Batch::translate_plan($plan, AI_Lang::default(), $lang, $this->site_context());
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
         if (empty($translations)) {
@@ -444,13 +360,6 @@ final class AI_OB
 
         if (!$bypassUserCache) {
             AI_Cache::set($key, $html3);
-        } else {
-            \ai_translate_dbg('Page cache NOT saved (bypassed)', [
-                'lang' => $lang,
-                'route' => $route,
-                'url' => $url,
-                'reason' => 'logged_in_user'
-            ]);
         }
         
         // Release lock after successful cache generation
@@ -900,14 +809,6 @@ final class AI_OB
             $result['word_count'] = $untranslatedCount;
             $result['reason'] = sprintf('Found %d untranslated UI attribute(s) (placeholder/title/aria-label/button values)', $untranslatedCount);
             $result['untranslated_attributes'] = $untranslatedAttributes;
-            
-            // Log details about untranslated attributes
-            \ai_translate_dbg('Untranslated UI attributes detected', [
-                'url' => $url,
-                'lang' => $targetLang,
-                'count' => $untranslatedCount,
-                'attributes' => $untranslatedAttributes
-            ]);
         }
         
         return $result;

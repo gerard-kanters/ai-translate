@@ -63,6 +63,512 @@ function ajax_clear_cache_language()
 add_action('wp_ajax_ai_translate_clear_cache_language', __NAMESPACE__ . '\\ajax_clear_cache_language');
 
 /**
+ * Handle AJAX request to delete cache for a specific post in all languages.
+ *
+ * Security: requires manage_options capability and a valid nonce.
+ */
+function ajax_delete_post_cache()
+{
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Insufficient permissions to perform this action.', 'ai-translate')]);
+        return;
+    }
+
+    // Validate nonce
+    $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
+    if (!$nonce_value || !wp_verify_nonce($nonce_value, 'ai_translate_delete_cache')) {
+        wp_send_json_error(['message' => __('Security check failed (nonce). Refresh the page and try again.', 'ai-translate')]);
+        return;
+    }
+
+    // Validate post ID
+    if (!isset($_POST['post_id']) || empty($_POST['post_id'])) {
+        wp_send_json_error(['message' => __('No post ID provided.', 'ai-translate')]);
+        return;
+    }
+
+    $post_id = intval($_POST['post_id']);
+    
+    if ($post_id <= 0) {
+        wp_send_json_error(['message' => __('Invalid post ID.', 'ai-translate')]);
+        return;
+    }
+    
+    // Verify post exists and user has permission to access it
+    $post = get_post($post_id);
+    if (!$post) {
+        wp_send_json_error(['message' => __('Post not found.', 'ai-translate')]);
+        return;
+    }
+    
+    // Ensure table exists
+    AI_Cache_Meta::ensure_table_exists();
+    
+    // Get cache records from database
+    $records = AI_Cache_Meta::get($post_id);
+    
+    // Get allowed cache directory for path validation
+    $uploads = wp_upload_dir();
+    $allowed_base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+    $allowed_base = wp_normalize_path($allowed_base);
+    
+    $deleted = 0;
+    $errors = [];
+    
+    if (!empty($records)) {
+        foreach ($records as $record) {
+            if (!isset($record->cache_file) || empty($record->cache_file)) {
+                continue;
+            }
+            
+            $cache_file = wp_normalize_path($record->cache_file);
+            
+            // Security: Ensure file is within allowed cache directory (prevent path traversal)
+            if (strpos($cache_file, $allowed_base) !== 0) {
+                $errors[] = sprintf(__('Invalid file path: %s', 'ai-translate'), basename($cache_file));
+                continue;
+            }
+            
+            // Security: Ensure file exists and is a regular file (not directory or symlink)
+            if (!file_exists($cache_file) || !is_file($cache_file)) {
+                continue;
+            }
+            
+            // Security: Additional check - file must have .html extension
+            if (substr($cache_file, -5) !== '.html') {
+                $errors[] = sprintf(__('Invalid file type: %s', 'ai-translate'), basename($cache_file));
+                continue;
+            }
+            
+            if (@unlink($cache_file)) {
+                $deleted++;
+            } else {
+                $errors[] = sprintf(__('Could not delete file: %s', 'ai-translate'), basename($cache_file));
+            }
+        }
+    }
+    
+    // Delete metadata records
+    $meta_deleted = AI_Cache_Meta::delete($post_id);
+    
+    // Clear any transients
+    delete_transient('ai_translate_cache_table_data');
+    
+    $message = sprintf(__('Cache deleted for %d languages', 'ai-translate'), $deleted);
+    if (!empty($errors)) {
+        $message .= '. ' . __('Warnings:', 'ai-translate') . ' ' . implode(', ', $errors);
+    }
+    
+    wp_send_json_success([
+        'message' => $message,
+        'deleted' => $deleted,
+        'meta_deleted' => $meta_deleted
+    ]);
+}
+
+add_action('wp_ajax_ai_translate_delete_cache', __NAMESPACE__ . '\\ajax_delete_post_cache');
+
+/**
+ * Warm cache for multiple languages in parallel using curl_multi.
+ *
+ * @param int $post_id Post ID to warm cache for
+ * @param string $base_path Base path (e.g., '/page-slug/')
+ * @param array $lang_codes Array of language codes to warm
+ * @return array Associative array with lang_code as key and result array as value
+ */
+function warm_cache_batch($post_id, $base_path, $lang_codes)
+{
+    $results = [];
+    
+    if (empty($lang_codes)) {
+        return $results;
+    }
+    
+    // Check if curl_multi is available
+    if (!function_exists('curl_multi_init')) {
+        // Fallback to sequential if curl_multi not available
+        foreach ($lang_codes as $lang_code) {
+            $translated_path = "/{$lang_code}" . ($base_path ?: '/');
+            $results[$lang_code] = warm_cache_internal_request($post_id, $translated_path, $lang_code);
+        }
+        return $results;
+    }
+    
+    // Parse URL to get host
+    $parsed = parse_url(home_url());
+    $host = isset($parsed['host']) ? $parsed['host'] : '';
+    if (isset($parsed['port'])) {
+        $host .= ':' . $parsed['port'];
+    }
+    
+    // Initialize curl_multi handle
+    $mh = curl_multi_init();
+    $curl_handles = [];
+    
+    // Create curl handles for each language
+    foreach ($lang_codes as $lang_code) {
+        $translated_path = "/{$lang_code}" . ($base_path ?: '/');
+        $translated_url = home_url($translated_path);
+        
+        $ch = curl_init($translated_url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_TIMEOUT => 90,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_COOKIE => 'ai_translate_lang=' . urlencode($lang_code),
+            CURLOPT_HTTPHEADER => array(
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language: ' . $lang_code . ',' . $lang_code . ';q=0.9,en;q=0.8',
+                'Accept-Encoding: gzip, deflate, br',
+                'Connection: keep-alive',
+                'Upgrade-Insecure-Requests: 1'
+            )
+        ));
+        
+        curl_multi_add_handle($mh, $ch);
+        $curl_handles[$lang_code] = $ch;
+    }
+    
+    // Execute all handles in parallel
+    $running = null;
+    do {
+        curl_multi_exec($mh, $running);
+        curl_multi_select($mh, 0.1); // Small delay to prevent CPU spinning
+    } while ($running > 0);
+    
+    // Process results
+    foreach ($curl_handles as $lang_code => $ch) {
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        
+        curl_multi_remove_handle($mh, $ch);
+        curl_close($ch);
+        
+        if (!empty($error)) {
+            $results[$lang_code] = array('success' => false, 'error' => $error);
+            continue;
+        }
+        
+        // Accept 200 as success
+        if ($http_code === 200) {
+            // Wait a moment for async cache writes to complete
+            usleep(500000); // 0.5 second
+            
+            $route_id = 'post:' . $post_id;
+            $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
+            $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
+            
+            if ($cache_file && file_exists($cache_file)) {
+                // Ensure metadata is inserted/updated in database
+                $cache_hash = md5($cache_key);
+                AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+                
+                $results[$lang_code] = array('success' => true, 'error' => '');
+            } else {
+                // Check again after a longer delay
+                sleep(1);
+                if ($cache_file && file_exists($cache_file)) {
+                    $cache_hash = md5($cache_key);
+                    AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+                    $results[$lang_code] = array('success' => true, 'error' => '');
+                } else {
+                    $results[$lang_code] = array('success' => false, 'error' => __('Cache file not generated', 'ai-translate'));
+                }
+            }
+        } elseif ($http_code === 301 || $http_code === 302) {
+            // Redirect - might be normal, but we'll mark as success if cache exists
+            $route_id = 'post:' . $post_id;
+            $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
+            $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
+            
+            if ($cache_file && file_exists($cache_file)) {
+                $cache_hash = md5($cache_key);
+                AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+                $results[$lang_code] = array('success' => true, 'error' => '');
+            } else {
+                $results[$lang_code] = array('success' => false, 'error' => sprintf(__('HTTP %d (redirect)', 'ai-translate'), $http_code));
+            }
+        } else {
+            $results[$lang_code] = array('success' => false, 'error' => sprintf(__('HTTP %d', 'ai-translate'), $http_code));
+        }
+    }
+    
+    curl_multi_close($mh);
+    
+    return $results;
+}
+
+/**
+ * Make an internal WordPress request that goes through the full stack to generate cache.
+ * 
+ * This function makes an HTTP request to the site itself (like curl would),
+ * which goes through the full WordPress stack including template_redirect,
+ * triggering the output buffer callback that generates the cache.
+ *
+ * @param int $post_id Post ID to warm cache for
+ * @param string $request_path Request path (e.g., '/en/page-slug/')
+ * @param string $lang_code Language code
+ * @return array Array with 'success' (bool) and 'error' (string) keys
+ */
+function warm_cache_internal_request($post_id, $request_path, $lang_code)
+{
+    // Build full URL for the request
+    $translated_url = home_url($request_path);
+    
+    // Parse URL to get host and path
+    $parsed = parse_url($translated_url);
+    $host = isset($parsed['host']) ? $parsed['host'] : '';
+    if (isset($parsed['port'])) {
+        $host .= ':' . $parsed['port'];
+    }
+    
+    // Create cookie jar for the request
+    $cookies = array();
+    $cookies[] = new \WP_Http_Cookie(array(
+        'name' => 'ai_translate_lang',
+        'value' => $lang_code,
+        'domain' => $host,
+        'path' => '/'
+    ));
+    
+    // Make HTTP request to the site itself
+    // This goes through the full WordPress stack and triggers cache generation
+    // Using same approach as curl: full HTTP request with proper headers and cookies
+    $response = wp_remote_get($translated_url, array(
+        'timeout' => 90,
+        'sslverify' => false,
+        'cookies' => $cookies,
+        'headers' => array(
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language' => $lang_code . ',' . $lang_code . ';q=0.9,en;q=0.8',
+            'Accept-Encoding' => 'gzip, deflate, br',
+            'Connection' => 'keep-alive',
+            'Upgrade-Insecure-Requests' => '1'
+        ),
+        'redirection' => 5, // Follow redirects
+        'httpversion' => '1.1'
+    ));
+    
+    if (is_wp_error($response)) {
+        return array('success' => false, 'error' => $response->get_error_message());
+    }
+    
+    $response_code = wp_remote_retrieve_response_code($response);
+    
+    // Accept 200 as success (redirects might indicate issues, but we'll check cache anyway)
+    if ($response_code === 200) {
+        // Verify cache was generated by checking if cache file exists
+        // Wait a moment for async cache writes to complete
+        usleep(500000); // 0.5 second
+        
+        $route_id = 'post:' . $post_id;
+        $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
+        $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
+        
+        if ($cache_file && file_exists($cache_file)) {
+            // Ensure metadata is inserted/updated in database
+            // The cache file exists, but metadata might not be in database yet
+            $cache_hash = md5($cache_key);
+            AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+            
+            return array('success' => true, 'error' => '');
+        } else {
+            // Check again after a longer delay (some systems might be slower)
+            sleep(1);
+            if ($cache_file && file_exists($cache_file)) {
+                // Ensure metadata is inserted/updated in database
+                $cache_hash = md5($cache_key);
+                AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+                
+                return array('success' => true, 'error' => '');
+            }
+            // Request was successful but cache not found - might be bypassed or error in generation
+            return array('success' => false, 'error' => __('Cache file not generated after successful request', 'ai-translate'));
+        }
+    }
+    
+    // Also accept redirects as they might be normal (language redirects)
+    if ($response_code === 301 || $response_code === 302) {
+        $location = wp_remote_retrieve_header($response, 'location');
+        if ($location) {
+            // Try following the redirect
+            $redirect_url = (strpos($location, 'http') === 0) ? $location : home_url($location);
+            return warm_cache_internal_request($post_id, parse_url($redirect_url, PHP_URL_PATH), $lang_code);
+        }
+    }
+    
+    return array('success' => false, 'error' => sprintf(__('HTTP %d', 'ai-translate'), $response_code));
+}
+
+/**
+ * Handle AJAX request to warm cache for a specific post in all enabled languages.
+ *
+ * Security: requires manage_options capability and a valid nonce.
+ */
+function ajax_warm_post_cache()
+{
+    // Check permissions
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Insufficient permissions to perform this action.', 'ai-translate')]);
+        return;
+    }
+
+    // Validate nonce
+    $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : null;
+    if (!$nonce_value || !wp_verify_nonce($nonce_value, 'ai_translate_warm_cache')) {
+        wp_send_json_error(['message' => __('Security check failed (nonce). Refresh the page and try again.', 'ai-translate')]);
+        return;
+    }
+
+    // Validate post ID
+    if (!isset($_POST['post_id']) || empty($_POST['post_id'])) {
+        wp_send_json_error(['message' => __('No post ID provided.', 'ai-translate')]);
+        return;
+    }
+
+    $post_id = intval($_POST['post_id']);
+    
+    if ($post_id <= 0) {
+        wp_send_json_error(['message' => __('Invalid post ID.', 'ai-translate')]);
+        return;
+    }
+    
+    // Verify post exists and user has permission to access it
+    $post = get_post($post_id);
+    if (!$post) {
+        wp_send_json_error(['message' => __('Post not found.', 'ai-translate')]);
+        return;
+    }
+    
+    // Security: Only allow published posts and pages (prevent access to drafts/private posts)
+    if ($post->post_status !== 'publish') {
+        wp_send_json_error(['message' => __('Only published posts can be cached.', 'ai-translate')]);
+        return;
+    }
+    
+    // Ensure table exists
+    AI_Cache_Meta::ensure_table_exists();
+    
+    // Get enabled languages (selectable + detectable)
+    $enabled = \AITranslate\AI_Lang::enabled();
+    $detectable = \AITranslate\AI_Lang::detectable();
+    $languages = array_unique(array_merge($enabled, $detectable));
+    
+    if (empty($languages)) {
+        wp_send_json_error(['message' => __('No languages configured.', 'ai-translate')]);
+        return;
+    }
+    
+    // Get post URL
+    $post_url = get_permalink($post_id);
+    if (!$post_url) {
+        wp_send_json_error(['message' => __('Could not generate post URL.', 'ai-translate')]);
+        return;
+    }
+    
+    // Security: Validate URL is from same site (prevent SSRF)
+    $parsed_url = parse_url($post_url);
+    $site_url = parse_url(home_url());
+    if (!isset($parsed_url['host']) || !isset($site_url['host']) || $parsed_url['host'] !== $site_url['host']) {
+        wp_send_json_error(['message' => __('Invalid post URL.', 'ai-translate')]);
+        return;
+    }
+    
+    // Get existing cache languages for this post
+    $existing = AI_Cache_Meta::get_cached_languages($post_id);
+    
+    $warmed = 0;
+    $skipped = 0;
+    $errors = [];
+    $default_lang = \AITranslate\AI_Lang::default();
+    
+    // Filter languages to warm (exclude default and already cached)
+    $languages_to_warm = [];
+    foreach ($languages as $lang_code) {
+        // Skip default language
+        if ($default_lang && strtolower($lang_code) === strtolower($default_lang)) {
+            $skipped++;
+            continue;
+        }
+        
+        // Skip if cache already exists
+        if (in_array($lang_code, $existing, true)) {
+            $skipped++;
+            continue;
+        }
+        
+        $languages_to_warm[] = $lang_code;
+    }
+    
+    // Process languages in parallel batches of 5
+    $batch_size = 5;
+    $path = parse_url($post_url, PHP_URL_PATH);
+    
+    for ($i = 0; $i < count($languages_to_warm); $i += $batch_size) {
+        $batch = array_slice($languages_to_warm, $i, $batch_size);
+        $results = warm_cache_batch($post_id, $path, $batch);
+        
+        foreach ($results as $lang_code => $result) {
+            if ($result['success']) {
+                $warmed++;
+            } else {
+                $errors[] = sprintf(__('Error for %s: %s', 'ai-translate'), $lang_code, $result['error']);
+            }
+        }
+    }
+    
+    // Clear transient cache to force refresh of stats
+    delete_transient('ai_translate_cache_table_data');
+    
+    // Force refresh of cache metadata by ensuring all generated cache files have metadata
+    // This ensures the database is in sync with the filesystem
+    if ($warmed > 0) {
+        $route_id = 'post:' . $post_id;
+        $enabled = \AITranslate\AI_Lang::enabled();
+        $detectable = \AITranslate\AI_Lang::detectable();
+        $all_langs = array_unique(array_merge($enabled, $detectable));
+        
+        foreach ($all_langs as $lang) {
+            $cache_key = \AITranslate\AI_Cache::key($lang, $route_id, '');
+            $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
+            
+            if ($cache_file && file_exists($cache_file)) {
+                // Ensure metadata exists for this cache file
+                $cache_hash = md5($cache_key);
+                AI_Cache_Meta::insert($post_id, $lang, $cache_file, $cache_hash);
+            }
+        }
+    }
+    
+    $message = sprintf(__('Cache warmed for %d languages', 'ai-translate'), $warmed);
+    if ($skipped > 0) {
+        $message .= sprintf(__(' (%d skipped)', 'ai-translate'), $skipped);
+    }
+    if (!empty($errors)) {
+        $message .= '. ' . __('Warnings:', 'ai-translate') . ' ' . implode(', ', array_slice($errors, 0, 3));
+        if (count($errors) > 3) {
+            $message .= sprintf(__(' and %d more', 'ai-translate'), count($errors) - 3);
+        }
+    }
+    
+    wp_send_json_success([
+        'message' => $message,
+        'warmed' => $warmed,
+        'skipped' => $skipped,
+        'errors' => $errors
+    ]);
+}
+
+add_action('wp_ajax_ai_translate_warm_cache', __NAMESPACE__ . '\\ajax_warm_post_cache');
+
+/**
  * Handle AJAX request to generate a website context suggestion.
  *
  * Security: requires manage_options capability and a valid nonce.
@@ -89,11 +595,6 @@ function ajax_generate_website_context()
     // Generate website context suggestion
     $translator = AI_Translate_Core::get_instance();
     try {
-        // Log start
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('Generating website context via AJAX', ['domain' => $requested_domain]);
-        }
-        
         $context_suggestion = $translator->generate_website_context_suggestion($requested_domain);
         
         // Clear prompt cache to ensure new context is used immediately
@@ -136,20 +637,12 @@ function ajax_generate_homepage_meta()
     // Generate meta description
     $translator = AI_Translate_Core::get_instance();
     try {
-        // Log start
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('Generating homepage meta description via AJAX', ['domain' => $requested_domain]);
-        }
-        
         $meta_description = $translator->generate_homepage_meta_description($requested_domain);
         
         wp_send_json_success([
             'meta' => $meta_description
         ]);
     } catch (\Exception $e) {
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('Error generating meta description: ' . $e->getMessage());
-        }
         wp_send_json_error([
             'message' => __('Error generating meta description:', 'ai-translate') . ' ' . $e->getMessage()
         ]);
@@ -215,6 +708,15 @@ add_action('admin_enqueue_scripts', function ($hook) {
         true
     );
 
+    // Enqueue cache table JavaScript
+    wp_enqueue_script(
+        'ai-translate-cache-table-js',
+        plugin_dir_url(__DIR__) . 'assets/admin-cache-table.js',
+        array('jquery'),
+        '1.0.0',
+        true
+    );
+
     // Localize script with data needed by JavaScript
     $settings = get_option('ai_translate_settings', []);
     wp_localize_script('ai-translate-admin-js', 'aiTranslateAdmin', array(
@@ -228,6 +730,11 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'apiKeys' => isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [],
         'models' => isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [],
         'customModel' => isset($settings['custom_model']) ? $settings['custom_model'] : '',
+    ));
+    
+    // Localize cache table script with ajaxurl (WordPress provides ajaxurl in admin, but we make it explicit)
+    wp_localize_script('ai-translate-cache-table-js', 'aiTranslateCacheTable', array(
+        'ajaxurl' => admin_url('admin-ajax.php')
     ));
 });
 
@@ -1188,6 +1695,184 @@ function render_admin_page()
                         </tfoot>
                     </table>
                 </div>
+
+                <hr style="margin: 30px 0;">
+
+                <!-- Cache Management Table -->
+                <h3><?php echo esc_html__('Translated Pages Overview', 'ai-translate'); ?></h3>
+                <p><?php echo esc_html__('Manage cache per page or blog. Delete cache to retranslate, or warm cache to proactively generate translations.', 'ai-translate'); ?></p>
+                
+                <?php
+                // Handle manual rescan request
+                if (isset($_POST['rescan_cache_meta']) && check_admin_referer('rescan_cache_meta_action', 'rescan_cache_meta_nonce')) {
+                    $count = AI_Cache_Meta::populate_existing_cache(true);
+                    if ($count > 0) {
+                        echo '<div class="notice notice-success is-dismissible"><p>';
+                        echo sprintf(__('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
+                        echo '</p></div>';
+                    } else {
+                        echo '<div class="notice notice-warning is-dismissible"><p>';
+                        echo __('No cache records added. Possible causes:', 'ai-translate');
+                        echo '<ul style="margin-left: 20px; margin-top: 10px;">';
+                        echo '<li>' . __('Cache files do not exist at the expected location', 'ai-translate') . '</li>';
+                        echo '<li>' . __('Cache files have a different format than expected', 'ai-translate') . '</li>';
+                        echo '<li>' . __('Multi-domain caching configuration does not match', 'ai-translate') . '</li>';
+                        echo '</ul>';
+                        echo '</p></div>';
+                    }
+                }
+                
+                // One-time population of existing cache metadata (if not done yet)
+                $populated = get_option('ai_translate_cache_meta_populated', false);
+                if ($populated === false) {
+                    $count = AI_Cache_Meta::populate_existing_cache();
+                    update_option('ai_translate_cache_meta_populated', true);
+                    if ($count > 0) {
+                        echo '<div class="notice notice-info is-dismissible"><p>';
+                        echo sprintf(__('Cache metadata initialized: %d existing cache records added.', 'ai-translate'), $count);
+                        echo '</p></div>';
+                    }
+                }
+                
+                // Clean up orphaned cache metadata records (cache files that no longer exist)
+                // Only run cleanup once per hour to avoid performance impact
+                $last_cleanup = get_transient('ai_translate_cache_meta_last_cleanup');
+                if ($last_cleanup === false) {
+                    AI_Cache_Meta::sync_from_filesystem();
+                    set_transient('ai_translate_cache_meta_last_cleanup', time(), HOUR_IN_SECONDS);
+                }
+                
+                // Get posts with cache stats
+                $paged = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+                $per_page = 50;
+                $offset = ($paged - 1) * $per_page;
+                
+                $posts = AI_Cache_Meta::get_posts_with_cache_stats($offset, $per_page);
+                $total_posts = AI_Cache_Meta::get_total_posts_count();
+                $total_pages = ceil($total_posts / $per_page);
+                
+                // Check if table is empty but cache files might exist
+                $cache_meta_count = AI_Cache_Meta::get_total_cache_meta_count();
+                if ($cache_meta_count === 0 && !empty($posts)) {
+                    // Check if cache directory exists (indicates cache files might exist)
+                    $uploads = wp_upload_dir();
+                    $cache_dir = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+                    if (is_dir($cache_dir)) {
+                        // Cache directory exists, suggest rescan
+                        echo '<div class="notice notice-warning is-dismissible"><p>';
+                        echo __('Cache directory found but no metadata. Click "Scan Cache Files" to generate metadata.', 'ai-translate');
+                        echo '</p></div>';
+                    }
+                }
+                ?>
+                
+                <?php if (!empty($posts)): ?>
+                <form method="post" style="margin-bottom: 15px;">
+                    <?php wp_nonce_field('rescan_cache_meta_action', 'rescan_cache_meta_nonce'); ?>
+                    <button type="submit" name="rescan_cache_meta" class="button button-secondary">
+                        <span class="dashicons dashicons-update" style="vertical-align: middle;"></span>
+                        <?php echo esc_html__('Scan Cache Files', 'ai-translate'); ?>
+                    </button>
+                    <p class="description" style="margin-top: 5px;">
+                        <?php echo esc_html__('Scan the filesystem for cache files and add metadata to the database.', 'ai-translate'); ?>
+                    </p>
+                </form>
+                <?php endif; ?>
+                
+                <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%;"><?php echo esc_html__('Type', 'ai-translate'); ?></th>
+                            <th style="width: 30%;"><?php echo esc_html__('Title', 'ai-translate'); ?></th>
+                            <th style="width: 25%;"><?php echo esc_html__('URL', 'ai-translate'); ?></th>
+                            <th style="width: 12%;"><?php echo esc_html__('Status', 'ai-translate'); ?></th>
+                            <th style="width: 25%;"><?php echo esc_html__('Actions', 'ai-translate'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($posts)): ?>
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 20px;">
+                                    <?php echo esc_html__('No published pages or posts found.', 'ai-translate'); ?>
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($posts as $post): ?>
+                            <tr>
+                                <td><?php echo esc_html(ucfirst($post->post_type)); ?></td>
+                                <td>
+                                    <strong><?php echo esc_html($post->post_title); ?></strong>
+                                </td>
+                                <td>
+                                    <a href="<?php echo esc_url($post->url); ?>" target="_blank" rel="noopener">
+                                        <?php 
+                                        $url_display = parse_url($post->url, PHP_URL_PATH);
+                                        if (strlen($url_display) > 40) {
+                                            $url_display = substr($url_display, 0, 37) . '...';
+                                        }
+                                        echo esc_html($url_display); 
+                                        ?>
+                                    </a>
+                                </td>
+                                <td>
+                                    <?php
+                                    $percentage = $post->percentage;
+                                    $status_class = '';
+                                    if ($percentage === 100) {
+                                        $status_class = 'ai-translate-status-100';
+                                    } elseif ($percentage === 0) {
+                                        $status_class = 'ai-translate-status-0';
+                                    } else {
+                                        $status_class = 'ai-translate-status-partial';
+                                    }
+                                    ?>
+                                    <span class="ai-translate-status <?php echo esc_attr($status_class); ?>">
+                                        <?php echo esc_html($post->cached_languages . ' of ' . $post->total_languages); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <button 
+                                        type="button"
+                                        class="button button-secondary ai-translate-delete-cache" 
+                                        data-post-id="<?php echo esc_attr($post->ID); ?>"
+                                        data-nonce="<?php echo esc_attr(wp_create_nonce('ai_translate_delete_cache')); ?>"
+                                        title="<?php echo esc_attr__('Delete cache for this page in all languages', 'ai-translate'); ?>">
+                                        <span class="dashicons dashicons-trash" style="vertical-align: middle;"></span>
+                                        <?php echo esc_html__('Delete Cache', 'ai-translate'); ?>
+                                    </button>
+                                    
+                                    <button 
+                                        type="button"
+                                        class="button button-primary ai-translate-warm-cache" 
+                                        data-post-id="<?php echo esc_attr($post->ID); ?>"
+                                        data-nonce="<?php echo esc_attr(wp_create_nonce('ai_translate_warm_cache')); ?>"
+                                        title="<?php echo esc_attr__('Generate translations for all enabled languages', 'ai-translate'); ?>">
+                                        <span class="dashicons dashicons-update" style="vertical-align: middle;"></span>
+                                        <?php echo esc_html__('Warm Cache', 'ai-translate'); ?>
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+
+                <?php if ($total_pages > 1): ?>
+                <div class="tablenav" style="margin-top: 15px;">
+                    <div class="tablenav-pages">
+                        <?php
+                        echo paginate_links(array(
+                            'base' => add_query_arg('paged', '%#%'),
+                            'format' => '',
+                            'prev_text' => __('&laquo; Previous', 'ai-translate'),
+                            'next_text' => __('Next &raquo;', 'ai-translate'),
+                            'total' => $total_pages,
+                            'current' => $paged
+                        ));
+                        ?>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

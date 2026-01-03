@@ -3,8 +3,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: AI Translate 2.1.7\n"
-"Report-Msgid-Bugs-To: https://netcare.nl/\n"
-"POT-Creation-Date: 2025-12-29 22:00+0000\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\n"
+"POT-Creation-Date: 2026-01-03T13:02:08+00:00\n"
 "PO-Revision-Date: 2025-12-29 22:00+0000\n"
 "Last-Translator: Netcare <info@netcare.nl>\n"
 "Language-Team: 日本語\n"
@@ -14,221 +14,55 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: includes/admin-page.php:184
+#. Plugin Name of the plugin
+#: ai-translate.php includes/admin-page.php:690 includes/admin-page.php:691
 msgid "AI Translate"
 msgstr "AI Translate"
 
-#: includes/admin-page.php:472
-msgid "API Settings"
-msgstr "API設定"
+#. Description of the plugin
+#: ai-translate.php
+msgid "AI based translation plugin. Adding 35 languages in a few clicks."
+msgstr "AIベースの翻訳プラグイン。数クリックで35言語を追加できます。"
 
-#: includes/admin-page.php:478
-msgid "API Provider"
-msgstr "APIプロバイダー"
+#. Author of the plugin
+#: ai-translate.php
+msgid "Netcare"
+msgstr ""
 
-#: includes/admin-page.php:485
-msgid "— Select provider —"
-msgstr "— プロバイダーを選択 —"
+#. Author URI of the plugin
+#: ai-translate.php
+msgid "https://netcare.nl/"
+msgstr ""
 
-#: includes/admin-page.php:492
-msgid "Note:"
-msgstr "注意："
+#: ai-translate.php:342
+msgid "Rate on WordPress.org"
+msgstr "WordPress.org で評価"
 
-#: includes/admin-page.php:492
-msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
-msgstr "GPT-5はブロックされています。推論を無効にできず、翻訳には不要であり、非常に遅く高価であるためです。"
+#: ai-translate.php:1634
+msgid "Instellingen"
+msgstr ""
 
-#: includes/admin-page.php:497
-msgid "Enter the endpoint URL for your custom API provider. Example: %s"
-msgstr "カスタムAPIプロバイダーのエンドポイントURLを入力してください。例：%s"
+#: ai-translate.php:1722
+msgid "This plugin requires a permalink structure other than \"Plain\". "
+msgstr "このプラグインには「基本」以外のパーマリンク設定が必要です。"
 
-#: includes/admin-page.php:506
-msgid "API Key"
-msgstr "APIキー"
+#: ai-translate.php:1725
+msgid "Configure Permalinks"
+msgstr "パーマリンクを設定"
 
-#: includes/admin-page.php:521
-msgid "Translation Model"
-msgstr "翻訳モデル"
-
-#: includes/admin-page.php:529
-msgid "— Select model —"
-msgstr "— モデルを選択 —"
-
-#: includes/admin-page.php:533
-msgid "Select..."
-msgstr "選択..."
-
-#: includes/admin-page.php:536
-msgid "E.g.: deepseek-chat, gpt-4o, ..."
-msgstr "例：deepseek-chat, gpt-4o, ..."
-
-#: includes/admin-page.php:538
-msgid "Validate API settings"
-msgstr "API設定を検証"
-
-#: includes/admin-page.php:549
-msgid "Language Settings"
-msgstr "言語設定"
-
-#: includes/admin-page.php:551
-msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
-msgstr "サイトのデフォルト言語と、言語スイッチャーで利用可能にする言語を選択します。訪問者のブラウザ設定が一致する場合、検出可能な言語が使用されますが、スイッチャーには表示されません。"
-
-#: includes/admin-page.php:557
-msgid "Default Language"
-msgstr "デフォルト言語"
-
-#: includes/admin-page.php:564
-msgid "— Select default language —"
-msgstr "— デフォルト言語を選択 —"
-
-#: includes/admin-page.php:567
-msgid "Current"
-msgstr "現在"
-
-#: includes/admin-page.php:579
-msgid "Enabled Languages (in Switcher)"
-msgstr "有効な言語（スイッチャー内）"
-
-#: includes/admin-page.php:599
-msgid "Languages selected here will appear in the language switcher."
-msgstr "ここで選択した言語が言語スイッチャーに表示されます。"
-
-#: includes/admin-page.php:607
-msgid "Detectable Languages (Auto-Translate)"
-msgstr "検出可能な言語（自動翻訳）"
-
-#: includes/admin-page.php:636
-msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
-msgstr "訪問者のブラウザ言語がこれらのいずれかと一致する場合、サイトは自動的に翻訳されます（有効な場合）。ただし、これらの言語はスイッチャーには表示されません。"
-
-#: includes/admin-page.php:644
-msgid "Language Switcher Position"
-msgstr "言語スイッチャーの位置"
-
-#: includes/admin-page.php:650
-msgid "Start of Navigation Menu"
-msgstr "ナビゲーションメニューの開始"
-
-#: includes/admin-page.php:651
-msgid "End of Navigation Menu"
-msgstr "ナビゲーションメニューの終了"
-
-#: includes/admin-page.php:652
-msgid "Bottom Left"
-msgstr "左下"
-
-#: includes/admin-page.php:653
-msgid "Bottom Right"
-msgstr "右下"
-
-#: includes/admin-page.php:654
-msgid "Top Left"
-msgstr "左上"
-
-#: includes/admin-page.php:655
-msgid "Top Right"
-msgstr "右上"
-
-#: includes/admin-page.php:663
-msgid "Choose where the language switcher appears on your website. Navigation menu positions will add the switcher to your main navigation menu. Floating positions will show a fixed switcher in the corner. The menu will open upward for bottom positions and downward for top positions."
-msgstr "言語スイッチャーの表示位置を選択してください。ナビゲーションメニューの位置は、メインナビゲーションメニューにスイッチャーを追加します。フローティング位置は、コーナーに固定スイッチャーを表示します。下の位置の場合はメニューが上に、上の位置の場合はメニューが下に開きます。"
-
-#: includes/admin-page.php:672
-msgid "Cache Settings"
-msgstr "キャッシュ設定"
-
-#: includes/admin-page.php:681
-msgid "Cache Duration (days)"
-msgstr "キャッシュ保持期間（日）"
-
-#: includes/admin-page.php:685
-msgid "days"
-msgstr "日"
-
-#: includes/admin-page.php:686
-msgid "minimum 14 days"
-msgstr "最小14日間"
-
-#: includes/admin-page.php:693
-msgid "Auto-Clear Pages on Menu Update"
-msgstr "メニュー更新時にページを自動クリア"
-
-#: includes/admin-page.php:699
-msgid "Automatically clear all page caches when menu items are updated"
-msgstr "メニュー項目が更新されたときに、すべてのページキャッシュを自動的にクリアします"
-
-#: includes/admin-page.php:702
-msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
-msgstr "この設定に関係なく、メニューを更新するとメニュー翻訳キャッシュ（transients）は常にクリアされます。"
-
-#: includes/admin-page.php:705
-msgid "When enabled:"
-msgstr "有効な場合："
-
-#: includes/admin-page.php:706
-msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
-msgstr "翻訳されたすべてのページHTMLキャッシュもクリアされます。メニューの変更はすぐに反映されますが、次回の訪問時にページの再翻訳が必要になります（多くの言語を持つ大規模サイトでは高コストになります）。"
-
-#: includes/admin-page.php:708
-msgid "When disabled:"
-msgstr "無効な場合："
-
-#: includes/admin-page.php:709
-msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
-msgstr "メニューキャッシュのみがクリアされます。ページHTMLキャッシュは残ります。すでにキャッシュされているページのメニュー変更は、キャッシュが期限切れになるか、「キャッシュ」タブから手動でクリアした後にのみ表示されます。"
-
-#: includes/admin-page.php:717
-msgid "Multi-Domain Caching"
-msgstr "マルチドメインキャッシュ"
-
-#: includes/admin-page.php:723
-msgid "Enable separate cache per domain"
-msgstr "ドメインごとの個別キャッシュを有効にする"
-
-#: includes/admin-page.php:726
-msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
-msgstr "有効にすると、各ドメインにサイト名にちなんだ独自のキャッシュディレクトリが作成されます。これにより、複数のドメインが同じWordPressインストールを共有している場合のキャッシュの競合を防ぎます。"
-
-#: includes/admin-page.php:745
-msgid "Stop vertalingen"
-msgstr "翻訳を停止"
-
-#: includes/admin-page.php:756
-msgid "Stop translations (except cache invalidation)"
-msgstr "翻訳を停止（キャッシュの無効化を除く）"
-
-#: includes/admin-page.php:759
-msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
-msgstr "有効にすると、APIを介した新しい翻訳がブロックされます。翻訳は、キャッシュされたページが期限切れになり、更新が必要な場合にのみ行われます。"
-
-#: includes/admin-page.php:763
-msgid "Stop translation of archive pages"
-msgstr "アーカイブページの翻訳を停止"
-
-#: includes/admin-page.php:766
-msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
-msgstr "有効にすると、アーカイブページ（カテゴリ、タグ、日付アーカイブなど）は翻訳されません。単一ページ（投稿、ページ、カスタム投稿タイプ）は引き続き翻訳されます。"
-
-#: includes/admin-page.php:753
-msgid "Advanced Settings"
-msgstr "詳細設定"
-
-#: includes/admin-page.php:761
-msgid "Homepage Meta Description"
-msgstr "ホームページのメタ説明"
-
-#: includes/admin-page.php:809
-msgid "Website Context"
-msgstr "ウェブサイトのコンテキスト"
-
-#: includes/admin-page.php:28
+#: includes/admin-page.php:28 includes/admin-page.php:74
+#: includes/admin-page.php:419 includes/admin-page.php:581
+#: includes/admin-page.php:628
 msgid "Insufficient permissions to perform this action."
 msgstr "このアクションを実行する権限が不足しています。"
 
-#: includes/admin-page.php:35
+#: includes/admin-page.php:35 includes/admin-page.php:81
+#: includes/admin-page.php:426 includes/admin-page.php:588
+#: includes/admin-page.php:635
 msgid "Security check failed (nonce). Refresh the page and try again."
-msgstr "セキュリティチェックに失敗しました（nonce）。ページを更新してもう一度お試しください。"
+msgstr ""
+"セキュリティチェックに失敗しました（nonce）。ページを更新してもう一度お試しく"
+"ださい。"
 
 #: includes/admin-page.php:41
 msgid "No language selected."
@@ -236,269 +70,779 @@ msgstr "言語が選択されていません。"
 
 #: includes/admin-page.php:52
 msgid "Cache for language \"%s\" cleared. %d files removed."
-msgstr "言語 \"%s\" のキャッシュがクリアされました。%d 個のファイルが削除されました。"
+msgstr ""
+"言語 \"%s\" のキャッシュがクリアされました。%d 個のファイルが削除されました。"
 
 #: includes/admin-page.php:57
 msgid "Error clearing cache:"
 msgstr "キャッシュのクリア中にエラーが発生しました："
 
-#: includes/admin-page.php:107
+#: includes/admin-page.php:87 includes/admin-page.php:432
+msgid "No post ID provided."
+msgstr ""
+
+#: includes/admin-page.php:94 includes/admin-page.php:439
+#, fuzzy
+msgid "Invalid post ID."
+msgstr "APIからの応答が無効です"
+
+#: includes/admin-page.php:101 includes/admin-page.php:446
+msgid "Post not found."
+msgstr ""
+
+#: includes/admin-page.php:129
+msgid "Invalid file path: %s"
+msgstr ""
+
+#: includes/admin-page.php:140
+msgid "Invalid file type: %s"
+msgstr ""
+
+#: includes/admin-page.php:147
+msgid "Could not delete file: %s"
+msgstr ""
+
+#: includes/admin-page.php:158
+#, fuzzy
+msgid "Cache deleted for %d languages"
+msgstr "言語ごとのキャッシュ概要"
+
+#: includes/admin-page.php:160 includes/admin-page.php:555
+msgid "Warnings:"
+msgstr ""
+
+#: includes/admin-page.php:281
+msgid "Cache file not generated"
+msgstr ""
+
+#: includes/admin-page.php:295
+msgid "HTTP %d (redirect)"
+msgstr ""
+
+#: includes/admin-page.php:298 includes/admin-page.php:407
+msgid "HTTP %d"
+msgstr ""
+
+#: includes/admin-page.php:393
+msgid "Cache file not generated after successful request"
+msgstr ""
+
+#: includes/admin-page.php:452
+msgid "Only published posts can be cached."
+msgstr ""
+
+#: includes/admin-page.php:465
+#, fuzzy
+msgid "No languages configured."
+msgstr "言語が選択されていません。"
+
+#: includes/admin-page.php:472
+msgid "Could not generate post URL."
+msgstr ""
+
+#: includes/admin-page.php:480
+msgid "Invalid post URL."
+msgstr ""
+
+#: includes/admin-page.php:522
+msgid "Error for %s: %s"
+msgstr ""
+
+#: includes/admin-page.php:550
+#, fuzzy
+msgid "Cache warmed for %d languages"
+msgstr "言語ごとのキャッシュ概要"
+
+#: includes/admin-page.php:552
+msgid " (%d skipped)"
+msgstr ""
+
+#: includes/admin-page.php:557
+msgid " and %d more"
+msgstr ""
+
+#: includes/admin-page.php:613
 msgid "Error generating context:"
 msgstr "コンテキストの生成中にエラーが発生しました："
 
-#: includes/admin-page.php:154
+#: includes/admin-page.php:660
 msgid "Error generating meta description:"
 msgstr "メタ説明の生成中にエラーが発生しました："
 
-#: includes/admin-page.php:274
+#: includes/admin-page.php:794
 msgid "Invalid API provider selected."
 msgstr "選択されたAPIプロバイダーが無効です。"
 
-#: includes/admin-page.php:294
+#: includes/admin-page.php:814
 msgid "Custom API URL is required for the custom provider."
 msgstr "カスタムプロバイダーにはカスタムAPI URLが必要です。"
 
-#: includes/admin-page.php:307
-msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
-msgstr "キャッシュ保持期間を14日未満にすることはできません。自動的に14日に設定されました。"
+#: includes/admin-page.php:827
+msgid ""
+"Cache duration cannot be less than 14 days. It has been automatically set to "
+"14 days."
+msgstr ""
+"キャッシュ保持期間を14日未満にすることはできません。自動的に14日に設定されま"
+"した。"
 
-#: includes/admin-page.php:335
+#: includes/admin-page.php:855
 msgid "Custom model name is required when selecting a custom model."
 msgstr "カスタムモデルを選択する場合は、カスタムモデル名が必要です。"
 
-#: includes/admin-page.php:358
+#: includes/admin-page.php:878
 msgid "API key is required for the selected provider."
 msgstr "選択したプロバイダーにはAPIキーが必要です。"
 
-#: includes/admin-page.php:930
+#: includes/admin-page.php:992
+msgid "API Settings"
+msgstr "API設定"
+
+#: includes/admin-page.php:998
+msgid "API Provider"
+msgstr "APIプロバイダー"
+
+#: includes/admin-page.php:1005
+msgid "— Select provider —"
+msgstr "— プロバイダーを選択 —"
+
+#: includes/admin-page.php:1012 includes/admin-page.php:1222
+#: includes/admin-page.php:1432
+msgid "Note:"
+msgstr "注意："
+
+#: includes/admin-page.php:1012
+msgid ""
+"GPT-5 is blocked, since reasoning cannot be disabled and not required for "
+"translations and therefore too slow and expensive."
+msgstr ""
+"GPT-5はブロックされています。推論を無効にできず、翻訳には不要であり、非常に遅"
+"く高価であるためです。"
+
+#: includes/admin-page.php:1018
+msgid "Enter the endpoint URL for your custom API provider. Example: %s"
+msgstr "カスタムAPIプロバイダーのエンドポイントURLを入力してください。例：%s"
+
+#: includes/admin-page.php:1029
+msgid "API Key"
+msgstr "APIキー"
+
+#: includes/admin-page.php:1044
+msgid "Translation Model"
+msgstr "翻訳モデル"
+
+#: includes/admin-page.php:1052
+msgid "— Select model —"
+msgstr "— モデルを選択 —"
+
+#: includes/admin-page.php:1056
+msgid "Select..."
+msgstr "選択..."
+
+#: includes/admin-page.php:1059
+msgid "E.g.: deepseek-chat, gpt-4o, ..."
+msgstr "例：deepseek-chat, gpt-4o, ..."
+
+#: includes/admin-page.php:1061
+msgid "Validate API settings"
+msgstr "API設定を検証"
+
+#: includes/admin-page.php:1072
+msgid "Language Settings"
+msgstr "言語設定"
+
+#: includes/admin-page.php:1074
+msgid ""
+"Select the default language for your site and which languages should be "
+"available in the language switcher. Detectable languages will be used if a "
+"visitor's browser preference matches, but won't show in the switcher."
+msgstr ""
+"サイトのデフォルト言語と、言語スイッチャーで利用可能にする言語を選択します。"
+"訪問者のブラウザ設定が一致する場合、検出可能な言語が使用されますが、スイッ"
+"チャーには表示されません。"
+
+#: includes/admin-page.php:1080
+msgid "Default Language"
+msgstr "デフォルト言語"
+
+#: includes/admin-page.php:1087
+msgid "— Select default language —"
+msgstr "— デフォルト言語を選択 —"
+
+#: includes/admin-page.php:1090
+msgid "Current"
+msgstr "現在"
+
+#: includes/admin-page.php:1102
+msgid "Enabled Languages (in Switcher)"
+msgstr "有効な言語（スイッチャー内）"
+
+#: includes/admin-page.php:1122
+msgid "Languages selected here will appear in the language switcher."
+msgstr "ここで選択した言語が言語スイッチャーに表示されます。"
+
+#: includes/admin-page.php:1130
+msgid "Detectable Languages (Auto-Translate)"
+msgstr "検出可能な言語（自動翻訳）"
+
+#: includes/admin-page.php:1159
+msgid ""
+"If a visitor's browser language matches one of these, the site will be "
+"automatically translated (if enabled), but these languages won't show in the "
+"switcher."
+msgstr ""
+"訪問者のブラウザ言語がこれらのいずれかと一致する場合、サイトは自動的に翻訳さ"
+"れます（有効な場合）。ただし、これらの言語はスイッチャーには表示されません。"
+
+#: includes/admin-page.php:1168
+msgid "Language Switcher Position"
+msgstr "言語スイッチャーの位置"
+
+#: includes/admin-page.php:1173
+msgid "Bottom Left"
+msgstr "左下"
+
+#: includes/admin-page.php:1174
+msgid "Bottom Right"
+msgstr "右下"
+
+#: includes/admin-page.php:1175
+msgid "Top Left"
+msgstr "左上"
+
+#: includes/admin-page.php:1176
+msgid "Top Right"
+msgstr "右上"
+
+#: includes/admin-page.php:1186
+#, fuzzy
+msgid ""
+"Choose where the language switcher appears on your website. The menu will "
+"open upward for bottom positions and downward for top positions."
+msgstr ""
+"言語スイッチャーの表示位置を選択してください。ナビゲーションメニューの位置"
+"は、メインナビゲーションメニューにスイッチャーを追加します。フローティング位"
+"置は、コーナーに固定スイッチャーを表示します。下の位置の場合はメニューが上"
+"に、上の位置の場合はメニューが下に開きます。"
+
+#: includes/admin-page.php:1195
+msgid "Cache Settings"
+msgstr "キャッシュ設定"
+
+#: includes/admin-page.php:1201
+msgid "Cache Duration (days)"
+msgstr "キャッシュ保持期間（日）"
+
+#: includes/admin-page.php:1205
+msgid "days"
+msgstr "日"
+
+#: includes/admin-page.php:1206
+msgid "minimum 14 days"
+msgstr "最小14日間"
+
+#: includes/admin-page.php:1213
+msgid "Auto-Clear Pages on Menu Update"
+msgstr "メニュー更新時にページを自動クリア"
+
+#: includes/admin-page.php:1219
+msgid "Automatically clear all page caches when menu items are updated"
+msgstr ""
+"メニュー項目が更新されたときに、すべてのページキャッシュを自動的にクリアしま"
+"す"
+
+#: includes/admin-page.php:1223
+msgid ""
+"Menu translation caches (transients) are ALWAYS cleared when you update "
+"menus, regardless of this setting."
+msgstr ""
+"この設定に関係なく、メニューを更新するとメニュー翻訳キャッシュ（transients）"
+"は常にクリアされます。"
+
+#: includes/admin-page.php:1225
+msgid "When enabled:"
+msgstr "有効な場合："
+
+#: includes/admin-page.php:1226
+msgid ""
+"All translated page HTML caches will also be cleared. Menu changes are "
+"visible immediately, but requires re-translating pages on next visit "
+"(expensive for large sites with many languages)."
+msgstr ""
+"翻訳されたすべてのページHTMLキャッシュもクリアされます。メニューの変更はすぐ"
+"に反映されますが、次回の訪問時にページの再翻訳が必要になります（多くの言語を"
+"持つ大規模サイトでは高コストになります）。"
+
+#: includes/admin-page.php:1228
+msgid "When disabled:"
+msgstr "無効な場合："
+
+#: includes/admin-page.php:1229
+msgid ""
+"Only menu caches are cleared. Page HTML caches remain. Menu changes in "
+"already-cached pages will only be visible after cache expires or manual "
+"clearing via Cache tab."
+msgstr ""
+"メニューキャッシュのみがクリアされます。ページHTMLキャッシュは残ります。すで"
+"にキャッシュされているページのメニュー変更は、キャッシュが期限切れになるか、"
+"「キャッシュ」タブから手動でクリアした後にのみ表示されます。"
+
+#: includes/admin-page.php:1237
+msgid "Multi-Domain Caching"
+msgstr "マルチドメインキャッシュ"
+
+#: includes/admin-page.php:1243
+msgid "Enable separate cache per domain"
+msgstr "ドメインごとの個別キャッシュを有効にする"
+
+#: includes/admin-page.php:1246
+msgid ""
+"When enabled, each domain will have its own cache directory named after the "
+"site name. This prevents cache conflicts when multiple domains share the "
+"same WordPress installation."
+msgstr ""
+"有効にすると、各ドメインにサイト名にちなんだ独自のキャッシュディレクトリが作"
+"成されます。これにより、複数のドメインが同じWordPressインストールを共有してい"
+"る場合のキャッシュの競合を防ぎます。"
+
+#: includes/admin-page.php:1254 includes/admin-page.php:1260
+msgid "Stop translations (except cache invalidation)"
+msgstr "翻訳を停止（キャッシュの無効化を除く）"
+
+#: includes/admin-page.php:1263
+msgid ""
+"When enabled, new translations via API will be blocked. Translations will "
+"only occur when cached pages expire and need to be refreshed."
+msgstr ""
+"有効にすると、APIを介した新しい翻訳がブロックされます。翻訳は、キャッシュされ"
+"たページが期限切れになり、更新が必要な場合にのみ行われます。"
+
+#: includes/admin-page.php:1273
+msgid "Advanced Settings"
+msgstr "詳細設定"
+
+#: includes/admin-page.php:1281
+msgid "Homepage Meta Description"
+msgstr "ホームページのメタ説明"
+
+#: includes/admin-page.php:1310 includes/admin-page.php:1361
+#, fuzzy
+msgid "Active domain:"
+msgstr "操作"
+
+#: includes/admin-page.php:1317
+msgid ""
+"Enter the specific meta description for the homepage for the current domain "
+"(in the default language). This will override the site tagline or generated "
+"excerpt on the homepage."
+msgstr ""
+"現在のドメインのホームページに特定のメタ説明を入力してください（デフォルト言"
+"語）。これは、ホームページ上のサイトのキャッチフレーズまたは生成された抜粋を"
+"上書きします。"
+
+#: includes/admin-page.php:1319
+msgid ""
+"Enter the specific meta description for the homepage (in the default "
+"language). This will override the site tagline or generated excerpt on the "
+"homepage."
+msgstr ""
+"ホームページの特定のメタ説明を入力してください（デフォルト言語）。これは、"
+"ホームページ上のサイトのキャッチフレーズまたは生成された抜粋を上書きします。"
+
+#: includes/admin-page.php:1321
+msgid "Generate Meta Description"
+msgstr "メタ説明を生成"
+
+#: includes/admin-page.php:1332
+msgid "Website Context"
+msgstr "ウェブサイトのコンテキスト"
+
+#: includes/admin-page.php:1366
+msgid "Describe your website, business, or organization. For example:"
+msgstr "ウェブサイト、ビジネス、または組織について説明してください。例："
+
+#: includes/admin-page.php:1367
+msgid ""
+"We are a healthcare technology company specializing in patient management "
+"systems. Our services include electronic health records, appointment "
+"scheduling, and telemedicine solutions. We serve hospitals, clinics, and "
+"healthcare providers across Europe."
+msgstr ""
+"当社は患者管理システムを専門とするヘルスケアテクノロジー企業です。当社のサー"
+"ビスには、電子健康記録、予約スケジュール、テレメディシンソリューションが含ま"
+"れます。ヨーロッパ全土の病院、クリニック、ヘルスケアプロバイダーにサービスを"
+"提供しています。"
+
+#: includes/admin-page.php:1368
+msgid "Or:"
+msgstr "または："
+
+#: includes/admin-page.php:1369
+msgid ""
+"This is a personal blog about sustainable gardening and organic farming "
+"techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr ""
+"これは持続可能なガーデニングと有機農業技術に関する個人のブログです。自分の庭"
+"でのヒント、チュートリアル、経験を共有しています。"
+
+#: includes/admin-page.php:1372
+msgid ""
+"Provide context about your website or business for the current domain to "
+"help the AI generate more accurate and contextually appropriate translations."
+msgstr ""
+"AIがより正確で文脈に即した翻訳を生成できるように、現在のドメインのウェブサイ"
+"トまたはビジネスに関するコンテキストを提供してください。"
+
+#: includes/admin-page.php:1374
+msgid ""
+"Provide context about your website or business to help the AI generate more "
+"accurate and contextually appropriate translations. "
+msgstr ""
+"AIがより正確で文脈に即した翻訳を生成できるように、ウェブサイトまたはビジネス"
+"に関するコンテキストを提供してください。"
+
+#: includes/admin-page.php:1376
+msgid "Generate Context from Homepage"
+msgstr "ホームページからコンテキストを生成"
+
+#: includes/admin-page.php:1425
+#, fuzzy
+msgid "Cache for language %s cleared."
+msgstr ""
+"言語 \"%s\" のキャッシュがクリアされました。%d 個のファイルが削除されました。"
+
+#: includes/admin-page.php:1428
+msgid "Files removed: %d"
+msgstr ""
+
+#: includes/admin-page.php:1429
+msgid "Remaining files: %d"
+msgstr ""
+
+#: includes/admin-page.php:1439
+msgid "No cache files found for language %s."
+msgstr ""
+
+#: includes/admin-page.php:1445 includes/admin-page.php:1560
+msgid "Unknown error"
+msgstr "不明なエラー"
+
+#: includes/admin-page.php:1448
+#, fuzzy
+msgid "Error clearing cache for language %s: %s"
+msgstr "キャッシュのクリア中にエラーが発生しました："
+
+#: includes/admin-page.php:1464
 msgid "General"
 msgstr "一般"
 
-#: includes/admin-page.php:931
+#: includes/admin-page.php:1465
 msgid "Cache"
 msgstr "キャッシュ"
 
-#: includes/admin-page.php:945
+#: includes/admin-page.php:1479
 msgid "Cache Management"
 msgstr "キャッシュ管理"
 
-#: includes/admin-page.php:949
+#: includes/admin-page.php:1483 includes/admin-page.php:1506
 msgid "Clear all language caches"
 msgstr "すべての言語キャッシュをクリア"
 
-#: includes/admin-page.php:950
+#: includes/admin-page.php:1484
 msgid "Clear all language caches."
 msgstr "すべての言語キャッシュをクリア。"
 
-#: includes/admin-page.php:950
+#: includes/admin-page.php:1484
 msgid "Menu and slug cache are preserved to maintain URL stability."
-msgstr "URLの安定性を維持するため、メニューとスラッグのキャッシュは保持されます。"
+msgstr ""
+"URLの安定性を維持するため、メニューとスラッグのキャッシュは保持されます。"
 
-#: includes/admin-page.php:967
-msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
-msgstr "すべての言語キャッシュと翻訳transientsがクリアされました。メニューとスラッグのキャッシュは保持されます。"
+#: includes/admin-page.php:1501
+msgid ""
+"All language caches and translation transients cleared. Menu and slug cache "
+"preserved."
+msgstr ""
+"すべての言語キャッシュと翻訳transientsがクリアされました。メニューとスラッグ"
+"のキャッシュは保持されます。"
 
-#: includes/admin-page.php:978
+#: includes/admin-page.php:1512 includes/admin-page.php:1540
 msgid "Clear menu cache"
 msgstr "メニューキャッシュをクリア"
 
-#: includes/admin-page.php:979
-msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
-msgstr "すべてのメニュー項目翻訳を含むメニューキャッシュをクリアします。これにより、すべてのメニュー項目の新しい翻訳が強制されます。言語とスラッグマップは影響を受けません。"
+#: includes/admin-page.php:1513
+msgid ""
+"Clear menu caches including all menu-item translations. This will force "
+"fresh translations for all menu items. Languages and Slug map are not "
+"affected."
+msgstr ""
+"すべてのメニュー項目翻訳を含むメニューキャッシュをクリアします。これにより、"
+"すべてのメニュー項目の新しい翻訳が強制されます。言語とスラッグマップは影響を"
+"受けません。"
 
-#: includes/admin-page.php:992
+#: includes/admin-page.php:1517 includes/admin-page.php:1551
+#: includes/admin-page.php:1899 includes/admin-page.php:1973
+#: includes/admin-page.php:1985
+#, fuzzy
+msgid "Insufficient permissions."
+msgstr "このアクションを実行する権限が不足しています。"
+
+#: includes/admin-page.php:1526
 msgid "Menu cache cleared"
 msgstr "メニューキャッシュがクリアされました"
 
-#: includes/admin-page.php:994
+#: includes/admin-page.php:1528
 msgid "%d menu-item translation removed"
 msgid_plural "%d menu-item translations removed"
 msgstr[0] "%d 個のメニュー項目翻訳が削除されました"
 
-#: includes/admin-page.php:998
+#: includes/admin-page.php:1532
 msgid "and tables truncated: %s"
 msgstr "およびテーブルが切り捨てられました：%s"
 
-#: includes/admin-page.php:1022
+#: includes/admin-page.php:1546 includes/admin-page.php:1568
 msgid "Clear slug cache"
 msgstr "スラッグキャッシュをクリア"
 
-#: includes/admin-page.php:1023
-msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
-msgstr "翻訳されたURLに使用されるスラッグテーブルをクリアします。言語およびメニューのキャッシュは影響を受けません。"
+#: includes/admin-page.php:1547
+msgid ""
+"Clear the slug table used for translated URLs. Language and menu caches are "
+"not affected."
+msgstr ""
+"翻訳されたURLに使用されるスラッグテーブルをクリアします。言語およびメニューの"
+"キャッシュは影響を受けません。"
 
-#: includes/admin-page.php:1034
+#: includes/admin-page.php:1558
 msgid "Slug cache cleared. Rows removed: %d."
 msgstr "スラッグキャッシュがクリアされました。削除された行数：%d。"
 
-#: includes/admin-page.php:1037
-msgid "Unknown error"
-msgstr "不明なエラー"
-
-#: includes/admin-page.php:1037
+#: includes/admin-page.php:1561
 msgid "Failed to clear slug cache: %s."
 msgstr "スラッグキャッシュのクリアに失敗しました：%s。"
 
-#: includes/admin-page.php:1050
+#: includes/admin-page.php:1574
 msgid "Clear cache per language"
 msgstr "言語ごとのキャッシュをクリア"
 
-#: includes/admin-page.php:1063
+#: includes/admin-page.php:1587
 msgid "Cache overview per language"
 msgstr "言語ごとのキャッシュ概要"
 
-#: includes/admin-page.php:1100
+#: includes/admin-page.php:1624
 msgid "Cache directory:"
 msgstr "キャッシュディレクトリ："
 
-#: includes/admin-page.php:1114
+#: includes/admin-page.php:1638
 msgid "Unknown"
 msgstr "不明"
 
-#: includes/admin-page.php:1119
+#: includes/admin-page.php:1643
 msgid "Total number of files:"
 msgstr "ファイル総数："
 
-#: includes/admin-page.php:1122
+#: includes/admin-page.php:1646
 msgid "Total size:"
 msgstr "合計サイズ："
 
-#: includes/admin-page.php:1125
+#: includes/admin-page.php:1649
 msgid "Expired files:"
 msgstr "期限切れファイル："
 
-#: includes/admin-page.php:1128
+#: includes/admin-page.php:1652
 msgid "Last update:"
 msgstr "最終更新："
 
-#: includes/admin-page.php:1135
+#: includes/admin-page.php:1659
 msgid "Language"
 msgstr "言語"
 
-#: includes/admin-page.php:1136
+#: includes/admin-page.php:1660
 msgid "Cache files"
 msgstr "キャッシュファイル"
 
-#: includes/admin-page.php:1137
+#: includes/admin-page.php:1661
 msgid "Size"
 msgstr "サイズ"
 
-#: includes/admin-page.php:1138
+#: includes/admin-page.php:1662
 msgid "Expired"
 msgstr "期限切れ"
 
-#: includes/admin-page.php:1139
+#: includes/admin-page.php:1663
 msgid "Last update"
 msgstr "最終更新"
 
-#: includes/admin-page.php:1140
+#: includes/admin-page.php:1664
 msgid "Action"
 msgstr "操作"
 
-#: includes/admin-page.php:1158
+#: includes/admin-page.php:1682 includes/admin-page.php:1701
 msgid "files"
 msgstr "ファイル"
 
-#: includes/admin-page.php:1165
+#: includes/admin-page.php:1689
 msgid "Cache clear"
 msgstr "キャッシュクリア"
 
-#: includes/admin-page.php:1168
+#: includes/admin-page.php:1692
 msgid "No cache files"
 msgstr "キャッシュファイルなし"
 
-#: includes/admin-page.php:1176
+#: includes/admin-page.php:1700
 msgid "Total"
 msgstr "合計"
 
-#: includes/admin-page.php:1212
-msgid "API Provider is missing."
-msgstr "APIプロバイダーがありません。"
+#: includes/admin-page.php:1715
+msgid "Translated Pages Overview"
+msgstr ""
 
-#: includes/admin-page.php:1229
+#: includes/admin-page.php:1716
+msgid ""
+"Manage cache per page or blog. Delete cache to retranslate, or warm cache to "
+"proactively generate translations."
+msgstr ""
+
+#: includes/admin-page.php:1724
+msgid "Cache metadata rescanned: %d cache records added or updated."
+msgstr ""
+
+#: includes/admin-page.php:1728
+msgid "No cache records added. Possible causes:"
+msgstr ""
+
+#: includes/admin-page.php:1730
+msgid "Cache files do not exist at the expected location"
+msgstr ""
+
+#: includes/admin-page.php:1731
+msgid "Cache files have a different format than expected"
+msgstr ""
+
+#: includes/admin-page.php:1732
+msgid "Multi-domain caching configuration does not match"
+msgstr ""
+
+#: includes/admin-page.php:1745
+msgid "Cache metadata initialized: %d existing cache records added."
+msgstr ""
+
+#: includes/admin-page.php:1776
+msgid ""
+"Cache directory found but no metadata. Click \"Scan Cache Files\" to "
+"generate metadata."
+msgstr ""
+
+#: includes/admin-page.php:1787
+#, fuzzy
+msgid "Scan Cache Files"
+msgstr "キャッシュファイル"
+
+#: includes/admin-page.php:1790
+msgid "Scan the filesystem for cache files and add metadata to the database."
+msgstr ""
+
+#: includes/admin-page.php:1798
+msgid "Type"
+msgstr ""
+
+#: includes/admin-page.php:1799
+msgid "Title"
+msgstr ""
+
+#: includes/admin-page.php:1800
+msgid "URL"
+msgstr ""
+
+#: includes/admin-page.php:1801
+msgid "Status"
+msgstr ""
+
+#: includes/admin-page.php:1802
+#, fuzzy
+msgid "Actions"
+msgstr "操作"
+
+#: includes/admin-page.php:1809
+msgid "No published pages or posts found."
+msgstr ""
+
+#: includes/admin-page.php:1852
+msgid "Delete cache for this page in all languages"
+msgstr ""
+
+#: includes/admin-page.php:1854
+msgid "Delete Cache"
+msgstr ""
+
+#: includes/admin-page.php:1862
+msgid "Generate translations for all enabled languages"
+msgstr ""
+
+#: includes/admin-page.php:1864
+#, fuzzy
+msgid "Warm Cache"
+msgstr "キャッシュ"
+
+#: includes/admin-page.php:1880
+msgid "&laquo; Previous"
+msgstr ""
+
+#: includes/admin-page.php:1881
+msgid "Next &raquo;"
+msgstr ""
+
+#: includes/admin-page.php:1931
 msgid "API Provider, API Key or Custom API URL is missing or invalid."
-msgstr "APIプロバイダー、APIキー、またはカスタムAPI URLが不足しているか無効です。"
+msgstr ""
+"APIプロバイダー、APIキー、またはカスタムAPI URLが不足しているか無効です。"
 
-#: includes/admin-page.php:1248
+#: includes/admin-page.php:1950
 msgid "API error:"
 msgstr "APIエラー："
 
-#: includes/admin-page.php:1252
+#: includes/admin-page.php:1954
 msgid "Invalid response from API"
 msgstr "APIからの応答が無効です"
 
-#: includes/admin-page.php:1344
+#: includes/admin-page.php:2059
 msgid "API and model are working. API settings have been saved."
 msgstr "APIとモデルは動作しています。API設定が保存されました。"
 
-#: includes/admin-page.php:1347
+#: includes/admin-page.php:2062
 msgid "API validation failed:"
 msgstr "API検証に失敗しました："
 
-#: ai-translate.php:1543
-msgid "Settings"
-msgstr "設定"
+#, fuzzy
+#~ msgid "Acties"
+#~ msgstr "操作"
 
-#: ai-translate.php:1630
-msgid "AI Translate Warning:"
-msgstr "AI Translate 警告："
+#~ msgid "API Provider is missing."
+#~ msgstr "APIプロバイダーがありません。"
 
-#: ai-translate.php:1631
-msgid "This plugin requires a permalink structure other than \"Plain\". "
-msgstr "このプラグインには「基本」以外のパーマリンク設定が必要です。"
+#~ msgid "Settings"
+#~ msgstr "設定"
 
-#: ai-translate.php:1632
-msgid "Please set your permalinks to \"Post name\" or another structure."
-msgstr "パーマリンクを「投稿名」または別の構造に設定してください。"
+#~ msgid "AI Translate Warning:"
+#~ msgstr "AI Translate 警告："
 
-#: ai-translate.php:1634
-msgid "Configure Permalinks"
-msgstr "パーマリンクを設定"
+#~ msgid "Please set your permalinks to \"Post name\" or another structure."
+#~ msgstr "パーマリンクを「投稿名」または別の構造に設定してください。"
 
-#: ai-translate.php:272
-msgid "Rate on WordPress.org"
-msgstr "WordPress.org で評価"
+#~ msgid "Start of Navigation Menu"
+#~ msgstr "ナビゲーションメニューの開始"
 
-#: includes/admin-page.php:801
-msgid "Generate Meta Description"
-msgstr "メタ説明を生成"
+#~ msgid "End of Navigation Menu"
+#~ msgstr "ナビゲーションメニューの終了"
 
-#: includes/admin-page.php:852
-msgid "Generate Context from Homepage"
-msgstr "ホームページからコンテキストを生成"
+#~ msgid "Stop vertalingen"
+#~ msgstr "翻訳を停止"
 
-#: includes/admin-page.php:846
-msgid "Describe your website, business, or organization. For example:"
-msgstr "ウェブサイト、ビジネス、または組織について説明してください。例："
+#~ msgid "Stop translation of archive pages"
+#~ msgstr "アーカイブページの翻訳を停止"
 
-#: includes/admin-page.php:847
-msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
-msgstr "当社は患者管理システムを専門とするヘルスケアテクノロジー企業です。当社のサービスには、電子健康記録、予約スケジュール、テレメディシンソリューションが含まれます。ヨーロッパ全土の病院、クリニック、ヘルスケアプロバイダーにサービスを提供しています。"
-
-#: includes/admin-page.php:848
-msgid "Or:"
-msgstr "または："
-
-#: includes/admin-page.php:849
-msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
-msgstr "これは持続可能なガーデニングと有機農業技術に関する個人のブログです。自分の庭でのヒント、チュートリアル、経験を共有しています。"
-
-#: ai-translate.php:299
-msgid "AI based translation plugin. Adding 35 languages in a few clicks."
-msgstr "AIベースの翻訳プラグイン。数クリックで35言語を追加できます。"
-
-#: includes/admin-page.php:797
-msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
-msgstr "現在のドメインのホームページに特定のメタ説明を入力してください（デフォルト言語）。これは、ホームページ上のサイトのキャッチフレーズまたは生成された抜粋を上書きします。"
-
-#: includes/admin-page.php:799
-msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
-msgstr "ホームページの特定のメタ説明を入力してください（デフォルト言語）。これは、ホームページ上のサイトのキャッチフレーズまたは生成された抜粋を上書きします。"
-
-#: includes/admin-page.php:852
-msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
-msgstr "AIがより正確で文脈に即した翻訳を生成できるように、現在のドメインのウェブサイトまたはビジネスに関するコンテキストを提供してください。"
-
-#: includes/admin-page.php:854
-msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
-msgstr "AIがより正確で文脈に即した翻訳を生成できるように、ウェブサイトまたはビジネスに関するコンテキストを提供してください。"
+#~ msgid ""
+#~ "When enabled, archive pages (categories, tags, date archives, etc.) will "
+#~ "not be translated. Singular pages (posts, pages, custom post types) will "
+#~ "still be translated."
+#~ msgstr ""
+#~ "有効にすると、アーカイブページ（カテゴリ、タグ、日付アーカイブなど）は翻訳"
+#~ "されません。単一ページ（投稿、ページ、カスタム投稿タイプ）は引き続き翻訳さ"
+#~ "れます。"

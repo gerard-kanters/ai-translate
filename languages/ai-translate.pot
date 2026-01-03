@@ -1,212 +1,70 @@
-# Copyright (C) 2025 Netcare
+# Copyright (C) 2026 Netcare
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
 "Project-Id-Version: AI Translate 2.1.7\n"
-"Report-Msgid-Bugs-To: https://netcare.nl/\n"
-"POT-Creation-Date: 2025-12-29 22:00+0000\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"POT-Creation-Date: 2026-01-03T13:02:08+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.11.0\n"
+"X-Domain: ai-translate\n"
 
-#: includes/admin-page.php:184
+#. Plugin Name of the plugin
+#: ai-translate.php
+#: includes/admin-page.php:690
+#: includes/admin-page.php:691
 msgid "AI Translate"
 msgstr ""
 
-#: includes/admin-page.php:472
-msgid "API Settings"
+#. Description of the plugin
+#: ai-translate.php
+msgid "AI based translation plugin. Adding 35 languages in a few clicks."
 msgstr ""
 
-#: includes/admin-page.php:478
-msgid "API Provider"
+#. Author of the plugin
+#: ai-translate.php
+msgid "Netcare"
 msgstr ""
 
-#: includes/admin-page.php:485
-msgid "— Select provider —"
+#. Author URI of the plugin
+#: ai-translate.php
+msgid "https://netcare.nl/"
 msgstr ""
 
-#: includes/admin-page.php:492
-msgid "Note:"
+#: ai-translate.php:342
+msgid "Rate on WordPress.org"
 msgstr ""
 
-#: includes/admin-page.php:492
-msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
+#: ai-translate.php:1634
+msgid "Instellingen"
 msgstr ""
 
-#: includes/admin-page.php:497
-msgid "Enter the endpoint URL for your custom API provider. Example: %s"
+#: ai-translate.php:1722
+msgid "This plugin requires a permalink structure other than \"Plain\". "
 msgstr ""
 
-#: includes/admin-page.php:506
-msgid "API Key"
-msgstr ""
-
-#: includes/admin-page.php:521
-msgid "Translation Model"
-msgstr ""
-
-#: includes/admin-page.php:529
-msgid "— Select model —"
-msgstr ""
-
-#: includes/admin-page.php:533
-msgid "Select..."
-msgstr ""
-
-#: includes/admin-page.php:536
-msgid "E.g.: deepseek-chat, gpt-4o, ..."
-msgstr ""
-
-#: includes/admin-page.php:538
-msgid "Validate API settings"
-msgstr ""
-
-#: includes/admin-page.php:549
-msgid "Language Settings"
-msgstr ""
-
-#: includes/admin-page.php:551
-msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
-msgstr ""
-
-#: includes/admin-page.php:557
-msgid "Default Language"
-msgstr ""
-
-#: includes/admin-page.php:564
-msgid "— Select default language —"
-msgstr ""
-
-#: includes/admin-page.php:567
-msgid "Current"
-msgstr ""
-
-#: includes/admin-page.php:579
-msgid "Enabled Languages (in Switcher)"
-msgstr ""
-
-#: includes/admin-page.php:599
-msgid "Languages selected here will appear in the language switcher."
-msgstr ""
-
-#: includes/admin-page.php:607
-msgid "Detectable Languages (Auto-Translate)"
-msgstr ""
-
-#: includes/admin-page.php:636
-msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
-msgstr ""
-
-#: includes/admin-page.php:644
-msgid "Language Switcher Position"
-msgstr ""
-
-#: includes/admin-page.php:650
-msgid "Bottom Left"
-msgstr ""
-
-#: includes/admin-page.php:651
-msgid "Bottom Right"
-msgstr ""
-
-#: includes/admin-page.php:652
-msgid "Top Left"
-msgstr ""
-
-#: includes/admin-page.php:653
-msgid "Top Right"
-msgstr ""
-
-#: includes/admin-page.php:663
-msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-msgstr ""
-
-#: includes/admin-page.php:672
-msgid "Cache Settings"
-msgstr ""
-
-#: includes/admin-page.php:681
-msgid "Cache Duration (days)"
-msgstr ""
-
-#: includes/admin-page.php:685
-msgid "days"
-msgstr ""
-
-#: includes/admin-page.php:686
-msgid "minimum 14 days"
-msgstr ""
-
-#: includes/admin-page.php:693
-msgid "Auto-Clear Pages on Menu Update"
-msgstr ""
-
-#: includes/admin-page.php:699
-msgid "Automatically clear all page caches when menu items are updated"
-msgstr ""
-
-#: includes/admin-page.php:702
-msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
-msgstr ""
-
-#: includes/admin-page.php:705
-msgid "When enabled:"
-msgstr ""
-
-#: includes/admin-page.php:706
-msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
-msgstr ""
-
-#: includes/admin-page.php:708
-msgid "When disabled:"
-msgstr ""
-
-#: includes/admin-page.php:709
-msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
-msgstr ""
-
-#: includes/admin-page.php:717
-msgid "Multi-Domain Caching"
-msgstr ""
-
-#: includes/admin-page.php:723
-msgid "Enable separate cache per domain"
-msgstr ""
-
-#: includes/admin-page.php:726
-msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
-msgstr ""
-
-#: includes/admin-page.php:734
-msgid "Stop translations (except cache invalidation)"
-msgstr ""
-
-#: includes/admin-page.php:743
-msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
-msgstr ""
-
-#: includes/admin-page.php:753
-msgid "Advanced Settings"
-msgstr ""
-
-#: includes/admin-page.php:761
-msgid "Homepage Meta Description"
-msgstr ""
-
-#: includes/admin-page.php:809
-msgid "Website Context"
+#: ai-translate.php:1725
+msgid "Configure Permalinks"
 msgstr ""
 
 #: includes/admin-page.php:28
+#: includes/admin-page.php:74
+#: includes/admin-page.php:419
+#: includes/admin-page.php:581
+#: includes/admin-page.php:628
 msgid "Insufficient permissions to perform this action."
 msgstr ""
 
 #: includes/admin-page.php:35
+#: includes/admin-page.php:81
+#: includes/admin-page.php:426
+#: includes/admin-page.php:588
+#: includes/admin-page.php:635
 msgid "Security check failed (nonce). Refresh the page and try again."
 msgstr ""
 
@@ -222,265 +80,634 @@ msgstr ""
 msgid "Error clearing cache:"
 msgstr ""
 
-#: includes/admin-page.php:107
+#: includes/admin-page.php:87
+#: includes/admin-page.php:432
+msgid "No post ID provided."
+msgstr ""
+
+#: includes/admin-page.php:94
+#: includes/admin-page.php:439
+msgid "Invalid post ID."
+msgstr ""
+
+#: includes/admin-page.php:101
+#: includes/admin-page.php:446
+msgid "Post not found."
+msgstr ""
+
+#: includes/admin-page.php:129
+msgid "Invalid file path: %s"
+msgstr ""
+
+#: includes/admin-page.php:140
+msgid "Invalid file type: %s"
+msgstr ""
+
+#: includes/admin-page.php:147
+msgid "Could not delete file: %s"
+msgstr ""
+
+#: includes/admin-page.php:158
+msgid "Cache deleted for %d languages"
+msgstr ""
+
+#: includes/admin-page.php:160
+#: includes/admin-page.php:555
+msgid "Warnings:"
+msgstr ""
+
+#: includes/admin-page.php:281
+msgid "Cache file not generated"
+msgstr ""
+
+#: includes/admin-page.php:295
+msgid "HTTP %d (redirect)"
+msgstr ""
+
+#: includes/admin-page.php:298
+#: includes/admin-page.php:407
+msgid "HTTP %d"
+msgstr ""
+
+#: includes/admin-page.php:393
+msgid "Cache file not generated after successful request"
+msgstr ""
+
+#: includes/admin-page.php:452
+msgid "Only published posts can be cached."
+msgstr ""
+
+#: includes/admin-page.php:465
+msgid "No languages configured."
+msgstr ""
+
+#: includes/admin-page.php:472
+msgid "Could not generate post URL."
+msgstr ""
+
+#: includes/admin-page.php:480
+msgid "Invalid post URL."
+msgstr ""
+
+#: includes/admin-page.php:522
+msgid "Error for %s: %s"
+msgstr ""
+
+#: includes/admin-page.php:550
+msgid "Cache warmed for %d languages"
+msgstr ""
+
+#: includes/admin-page.php:552
+msgid " (%d skipped)"
+msgstr ""
+
+#: includes/admin-page.php:557
+msgid " and %d more"
+msgstr ""
+
+#: includes/admin-page.php:613
 msgid "Error generating context:"
 msgstr ""
 
-#: includes/admin-page.php:154
+#: includes/admin-page.php:660
 msgid "Error generating meta description:"
 msgstr ""
 
-#: includes/admin-page.php:274
+#: includes/admin-page.php:794
 msgid "Invalid API provider selected."
 msgstr ""
 
-#: includes/admin-page.php:294
+#: includes/admin-page.php:814
 msgid "Custom API URL is required for the custom provider."
 msgstr ""
 
-#: includes/admin-page.php:307
+#: includes/admin-page.php:827
 msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
 msgstr ""
 
-#: includes/admin-page.php:335
+#: includes/admin-page.php:855
 msgid "Custom model name is required when selecting a custom model."
 msgstr ""
 
-#: includes/admin-page.php:358
+#: includes/admin-page.php:878
 msgid "API key is required for the selected provider."
 msgstr ""
 
-#: includes/admin-page.php:930
+#: includes/admin-page.php:992
+msgid "API Settings"
+msgstr ""
+
+#: includes/admin-page.php:998
+msgid "API Provider"
+msgstr ""
+
+#: includes/admin-page.php:1005
+msgid "— Select provider —"
+msgstr ""
+
+#: includes/admin-page.php:1012
+#: includes/admin-page.php:1222
+#: includes/admin-page.php:1432
+msgid "Note:"
+msgstr ""
+
+#: includes/admin-page.php:1012
+msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
+msgstr ""
+
+#: includes/admin-page.php:1018
+msgid "Enter the endpoint URL for your custom API provider. Example: %s"
+msgstr ""
+
+#: includes/admin-page.php:1029
+msgid "API Key"
+msgstr ""
+
+#: includes/admin-page.php:1044
+msgid "Translation Model"
+msgstr ""
+
+#: includes/admin-page.php:1052
+msgid "— Select model —"
+msgstr ""
+
+#: includes/admin-page.php:1056
+msgid "Select..."
+msgstr ""
+
+#: includes/admin-page.php:1059
+msgid "E.g.: deepseek-chat, gpt-4o, ..."
+msgstr ""
+
+#: includes/admin-page.php:1061
+msgid "Validate API settings"
+msgstr ""
+
+#: includes/admin-page.php:1072
+msgid "Language Settings"
+msgstr ""
+
+#: includes/admin-page.php:1074
+msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
+msgstr ""
+
+#: includes/admin-page.php:1080
+msgid "Default Language"
+msgstr ""
+
+#: includes/admin-page.php:1087
+msgid "— Select default language —"
+msgstr ""
+
+#: includes/admin-page.php:1090
+msgid "Current"
+msgstr ""
+
+#: includes/admin-page.php:1102
+msgid "Enabled Languages (in Switcher)"
+msgstr ""
+
+#: includes/admin-page.php:1122
+msgid "Languages selected here will appear in the language switcher."
+msgstr ""
+
+#: includes/admin-page.php:1130
+msgid "Detectable Languages (Auto-Translate)"
+msgstr ""
+
+#: includes/admin-page.php:1159
+msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
+msgstr ""
+
+#: includes/admin-page.php:1168
+msgid "Language Switcher Position"
+msgstr ""
+
+#: includes/admin-page.php:1173
+msgid "Bottom Left"
+msgstr ""
+
+#: includes/admin-page.php:1174
+msgid "Bottom Right"
+msgstr ""
+
+#: includes/admin-page.php:1175
+msgid "Top Left"
+msgstr ""
+
+#: includes/admin-page.php:1176
+msgid "Top Right"
+msgstr ""
+
+#: includes/admin-page.php:1186
+msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
+msgstr ""
+
+#: includes/admin-page.php:1195
+msgid "Cache Settings"
+msgstr ""
+
+#: includes/admin-page.php:1201
+msgid "Cache Duration (days)"
+msgstr ""
+
+#: includes/admin-page.php:1205
+msgid "days"
+msgstr ""
+
+#: includes/admin-page.php:1206
+msgid "minimum 14 days"
+msgstr ""
+
+#: includes/admin-page.php:1213
+msgid "Auto-Clear Pages on Menu Update"
+msgstr ""
+
+#: includes/admin-page.php:1219
+msgid "Automatically clear all page caches when menu items are updated"
+msgstr ""
+
+#: includes/admin-page.php:1223
+msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
+msgstr ""
+
+#: includes/admin-page.php:1225
+msgid "When enabled:"
+msgstr ""
+
+#: includes/admin-page.php:1226
+msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
+msgstr ""
+
+#: includes/admin-page.php:1228
+msgid "When disabled:"
+msgstr ""
+
+#: includes/admin-page.php:1229
+msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
+msgstr ""
+
+#: includes/admin-page.php:1237
+msgid "Multi-Domain Caching"
+msgstr ""
+
+#: includes/admin-page.php:1243
+msgid "Enable separate cache per domain"
+msgstr ""
+
+#: includes/admin-page.php:1246
+msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
+msgstr ""
+
+#: includes/admin-page.php:1254
+#: includes/admin-page.php:1260
+msgid "Stop translations (except cache invalidation)"
+msgstr ""
+
+#: includes/admin-page.php:1263
+msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
+msgstr ""
+
+#: includes/admin-page.php:1273
+msgid "Advanced Settings"
+msgstr ""
+
+#: includes/admin-page.php:1281
+msgid "Homepage Meta Description"
+msgstr ""
+
+#: includes/admin-page.php:1310
+#: includes/admin-page.php:1361
+msgid "Active domain:"
+msgstr ""
+
+#: includes/admin-page.php:1317
+msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr ""
+
+#: includes/admin-page.php:1319
+msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr ""
+
+#: includes/admin-page.php:1321
+msgid "Generate Meta Description"
+msgstr ""
+
+#: includes/admin-page.php:1332
+msgid "Website Context"
+msgstr ""
+
+#: includes/admin-page.php:1366
+msgid "Describe your website, business, or organization. For example:"
+msgstr ""
+
+#: includes/admin-page.php:1367
+msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
+msgstr ""
+
+#: includes/admin-page.php:1368
+msgid "Or:"
+msgstr ""
+
+#: includes/admin-page.php:1369
+msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr ""
+
+#: includes/admin-page.php:1372
+msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
+msgstr ""
+
+#: includes/admin-page.php:1374
+msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
+msgstr ""
+
+#: includes/admin-page.php:1376
+msgid "Generate Context from Homepage"
+msgstr ""
+
+#: includes/admin-page.php:1425
+msgid "Cache for language %s cleared."
+msgstr ""
+
+#: includes/admin-page.php:1428
+msgid "Files removed: %d"
+msgstr ""
+
+#: includes/admin-page.php:1429
+msgid "Remaining files: %d"
+msgstr ""
+
+#: includes/admin-page.php:1439
+msgid "No cache files found for language %s."
+msgstr ""
+
+#: includes/admin-page.php:1445
+#: includes/admin-page.php:1560
+msgid "Unknown error"
+msgstr ""
+
+#: includes/admin-page.php:1448
+msgid "Error clearing cache for language %s: %s"
+msgstr ""
+
+#: includes/admin-page.php:1464
 msgid "General"
 msgstr ""
 
-#: includes/admin-page.php:931
+#: includes/admin-page.php:1465
 msgid "Cache"
 msgstr ""
 
-#: includes/admin-page.php:945
+#: includes/admin-page.php:1479
 msgid "Cache Management"
 msgstr ""
 
-#: includes/admin-page.php:949
+#: includes/admin-page.php:1483
+#: includes/admin-page.php:1506
 msgid "Clear all language caches"
 msgstr ""
 
-#: includes/admin-page.php:950
+#: includes/admin-page.php:1484
 msgid "Clear all language caches."
 msgstr ""
 
-#: includes/admin-page.php:950
+#: includes/admin-page.php:1484
 msgid "Menu and slug cache are preserved to maintain URL stability."
 msgstr ""
 
-#: includes/admin-page.php:967
+#: includes/admin-page.php:1501
 msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
 msgstr ""
 
-#: includes/admin-page.php:978
+#: includes/admin-page.php:1512
+#: includes/admin-page.php:1540
 msgid "Clear menu cache"
 msgstr ""
 
-#: includes/admin-page.php:979
+#: includes/admin-page.php:1513
 msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
 msgstr ""
 
-#: includes/admin-page.php:992
+#: includes/admin-page.php:1517
+#: includes/admin-page.php:1551
+#: includes/admin-page.php:1899
+#: includes/admin-page.php:1973
+#: includes/admin-page.php:1985
+msgid "Insufficient permissions."
+msgstr ""
+
+#: includes/admin-page.php:1526
 msgid "Menu cache cleared"
 msgstr ""
 
-#: includes/admin-page.php:994
+#: includes/admin-page.php:1528
 msgid "%d menu-item translation removed"
 msgid_plural "%d menu-item translations removed"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/admin-page.php:998
+#: includes/admin-page.php:1532
 msgid "and tables truncated: %s"
 msgstr ""
 
-#: includes/admin-page.php:1022
+#: includes/admin-page.php:1546
+#: includes/admin-page.php:1568
 msgid "Clear slug cache"
 msgstr ""
 
-#: includes/admin-page.php:1023
+#: includes/admin-page.php:1547
 msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
 msgstr ""
 
-#: includes/admin-page.php:1034
+#: includes/admin-page.php:1558
 msgid "Slug cache cleared. Rows removed: %d."
 msgstr ""
 
-#: includes/admin-page.php:1037
-msgid "Unknown error"
-msgstr ""
-
-#: includes/admin-page.php:1037
+#: includes/admin-page.php:1561
 msgid "Failed to clear slug cache: %s."
 msgstr ""
 
-#: includes/admin-page.php:1050
+#: includes/admin-page.php:1574
 msgid "Clear cache per language"
 msgstr ""
 
-#: includes/admin-page.php:1063
+#: includes/admin-page.php:1587
 msgid "Cache overview per language"
 msgstr ""
 
-#: includes/admin-page.php:1100
+#: includes/admin-page.php:1624
 msgid "Cache directory:"
 msgstr ""
 
-#: includes/admin-page.php:1114
+#: includes/admin-page.php:1638
 msgid "Unknown"
 msgstr ""
 
-#: includes/admin-page.php:1119
+#: includes/admin-page.php:1643
 msgid "Total number of files:"
 msgstr ""
 
-#: includes/admin-page.php:1122
+#: includes/admin-page.php:1646
 msgid "Total size:"
 msgstr ""
 
-#: includes/admin-page.php:1125
+#: includes/admin-page.php:1649
 msgid "Expired files:"
 msgstr ""
 
-#: includes/admin-page.php:1128
+#: includes/admin-page.php:1652
 msgid "Last update:"
 msgstr ""
 
-#: includes/admin-page.php:1135
+#: includes/admin-page.php:1659
 msgid "Language"
 msgstr ""
 
-#: includes/admin-page.php:1136
+#: includes/admin-page.php:1660
 msgid "Cache files"
 msgstr ""
 
-#: includes/admin-page.php:1137
+#: includes/admin-page.php:1661
 msgid "Size"
 msgstr ""
 
-#: includes/admin-page.php:1138
+#: includes/admin-page.php:1662
 msgid "Expired"
 msgstr ""
 
-#: includes/admin-page.php:1139
+#: includes/admin-page.php:1663
 msgid "Last update"
 msgstr ""
 
-#: includes/admin-page.php:1140
+#: includes/admin-page.php:1664
 msgid "Action"
 msgstr ""
 
-#: includes/admin-page.php:1158
+#: includes/admin-page.php:1682
+#: includes/admin-page.php:1701
 msgid "files"
 msgstr ""
 
-#: includes/admin-page.php:1165
+#: includes/admin-page.php:1689
 msgid "Cache clear"
 msgstr ""
 
-#: includes/admin-page.php:1168
+#: includes/admin-page.php:1692
 msgid "No cache files"
 msgstr ""
 
-#: includes/admin-page.php:1176
+#: includes/admin-page.php:1700
 msgid "Total"
 msgstr ""
 
-#: includes/admin-page.php:1212
-msgid "API Provider is missing."
+#: includes/admin-page.php:1715
+msgid "Translated Pages Overview"
 msgstr ""
 
-#: includes/admin-page.php:1229
+#: includes/admin-page.php:1716
+msgid "Manage cache per page or blog. Delete cache to retranslate, or warm cache to proactively generate translations."
+msgstr ""
+
+#: includes/admin-page.php:1724
+msgid "Cache metadata rescanned: %d cache records added or updated."
+msgstr ""
+
+#: includes/admin-page.php:1728
+msgid "No cache records added. Possible causes:"
+msgstr ""
+
+#: includes/admin-page.php:1730
+msgid "Cache files do not exist at the expected location"
+msgstr ""
+
+#: includes/admin-page.php:1731
+msgid "Cache files have a different format than expected"
+msgstr ""
+
+#: includes/admin-page.php:1732
+msgid "Multi-domain caching configuration does not match"
+msgstr ""
+
+#: includes/admin-page.php:1745
+msgid "Cache metadata initialized: %d existing cache records added."
+msgstr ""
+
+#: includes/admin-page.php:1776
+msgid "Cache directory found but no metadata. Click \"Scan Cache Files\" to generate metadata."
+msgstr ""
+
+#: includes/admin-page.php:1787
+msgid "Scan Cache Files"
+msgstr ""
+
+#: includes/admin-page.php:1790
+msgid "Scan the filesystem for cache files and add metadata to the database."
+msgstr ""
+
+#: includes/admin-page.php:1798
+msgid "Type"
+msgstr ""
+
+#: includes/admin-page.php:1799
+msgid "Title"
+msgstr ""
+
+#: includes/admin-page.php:1800
+msgid "URL"
+msgstr ""
+
+#: includes/admin-page.php:1801
+msgid "Status"
+msgstr ""
+
+#: includes/admin-page.php:1802
+msgid "Actions"
+msgstr ""
+
+#: includes/admin-page.php:1809
+msgid "No published pages or posts found."
+msgstr ""
+
+#: includes/admin-page.php:1852
+msgid "Delete cache for this page in all languages"
+msgstr ""
+
+#: includes/admin-page.php:1854
+msgid "Delete Cache"
+msgstr ""
+
+#: includes/admin-page.php:1862
+msgid "Generate translations for all enabled languages"
+msgstr ""
+
+#: includes/admin-page.php:1864
+msgid "Warm Cache"
+msgstr ""
+
+#: includes/admin-page.php:1880
+msgid "&laquo; Previous"
+msgstr ""
+
+#: includes/admin-page.php:1881
+msgid "Next &raquo;"
+msgstr ""
+
+#: includes/admin-page.php:1931
 msgid "API Provider, API Key or Custom API URL is missing or invalid."
 msgstr ""
 
-#: includes/admin-page.php:1248
+#: includes/admin-page.php:1950
 msgid "API error:"
 msgstr ""
 
-#: includes/admin-page.php:1252
+#: includes/admin-page.php:1954
 msgid "Invalid response from API"
 msgstr ""
 
-#: includes/admin-page.php:1344
+#: includes/admin-page.php:2059
 msgid "API and model are working. API settings have been saved."
 msgstr ""
 
-#: includes/admin-page.php:1347
+#: includes/admin-page.php:2062
 msgid "API validation failed:"
 msgstr ""
-
-#: ai-translate.php:1543
-msgid "Settings"
-msgstr ""
-
-#: ai-translate.php:1630
-msgid "AI Translate Warning:"
-msgstr ""
-
-#: ai-translate.php:1631
-msgid "This plugin requires a permalink structure other than \"Plain\". "
-msgstr ""
-
-#: ai-translate.php:1632
-msgid "Please set your permalinks to \"Post name\" or another structure."
-msgstr ""
-
-#: ai-translate.php:1634
-msgid "Configure Permalinks"
-msgstr ""
-
-#: ai-translate.php:272
-msgid "Rate on WordPress.org"
-msgstr ""
-
-#: includes/admin-page.php:801
-msgid "Generate Meta Description"
-msgstr ""
-
-#: includes/admin-page.php:852
-msgid "Generate Context from Homepage"
-msgstr ""
-
-#: includes/admin-page.php:846
-msgid "Describe your website, business, or organization. For example:"
-msgstr ""
-
-#: includes/admin-page.php:847
-msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
-msgstr ""
-
-#: includes/admin-page.php:848
-msgid "Or:"
-msgstr ""
-
-#: includes/admin-page.php:849
-msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
-msgstr ""
-
-#: ai-translate.php:299
-msgid "AI based translation plugin. Adding 35 languages in a few clicks."
-msgstr ""
-
-#: includes/admin-page.php:797
-msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
-msgstr ""
-
-#: includes/admin-page.php:799
-msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
-msgstr ""
-
-#: includes/admin-page.php:852
-msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
-msgstr ""
-
-#: includes/admin-page.php:854
-msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
-msgstr ""
-

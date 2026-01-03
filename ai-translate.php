@@ -88,6 +88,7 @@ require_once __DIR__ . '/includes/class-ai-translate-core.php';
 require_once __DIR__ . '/includes/admin-page.php';
 require_once __DIR__ . '/includes/class-ai-lang.php';
 require_once __DIR__ . '/includes/class-ai-cache.php';
+require_once __DIR__ . '/includes/class-ai-cache-meta.php';
 require_once __DIR__ . '/includes/class-ai-dom.php';
 require_once __DIR__ . '/includes/class-ai-batch.php';
 require_once __DIR__ . '/includes/class-ai-seo.php';
@@ -96,17 +97,6 @@ require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
 
 
-// Debug logger
-if (!function_exists('ai_translate_dbg')) {
-    function ai_translate_dbg($message, $context = array())
-    {
-        if (!defined('WP_DEBUG') || !WP_DEBUG) {
-            return;
-        }
-        $contextStr = !empty($context) ? ' | ' . wp_json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '';
-        error_log('[AI-Translate] ' . $message . $contextStr);
-    }
-}
 
 
 /**
@@ -236,6 +226,15 @@ add_action('init', function () {
     \AITranslate\AI_Slugs::install_table();
 }, 1);
 
+// Schedule cache metadata sync cron job
+add_action('ai_translate_sync_cache_metadata', function () {
+    \AITranslate\AI_Cache_Meta::sync_from_filesystem();
+});
+
+if (!wp_next_scheduled('ai_translate_sync_cache_metadata')) {
+    wp_schedule_event(time(), 'hourly', 'ai_translate_sync_cache_metadata');
+}
+
 
 
 // Add original-style language-prefixed rewrite rules using 'lang' query var to ensure WP resolves pages via pagename
@@ -343,7 +342,7 @@ add_filter('plugin_row_meta', function (array $links, $file) {
 }, 10, 2);
 
 /**
- * Flush rewrite rules on activation.
+ * Plugin activation: flush rewrite rules and create database tables.
  */
 register_activation_hook(__FILE__, function () {
     // Ensure rules are registered before flushing
@@ -358,6 +357,9 @@ register_activation_hook(__FILE__, function () {
     }
 
     flush_rewrite_rules();
+    
+    // Create cache metadata table
+    \AITranslate\AI_Cache_Meta::create_table();
 });
 
 /**
@@ -594,15 +596,6 @@ add_action('template_redirect', function () {
     }
 
     \AITranslate\AI_Lang::set_current($finalLang);
-
-    // Log final language determination for debugging
-    ai_translate_dbg('🎯 FINAL LANGUAGE DETERMINED', [
-        'reqPath' => $reqPath,
-        'langFromUrl' => $langFromUrl ?? 'NONE',
-        'cookieLang' => $cookieLang !== '' ? $cookieLang : 'NOT SET',
-        'finalLang' => $finalLang,
-        'defaultLang' => $defaultLang,
-    ]);
 
     // Set WordPress locale
     $localeSetter = function ($locale) use ($finalLang) {
@@ -961,16 +954,6 @@ add_action('rest_api_init', function () {
             }
             $default = \AITranslate\AI_Lang::default();
             
-            // Log if lang parameter doesn't match expected page language (for debugging)
-            if ($langParam !== '' && $langParam !== $lang) {
-                \ai_translate_dbg('Batch-strings language mismatch', [
-                    'lang_param' => $langParam,
-                    'detected_lang' => $lang,
-                    'referer' => isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '',
-                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : ''
-                ]);
-            }
-            
             if ($lang === null || $default === null) {
                 return new \WP_REST_Response(['success' => true, 'data' => ['map' => []]], 200);
             }
@@ -993,10 +976,6 @@ add_action('rest_api_init', function () {
             $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
             
             if ($stop_translations) {
-                \ai_translate_dbg('Stop translations enabled for batch-strings - blocking all new translations', [
-                    'lang' => $lang,
-                    'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : ''
-                ]);
             }
             
             $map = [];
@@ -1121,11 +1100,6 @@ add_action('rest_api_init', function () {
             if (!empty($toTranslate)) {
                 if ($stop_translations) {
                     // Stop translations enabled: block API calls, use source texts
-                    \ai_translate_dbg('Batch-strings API call blocked: stop_translations enabled', [
-                        'lang' => $lang,
-                        'uri' => isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
-                        'num_segments_blocked' => count($toTranslate)
-                    ]);
                     // Use source texts for all segments that would have been translated
                     foreach ($toTranslate as $id => $origNormalized) {
                         $originalText = isset($textsOriginal[$origNormalized]) ? $textsOriginal[$origNormalized] : $origNormalized;
