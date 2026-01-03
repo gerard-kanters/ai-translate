@@ -53,15 +53,10 @@ final class AI_Lang
                 }
             }
         }
-        // When URL has no language prefix, fall back to cookie and then browser language.
+        // When URL has no language prefix, fall back to browser language only (not cookie)
+        // Cookie is only used for redirects from root, not for language detection
         if ($lang === null || $lang === '') {
-            // 1) Cookie wins if valid
-            $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
-            if ($cookieLang !== '' && (empty($allowed) || in_array($cookieLang, $allowed, true))) {
-                self::$current = $cookieLang;
-                return self::$current;
-            }
-            // 2) Browser Accept-Language (first 2-letter match)
+            // 1) Browser Accept-Language (first 2-letter match)
             $browser = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? (string) $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
             $picked = '';
             if ($browser !== '') {
@@ -84,13 +79,9 @@ final class AI_Lang
                 self::$current = $picked;
                 return self::$current;
             }
-            // 3) Default as last resort
+            // 2) Default as last resort
             $normalizedDefault = $default !== '' ? strtolower(sanitize_key($default)) : '';
             if ($normalizedDefault !== '') {
-                if (!headers_sent()) {
-                    setcookie('ai_translate_lang', $normalizedDefault, time() + 30 * DAY_IN_SECONDS, '/', '', false, true);
-                }
-                $_COOKIE['ai_translate_lang'] = $normalizedDefault;
                 self::$current = $normalizedDefault;
                 return self::$current;
             }
@@ -106,6 +97,112 @@ final class AI_Lang
 
         self::$current = $lang;
         return self::$current;
+    }
+
+    /**
+     * Set language cookie with consistent attributes.
+     *
+     * @param string $lang
+     * @return void
+     */
+    public static function set_cookie($lang)
+    {
+        $lang = strtolower(sanitize_key((string) $lang));
+        if ($lang === '') {
+            if (function_exists('ai_translate_dbg')) {
+                ai_translate_dbg('Cookie NOT set: empty lang', []);
+            }
+            return;
+        }
+
+        $file = '';
+        $line = 0;
+        if (headers_sent($file, $line)) {
+            if (function_exists('ai_translate_dbg')) {
+                ai_translate_dbg('❌ CANNOT SET COOKIE: headers already sent', ['lang' => $lang, 'file' => $file, 'line' => $line]);
+            }
+            return;
+        }
+
+        $secure = is_ssl();
+        $expire = time() + 30 * DAY_IN_SECONDS;
+        
+        // Determine domain - use COOKIE_DOMAIN if set, otherwise derive from HTTP_HOST
+        $domain = '';
+        if (defined('COOKIE_DOMAIN') && COOKIE_DOMAIN !== '') {
+            $domain = COOKIE_DOMAIN;
+        } else {
+            $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+            if ($host !== '') {
+                // Remove port if present
+                if (strpos($host, ':') !== false) {
+                    $host = strtok($host, ':');
+                }
+                // For domains with dots, set cookie for parent domain (.example.com)
+                // For localhost or IP, don't set domain
+                if (strpos($host, '.') !== false && !filter_var($host, FILTER_VALIDATE_IP)) {
+                    $domain = '.' . $host;
+                }
+            }
+        }
+        
+        if (function_exists('ai_translate_dbg')) {
+            ai_translate_dbg('✅ ATTEMPTING TO SET COOKIE', [
+                'lang' => $lang, 
+                'domain' => $domain ?: 'none', 
+                'secure' => $secure,
+                'expire' => date('Y-m-d H:i:s', $expire),
+                'php_version' => PHP_VERSION_ID
+            ]);
+        }
+
+        // Set cookie - try both with and without explicit domain to ensure browser accepts it
+        $setCookieResult1 = false;
+        $setCookieResult2 = false;
+        
+        // 1. With explicit domain (if we have one)
+        if ($domain !== '') {
+            if (PHP_VERSION_ID >= 70300) {
+                $setCookieResult1 = setcookie('ai_translate_lang', $lang, [
+                    'expires' => $expire,
+                    'path' => '/',
+                    'domain' => $domain,
+                    'secure' => $secure,
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                ]);
+            } else {
+                $setCookieResult1 = setcookie('ai_translate_lang', $lang, $expire, '/', $domain, $secure, true);
+            }
+        }
+        
+        // 2. Without explicit domain (for exact host match) - always set this as fallback
+        if (PHP_VERSION_ID >= 70300) {
+            $setCookieResult2 = setcookie('ai_translate_lang', $lang, [
+                'expires' => $expire,
+                'path' => '/',
+                'domain' => '',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        } else {
+            $setCookieResult2 = setcookie('ai_translate_lang', $lang, $expire, '/', '', $secure, true);
+        }
+        
+        if (function_exists('ai_translate_dbg')) {
+            ai_translate_dbg('✅ SETCOOKIE CALLED', [
+                'result_with_domain' => $setCookieResult1 ? 'SUCCESS' : ($domain !== '' ? 'FAILED' : 'SKIPPED'),
+                'result_without_domain' => $setCookieResult2 ? 'SUCCESS' : 'FAILED'
+            ]);
+        }
+        
+        // Always update $_COOKIE immediately so it's available for the rest of the request
+        $_COOKIE['ai_translate_lang'] = $lang;
+        
+        if (function_exists('ai_translate_dbg')) {
+            ai_translate_dbg('✅ $_COOKIE UPDATED', ['lang' => $lang, 'verify' => $_COOKIE['ai_translate_lang'] ?? 'NOT SET']);
+        }
     }
 
     /**

@@ -518,18 +518,6 @@ add_action('template_redirect', function () {
 
     // RULE 3: Canonicalize default language - /nl/ → /
     if ($langFromUrl !== null && $defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
-        // Explicitly set cookie to default language when user accesses default language URL (e.g. via switcher)
-        $secure = is_ssl();
-        $sameSite = $secure ? 'None' : 'Lax';
-        setcookie('ai_translate_lang', (string) $defaultLang, [
-            'expires' => time() + 30 * 86400,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => $sameSite
-        ]);
-        $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
-
         if ($reqPath !== '/') {
             wp_safe_redirect(home_url('/'), 302);
             exit;
@@ -577,17 +565,8 @@ add_action('template_redirect', function () {
 
         $resolvedLang = $detected;
 
-        // Set cookie
-        $secure = is_ssl();
-        $sameSite = $secure ? 'None' : 'Lax';
-        setcookie('ai_translate_lang', $detected, [
-            'expires' => time() + 30 * 86400,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => $sameSite
-        ]);
-        $_COOKIE['ai_translate_lang'] = $detected;
+        // Set cookie (central helper handles domains/headers)
+        \AITranslate\AI_Lang::set_cookie($detected);
 
         // Redirect to language URL if not default
         if ($detected && strtolower($detected) !== strtolower((string) $defaultLang)) {
@@ -607,16 +586,7 @@ add_action('template_redirect', function () {
 
     // Sync cookie if URL has language prefix
     if ($langFromUrl !== null && ($cookieLang === '' || $cookieLang !== $langFromUrl)) {
-        $secure = is_ssl();
-        $sameSite = $secure ? 'None' : 'Lax';
-        setcookie('ai_translate_lang', $langFromUrl, [
-            'expires' => time() + 30 * 86400,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => $sameSite
-        ]);
-        $_COOKIE['ai_translate_lang'] = $langFromUrl;
+        \AITranslate\AI_Lang::set_cookie($langFromUrl);
     }
 
     // Set language for content
@@ -629,17 +599,7 @@ add_action('template_redirect', function () {
     }
     $finalLang = strtolower(sanitize_key((string) $finalLang));
     if ($finalLang !== $cookieLang && $finalLang !== '') {
-        // Keep cookie aligned with the resolved language
-        $secure = is_ssl();
-        $sameSite = $secure ? 'None' : 'Lax';
-        setcookie('ai_translate_lang', $finalLang, [
-            'expires' => time() + 30 * 86400,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => $sameSite
-        ]);
-        $_COOKIE['ai_translate_lang'] = $finalLang;
+        \AITranslate\AI_Lang::set_cookie($finalLang);
     }
 
     \AITranslate\AI_Lang::set_current($finalLang);
@@ -655,16 +615,7 @@ add_action('template_redirect', function () {
 
     // Handle full_reset parameter for testing
     if (isset($_GET['full_reset']) && $_GET['full_reset'] === '1') {
-        $secure = is_ssl();
-        $sameSite = $secure ? 'None' : 'Lax';
-        setcookie('ai_translate_lang', (string) $defaultLang, [
-            'expires' => time() + 30 * DAY_IN_SECONDS,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => $sameSite
-        ]);
-        $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+        \AITranslate\AI_Lang::set_cookie((string) $defaultLang);
         wp_safe_redirect(home_url('/'), 302);
         exit;
     }

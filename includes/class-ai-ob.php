@@ -80,12 +80,19 @@ final class AI_OB
 
         // Never serve cached HTML to logged-in users or when admin bar should be visible.
         // This prevents returning a cached anonymous page that lacks the admin toolbar.
+        // EXCEPTION: If stop_translations is enabled, ALWAYS use cache (even for logged-in users)
+        // to ensure translated content is served when new translations are blocked.
+        $settings = get_option('ai_translate_settings', array());
+        $stopTranslations = isset($settings['stop_translations_except_cache_invalidation']) && $settings['stop_translations_except_cache_invalidation'];
+        
         $bypassUserCache = false;
-        if (function_exists('is_user_logged_in') && is_user_logged_in()) {
-            $bypassUserCache = true;
-        }
-        if (function_exists('is_admin_bar_showing') && is_admin_bar_showing()) {
-            $bypassUserCache = true;
+        if (!$stopTranslations) {
+            if (function_exists('is_user_logged_in') && is_user_logged_in()) {
+                $bypassUserCache = true;
+            }
+            if (function_exists('is_admin_bar_showing') && is_admin_bar_showing()) {
+                $bypassUserCache = true;
+            }
         }
 
         $route = $this->current_route_id();
@@ -214,11 +221,13 @@ final class AI_OB
                 ]);
             }
         } else {
+            $bypassReason = $bypassUserCache ? 'logged_in_user' : ($nocache ? 'nocache_param' : 'unknown');
             \ai_translate_dbg('Page cache BYPASSED', [
                 'lang' => $lang,
                 'route' => $route,
                 'url' => $url,
-                'reason' => $bypassUserCache ? 'logged_in_user' : ($nocache ? 'nocache_param' : 'unknown')
+                'reason' => $bypassReason,
+                'stop_translations' => $stopTranslations ? 'enabled_but_cache_used' : 'disabled'
             ]);
         }
         
@@ -346,14 +355,22 @@ final class AI_OB
                 if ($lockAcquired) {
                     delete_transient($lockKey);
                 }
+                $reason = $cache_exists ? 'cache_not_expired' : 'cache_not_exists';
                 \ai_translate_dbg('Translation blocked: stop_translations enabled', [
                     'lang' => $lang,
                     'route' => $route,
                     'url' => $url,
-                    'reason' => $cache_exists ? 'cache_not_expired' : 'cache_not_exists'
+                    'reason' => $reason
                 ]);
+                
+                // If cache doesn't exist, inject warning message for logged-in admins
+                if (!$cache_exists && function_exists('current_user_can') && current_user_can('manage_options')) {
+                    $warning = '<!-- AI-Translate: stop_translations is enabled but no cache exists for ' . esc_html($lang) . ' language. Showing default language. Disable stop_translations to generate cache. -->';
+                    $html = str_replace('</head>', $warning . '</head>', $html);
+                }
+                
                 $processing = false;
-                return $html; // Return untranslated HTML
+                return $html; // Return untranslated HTML (or cached if exists)
             }
             // Cache exists and is expired, allow translation (cache invalidation)
             \ai_translate_dbg('Translation allowed: cache expired (cache invalidation)', [
