@@ -1151,6 +1151,9 @@ add_action('parse_request', function ($wp) {
     if (is_admin() || wp_doing_ajax()) {
         return;
     }
+    if (ai_translate_is_xml_request()) {
+        return;
+    }
     $request_path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
     if (!is_string($request_path)) {
         $request_path = '/';
@@ -1209,6 +1212,9 @@ add_action('parse_request', function ($wp) {
     if (is_admin() || wp_doing_ajax()) {
         return;
     }
+    if (ai_translate_is_xml_request()) {
+        return;
+    }
     $path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
     if (!is_string($path) || $path === '/') {
         return;
@@ -1242,6 +1248,9 @@ add_action('parse_request', function ($wp) {
 // Map translated paths like /{lang}/{translated-slug} to the original content (page or post)
 add_action('parse_request', function ($wp) {
     if (is_admin() || wp_doing_ajax()) {
+        return;
+    }
+    if (ai_translate_is_xml_request()) {
         return;
     }
     $path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
@@ -1345,6 +1354,7 @@ add_action('parse_request', function ($wp) {
  */
 add_filter('post_link', function ($permalink, $post, $leavename) {
     if (is_admin()) return $permalink;
+    if (ai_translate_is_xml_request()) return $permalink;
     $lang = \AITranslate\AI_Lang::current();
     $default = \AITranslate\AI_Lang::default();
     if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
@@ -1360,6 +1370,7 @@ add_filter('post_link', function ($permalink, $post, $leavename) {
 
 add_filter('page_link', function ($permalink, $post_id, $sample) {
     if (is_admin()) return $permalink;
+    if (ai_translate_is_xml_request()) return $permalink;
     $lang = \AITranslate\AI_Lang::current();
     $default = \AITranslate\AI_Lang::default();
     if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
@@ -1535,6 +1546,11 @@ add_action('init', function () {
 add_filter('home_url', function ($url, $path, $scheme) {
     // Only modify on front-end, skip admin/AJAX/REST
     if (is_admin() || wp_doing_ajax() || wp_is_json_request()) {
+        return $url;
+    }
+    
+    // Skip sitemap and XML requests
+    if (ai_translate_is_xml_request()) {
         return $url;
     }
     
