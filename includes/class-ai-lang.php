@@ -156,44 +156,28 @@ final class AI_Lang
             ]);
         }
 
-        // Set cookie - try both with and without explicit domain to ensure browser accepts it
-        $setCookieResult1 = false;
-        $setCookieResult2 = false;
+        // Set cookie with domain attribute (critical for multi-page cookie persistence)
+        // Only set ONE cookie to avoid the second call overwriting the first
+        $setCookieResult = false;
         
-        // 1. With explicit domain (if we have one)
-        if ($domain !== '') {
-            if (PHP_VERSION_ID >= 70300) {
-                $setCookieResult1 = setcookie('ai_translate_lang', $lang, [
-                    'expires' => $expire,
-                    'path' => '/',
-                    'domain' => $domain,
-                    'secure' => $secure,
-                    'httponly' => true,
-                    'samesite' => 'Lax',
-                ]);
-            } else {
-                $setCookieResult1 = setcookie('ai_translate_lang', $lang, $expire, '/', $domain, $secure, true);
-            }
-        }
-        
-        // 2. Without explicit domain (for exact host match) - always set this as fallback
         if (PHP_VERSION_ID >= 70300) {
-            $setCookieResult2 = setcookie('ai_translate_lang', $lang, [
+            $setCookieResult = setcookie('ai_translate_lang', $lang, [
                 'expires' => $expire,
                 'path' => '/',
-                'domain' => '',
+                'domain' => $domain, // Always set domain (even if empty) for consistency
                 'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax',
+                'httponly' => false, // Allow JavaScript to read cookie as fallback
+                'samesite' => 'Lax', // Lax works better with redirects than None
             ]);
         } else {
-            $setCookieResult2 = setcookie('ai_translate_lang', $lang, $expire, '/', '', $secure, true);
+            $setCookieResult = setcookie('ai_translate_lang', $lang, $expire, '/', $domain, $secure, false);
         }
         
         if (function_exists('ai_translate_dbg')) {
             ai_translate_dbg('✅ SETCOOKIE CALLED', [
-                'result_with_domain' => $setCookieResult1 ? 'SUCCESS' : ($domain !== '' ? 'FAILED' : 'SKIPPED'),
-                'result_without_domain' => $setCookieResult2 ? 'SUCCESS' : 'FAILED'
+                'result' => $setCookieResult ? 'SUCCESS' : 'FAILED',
+                'domain' => $domain ?: 'empty',
+                'samesite' => 'Lax'
             ]);
         }
         

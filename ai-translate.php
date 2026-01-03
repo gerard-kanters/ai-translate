@@ -285,17 +285,8 @@ add_action('init', function () {
         return;
     }
 
-    // Set cookie
-    $secure = is_ssl();
-    $sameSite = $secure ? 'None' : 'Lax';
-    setcookie('ai_translate_lang', $switchLang, [
-        'expires' => time() + 30 * 86400,
-        'path' => '/',
-        'secure' => $secure,
-        'httponly' => true,
-        'samesite' => $sameSite
-    ]);
-    $_COOKIE['ai_translate_lang'] = $switchLang;
+    // Set cookie using centralized function
+    \AITranslate\AI_Lang::set_cookie($switchLang);
 
     // Redirect to clean URL (remove switch_lang parameter)
     $defaultLang = \AITranslate\AI_Lang::default();
@@ -527,16 +518,7 @@ add_action('template_redirect', function () {
     // RULE 4: If cookie exists and on root, ensure language is set to default
     // Skip this rule if there's a search parameter (handled above)
     if ($reqPath === '/' && $cookieLang !== '' && !$hasSearchParam) {
-        $secure = is_ssl();
-        $sameSite = $secure ? 'None' : 'Lax';
-        setcookie('ai_translate_lang', (string) $defaultLang, [
-            'expires' => time() + 30 * 86400,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => $sameSite
-        ]);
-        $_COOKIE['ai_translate_lang'] = (string) $defaultLang;
+        \AITranslate\AI_Lang::set_cookie((string) $defaultLang);
         // Set language and stop processing
         $finalLang = (string) $defaultLang;
         \AITranslate\AI_Lang::set_current($finalLang);

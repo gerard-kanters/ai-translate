@@ -73,7 +73,18 @@
           var expires = new Date();
           expires.setTime(expires.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
           var secure = window.location.protocol === "https:" ? ";secure" : "";
-          var cookieStr = "ai_translate_lang=" + lang + ";path=/;expires=" + expires.toUTCString() + ";samesite=lax" + secure;
+          
+          // Extract domain from current hostname (e.g., netcare.nl from www.netcare.nl)
+          var hostname = window.location.hostname;
+          var domain = hostname;
+          // If hostname has subdomain, use parent domain (.netcare.nl)
+          if (hostname.split('.').length > 2) {
+            domain = hostname.substring(hostname.indexOf('.'));
+          } else {
+            domain = '.' + hostname;
+          }
+          
+          var cookieStr = "ai_translate_lang=" + lang + ";path=/;domain=" + domain + ";expires=" + expires.toUTCString() + ";samesite=lax" + secure;
           document.cookie = cookieStr;
           console.log("[AI-Translate] Cookie set via JS:", cookieStr);
           console.log("[AI-Translate] Current cookies:", document.cookie);
