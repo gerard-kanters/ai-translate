@@ -289,10 +289,11 @@ add_action('init', function () {
     \AITranslate\AI_Lang::set_cookie($switchLang);
 
     // Redirect to clean URL (remove switch_lang parameter)
+    // Build relative URL to avoid any host/home filters; default also via /{default}/ so Rule 3 canonicals to /
     $defaultLang = \AITranslate\AI_Lang::default();
-    $targetUrl = ($switchLang === strtolower((string) $defaultLang)) ? home_url('/') : home_url('/' . $switchLang . '/');
-    
-    wp_safe_redirect($targetUrl, 302);
+    $targetUrl = '/' . $switchLang . '/';
+
+    wp_safe_redirect(esc_url_raw($targetUrl), 302);
     exit;
 }, 1);
 
@@ -739,7 +740,8 @@ function ai_translate_get_nav_switcher_html() {
         $code = sanitize_key($code);
         $label = strtoupper($code === $default ? $default : $code);
         // Use ?switch_lang= parameter to ensure cookie is set via init hook
-        $url = add_query_arg('switch_lang', $code, home_url('/'));
+        // Build relative URL to avoid host/home filters
+        $url = '/?switch_lang=' . $code;
         $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');
         $switcher_html .= '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1">';
@@ -859,16 +861,9 @@ add_action('wp_footer', function () {
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
         $label = strtoupper($code === $default ? $default : $code);
-        // Detect current domain from HTTP_HOST to support multi-domain setup
-        // Detect protocol from current request (HTTP or HTTPS)
-        // Default taal: /{default}/; andere talen: /{code}/
-        $currentHost = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
-        if ($currentHost === '') {
-            // Fallback to home_url() if HTTP_HOST is not available
-            $currentHost = parse_url(home_url(), PHP_URL_HOST);
-        }
         // Use ?switch_lang= parameter to ensure cookie is set via init hook
-        $url = add_query_arg('switch_lang', $code, home_url('/'));
+        // Build relative URL to avoid host/home filters
+        $url = '/?switch_lang=' . $code;
         $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');
         echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr($label) . '"><span>' . esc_html($label) . '</span></a>';
@@ -1566,6 +1561,11 @@ add_action('init', function () {
 add_filter('home_url', function ($url, $path, $scheme) {
     // Only modify on front-end, skip admin/AJAX/REST
     if (is_admin() || wp_doing_ajax() || wp_is_json_request()) {
+        return $url;
+    }
+    
+    // SKIP language switcher URLs - they should always go to root without language prefix
+    if (strpos($url, 'switch_lang=') !== false) {
         return $url;
     }
     

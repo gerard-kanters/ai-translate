@@ -169,8 +169,21 @@ final class AI_Lang
                 'httponly' => false, // Allow JavaScript to read cookie as fallback
                 'samesite' => 'Lax', // Lax works better with redirects than None
             ]);
+            // Fallback: if domain attribute failed (some browsers reject), try without domain
+            if (!$setCookieResult) {
+                $setCookieResult = setcookie('ai_translate_lang', $lang, [
+                    'expires' => $expire,
+                    'path' => '/',
+                    'secure' => $secure,
+                    'httponly' => false,
+                    'samesite' => 'Lax',
+                ]);
+            }
         } else {
             $setCookieResult = setcookie('ai_translate_lang', $lang, $expire, '/', $domain, $secure, false);
+            if (!$setCookieResult) {
+                $setCookieResult = setcookie('ai_translate_lang', $lang, $expire, '/', '', $secure, false);
+            }
         }
         
         if (function_exists('ai_translate_dbg')) {
