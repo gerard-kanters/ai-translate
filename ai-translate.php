@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.1.7
+ * Version: 2.2.0
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0
@@ -309,14 +309,6 @@ add_action('init', function () {
         return;
     }
 
-    if (function_exists('ai_translate_dbg')) {
-        ai_translate_dbg('SWITCH_LANG INIT', [
-            'switchLang' => $switchLang,
-            'host' => $_SERVER['HTTP_HOST'] ?? '',
-            'cookies_in' => $_COOKIE ?? [],
-        ]);
-    }
-
     // Set cookie using centralized function
     \AITranslate\AI_Lang::set_cookie($switchLang);
 
@@ -324,13 +316,6 @@ add_action('init', function () {
     // For default language: go straight to '/' to avoid /nl/ race conditions in incognito.
     $defaultLang = \AITranslate\AI_Lang::default();
     $targetUrl = ($defaultLang && strtolower($switchLang) === strtolower((string) $defaultLang)) ? '/' : '/' . $switchLang . '/';
-
-    if (function_exists('ai_translate_dbg')) {
-        ai_translate_dbg('SWITCH_LANG REDIRECT', [
-            'target' => $targetUrl,
-            'switchLang' => $switchLang,
-        ]);
-    }
 
     // Prevent intermediaries from caching the 302, so switch_lang stays effective.
     nocache_headers();
@@ -353,13 +338,6 @@ add_filter('do_redirect_guess_404_permalink', function ($do_redirect) {
             $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
             // If cookie doesn't match, block redirect so page can render and set cookie
             if ($cookieLang !== '' && strtolower($cookieLang) !== strtolower((string) $defaultLang)) {
-                if (function_exists('ai_translate_dbg')) {
-                    ai_translate_dbg('DO_REDIRECT_GUESS_404 BLOCKED', [
-                        'reqPath' => $reqPath,
-                        'cookieLang' => $cookieLang,
-                        'urlLang' => $langFromUrl
-                    ]);
-                }
                 return false; // Block redirect
             }
         }
@@ -374,9 +352,6 @@ add_filter('do_redirect_guess_404_permalink', function ($do_redirect) {
 add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
     // Preserve switch_lang and _lang_switch parameters
     if (isset($_GET['switch_lang']) || isset($_GET['_lang_switch'])) {
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('REDIRECT_CANONICAL BLOCKED (switch_lang)', ['requested' => $requested_url, 'redirect' => $redirect_url]);
-        }
         return false;
     }
     $req = (string) $requested_url;
@@ -388,25 +363,10 @@ add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
         // If this is the default language, ALWAYS block redirect to allow page to render
         // This ensures the flag cookie is set and page can render before redirect
         if ($defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
-            // Check if flag cookie is set (or will be set in init hook)
-            $hasFlagCookie = isset($_COOKIE['ai_translate_from_default']) && $_COOKIE['ai_translate_from_default'] === '1';
-            $willSetFlag = isset($GLOBALS['ai_translate_block_nl_redirect']) && $GLOBALS['ai_translate_block_nl_redirect'];
-            
             // ALWAYS block redirect for /nl/ to allow page to render and set cookies
-            if (function_exists('ai_translate_dbg')) {
-                ai_translate_dbg('REDIRECT_CANONICAL BLOCKED (/nl/)', [
-                    'requested' => $requested_url, 
-                    'redirect' => $redirect_url,
-                    'hasFlagCookie' => $hasFlagCookie,
-                    'willSetFlag' => $willSetFlag
-                ]);
-            }
             return false; // Block redirect - render page first so cookies are set
         }
         
-        if (function_exists('ai_translate_dbg')) {
-            ai_translate_dbg('REDIRECT_CANONICAL BLOCKED (lang prefix)', ['requested' => $requested_url, 'redirect' => $redirect_url]);
-        }
         // ALWAYS block redirect for language-prefixed URLs
         // This allows template_redirect to handle the redirect logic
         return false;
@@ -539,12 +499,6 @@ add_action('template_redirect', function () {
 
     $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
     $defaultLang = \AITranslate\AI_Lang::default();
-
-    ai_translate_dbg('TR_START', [
-        'reqPath' => $reqPath,
-        'cookie' => $_COOKIE['ai_translate_lang'] ?? 'none',
-        'host' => $_SERVER['HTTP_HOST'] ?? '',
-    ]);
     
     // CRITICAL: If we're on /{default}/ and cookie doesn't match, render page FIRST
     // This prevents redirect before cookie is set
@@ -738,15 +692,6 @@ add_action('template_redirect', function () {
     }
 
     \AITranslate\AI_Lang::set_current($finalLang);
-
-    ai_translate_dbg('FINAL_LANG', [
-        'reqPath' => $reqPath,
-        'langFromUrl' => $langFromUrl ?? 'none',
-        'cookieLang' => $cookieLang !== '' ? $cookieLang : 'none',
-        'resolvedLang' => $resolvedLang ?? 'none',
-        'finalLang' => $finalLang,
-        'defaultLang' => $defaultLang,
-    ]);
 
     // Set WordPress locale
     $localeSetter = function ($locale) use ($finalLang) {
