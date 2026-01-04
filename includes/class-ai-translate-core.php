@@ -34,6 +34,9 @@ final class AI_Translate_Core
         return [
             'openai' => [ 'name' => 'OpenAI/ChatGPT', 'base_url' => 'https://api.openai.com/v1' ],
             'deepseek' => [ 'name' => 'DeepSeek', 'base_url' => 'https://api.deepseek.com/v1' ],
+            'openrouter' => [ 'name' => 'OpenRouter', 'base_url' => 'https://openrouter.ai/api/v1' ],
+            'groq' => [ 'name' => 'Groq', 'base_url' => 'https://api.groq.com/openai/v1' ],
+            'deepinfra' => [ 'name' => 'DeepInfra', 'base_url' => 'https://api.deepinfra.com/v1/openai' ],
             'custom' => [ 'name' => 'Custom API', 'base_url' => '' ],
         ];
     }
@@ -94,7 +97,7 @@ final class AI_Translate_Core
             'Content-Type'  => 'application/json',
         ];
         // OpenRouter requires Referer header
-        if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
+        if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
             $headers['Referer'] = home_url();
             $headers['X-Title'] = get_bloginfo('name');
         }
@@ -143,7 +146,7 @@ final class AI_Translate_Core
                 'Content-Type'  => 'application/json',
             ];
             // OpenRouter requires Referer header
-            if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
+            if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
                 $chatHeaders['Referer'] = home_url();
                 $chatHeaders['X-Title'] = get_bloginfo('name');
             }
@@ -970,7 +973,7 @@ final class AI_Translate_Core
                     'Content-Type'  => 'application/json',
                 ];
                 
-                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
+                if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
                     // Use the domain-specific URL if provided
                     if (!empty($domain)) {
                         $protocol = is_ssl() ? 'https' : 'http';
@@ -1125,7 +1128,7 @@ final class AI_Translate_Core
                     'Content-Type'  => 'application/json',
                 ];
                 
-                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
+                if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
                     // Use the domain-specific URL if provided
                     if (!empty($domain)) {
                         $protocol = is_ssl() ? 'https' : 'http';

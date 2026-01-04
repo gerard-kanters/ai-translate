@@ -205,7 +205,7 @@ final class AI_Batch
                     }
                     $headers = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     // OpenRouter requires Referer header (WordPress adds HTTP- prefix automatically)
-                    if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
+                    if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
                         $headers['Referer'] = home_url();
                         $headers['X-Title'] = get_bloginfo('name');
                     }
@@ -506,7 +506,7 @@ final class AI_Batch
                     'Content-Type'  => 'application/json',
                 ];
                 // OpenRouter requires Referer header
-                if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
+                if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
                     $headers['Referer'] = home_url();
                     $headers['X-Title'] = get_bloginfo('name');
                 }

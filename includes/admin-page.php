@@ -1963,11 +1963,17 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     }
 
     $endpoint = rtrim($api_url, '/') . '/models';
+    $headers = [
+        'Authorization' => 'Bearer ' . $api_key,
+        'Content-Type'  => 'application/json',
+    ];
+    // OpenRouter requires Referer header
+    if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($api_url, 'openrouter.ai') !== false)) {
+        $headers['Referer'] = home_url();
+        $headers['X-Title'] = get_bloginfo('name');
+    }
     $response = wp_remote_get($endpoint, [
-        'headers' => [
-            'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type'  => 'application/json',
-        ],
+        'headers' => $headers,
         'timeout' => 20,
         'sslverify' => true,
     ]);

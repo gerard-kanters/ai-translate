@@ -10,15 +10,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // Show/hide custom model text field based on selected value
     var selectedModel = document.getElementById('selected_model');
     var customModelDiv = document.getElementById('custom_model_div');
-    if (selectedModel) {
-        selectedModel.addEventListener('change', function () {
-            if (this.value === 'custom') {
-                customModelDiv.style.display = 'block';
-            } else {
-                customModelDiv.style.display = 'none';
-            }
-        });
-    }
 
     // API Validation functionality
     var apiStatusSpan = document.getElementById('ai-translate-api-status');
@@ -45,6 +36,21 @@ document.addEventListener('DOMContentLoaded', function () {
             url: 'https://api.deepseek.com/v1/',
             key_link: 'https://platform.deepseek.com/'
         },
+        'openrouter': {
+            name: 'OpenRouter',
+            url: 'https://openrouter.ai/api/v1/',
+            key_link: 'https://openrouter.ai/docs/api-keys'
+        },
+        'groq': {
+            name: 'Groq',
+            url: 'https://api.groq.com/openai/v1',
+            key_link: 'https://console.groq.com/keys/'
+        },
+        'deepinfra': {
+            name: 'DeepInfra',
+            url: 'https://api.deepinfra.com/v1/openai',
+            key_link: 'https://deepinfra.com/dashboard/api_keys'
+        },
         'custom': {
             name: 'Custom URL',
             url: '',
@@ -55,11 +61,23 @@ document.addEventListener('DOMContentLoaded', function () {
     var modelsPerProvider = aiTranslateAdmin.models || {};
 
     function updateApiKeyRequestLink() {
+        // Re-fetch elements in case they weren't available on initial load
+        if (!apiKeyRequestLinkSpan) {
+            apiKeyRequestLinkSpan = document.getElementById('api-key-request-link-span');
+        }
+        if (!apiProviderSelect) {
+            apiProviderSelect = document.getElementById('api_provider_select');
+        }
+        
         if (apiProviderSelect && apiKeyRequestLinkSpan) {
             var selectedProviderKey = apiProviderSelect.value;
-            var providerInfo = apiProvidersData[selectedProviderKey];
-            if (providerInfo && providerInfo.key_link) {
-                apiKeyRequestLinkSpan.innerHTML = '<a href="' + providerInfo.key_link + '" target="_blank">Request Key</a>';
+            if (selectedProviderKey && selectedProviderKey !== '') {
+                var providerInfo = apiProvidersData[selectedProviderKey];
+                if (providerInfo && providerInfo.key_link && providerInfo.key_link !== '') {
+                    apiKeyRequestLinkSpan.innerHTML = '<a href="' + providerInfo.key_link + '" target="_blank">Request Key</a>';
+                } else {
+                    apiKeyRequestLinkSpan.innerHTML = '';
+                }
             } else {
                 apiKeyRequestLinkSpan.innerHTML = '';
             }
@@ -89,16 +107,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateModelField() {
         if (!selectedModel) return;
-        var selectedProvider = apiProviderSelect.value;
+        var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
+        if (!selectedProvider) return;
+        
         var model = modelsPerProvider[selectedProvider] || '';
+        
+        // Hide custom model field for all providers except custom
+        toggleCustomModelField();
         
         // Clear dropdown first
         selectedModel.innerHTML = '';
         
-        // For OpenAI and Deepseek: load models via AJAX
-        if (selectedProvider === 'openai' || selectedProvider === 'deepseek') {
+        // For OpenAI, Deepseek, OpenRouter, Groq, and DeepInfra: load models via AJAX
+        if (selectedProvider === 'openai' || selectedProvider === 'deepseek' || selectedProvider === 'openrouter' || selectedProvider === 'groq' || selectedProvider === 'deepinfra') {
             loadModelsForProvider(selectedProvider, model);
-        } else {
+        } else if (selectedProvider === 'custom') {
             // For custom provider: show only the stored model
             if (model) {
                 var opt = document.createElement('option');
@@ -116,19 +139,40 @@ document.addEventListener('DOMContentLoaded', function () {
             // Trigger change event
             var event = new Event('change');
             selectedModel.dispatchEvent(event);
+        } else {
+            // No provider selected
+            var placeholderOpt = document.createElement('option');
+            placeholderOpt.value = '';
+            placeholderOpt.textContent = 'Selecteer eerst een API Provider...';
+            placeholderOpt.disabled = true;
+            placeholderOpt.selected = true;
+            selectedModel.appendChild(placeholderOpt);
         }
     }
 
     function loadModelsForProvider(provider, currentModel) {
         var apiUrl = getSelectedApiUrl();
-        var apiKey = apiKeyInput ? apiKeyInput.value : '';
+        var apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
         if (!apiUrl || !apiKey) {
-            if (apiStatusSpan) apiStatusSpan.textContent = 'Select API Provider and enter API Key.';
+            if (selectedModel) {
+                selectedModel.innerHTML = '';
+                var placeholderOpt = document.createElement('option');
+                placeholderOpt.value = '';
+                placeholderOpt.textContent = 'Vul eerst API Key in...';
+                placeholderOpt.disabled = true;
+                placeholderOpt.selected = true;
+                selectedModel.appendChild(placeholderOpt);
+            }
+            if (apiStatusSpan) apiStatusSpan.textContent = 'Vul eerst de API Key in om modellen te laden.';
+            // Hide custom model field when no API key
+            if (customModelDiv) {
+                customModelDiv.style.display = 'none';
+            }
             return;
         }
 
-        if (apiStatusSpan) apiStatusSpan.textContent = 'Load models ...';
+        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen laden...';
 
         var data = new FormData();
         data.append('action', 'ai_translate_get_models');
@@ -160,20 +204,41 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedModel.appendChild(opt);
                         });
 
-                        var customOpt = document.createElement('option');
-                        customOpt.value = 'custom';
-                        customOpt.textContent = 'Select...';
-                        if (currentModel === 'custom') customOpt.selected = true;
-                        selectedModel.appendChild(customOpt);
+                        // Only add "custom" option for custom provider
+                        if (provider === 'custom') {
+                            var customOpt = document.createElement('option');
+                            customOpt.value = 'custom';
+                            customOpt.textContent = 'Select...';
+                            if (currentModel === 'custom') customOpt.selected = true;
+                            selectedModel.appendChild(customOpt);
+                        }
                         
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Models loaded successfully.';
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
                     } else {
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Unknown error');
+                        if (selectedModel) {
+                            selectedModel.innerHTML = '';
+                            var errorOpt = document.createElement('option');
+                            errorOpt.value = '';
+                            errorOpt.textContent = 'Geen modellen gevonden';
+                            errorOpt.disabled = true;
+                            errorOpt.selected = true;
+                            selectedModel.appendChild(errorOpt);
+                        }
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Geen modellen gevonden: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
                     }
                 }
             })
             .catch(function (e) {
-                if (apiStatusSpan) apiStatusSpan.textContent = 'Error loading models: ' + e.message;
+                if (selectedModel) {
+                    selectedModel.innerHTML = '';
+                    var errorOpt = document.createElement('option');
+                    errorOpt.value = '';
+                    errorOpt.textContent = 'Fout bij laden modellen';
+                    errorOpt.disabled = true;
+                    errorOpt.selected = true;
+                    selectedModel.appendChild(errorOpt);
+                }
+                if (apiStatusSpan) apiStatusSpan.textContent = 'Fout bij laden modellen: ' + e.message;
             });
     }
 
@@ -183,13 +248,35 @@ document.addEventListener('DOMContentLoaded', function () {
         apiProviderSelect.addEventListener('change', toggleGpt5Warning);
         apiProviderSelect.addEventListener('change', updateApiKeyField); // Update API key field when provider changes
         apiProviderSelect.addEventListener('change', updateModelField);
+        // Also update when select is clicked/focused (in case change event doesn't fire)
+        apiProviderSelect.addEventListener('focus', function() {
+            setTimeout(updateApiKeyRequestLink, 50);
+        });
+        // Call update functions on initial load
         updateApiKeyRequestLink();
         toggleCustomApiUrlField();
         toggleGpt5Warning();
         // Don't call updateApiKeyField() on initial load - let PHP value stay
         // Only update when user actively changes provider
         updateModelField(); // Initial on load
+    } else {
+        // If apiProviderSelect doesn't exist yet, try again after a short delay
+        setTimeout(function() {
+            apiProviderSelect = document.getElementById('api_provider_select');
+            if (apiProviderSelect) {
+                apiProviderSelect.addEventListener('change', updateApiKeyRequestLink);
+                apiProviderSelect.addEventListener('focus', function() {
+                    setTimeout(updateApiKeyRequestLink, 50);
+                });
+                updateApiKeyRequestLink();
+            }
+        }, 100);
     }
+    
+    // Additional fallback: try to update link after page is fully loaded
+    setTimeout(function() {
+        updateApiKeyRequestLink();
+    }, 500);
 
     // Function to update the API key field
     function updateApiKeyField() {
@@ -216,10 +303,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function loadModels() {
         var apiUrl = getSelectedApiUrl();
-        var apiKey = apiKeyInput ? apiKeyInput.value : '';
+        var apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
         if (!apiUrl || !apiKey) {
-            if (apiStatusSpan) apiStatusSpan.textContent = 'Select API Provider and enter API Key.';
+            if (selectedModel) {
+                selectedModel.innerHTML = '';
+                var placeholderOpt = document.createElement('option');
+                placeholderOpt.value = '';
+                placeholderOpt.textContent = 'Vul eerst API Key in...';
+                placeholderOpt.disabled = true;
+                placeholderOpt.selected = true;
+                selectedModel.appendChild(placeholderOpt);
+            }
+            if (apiStatusSpan) apiStatusSpan.textContent = 'Vul eerst de API Key in om modellen te laden.';
+            // Hide custom model field when no API key
+            if (customModelDiv) {
+                customModelDiv.style.display = 'none';
+            }
             return;
         }
 
@@ -256,12 +356,16 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedModel.appendChild(opt);
                         });
 
-                        var customOpt = document.createElement('option');
-                        customOpt.value = 'custom';
-                        customOpt.textContent = 'Select...';
-                        if (current === 'custom') customOpt.selected = true;
-                        selectedModel.appendChild(customOpt);
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Models loaded successfully.';
+                        // Only add "custom" option for custom provider
+                        var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
+                        if (selectedProvider === 'custom') {
+                            var customOpt = document.createElement('option');
+                            customOpt.value = 'custom';
+                            customOpt.textContent = 'Select...';
+                            if (current === 'custom') customOpt.selected = true;
+                            selectedModel.appendChild(customOpt);
+                        }
+                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
                     } else {
                         if (apiStatusSpan) apiStatusSpan.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Unknown error');
                     }
@@ -272,17 +376,48 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function toggleCustomModelField() {
+        if (!customModelDiv || !apiProviderSelect) return;
+        var selectedProvider = apiProviderSelect.value;
+        var selectedModelValue = selectedModel ? selectedModel.value : '';
+        // Only show custom model field for custom provider AND when model is 'custom'
+        if (selectedProvider === 'custom' && selectedModelValue === 'custom') {
+            customModelDiv.style.display = 'block';
+        } else {
+            customModelDiv.style.display = 'none';
+        }
+    }
+
     if (selectedModel) {
         selectedModel.addEventListener('focus', loadModels);
         selectedModel.addEventListener('change', function () {
-            if (customModelDiv) {
-                customModelDiv.style.display = (this.value === 'custom') ? 'block' : 'none';
-            }
+            toggleCustomModelField();
         });
 
-        if (customModelDiv) {
-            customModelDiv.style.display = (selectedModel.value === 'custom') ? 'block' : 'none';
-        }
+        // Initial state
+        toggleCustomModelField();
+    }
+    
+    // Also update when provider changes
+    if (apiProviderSelect) {
+        apiProviderSelect.addEventListener('change', function() {
+            toggleCustomModelField();
+        });
+    }
+    
+    // Auto-load models when API key is entered (with debounce)
+    var apiKeyTimeout;
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener('input', function() {
+            clearTimeout(apiKeyTimeout);
+            apiKeyTimeout = setTimeout(function() {
+                var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
+                if (selectedProvider && (selectedProvider === 'openai' || selectedProvider === 'deepseek' || selectedProvider === 'openrouter' || selectedProvider === 'groq' || selectedProvider === 'deepinfra')) {
+                    var model = modelsPerProvider[selectedProvider] || '';
+                    loadModelsForProvider(selectedProvider, model);
+                }
+            }, 500); // Wait 500ms after user stops typing
+        });
     }
 
     if (validateApiBtn) {
