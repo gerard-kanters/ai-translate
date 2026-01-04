@@ -34,6 +34,9 @@ final class AI_Translate_Core
         return [
             'openai' => [ 'name' => 'OpenAI/ChatGPT', 'base_url' => 'https://api.openai.com/v1' ],
             'deepseek' => [ 'name' => 'DeepSeek', 'base_url' => 'https://api.deepseek.com/v1' ],
+            'openrouter' => [ 'name' => 'OpenRouter', 'base_url' => 'https://openrouter.ai/api/v1' ],
+            'groq' => [ 'name' => 'Groq', 'base_url' => 'https://api.groq.com/openai/v1' ],
+            'deepinfra' => [ 'name' => 'DeepInfra', 'base_url' => 'https://api.deepinfra.com/v1/openai' ],
             'custom' => [ 'name' => 'Custom API', 'base_url' => '' ],
         ];
     }

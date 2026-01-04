@@ -60,6 +60,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var modelsPerProvider = aiTranslateAdmin.models || {};
 
+    function toggleCustomModelField() {
+        if (!customModelDiv || !apiProviderSelect) return;
+        var selectedProvider = apiProviderSelect.value;
+        var selectedModelValue = selectedModel ? selectedModel.value : '';
+        // Only show custom model field for custom provider AND when model is 'custom'
+        if (selectedProvider === 'custom' && selectedModelValue === 'custom') {
+            customModelDiv.style.display = 'block';
+        } else {
+            customModelDiv.style.display = 'none';
+        }
+    }
+
     function updateApiKeyRequestLink() {
         // Re-fetch elements in case they weren't available on initial load
         if (!apiKeyRequestLinkSpan) {
@@ -419,18 +431,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(function (e) {
                 if (apiStatusSpan) apiStatusSpan.textContent = (strings.errorLoadingModels || 'Error loading models') + ': ' + e.message;
             });
-    }
-
-    function toggleCustomModelField() {
-        if (!customModelDiv || !apiProviderSelect) return;
-        var selectedProvider = apiProviderSelect.value;
-        var selectedModelValue = selectedModel ? selectedModel.value : '';
-        // Only show custom model field for custom provider AND when model is 'custom'
-        if (selectedProvider === 'custom' && selectedModelValue === 'custom') {
-            customModelDiv.style.display = 'block';
-        } else {
-            customModelDiv.style.display = 'none';
-        }
     }
 
     if (selectedModel) {
