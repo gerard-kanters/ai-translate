@@ -1176,6 +1176,26 @@ add_action('admin_init', function () {
         'ai_translate_languages'
     );
 
+    /**
+     * Check if the site is a single domain site.
+     * 
+     * A single domain site is a normal WordPress installation (not multisite) 
+     * with only one domain pointing to it.
+     * 
+     * @return bool True if single domain, false if multi-domain.
+     */
+    function is_single_domain_site() {
+        // If WordPress is multisite, it's likely multi-domain
+        if (is_multisite()) {
+            return false;
+        }
+        
+        // For normal WordPress installations, assume single domain
+        // Multi-domain setups would typically use multisite or have multiple domains
+        // configured via server/DNS, which is difficult to detect programmatically
+        return true;
+    }
+
     // Cache Settings Section
     add_settings_section(
         'ai_translate_cache',
@@ -1219,23 +1239,26 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_cache'
     );
-    add_settings_field(
-        'multi_domain_caching',
-        __('Multi-Domain Caching', 'ai-translate'),
-        function () {
-            $settings = get_option('ai_translate_settings');
-            $value = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-            echo '<label>';
-            echo '<input type="checkbox" name="ai_translate_settings[multi_domain_caching]" value="1" ' . checked($value, true, false) . '> ';
-            echo esc_html__('Enable separate cache per domain', 'ai-translate');
-            echo '</label>';
-            echo '<p class="description">';
-            echo esc_html__('When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation.', 'ai-translate');
-            echo '</p>';
-        },
-        'ai-translate',
-        'ai_translate_cache'
-    );
+    // Only show multi-domain caching option if site is NOT single domain
+    if (!is_single_domain_site()) {
+        add_settings_field(
+            'multi_domain_caching',
+            __('Multi-Domain Caching', 'ai-translate'),
+            function () {
+                $settings = get_option('ai_translate_settings');
+                $value = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+                echo '<label>';
+                echo '<input type="checkbox" name="ai_translate_settings[multi_domain_caching]" value="1" ' . checked($value, true, false) . '> ';
+                echo esc_html__('Enable separate cache per domain', 'ai-translate');
+                echo '</label>';
+                echo '<p class="description">';
+                echo esc_html__('When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation.', 'ai-translate');
+                echo '</p>';
+            },
+            'ai-translate',
+            'ai_translate_cache'
+        );
+    }
     add_settings_field(
         'stop_translations_except_cache_invalidation',
         __('Stop translations (except cache invalidation)', 'ai-translate'),
