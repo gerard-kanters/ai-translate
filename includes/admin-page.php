@@ -1179,21 +1179,50 @@ add_action('admin_init', function () {
     /**
      * Check if the site is a single domain site.
      * 
-     * A single domain site is a normal WordPress installation (not multisite) 
-     * with only one domain pointing to it.
+     * A single domain site is a site with only one domain pointing to it.
+     * We only return true if we're CERTAIN it's a single-domain site.
+     * Otherwise, we assume it might be multi-domain and show the option.
      * 
-     * @return bool True if single domain, false if multi-domain.
+     * @return bool True if CERTAINLY single domain, false if possibly multi-domain.
      */
     function is_single_domain_site() {
-        // If WordPress is multisite, it's likely multi-domain
+        $settings = get_option('ai_translate_settings', []);
+        
+        // If multi-domain caching is already enabled, it's definitely multi-domain
+        if (isset($settings['multi_domain_caching']) && (bool) $settings['multi_domain_caching']) {
+            return false;
+        }
+        
+        // Check if there are per-domain settings stored (indicates multi-domain setup)
+        $has_per_domain_meta = isset($settings['homepage_meta_description_per_domain']) 
+            && is_array($settings['homepage_meta_description_per_domain']) 
+            && count($settings['homepage_meta_description_per_domain']) > 0;
+            
+        $has_per_domain_context = isset($settings['website_context_per_domain']) 
+            && is_array($settings['website_context_per_domain']) 
+            && count($settings['website_context_per_domain']) > 0;
+        
+        // If per-domain settings exist, it's definitely a multi-domain setup
+        if ($has_per_domain_meta || $has_per_domain_context) {
+            return false;
+        }
+        
+        // If multisite, assume multi-domain (can have multiple domains)
         if (is_multisite()) {
             return false;
         }
         
-        // For normal WordPress installations, assume single domain
-        // Multi-domain setups would typically use multisite or have multiple domains
-        // configured via server/DNS, which is difficult to detect programmatically
-        return true;
+        // Check if multi-domain caching was explicitly disabled (user knows it's single-domain)
+        // If the setting exists and is false, user has made a conscious choice
+        if (isset($settings['multi_domain_caching']) && (bool) $settings['multi_domain_caching'] === false) {
+            // Setting exists and is false - user has explicitly disabled it
+            // This suggests they know it's a single-domain site
+            return true;
+        }
+        
+        // If we can't be certain, assume it might be multi-domain and show the option
+        // This allows admins to enable it for server/DNS multi-domain setups
+        return false;
     }
 
     // Cache Settings Section
