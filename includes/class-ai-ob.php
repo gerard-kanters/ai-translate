@@ -76,6 +76,49 @@ final class AI_OB
             return $html;
         }
         
+        // Skip archive pages - do not translate or cache them
+        // Archives (category, tag, author, date, taxonomy) should not be translated
+        // Only singular posts/pages should be translated and cached
+        // This check must happen BEFORE any translation or cache operations to prevent API costs
+        if (function_exists('is_archive') && is_archive()) {
+            $processing = false;
+            return $html;
+        }
+        
+        // Also check for other archive types that might not be caught by is_archive()
+        // These checks ensure we exclude all archive-like pages from translation
+        if (function_exists('is_category') && is_category()) {
+            $processing = false;
+            return $html;
+        }
+        if (function_exists('is_tag') && is_tag()) {
+            $processing = false;
+            return $html;
+        }
+        if (function_exists('is_author') && is_author()) {
+            $processing = false;
+            return $html;
+        }
+        if (function_exists('is_date') && is_date()) {
+            $processing = false;
+            return $html;
+        }
+        if (function_exists('is_tax') && is_tax()) {
+            $processing = false;
+            return $html;
+        }
+        
+        // Only translate singular posts/pages - exclude archives, search, and other non-singular pages
+        // This ensures we only translate actual content pages, not archive listings
+        // Note: Search pages are handled separately (they are translated but not cached)
+        if (function_exists('is_singular') && !is_singular()) {
+            // Allow search pages to be translated (but not cached, handled elsewhere)
+            if (!function_exists('is_search') || !is_search()) {
+                $processing = false;
+                return $html;
+            }
+        }
+        
         // Skip XML files (sitemaps, etc.) - they should not be processed
         $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
         if (preg_match('/\.xml$/i', $reqPath) || 
