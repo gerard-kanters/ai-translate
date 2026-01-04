@@ -48,6 +48,34 @@ final class AI_OB
             return $html;
         }
         
+        // Skip 404 pages FIRST - do not translate, cache, or process them
+        // This check must happen BEFORE any translation or cache operations to prevent API costs
+        global $wp_query;
+        if (isset($wp_query) && is_object($wp_query) && $wp_query->is_404()) {
+            $processing = false;
+            return $html;
+        }
+        
+        // Also check HTML content for 404 indicators as fallback
+        // Some themes/plugins might not set is_404() correctly
+        // This check uses minimal processing (no full HTML parsing) to avoid costs
+        $htmlLower = strtolower($html);
+        $is404InContent = (
+            stripos($html, '404') !== false && (
+                stripos($htmlLower, 'page not found') !== false ||
+                stripos($htmlLower, 'niet gevonden') !== false ||
+                stripos($htmlLower, 'nicht gefunden') !== false ||
+                stripos($htmlLower, 'page non trouvée') !== false ||
+                stripos($htmlLower, 'página no encontrada') !== false ||
+                stripos($htmlLower, 'pagina non trovata') !== false ||
+                (stripos($htmlLower, '<title') !== false && stripos($htmlLower, '404') !== false && stripos($htmlLower, 'not found') !== false)
+            )
+        );
+        if ($is404InContent) {
+            $processing = false;
+            return $html;
+        }
+        
         // Skip XML files (sitemaps, etc.) - they should not be processed
         $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
         if (preg_match('/\.xml$/i', $reqPath) || 
@@ -64,6 +92,7 @@ final class AI_OB
             $processing = false;
             return $html;
         }
+        
         $lang = AI_Lang::current();
         if ($lang === null) {
             $processing = false;
