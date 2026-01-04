@@ -76,6 +76,22 @@ final class AI_OB
             return $html;
         }
         
+        // Skip attachment pages - do not translate or cache them
+        // Attachments (images, files) should not be translated or cached
+        // This check must happen BEFORE any translation or cache operations to prevent API costs
+        if (function_exists('is_attachment') && is_attachment()) {
+            $processing = false;
+            return $html;
+        }
+        
+        // Also check if queried object is an attachment by post_type
+        // This catches cases where is_attachment() might not work correctly
+        $queried_object = get_queried_object();
+        if ($queried_object && isset($queried_object->post_type) && $queried_object->post_type === 'attachment') {
+            $processing = false;
+            return $html;
+        }
+        
         // Skip archive pages - do not translate or cache them
         // Archives (category, tag, author, date, taxonomy) should not be translated
         // Only singular posts/pages should be translated and cached
@@ -565,11 +581,22 @@ final class AI_OB
         }
         
         // For singular posts/pages: use post ID (consistent, prevents duplicates)
-        // Only use post ID if it's actually a singular post/page (not archive/search)
+        // Only use post ID if it's actually a singular post/page (not archive/search/attachment)
         if (function_exists('is_singular') && is_singular()) {
-            $post_id = get_queried_object_id();
-            if ($post_id > 0) {
-                return 'post:' . $post_id;
+            // Skip attachments - they should not be cached
+            if (function_exists('is_attachment') && is_attachment()) {
+                // Fall through to path-based route_id below
+            } else {
+                $post_id = get_queried_object_id();
+                if ($post_id > 0) {
+                    // Double-check: verify this is not an attachment by checking post_type
+                    $queried_object = get_queried_object();
+                    if ($queried_object && isset($queried_object->post_type) && $queried_object->post_type === 'attachment') {
+                        // Fall through to path-based route_id below
+                    } else {
+                        return 'post:' . $post_id;
+                    }
+                }
             }
         }
         
@@ -583,15 +610,18 @@ final class AI_OB
         }
         
         // Try to get post ID from queried object for edge cases
-        // But only if it's not an archive/search (to avoid caching archives as posts)
+        // But only if it's not an archive/search/attachment (to avoid caching archives/attachments as posts)
         $post_id = get_queried_object_id();
         if ($post_id > 0) {
             // Double-check: only use post ID if it's not an archive
             if (!function_exists('is_archive') || !is_archive()) {
-                // Additional check: verify this is actually a post/page, not a term
+                // Additional check: verify this is actually a post/page, not a term or attachment
                 $queried_object = get_queried_object();
                 if ($queried_object && isset($queried_object->post_type)) {
-                    return 'post:' . $post_id;
+                    // Skip attachments - they should not be cached
+                    if ($queried_object->post_type !== 'attachment') {
+                        return 'post:' . $post_id;
+                    }
                 }
             }
         }
@@ -621,11 +651,14 @@ final class AI_OB
             $path_parts = array_filter(explode('/', trim($clean_path, '/')));
             if (!empty($path_parts) && !in_array($clean_path, array('/category/', '/tag/', '/author/', '/date/'))) {
                 $slug = end($path_parts);
-                // Try to find post/page by slug
-                $found_post = get_page_by_path($slug, OBJECT, array('post', 'page'));
-                if ($found_post && isset($found_post->ID)) {
+            // Try to find post/page by slug (exclude attachments)
+            $found_post = get_page_by_path($slug, OBJECT, array('post', 'page'));
+            if ($found_post && isset($found_post->ID)) {
+                // Skip attachments - they should not be cached
+                if (isset($found_post->post_type) && $found_post->post_type !== 'attachment') {
                     return 'post:' . $found_post->ID;
                 }
+            }
             }
         }
         
