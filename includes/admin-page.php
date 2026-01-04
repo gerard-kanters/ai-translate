@@ -828,9 +828,14 @@ add_action('admin_init', function () {
                     $cache_days = 14;
                 }
                 $sanitized['cache_expiration'] = $cache_days * 24;
-            } elseif (!isset($sanitized['cache_expiration'])) {
-                // Initialize if not set at all
-                $sanitized['cache_expiration'] = 14 * 24;
+            } else {
+                // Validate existing value even when not in input (e.g., when only checkbox is changed)
+                // cache_expiration should be stored in HOURS, maximum reasonable value is 365 days (8760 hours)
+                $existing = isset($sanitized['cache_expiration']) ? (int) $sanitized['cache_expiration'] : null;
+                if ($existing === null || $existing < (14 * 24) || $existing > (365 * 24)) {
+                    // Invalid or missing value - reset to default
+                    $sanitized['cache_expiration'] = 14 * 24;
+                }
             }
 
             // Auto-clear pages on menu update (checkbox)
