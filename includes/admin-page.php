@@ -736,7 +736,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'loadingModels' => __('Loading models...', 'ai-translate'),
             'modelsLoadedSuccessfully' => __('Models loaded successfully.', 'ai-translate'),
             'noModelsFound' => __('No models found', 'ai-translate'),
-            'noModelsOrInvalidKey' => __('No models/Invalid key', 'ai-translate'),
+            'invalidKey' => __('Invalid key', 'ai-translate'),
             'errorLoadingModels' => __('Error loading models', 'ai-translate'),
             'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
             'unknownError' => __('Unknown error', 'ai-translate'),
@@ -1996,9 +1996,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     if ($code !== 200) {
         // Check if error is due to invalid API key (401, 403)
         $isInvalidKey = ($code === 401 || $code === 403);
-        $errorMessage = __('API error:', 'ai-translate') . ' ' . $body;
         if ($isInvalidKey) {
-            $errorMessage = __('No models/Invalid key', 'ai-translate') . ': ' . $body;
+            $errorMessage = __('Invalid key', 'ai-translate') . ': ' . $body;
+        } else {
+            $errorMessage = __('API error:', 'ai-translate') . ' ' . $body;
         }
         wp_send_json_error(['message' => $errorMessage]);
     }

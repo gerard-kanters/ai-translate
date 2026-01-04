@@ -838,3 +838,35 @@ msgstr "فشل التحقق من API:"
 #~ "عند التفعيل، لن يتم ترجمة صفحات الأرشيف (الفئات، العلامات، أرشيفات "
 #~ "التاريخ، إلخ). ستظل الصفحات المفردة (المشاركات، الصفحات، أنواع المنشورات "
 #~ "المخصصة) تُترجم."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "أدخل مفتاح API أولاً..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "أدخل مفتاح API أولاً لتحميل النماذج."
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "جاري تحميل النماذج..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "تم تحميل النماذج بنجاح."
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "لم يتم العثور على نماذج"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "مفتاح غير صالح"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "خطأ في تحميل النماذج"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "اختر موفر API أولاً..."

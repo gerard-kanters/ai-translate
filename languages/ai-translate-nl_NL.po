@@ -869,8 +869,8 @@ msgid "No models found"
 msgstr "Geen modellen gevonden"
 
 #: includes/admin-page.php:722
-msgid "No models/Invalid key"
-msgstr "Geen modellen/Onjuiste key"
+msgid "Invalid key"
+msgstr "Onjuiste key"
 
 #: includes/admin-page.php:722
 msgid "Error loading models"

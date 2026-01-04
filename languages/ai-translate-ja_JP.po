@@ -835,6 +835,38 @@ msgstr "API検証に失敗しました："
 #~ msgid "Stop vertalingen"
 #~ msgstr "翻訳を停止"
 
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "まず API キーを入力してください..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "モデルを読み込むには、まず API キーを入力してください。"
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "モデルを読み込んでいます..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "モデルの読み込みに成功しました。"
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "モデルが見つかりません"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "無効なキー"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "モデルの読み込みエラー"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "まず API プロバイダーを選択してください..."
+
 #~ msgid "Stop translation of archive pages"
 #~ msgstr "アーカイブページの翻訳を停止"
 

@@ -844,6 +844,38 @@ msgstr "Falha na validação da API:"
 #~ "Por favor, defina os seus permalinks para \"Nome do artigo\" ou outra "
 #~ "estrutura."
 
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "Digite primeiro a chave API..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "Digite primeiro a chave API para carregar modelos."
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "Carregando modelos..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "Modelos carregados com sucesso."
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "Nenhum modelo encontrado"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "Chave inválida"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "Erro ao carregar modelos"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "Selecione primeiro um provedor de API..."
+
 #~ msgid "Start of Navigation Menu"
 #~ msgstr "Início do Menu de Navegação"
 

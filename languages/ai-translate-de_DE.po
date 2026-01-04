@@ -868,3 +868,35 @@ msgstr "API-Validierung fehlgeschlagen:"
 #~ "Wenn aktiviert, werden Archivseiten (Kategorien, Tags, Datumsarchive "
 #~ "usw.) nicht übersetzt. Einzelseiten (Beiträge, Seiten, benutzerdefinierte "
 #~ "Beitragstypen) werden weiterhin übersetzt."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "API-Schlüssel zuerst eingeben..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "API-Schlüssel zuerst eingeben, um Modelle zu laden."
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "Modelle werden geladen..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "Modelle erfolgreich geladen."
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "Keine Modelle gefunden"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "Ungültiger Schlüssel"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "Fehler beim Laden der Modelle"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "Zuerst API-Anbieter auswählen..."

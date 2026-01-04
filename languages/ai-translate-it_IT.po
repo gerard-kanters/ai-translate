@@ -842,6 +842,38 @@ msgstr "Convalida API fallita:"
 #~ msgid "Please set your permalinks to \"Post name\" or another structure."
 #~ msgstr "Imposta i tuoi permalink su \"Nome articolo\" o un'altra struttura."
 
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "Inserisci prima la chiave API..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "Inserisci prima la chiave API per caricare i modelli."
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "Caricamento modelli..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "Modelli caricati con successo."
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "Nessun modello trovato"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "Chiave non valida"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "Errore nel caricamento dei modelli"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "Seleziona prima un fornitore API..."
+
 #~ msgid "Start of Navigation Menu"
 #~ msgstr "Inizio del menu di navigazione"
 

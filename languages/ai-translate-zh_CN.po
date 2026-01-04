@@ -813,3 +813,35 @@ msgstr "API 验证失败："
 #~ msgstr ""
 #~ "启用后，归档页面（类别、标签、日期归档等）将不会被翻译。单个页面（文章、页"
 #~ "面、自定义文章类型）仍将被翻译。"
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "请先输入 API 密钥..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "请先输入 API 密钥以加载模型。"
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "正在加载模型..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "模型加载成功。"
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "未找到模型"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "无效密钥"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "加载模型时出错"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "请先选择 API 提供商..."

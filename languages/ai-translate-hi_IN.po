@@ -831,3 +831,35 @@ msgstr "API सत्यापन विफल:"
 #~ msgstr ""
 #~ "सक्षम होने पर, आर्काइव पेज (श्रेणियां, टैग, दिनांक आर्काइव, आदि) का अनुवाद नहीं किया "
 #~ "जाएगा। एकवचन पेज (पोस्ट, पेज, कस्टम पोस्ट प्रकार) अभी भी अनुवादित किए जाएंगे।"
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "पहले API कुंजी दर्ज करें..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "मॉडल लोड करने के लिए पहले API कुंजी दर्ज करें।"
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "मॉडल लोड हो रहे हैं..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "मॉडल सफलतापूर्वक लोड किए गए।"
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "कोई मॉडल नहीं मिला"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "अमान्य कुंजी"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "मॉडल लोड करने में त्रुटि"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "पहले API प्रदाता चुनें..."

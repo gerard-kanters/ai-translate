@@ -841,3 +841,35 @@ msgstr "API validation failed:"
 #~ "When enabled, archive pages (categories, tags, date archives, etc.) will "
 #~ "not be translated. Singular pages (posts, pages, custom post types) will "
 #~ "still be translated."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "Enter API Key first..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "Enter API Key first to load models."
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "Loading models..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "Models loaded successfully."
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "No models found"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "Invalid key"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "Error loading models"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "Select API Provider first..."

@@ -234,13 +234,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         var errorMessage = '';
                         if (resp.data && resp.data.message) {
                             errorMessage = resp.data.message;
-                            // Check for common invalid key indicators
-                            if (errorMessage.toLowerCase().indexOf('unauthorized') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('invalid') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('authentication') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('401') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('403') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('forbidden') !== -1) {
+                            // Check if errorMessage already starts with "Invalid key" (from PHP)
+                            var errorLower = errorMessage.toLowerCase();
+                            if (errorLower.indexOf('invalid key') === 0 || 
+                                errorLower.indexOf('onjuiste key') === 0 ||
+                                errorLower.indexOf('unauthorized') !== -1 ||
+                                errorLower.indexOf('invalid') !== -1 ||
+                                errorLower.indexOf('authentication') !== -1 ||
+                                errorLower.indexOf('401') !== -1 ||
+                                errorLower.indexOf('403') !== -1 ||
+                                errorLower.indexOf('forbidden') !== -1) {
                                 isInvalidKey = true;
                             }
                         }
@@ -249,16 +252,30 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedModel.innerHTML = '';
                             var errorOpt = document.createElement('option');
                             errorOpt.value = '';
-                            errorOpt.textContent = isInvalidKey ? (strings.noModelsOrInvalidKey || 'No models/Invalid key') : (strings.noModelsFound || 'No models found');
+                            errorOpt.textContent = isInvalidKey ? (strings.invalidKey || 'Invalid key') : (strings.noModelsFound || 'No models found');
                             errorOpt.disabled = true;
                             errorOpt.selected = true;
                             selectedModel.appendChild(errorOpt);
                         }
-                        var statusMessage = isInvalidKey ? (strings.noModelsOrInvalidKey || 'No models/Invalid key') : (strings.noModelsFound || 'No models found');
-                        if (errorMessage) {
-                            statusMessage += ': ' + errorMessage;
+                        var statusMessage;
+                        if (isInvalidKey) {
+                            // If errorMessage already contains "Invalid key", use it directly
+                            var errorLower = errorMessage.toLowerCase();
+                            if (errorLower.indexOf('invalid key') === 0 || errorLower.indexOf('onjuiste key') === 0) {
+                                statusMessage = errorMessage;
+                            } else {
+                                statusMessage = (strings.invalidKey || 'Invalid key');
+                                if (errorMessage) {
+                                    statusMessage += ': ' + errorMessage;
+                                }
+                            }
                         } else {
-                            statusMessage += ': ' + (strings.unknownError || 'Unknown error');
+                            statusMessage = (strings.noModelsFound || 'No models found');
+                            if (errorMessage) {
+                                statusMessage += ': ' + errorMessage;
+                            } else {
+                                statusMessage += ': ' + (strings.unknownError || 'Unknown error');
+                            }
                         }
                         if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                     }
@@ -409,20 +426,38 @@ document.addEventListener('DOMContentLoaded', function () {
                         var errorMessage = '';
                         if (resp.data && resp.data.message) {
                             errorMessage = resp.data.message;
-                            if (errorMessage.toLowerCase().indexOf('unauthorized') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('invalid') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('authentication') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('401') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('403') !== -1 ||
-                                errorMessage.toLowerCase().indexOf('forbidden') !== -1) {
+                            var errorLower = errorMessage.toLowerCase();
+                            // Check if errorMessage already starts with "Invalid key" (from PHP)
+                            if (errorLower.indexOf('invalid key') === 0 || 
+                                errorLower.indexOf('onjuiste key') === 0 ||
+                                errorLower.indexOf('unauthorized') !== -1 ||
+                                errorLower.indexOf('invalid') !== -1 ||
+                                errorLower.indexOf('authentication') !== -1 ||
+                                errorLower.indexOf('401') !== -1 ||
+                                errorLower.indexOf('403') !== -1 ||
+                                errorLower.indexOf('forbidden') !== -1) {
                                 isInvalidKey = true;
                             }
                         }
-                        var statusMessage = isInvalidKey ? (strings.noModelsOrInvalidKey || 'No models/Invalid key') : (strings.noModelsFound || 'No models found');
-                        if (errorMessage) {
-                            statusMessage += ': ' + errorMessage;
+                        var statusMessage;
+                        if (isInvalidKey) {
+                            // If errorMessage already contains "Invalid key", use it directly
+                            var errorLower = errorMessage.toLowerCase();
+                            if (errorLower.indexOf('invalid key') === 0 || errorLower.indexOf('onjuiste key') === 0) {
+                                statusMessage = errorMessage;
+                            } else {
+                                statusMessage = (strings.invalidKey || 'Invalid key');
+                                if (errorMessage) {
+                                    statusMessage += ': ' + errorMessage;
+                                }
+                            }
                         } else {
-                            statusMessage += ': ' + (strings.unknownError || 'Unknown error');
+                            statusMessage = (strings.noModelsFound || 'No models found');
+                            if (errorMessage) {
+                                statusMessage += ': ' + errorMessage;
+                            } else {
+                                statusMessage += ': ' + (strings.unknownError || 'Unknown error');
+                            }
                         }
                         if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                     }

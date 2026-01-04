@@ -841,6 +841,38 @@ msgstr "Échec de la validation de l'API :"
 #~ msgid "Settings"
 #~ msgstr "Paramètres"
 
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "Entrez d'abord la clé API..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "Entrez d'abord la clé API pour charger les modèles."
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "Chargement des modèles..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "Modèles chargés avec succès."
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "Aucun modèle trouvé"
+
+#: includes/admin-page.php:722
+msgid "Invalid key"
+msgstr "Clé invalide"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "Erreur lors du chargement des modèles"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "Sélectionnez d'abord un fournisseur API..."
+
 #~ msgid "AI Translate Warning:"
 #~ msgstr "Avertissement AI Translate :"
 
