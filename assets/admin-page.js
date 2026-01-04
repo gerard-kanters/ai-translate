@@ -534,6 +534,20 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             data.append('save_settings', '1');
 
+            // Add checkbox values to save them during validation
+            var stopTranslations = document.querySelector('input[name="ai_translate_settings[stop_translations_except_cache_invalidation]"]');
+            if (stopTranslations) {
+                data.append('stop_translations_except_cache_invalidation', stopTranslations.checked ? '1' : '0');
+            }
+            var autoClear = document.querySelector('input[name="ai_translate_settings[auto_clear_pages_on_menu_update]"]');
+            if (autoClear) {
+                data.append('auto_clear_pages_on_menu_update', autoClear.checked ? '1' : '0');
+            }
+            var multiDomain = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
+            if (multiDomain) {
+                data.append('multi_domain_caching', multiDomain.checked ? '1' : '0');
+            }
+
             if (modelId === 'custom' && customModelInput) {
                 data.append('custom_model_value', customModelInput.value);
             }
