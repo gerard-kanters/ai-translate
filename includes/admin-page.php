@@ -1176,55 +1176,6 @@ add_action('admin_init', function () {
         'ai_translate_languages'
     );
 
-    /**
-     * Check if the site is a single domain site.
-     * 
-     * A single domain site is a site with only one domain pointing to it.
-     * We only return true if we're CERTAIN it's a single-domain site.
-     * Otherwise, we assume it might be multi-domain and show the option.
-     * 
-     * @return bool True if CERTAINLY single domain, false if possibly multi-domain.
-     */
-    function is_single_domain_site() {
-        $settings = get_option('ai_translate_settings', []);
-        
-        // If multi-domain caching is already enabled, it's definitely multi-domain
-        if (isset($settings['multi_domain_caching']) && (bool) $settings['multi_domain_caching']) {
-            return false;
-        }
-        
-        // Check if there are per-domain settings stored (indicates multi-domain setup)
-        $has_per_domain_meta = isset($settings['homepage_meta_description_per_domain']) 
-            && is_array($settings['homepage_meta_description_per_domain']) 
-            && count($settings['homepage_meta_description_per_domain']) > 0;
-            
-        $has_per_domain_context = isset($settings['website_context_per_domain']) 
-            && is_array($settings['website_context_per_domain']) 
-            && count($settings['website_context_per_domain']) > 0;
-        
-        // If per-domain settings exist, it's definitely a multi-domain setup
-        if ($has_per_domain_meta || $has_per_domain_context) {
-            return false;
-        }
-        
-        // If multisite, assume multi-domain (can have multiple domains)
-        if (is_multisite()) {
-            return false;
-        }
-        
-        // Check if multi-domain caching was explicitly disabled (user knows it's single-domain)
-        // If the setting exists and is false, user has made a conscious choice
-        if (isset($settings['multi_domain_caching']) && (bool) $settings['multi_domain_caching'] === false) {
-            // Setting exists and is false - user has explicitly disabled it
-            // This suggests they know it's a single-domain site
-            return true;
-        }
-        
-        // If we can't be certain, assume it might be multi-domain and show the option
-        // This allows admins to enable it for server/DNS multi-domain setups
-        return false;
-    }
-
     // Cache Settings Section
     add_settings_section(
         'ai_translate_cache',
@@ -1237,8 +1188,25 @@ add_action('admin_init', function () {
         __('Cache Duration (days)', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
-            $value = isset($settings['cache_expiration']) ? intval($settings['cache_expiration'] / 24) : 14; // Default to 14 if it doesn't exist
-            echo '<input type="number" name="ai_translate_settings[cache_expiration]" value="' . esc_attr($value) . '" class="small-text" min="14"> ' . esc_html__('days', 'ai-translate');
+            $raw = $settings['cache_expiration'] ?? null;
+            $days = 14;
+
+            // cache_expiration should be stored in HOURS, but some installs may still have legacy DAYS.
+            if (is_numeric($raw)) {
+                $num = (float) $raw;
+                if ($num >= 14 && $num < (14 * 24)) {
+                    // Likely legacy days (e.g. "14")
+                    $days = (int) $num;
+                } elseif ($num >= (14 * 24)) {
+                    // Hours (e.g. 336)
+                    $days = (int) floor($num / 24);
+                }
+            }
+
+            if ($days < 14) {
+                $days = 14;
+            }
+            echo '<input type="number" name="ai_translate_settings[cache_expiration]" value="' . esc_attr($days) . '" class="small-text" min="14"> ' . esc_html__('days', 'ai-translate');
             echo ' <em style="margin-left:10px;">(' . esc_html__('minimum 14 days', 'ai-translate') . ')</em>';
         },
         'ai-translate',
@@ -1249,7 +1217,8 @@ add_action('admin_init', function () {
         __('Auto-Clear Pages on Menu Update', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
-            $value = isset($settings['auto_clear_pages_on_menu_update']) ? (bool) $settings['auto_clear_pages_on_menu_update'] : true;
+            $raw = $settings['auto_clear_pages_on_menu_update'] ?? true;
+            $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
             echo '<input type="checkbox" name="ai_translate_settings[auto_clear_pages_on_menu_update]" value="1" ' . checked($value, true, false) . '> ';
             echo esc_html__('Automatically clear all page caches when menu items are updated', 'ai-translate');
@@ -1268,32 +1237,31 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_cache'
     );
-    // Only show multi-domain caching option if site is NOT single domain
-    if (!is_single_domain_site()) {
-        add_settings_field(
-            'multi_domain_caching',
-            __('Multi-Domain Caching', 'ai-translate'),
-            function () {
-                $settings = get_option('ai_translate_settings');
-                $value = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-                echo '<label>';
-                echo '<input type="checkbox" name="ai_translate_settings[multi_domain_caching]" value="1" ' . checked($value, true, false) . '> ';
-                echo esc_html__('Enable separate cache per domain', 'ai-translate');
-                echo '</label>';
-                echo '<p class="description">';
-                echo esc_html__('When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation.', 'ai-translate');
-                echo '</p>';
-            },
-            'ai-translate',
-            'ai_translate_cache'
-        );
-    }
+    add_settings_field(
+        'multi_domain_caching',
+        __('Multi-Domain Caching', 'ai-translate'),
+        function () {
+            $settings = get_option('ai_translate_settings');
+            $raw = $settings['multi_domain_caching'] ?? false;
+            $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
+            echo '<label>';
+            echo '<input type="checkbox" name="ai_translate_settings[multi_domain_caching]" value="1" ' . checked($value, true, false) . '> ';
+            echo esc_html__('Enable separate cache per domain', 'ai-translate');
+            echo '</label>';
+            echo '<p class="description">';
+            echo esc_html__('When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_cache'
+    );
     add_settings_field(
         'stop_translations_except_cache_invalidation',
         __('Stop translations (except cache invalidation)', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
-            $value = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
+            $raw = $settings['stop_translations_except_cache_invalidation'] ?? false;
+            $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
             echo '<input type="checkbox" name="ai_translate_settings[stop_translations_except_cache_invalidation]" value="1" ' . checked($value, true, false) . '> ';
             echo esc_html__('Stop translations (except cache invalidation)', 'ai-translate');
