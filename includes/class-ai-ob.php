@@ -128,11 +128,16 @@ final class AI_OB
         $url = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         // Allow cache bypass via nocache parameter for testing
         $nocache = isset($_GET['nocache']) || isset($_GET['no_cache']);
+        
+        // Check for dynamic query parameters that indicate the page should be translated but not cached
+        // Examples: WooCommerce add-to-cart, form submissions, AJAX actions, etc.
+        $hasDynamicQueryParams = $this->has_dynamic_query_parameters();
+        
         // Note: content_version removed from cache key for stability
         // route_id is already unique per page, making content_version unnecessary
         // Cache expiry (14+ days) ensures automatic refresh
         $key = AI_Cache::key($lang, $route, '');
-        if (!$bypassUserCache && !$nocache) {
+        if (!$bypassUserCache && !$nocache && !$hasDynamicQueryParams) {
             $cached = AI_Cache::get($key);
             if ($cached !== false) {
                 // Validate cached content for substantial untranslated text (> 4 words)
@@ -387,7 +392,10 @@ final class AI_OB
             return $html3; // Return output but don't cache it
         }
 
-        if (!$bypassUserCache) {
+        // Only cache if not bypassed and no dynamic query parameters
+        // Dynamic query parameters indicate pages that should be translated but not cached
+        // (e.g., WooCommerce add-to-cart, form submissions, AJAX actions)
+        if (!$bypassUserCache && !$hasDynamicQueryParams) {
             AI_Cache::set($key, $html3);
         }
         
@@ -398,6 +406,60 @@ final class AI_OB
         
         $processing = false;
         return $html3;
+    }
+
+    /**
+     * Check if current request has dynamic query parameters that should not be cached.
+     * These pages should be translated but not cached (e.g., WooCommerce add-to-cart, form submissions).
+     *
+     * @return bool True if dynamic query parameters are present
+     */
+    private function has_dynamic_query_parameters()
+    {
+        if (empty($_GET)) {
+            return false;
+        }
+        
+        // List of query parameters that indicate dynamic functionality
+        // These pages should be translated but NOT cached
+        $dynamic_params = array(
+            // WooCommerce
+            'add-to-cart',
+            'remove_item',
+            'update_cart',
+            'apply_coupon',
+            'checkout',
+            'order-received',
+            'order-pay',
+            // Form submissions
+            'form_submitted',
+            'submit',
+            'action',
+            // AJAX actions
+            'ajax',
+            'wc-ajax',
+            // User actions
+            'login',
+            'logout',
+            'register',
+            'resetpass',
+            'lostpassword',
+            // Other dynamic actions
+            'preview',
+            'preview_id',
+            'preview_nonce',
+            'customize',
+            'customize_theme',
+        );
+        
+        // Check if any dynamic parameter is present
+        foreach ($dynamic_params as $param) {
+            if (isset($_GET[$param])) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -423,29 +485,131 @@ final class AI_OB
 
     /**
      * Compute a route identifier (path or post ID).
+     * Uses consistent detection to prevent cache duplication while supporting search and archives.
      *
      * @return string
      */
     private function current_route_id()
     {
-        if (is_singular()) {
+        // Check for search pages first - these need query parameters in route_id
+        if (function_exists('is_search') && is_search()) {
+            $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+            // For search: include query parameters (especially 's' parameter) in route_id
+            // This ensures different search terms get different caches
+            $req = preg_replace('#/+#', '/', $req);
+            $req = preg_replace('#^/([a-z]{2})(?:/|$)#i', '/', $req);
+            if ($req === '') {
+                $req = '/';
+            }
+            // Include query string for search to differentiate search terms
+            $query_string = isset($_SERVER['QUERY_STRING']) ? (string) $_SERVER['QUERY_STRING'] : '';
+            if ($query_string !== '') {
+                // Only include relevant query parameters (s, paged, etc.)
+                parse_str($query_string, $query_params);
+                $relevant_params = array();
+                if (isset($query_params['s'])) {
+                    $relevant_params['s'] = $query_params['s'];
+                }
+                if (isset($query_params['paged'])) {
+                    $relevant_params['paged'] = $query_params['paged'];
+                }
+                if (!empty($relevant_params)) {
+                    $query_string = http_build_query($relevant_params);
+                    return 'path:' . md5($req . '?' . $query_string);
+                }
+            }
+            return 'path:' . md5($req);
+        }
+        
+        // For singular posts/pages: use post ID (consistent, prevents duplicates)
+        // Only use post ID if it's actually a singular post/page (not archive/search)
+        if (function_exists('is_singular') && is_singular()) {
             $post_id = get_queried_object_id();
-            if ($post_id) {
+            if ($post_id > 0) {
                 return 'post:' . $post_id;
             }
         }
-        // Fallback to request URI (path + query) to ensure unique cache per paginated/archive view
-        // IMPORTANT: Remove language code prefix from URI to prevent cache duplication across languages
-        // This ensures /ka/service/... and /da/service/... use the same route_id (and cache key includes lang)
+        
+        // For homepage: always use post ID if it's a static front page
+        // This prevents homepage from being cached as both 'post:ID' and 'path:md5(/)'
+        if (function_exists('is_front_page') && is_front_page()) {
+            $front_page_id = (int) get_option('page_on_front');
+            if ($front_page_id > 0) {
+                return 'post:' . $front_page_id;
+            }
+        }
+        
+        // Try to get post ID from queried object for edge cases
+        // But only if it's not an archive/search (to avoid caching archives as posts)
+        $post_id = get_queried_object_id();
+        if ($post_id > 0) {
+            // Double-check: only use post ID if it's not an archive
+            if (!function_exists('is_archive') || !is_archive()) {
+                // Additional check: verify this is actually a post/page, not a term
+                $queried_object = get_queried_object();
+                if ($queried_object && isset($queried_object->post_type)) {
+                    return 'post:' . $post_id;
+                }
+            }
+        }
+        
+        // Fallback: Try to find post by URL path for edge cases where is_singular() fails
+        // This prevents duplicate caches for the same page
         $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        if ($req === '') { $req = '/'; }
-        // Normalize multiple slashes to avoid separate cache keys for // or /// paths
+        if ($req !== '') {
+            // Normalize: remove query string and fragments for path lookup
+            $path = (string) parse_url($req, PHP_URL_PATH);
+            if ($path === null) {
+                $path = $req;
+            }
+            
+            // Normalize slashes
+            $path = preg_replace('#/+#', '/', $path);
+            
+            // Remove leading language code to get clean path
+            $clean_path = preg_replace('#^/([a-z]{2})(?:/|$)#i', '/', $path);
+            if ($clean_path === '') {
+                $clean_path = '/';
+            }
+            
+            // Try to find post by path (without language prefix)
+            // This helps catch cases where WordPress hasn't set up query yet
+            // But skip if this looks like an archive (has category/tag/etc in path)
+            $path_parts = array_filter(explode('/', trim($clean_path, '/')));
+            if (!empty($path_parts) && !in_array($clean_path, array('/category/', '/tag/', '/author/', '/date/'))) {
+                $slug = end($path_parts);
+                // Try to find post/page by slug
+                $found_post = get_page_by_path($slug, OBJECT, array('post', 'page'));
+                if ($found_post && isset($found_post->ID)) {
+                    return 'post:' . $found_post->ID;
+                }
+            }
+        }
+        
+        // Final fallback: use path-based route_id for archives, etc.
+        // Remove language code prefix from URI to prevent cache duplication across languages
+        $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        if ($req === '') {
+            $req = '/';
+        }
+        // Normalize multiple slashes
         $req = preg_replace('#/+#', '/', $req);
-        // Remove leading language code (e.g., /ka/ or /da/) from path to normalize route_id
-        // The language is already part of the cache key, so we don't need it in route_id
+        // Remove leading language code (e.g., /en/ or /de/)
         $req = preg_replace('#^/([a-z]{2})(?:/|$)#i', '/', $req);
-        if ($req === '') { $req = '/'; }
-        return 'path:' . md5($req);
+        if ($req === '') {
+            $req = '/';
+        }
+        
+        // For regular archives/pages: use path only (no query parameters)
+        // Query parameters are handled separately:
+        // - Search: query params included in route_id (handled above)
+        // - WooCommerce/dynamic: query params excluded, page not cached (handled by has_dynamic_query_parameters)
+        // - Tracking params: excluded to prevent duplicate caches
+        $req_path = (string) parse_url($req, PHP_URL_PATH);
+        if ($req_path === null) {
+            $req_path = $req;
+        }
+        return 'path:' . md5($req_path);
     }
 
     /**
