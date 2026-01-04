@@ -34,9 +34,6 @@ final class AI_Translate_Core
         return [
             'openai' => [ 'name' => 'OpenAI/ChatGPT', 'base_url' => 'https://api.openai.com/v1' ],
             'deepseek' => [ 'name' => 'DeepSeek', 'base_url' => 'https://api.deepseek.com/v1' ],
-            'openrouter' => [ 'name' => 'OpenRouter', 'base_url' => 'https://openrouter.ai/api/v1' ],
-            'groq' => [ 'name' => 'Groq', 'base_url' => 'https://api.groq.com/openai/v1' ],
-            'deepinfra' => [ 'name' => 'DeepInfra', 'base_url' => 'https://api.deepinfra.com/v1/openai' ],
             'custom' => [ 'name' => 'Custom API', 'base_url' => '' ],
         ];
     }
@@ -97,7 +94,7 @@ final class AI_Translate_Core
             'Content-Type'  => 'application/json',
         ];
         // OpenRouter requires Referer header
-        if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
+        if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
             $headers['Referer'] = home_url();
             $headers['X-Title'] = get_bloginfo('name');
         }
@@ -146,7 +143,7 @@ final class AI_Translate_Core
                 'Content-Type'  => 'application/json',
             ];
             // OpenRouter requires Referer header
-            if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
+            if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
                 $chatHeaders['Referer'] = home_url();
                 $chatHeaders['X-Title'] = get_bloginfo('name');
             }
@@ -813,9 +810,20 @@ final class AI_Translate_Core
                         $content = mb_substr($content, 0, 4000);
                         
                         if (!empty($content)) {
+                            if (function_exists('ai_translate_dbg')) {
+                                ai_translate_dbg('Fetched content from domain', ['domain' => $domain, 'content_length' => mb_strlen($content)]);
+                            }
                             return $content;
                         }
                     }
+                } else {
+                    if (function_exists('ai_translate_dbg')) {
+                        ai_translate_dbg('Failed to fetch from domain', ['domain' => $domain, 'code' => $response_code]);
+                    }
+                }
+            } else {
+                if (function_exists('ai_translate_dbg')) {
+                    ai_translate_dbg('Error fetching from domain', ['domain' => $domain, 'error' => $response->get_error_message()]);
                 }
             }
         }
@@ -973,7 +981,7 @@ final class AI_Translate_Core
                     'Content-Type'  => 'application/json',
                 ];
                 
-                if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
+                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
                     // Use the domain-specific URL if provided
                     if (!empty($domain)) {
                         $protocol = is_ssl() ? 'https' : 'http';
@@ -1077,6 +1085,9 @@ final class AI_Translate_Core
                 $site_name = strtok($domain, ':');
             }
             
+            if (function_exists('ai_translate_dbg')) {
+                ai_translate_dbg('Using domain-specific site name', ['domain' => $domain, 'site_name' => $site_name]);
+            }
         } else {
             $site_name = (string) get_bloginfo('name');
         }
@@ -1128,7 +1139,7 @@ final class AI_Translate_Core
                     'Content-Type'  => 'application/json',
                 ];
                 
-                if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
+                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
                     // Use the domain-specific URL if provided
                     if (!empty($domain)) {
                         $protocol = is_ssl() ? 'https' : 'http';

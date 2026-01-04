@@ -847,3 +847,35 @@ msgstr "API-validatie mislukt:"
 #~ "Wanneer ingeschakeld, worden archief pagina's (categorieën, tags, datum-"
 #~ "archieven, etc.) niet vertaald. Enkele pagina's (berichten, pagina's, "
 #~ "aangepaste berichttypes) worden nog steeds vertaald."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first..."
+msgstr "Vul eerst API Key in..."
+
+#: includes/admin-page.php:722
+msgid "Enter API Key first to load models."
+msgstr "Vul eerst de API Key in om modellen te laden."
+
+#: includes/admin-page.php:722
+msgid "Loading models..."
+msgstr "Modellen laden..."
+
+#: includes/admin-page.php:722
+msgid "Models loaded successfully."
+msgstr "Modellen succesvol geladen."
+
+#: includes/admin-page.php:722
+msgid "No models found"
+msgstr "Geen modellen gevonden"
+
+#: includes/admin-page.php:722
+msgid "No models/Invalid key"
+msgstr "Geen modellen/Onjuiste key"
+
+#: includes/admin-page.php:722
+msgid "Error loading models"
+msgstr "Fout bij laden modellen"
+
+#: includes/admin-page.php:722
+msgid "Select API Provider first..."
+msgstr "Selecteer eerst een API Provider..."

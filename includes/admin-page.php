@@ -730,6 +730,17 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'apiKeys' => isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [],
         'models' => isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [],
         'customModel' => isset($settings['custom_model']) ? $settings['custom_model'] : '',
+        'strings' => array(
+            'enterApiKeyFirst' => __('Enter API Key first...', 'ai-translate'),
+            'enterApiKeyToLoadModels' => __('Enter API Key first to load models.', 'ai-translate'),
+            'loadingModels' => __('Loading models...', 'ai-translate'),
+            'modelsLoadedSuccessfully' => __('Models loaded successfully.', 'ai-translate'),
+            'noModelsFound' => __('No models found', 'ai-translate'),
+            'noModelsOrInvalidKey' => __('No models/Invalid key', 'ai-translate'),
+            'errorLoadingModels' => __('Error loading models', 'ai-translate'),
+            'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
+            'unknownError' => __('Unknown error', 'ai-translate'),
+        ),
     ));
     
     // Localize cache table script with ajaxurl (WordPress provides ajaxurl in admin, but we make it explicit)
@@ -1983,7 +1994,13 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     $code = wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
     if ($code !== 200) {
-        wp_send_json_error(['message' => __('API error:', 'ai-translate') . ' ' . $body]);
+        // Check if error is due to invalid API key (401, 403)
+        $isInvalidKey = ($code === 401 || $code === 403);
+        $errorMessage = __('API error:', 'ai-translate') . ' ' . $body;
+        if ($isInvalidKey) {
+            $errorMessage = __('No models/Invalid key', 'ai-translate') . ': ' . $body;
+        }
+        wp_send_json_error(['message' => $errorMessage]);
     }
     $data = json_decode($body, true);
     if (!isset($data['data']) || !is_array($data['data'])) {

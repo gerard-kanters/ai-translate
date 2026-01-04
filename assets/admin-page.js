@@ -141,9 +141,10 @@ document.addEventListener('DOMContentLoaded', function () {
             selectedModel.dispatchEvent(event);
         } else {
             // No provider selected
+            var strings = aiTranslateAdmin.strings || {};
             var placeholderOpt = document.createElement('option');
             placeholderOpt.value = '';
-            placeholderOpt.textContent = 'Selecteer eerst een API Provider...';
+            placeholderOpt.textContent = strings.selectApiProviderFirst || 'Select API Provider first...';
             placeholderOpt.disabled = true;
             placeholderOpt.selected = true;
             selectedModel.appendChild(placeholderOpt);
@@ -153,18 +154,19 @@ document.addEventListener('DOMContentLoaded', function () {
     function loadModelsForProvider(provider, currentModel) {
         var apiUrl = getSelectedApiUrl();
         var apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+        var strings = aiTranslateAdmin.strings || {};
 
         if (!apiUrl || !apiKey) {
             if (selectedModel) {
                 selectedModel.innerHTML = '';
                 var placeholderOpt = document.createElement('option');
                 placeholderOpt.value = '';
-                placeholderOpt.textContent = 'Vul eerst API Key in...';
+                placeholderOpt.textContent = strings.enterApiKeyFirst || 'Enter API Key first...';
                 placeholderOpt.disabled = true;
                 placeholderOpt.selected = true;
                 selectedModel.appendChild(placeholderOpt);
             }
-            if (apiStatusSpan) apiStatusSpan.textContent = 'Vul eerst de API Key in om modellen te laden.';
+            if (apiStatusSpan) apiStatusSpan.textContent = strings.enterApiKeyToLoadModels || 'Enter API Key first to load models.';
             // Hide custom model field when no API key
             if (customModelDiv) {
                 customModelDiv.style.display = 'none';
@@ -172,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen laden...';
+        if (apiStatusSpan) apiStatusSpan.textContent = strings.loadingModels || 'Loading models...';
 
         var data = new FormData();
         data.append('action', 'ai_translate_get_models');
@@ -213,18 +215,40 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedModel.appendChild(customOpt);
                         }
                         
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
+                        if (apiStatusSpan) apiStatusSpan.textContent = strings.modelsLoadedSuccessfully || 'Models loaded successfully.';
                     } else {
+                        // Check if error is due to invalid API key (401, 403, or unauthorized message)
+                        var isInvalidKey = false;
+                        var errorMessage = '';
+                        if (resp.data && resp.data.message) {
+                            errorMessage = resp.data.message;
+                            // Check for common invalid key indicators
+                            if (errorMessage.toLowerCase().indexOf('unauthorized') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('invalid') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('authentication') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('401') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('403') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('forbidden') !== -1) {
+                                isInvalidKey = true;
+                            }
+                        }
+                        
                         if (selectedModel) {
                             selectedModel.innerHTML = '';
                             var errorOpt = document.createElement('option');
                             errorOpt.value = '';
-                            errorOpt.textContent = 'Geen modellen gevonden';
+                            errorOpt.textContent = isInvalidKey ? (strings.noModelsOrInvalidKey || 'No models/Invalid key') : (strings.noModelsFound || 'No models found');
                             errorOpt.disabled = true;
                             errorOpt.selected = true;
                             selectedModel.appendChild(errorOpt);
                         }
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Geen modellen gevonden: ' + (resp.data && resp.data.message ? resp.data.message : 'Onbekende fout');
+                        var statusMessage = isInvalidKey ? (strings.noModelsOrInvalidKey || 'No models/Invalid key') : (strings.noModelsFound || 'No models found');
+                        if (errorMessage) {
+                            statusMessage += ': ' + errorMessage;
+                        } else {
+                            statusMessage += ': ' + (strings.unknownError || 'Unknown error');
+                        }
+                        if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                     }
                 }
             })
@@ -233,12 +257,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     selectedModel.innerHTML = '';
                     var errorOpt = document.createElement('option');
                     errorOpt.value = '';
-                    errorOpt.textContent = 'Fout bij laden modellen';
+                    errorOpt.textContent = strings.errorLoadingModels || 'Error loading models';
                     errorOpt.disabled = true;
                     errorOpt.selected = true;
                     selectedModel.appendChild(errorOpt);
                 }
-                if (apiStatusSpan) apiStatusSpan.textContent = 'Fout bij laden modellen: ' + e.message;
+                if (apiStatusSpan) apiStatusSpan.textContent = (strings.errorLoadingModels || 'Error loading models') + ': ' + e.message;
             });
     }
 
@@ -304,18 +328,19 @@ document.addEventListener('DOMContentLoaded', function () {
     function loadModels() {
         var apiUrl = getSelectedApiUrl();
         var apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+        var strings = aiTranslateAdmin.strings || {};
 
         if (!apiUrl || !apiKey) {
             if (selectedModel) {
                 selectedModel.innerHTML = '';
                 var placeholderOpt = document.createElement('option');
                 placeholderOpt.value = '';
-                placeholderOpt.textContent = 'Vul eerst API Key in...';
+                placeholderOpt.textContent = strings.enterApiKeyFirst || 'Enter API Key first...';
                 placeholderOpt.disabled = true;
                 placeholderOpt.selected = true;
                 selectedModel.appendChild(placeholderOpt);
             }
-            if (apiStatusSpan) apiStatusSpan.textContent = 'Vul eerst de API Key in om modellen te laden.';
+            if (apiStatusSpan) apiStatusSpan.textContent = strings.enterApiKeyToLoadModels || 'Enter API Key first to load models.';
             // Hide custom model field when no API key
             if (customModelDiv) {
                 customModelDiv.style.display = 'none';
@@ -323,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        if (apiStatusSpan) apiStatusSpan.textContent = 'Load models ...';
+        if (apiStatusSpan) apiStatusSpan.textContent = strings.loadingModels || 'Loading models...';
 
         var data = new FormData();
         data.append('action', 'ai_translate_get_models');
@@ -365,14 +390,34 @@ document.addEventListener('DOMContentLoaded', function () {
                             if (current === 'custom') customOpt.selected = true;
                             selectedModel.appendChild(customOpt);
                         }
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'Modellen succesvol geladen.';
+                        if (apiStatusSpan) apiStatusSpan.textContent = strings.modelsLoadedSuccessfully || 'Models loaded successfully.';
                     } else {
-                        if (apiStatusSpan) apiStatusSpan.textContent = 'No models found: ' + (resp.data && resp.data.message ? resp.data.message : 'Unknown error');
+                        // Check if error is due to invalid API key
+                        var isInvalidKey = false;
+                        var errorMessage = '';
+                        if (resp.data && resp.data.message) {
+                            errorMessage = resp.data.message;
+                            if (errorMessage.toLowerCase().indexOf('unauthorized') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('invalid') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('authentication') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('401') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('403') !== -1 ||
+                                errorMessage.toLowerCase().indexOf('forbidden') !== -1) {
+                                isInvalidKey = true;
+                            }
+                        }
+                        var statusMessage = isInvalidKey ? (strings.noModelsOrInvalidKey || 'No models/Invalid key') : (strings.noModelsFound || 'No models found');
+                        if (errorMessage) {
+                            statusMessage += ': ' + errorMessage;
+                        } else {
+                            statusMessage += ': ' + (strings.unknownError || 'Unknown error');
+                        }
+                        if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                     }
                 }
             })
             .catch(function (e) {
-                if (apiStatusSpan) apiStatusSpan.textContent = 'Error loading models: ' + e.message;
+                if (apiStatusSpan) apiStatusSpan.textContent = (strings.errorLoadingModels || 'Error loading models') + ': ' + e.message;
             });
     }
 
