@@ -2083,37 +2083,72 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
             $current_settings = get_option('ai_translate_settings', []);
             
+            // Behoud alle bestaande instellingen - alleen API-gerelateerde velden worden geüpdatet
+            // Dit voorkomt dat andere instellingen (zoals checkboxes) worden gewijzigd
+            $updated_settings = $current_settings;
+            
             // Zorg ervoor dat 'api_keys' array bestaat
-            if (!isset($current_settings['api_keys']) || !is_array($current_settings['api_keys'])) {
-                $current_settings['api_keys'] = [];
+            if (!isset($updated_settings['api_keys']) || !is_array($updated_settings['api_keys'])) {
+                $updated_settings['api_keys'] = [];
             }
 
-            // Sla de gevalideerde API-sleutel op voor de geselecteerde provider
-            $current_settings['api_keys'][$provider_key] = $api_key;
-            $current_settings['api_key'] = $api_key; // Voeg deze regel toe voor de sanitize_callback
-            $current_settings['api_provider'] = $provider_key;
-            $current_settings['selected_model'] = $model;
+            // Update alleen de API-gerelateerde velden
+            $updated_settings['api_keys'][$provider_key] = $api_key;
+            $updated_settings['api_provider'] = $provider_key;
+            $updated_settings['selected_model'] = $model;
 
-            // Zorg ervoor dat het model ook per provider wordt weggeschreven (runtime leest dit veld)
-            if (!isset($current_settings['models']) || !is_array($current_settings['models'])) {
-                $current_settings['models'] = [];
+            // Zorg ervoor dat het model ook per provider wordt weggeschreven
+            if (!isset($updated_settings['models']) || !is_array($updated_settings['models'])) {
+                $updated_settings['models'] = [];
             }
             if (is_string($model) && $model !== '') {
-                $current_settings['models'][$provider_key] = $model;
+                $updated_settings['models'][$provider_key] = $model;
             }
             
             if (isset($_POST['custom_model_value'])) {
-                 $current_settings['custom_model'] = trim(sanitize_text_field(wp_unslash($_POST['custom_model_value'])));
-            } elseif ($model !== 'custom' && isset($current_settings['custom_model'])) {
-                $current_settings['custom_model'] = '';
+                $updated_settings['custom_model'] = trim(sanitize_text_field(wp_unslash($_POST['custom_model_value'])));
+            } elseif ($model !== 'custom' && isset($updated_settings['custom_model'])) {
+                $updated_settings['custom_model'] = '';
             }
             
-            // Sla custom_api_url op als deze is meegegeven (voor custom provider of als deze al bestaat)
+            // Sla custom_api_url op als deze is meegegeven
             if (!empty($custom_api_url_value)) {
-                $current_settings['custom_api_url'] = $custom_api_url_value;
+                $updated_settings['custom_api_url'] = $custom_api_url_value;
             }
 
-            update_option('ai_translate_settings', $current_settings);
+            // Behoud expliciet alle checkbox-waarden en andere instellingen die niet in POST staan
+            // Dit voorkomt dat ze worden gewijzigd wanneer update_option wordt aangeroepen
+            $checkbox_fields = [
+                'stop_translations_except_cache_invalidation',
+                'auto_clear_pages_on_menu_update',
+                'multi_domain_caching',
+            ];
+            
+            foreach ($checkbox_fields as $field) {
+                if (isset($current_settings[$field])) {
+                    $updated_settings[$field] = $current_settings[$field];
+                }
+            }
+            
+            // Behoud ook andere belangrijke instellingen die niet API-gerelateerd zijn
+            $preserve_fields = [
+                'cache_expiration',
+                'enabled_languages',
+                'detectable_languages',
+                'default_language',
+                'website_context',
+                'homepage_meta_description',
+                'switcher_position',
+            ];
+            
+            foreach ($preserve_fields as $field) {
+                if (isset($current_settings[$field]) && !isset($updated_settings[$field])) {
+                    $updated_settings[$field] = $current_settings[$field];
+                }
+            }
+
+            // Sla de instellingen op - alle andere instellingen blijven behouden
+            update_option('ai_translate_settings', $updated_settings);
         }
         wp_send_json_success(['message' => __('API and model are working. API settings have been saved.', 'ai-translate')]);
 
