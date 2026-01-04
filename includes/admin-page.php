@@ -83,23 +83,27 @@ function ajax_delete_post_cache()
     }
 
     // Validate post ID
-    if (!isset($_POST['post_id']) || empty($_POST['post_id'])) {
+    $raw_post_id = isset($_POST['post_id']) ? wp_unslash($_POST['post_id']) : null;
+    if ($raw_post_id === null || trim((string) $raw_post_id) === '') {
         wp_send_json_error(['message' => __('No post ID provided.', 'ai-translate')]);
         return;
     }
 
-    $post_id = intval($_POST['post_id']);
+    $post_id = intval($raw_post_id);
     
-    if ($post_id <= 0) {
+    if ($post_id < 0) {
         wp_send_json_error(['message' => __('Invalid post ID.', 'ai-translate')]);
         return;
     }
     
-    // Verify post exists and user has permission to access it
-    $post = get_post($post_id);
-    if (!$post) {
-        wp_send_json_error(['message' => __('Post not found.', 'ai-translate')]);
-        return;
+    // For homepage (post_id = 0), skip post verification
+    if ($post_id > 0) {
+        // Verify post exists and user has permission to access it
+        $post = get_post($post_id);
+        if (!$post) {
+            wp_send_json_error(['message' => __('Post not found.', 'ai-translate')]);
+            return;
+        }
     }
     
     // Ensure table exists
@@ -260,7 +264,12 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             // Wait a moment for async cache writes to complete
             usleep(500000); // 0.5 second
             
-            $route_id = 'post:' . $post_id;
+            // Use correct route_id format (post:ID for posts, path:md5(/) for homepage)
+            if ($post_id === 0) {
+                $route_id = 'path:' . md5('/');
+            } else {
+                $route_id = 'post:' . $post_id;
+            }
             $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
             $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
             
@@ -428,29 +437,33 @@ function ajax_warm_post_cache()
     }
 
     // Validate post ID
-    if (!isset($_POST['post_id']) || empty($_POST['post_id'])) {
+    $raw_post_id = isset($_POST['post_id']) ? wp_unslash($_POST['post_id']) : null;
+    if ($raw_post_id === null || trim((string) $raw_post_id) === '') {
         wp_send_json_error(['message' => __('No post ID provided.', 'ai-translate')]);
         return;
     }
 
-    $post_id = intval($_POST['post_id']);
+    $post_id = intval($raw_post_id);
     
-    if ($post_id <= 0) {
+    if ($post_id < 0) {
         wp_send_json_error(['message' => __('Invalid post ID.', 'ai-translate')]);
         return;
     }
     
-    // Verify post exists and user has permission to access it
-    $post = get_post($post_id);
-    if (!$post) {
-        wp_send_json_error(['message' => __('Post not found.', 'ai-translate')]);
-        return;
-    }
-    
-    // Security: Only allow published posts and pages (prevent access to drafts/private posts)
-    if ($post->post_status !== 'publish') {
-        wp_send_json_error(['message' => __('Only published posts can be cached.', 'ai-translate')]);
-        return;
+    // For homepage (post_id = 0), skip post verification
+    if ($post_id > 0) {
+        // Verify post exists and user has permission to access it
+        $post = get_post($post_id);
+        if (!$post) {
+            wp_send_json_error(['message' => __('Post not found.', 'ai-translate')]);
+            return;
+        }
+        
+        // Security: Only allow published posts and pages (prevent access to drafts/private posts)
+        if ($post->post_status !== 'publish') {
+            wp_send_json_error(['message' => __('Only published posts can be cached.', 'ai-translate')]);
+            return;
+        }
     }
     
     // Ensure table exists
@@ -466,11 +479,15 @@ function ajax_warm_post_cache()
         return;
     }
     
-    // Get post URL
-    $post_url = get_permalink($post_id);
-    if (!$post_url) {
-        wp_send_json_error(['message' => __('Could not generate post URL.', 'ai-translate')]);
-        return;
+    // Get post URL (homepage uses home_url)
+    if ($post_id === 0) {
+        $post_url = home_url('/');
+    } else {
+        $post_url = get_permalink($post_id);
+        if (!$post_url) {
+            wp_send_json_error(['message' => __('Could not generate post URL.', 'ai-translate')]);
+            return;
+        }
     }
     
     // Security: Validate URL is from same site (prevent SSRF)
@@ -530,7 +547,12 @@ function ajax_warm_post_cache()
     // Force refresh of cache metadata by ensuring all generated cache files have metadata
     // This ensures the database is in sync with the filesystem
     if ($warmed > 0) {
-        $route_id = 'post:' . $post_id;
+        // Use correct route_id format (post:ID for posts, path:md5(/) for homepage)
+        if ($post_id === 0) {
+            $route_id = 'path:' . md5('/');
+        } else {
+            $route_id = 'post:' . $post_id;
+        }
         $enabled = \AITranslate\AI_Lang::enabled();
         $detectable = \AITranslate\AI_Lang::detectable();
         $all_langs = array_unique(array_merge($enabled, $detectable));

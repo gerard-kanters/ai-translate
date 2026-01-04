@@ -118,19 +118,28 @@ final class AI_Cache
         // Track cache metadata for admin table
         // Extract post_id from route_id in cache key: ait:v4:site:lang:route_id
         $parts = explode(':', (string) $key);
-        if (isset($parts[4])) {
-            $route_id = $parts[4];
+        if (count($parts) >= 5) {
+            // route_id itself contains ":" (e.g. "post:123" or "path:md5"), so reconstruct it
+            $route_id = implode(':', array_slice($parts, 4));
+            $post_id = null;
+            
             // Check if route_id is in format 'post:123'
             if (strpos($route_id, 'post:') === 0) {
                 $post_id = (int) substr($route_id, 5);
-                if ($post_id > 0) {
-                    // Extract language from key
-                    $lang = isset($parts[3]) ? sanitize_key($parts[3]) : '';
-                    if ($lang !== '') {
-                        // Insert metadata
-                        $cache_hash = md5($key);
-                        AI_Cache_Meta::insert($post_id, $lang, $file, $cache_hash);
-                    }
+            }
+            // Check if route_id is path-based and represents homepage (path:md5(/))
+            elseif ($route_id === ('path:' . md5('/'))) {
+                // Use post_id = 0 for homepage (blog listing)
+                $post_id = 0;
+            }
+            
+            if ($post_id !== null) {
+                // Extract language from key
+                $lang = isset($parts[3]) ? sanitize_key($parts[3]) : '';
+                if ($lang !== '') {
+                    // Insert metadata
+                    $cache_hash = md5($key);
+                    AI_Cache_Meta::insert($post_id, $lang, $file, $cache_hash);
                 }
             }
         }

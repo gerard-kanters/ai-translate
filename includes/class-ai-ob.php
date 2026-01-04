@@ -126,10 +126,12 @@ final class AI_OB
         
         // Only translate singular posts/pages - exclude archives, search, and other non-singular pages
         // This ensures we only translate actual content pages, not archive listings
-        // Note: Search pages are handled separately (they are translated but not cached)
+        // Note: Search pages and homepage are handled separately (they are translated but not cached)
         if (function_exists('is_singular') && !is_singular()) {
-            // Allow search pages to be translated (but not cached, handled elsewhere)
-            if (!function_exists('is_search') || !is_search()) {
+            // Allow search pages and homepage to be translated (but not cached, handled elsewhere)
+            $is_search = function_exists('is_search') && is_search();
+            $is_front_page = function_exists('is_front_page') && is_front_page();
+            if (!$is_search && !$is_front_page) {
                 $processing = false;
                 return $html;
             }

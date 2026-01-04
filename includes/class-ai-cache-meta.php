@@ -306,12 +306,35 @@ class AI_Cache_Meta
             );
             $results = $wpdb->get_results($query);
             if (!is_array($results)) {
-                return array();
+                $results = array();
             }
             // Set cached_languages to 0 for all posts
             foreach ($results as &$row) {
                 $row->cached_languages = 0;
             }
+        }
+        
+        // Add homepage row for "latest posts" front page (show_on_front = posts).
+        // For a static front page, the homepage is already a regular page post and is included via the posts query.
+        if ($offset === 0 && get_option('show_on_front') === 'posts') {
+            $homepage_cached = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d",
+                0
+            ));
+
+            $homepage_obj = new \stdClass();
+            $homepage_obj->ID = 0;
+            $homepage_obj->post_type = 'homepage';
+            $homepage_obj->post_title = __('Homepage', 'ai-translate');
+            $homepage_obj->cached_languages = $homepage_cached;
+            $homepage_obj->total_languages = $total_languages;
+            $homepage_obj->percentage = $total_languages > 0
+                ? round(($homepage_cached / $total_languages) * 100)
+                : 0;
+            $homepage_obj->url = home_url('/');
+
+            // Insert homepage at the beginning
+            array_unshift($results, $homepage_obj);
         }
         
         // Add percentage and URL
@@ -320,12 +343,22 @@ class AI_Cache_Meta
             if (!isset($row->cached_languages)) {
                 $row->cached_languages = 0;
             }
-            $row->total_languages = $total_languages;
-            $row->percentage = $total_languages > 0 
-                ? round(($row->cached_languages / $total_languages) * 100) 
-                : 0;
-            $permalink = get_permalink($row->ID);
-            $row->url = $permalink ? $permalink : '';
+            if (!isset($row->total_languages)) {
+                $row->total_languages = $total_languages;
+            }
+            if (!isset($row->percentage)) {
+                $row->percentage = $total_languages > 0 
+                    ? round(($row->cached_languages / $total_languages) * 100) 
+                    : 0;
+            }
+            if (!isset($row->url)) {
+                if ($row->ID === 0) {
+                    $row->url = home_url('/');
+                } else {
+                    $permalink = get_permalink($row->ID);
+                    $row->url = $permalink ? $permalink : '';
+                }
+            }
         }
         
         return $results;
@@ -346,6 +379,12 @@ class AI_Cache_Meta
             WHERE post_status = 'publish' 
             AND post_type IN ('page', 'post')"
         );
+
+        // Add 1 for homepage row when the front page is a posts listing.
+        // (Static front page is already included as a regular page post.)
+        if (get_option('show_on_front') === 'posts') {
+            $count++;
+        }
         
         return (int) $count;
     }
