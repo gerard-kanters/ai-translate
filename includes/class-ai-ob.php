@@ -205,43 +205,18 @@ final class AI_OB
                 $defaultLang = AI_Lang::default();
                 if ($defaultLang !== null) {
                     $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang, $url);
-                    // Invalidate if there are untranslated words (> 4) OR untranslated UI attributes (> 0)
-                    // UI attributes are always invalidated regardless of count to ensure proper translation
                     $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
                     $reason = isset($untranslatedCheck['reason']) ? (string) $untranslatedCheck['reason'] : '';
                     $isUIAttributes = strpos($reason, 'UI attribute') !== false;
                     
-                    // Invalidate if: (1) UI attributes are untranslated (any count), or (2) body text has > 4 untranslated words
-                    if ($untranslatedCheck['has_untranslated'] && ($isUIAttributes || $wordCount > 4)) {
-                    $retryKey = 'ai_translate_retry_' . md5($key);
-                    $retryCount = (int) get_transient($retryKey);
-                    $recentAttrPing = get_transient('ai_tr_attr_recent_' . $lang);
-                    $uiRetryKey = 'ai_translate_ui_retry_' . md5($lang . '|' . $route);
-                    $uiRetryCount = (int) get_transient($uiRetryKey);
-                    
-                    // For UI attributes: only invalidate if there are many (> 8) untranslated attributes
-                    // Small number of missing attributes will be translated via batch-strings (JavaScript)
-                    // This prevents cache invalidation - batch-strings will handle these attributes client-side
-                    if ($isUIAttributes) {
-                        // Only invalidate if there are many untranslated UI attributes (> 8)
-                        // Small number (<= 8) will be translated via batch-strings (JavaScript), so accept cache
-                        // Also: if batch-strings was just called (cooldown), accept cache to avoid re-running full translation
-                        // Additionally: cap UI invalidations per route/lang to 1 per 6 hours to avoid repeat loops
-                        $maxUIRetriesPerWindow = 1;
-                        $uiRetryWindow = 6 * HOUR_IN_SECONDS;
-                        if ($wordCount > 8 && !$recentAttrPing && $uiRetryCount < $maxUIRetriesPerWindow) {
-                            set_transient($uiRetryKey, $uiRetryCount + 1, $uiRetryWindow);
-                            // UI attributes are now systematically collected, so retry to ensure they get translated
-                            // Reset retry counter for UI attributes to allow retranslation
-                            delete_transient($retryKey);
-                            // Fall through to translation below (don't return cached)
-                        } else {
-                            // Small number of missing UI attributes - will be translated via batch-strings (JavaScript)
-                            // Accept cache to avoid double translation (batch-strings will handle these attributes client-side)
-                            $processing = false;
-                            return $cached;
-                            }
-                        } elseif ($retryCount < 1) {
+                    // UI attributes are handled separately via batch-strings (JavaScript) and stored in transient cache (ai_tr_attr_*)
+                    // They are independent of the page cache, so we should NOT invalidate the page cache for UI attributes
+                    // Only invalidate for body text with > 4 untranslated words
+                    if ($untranslatedCheck['has_untranslated'] && !$isUIAttributes && $wordCount > 4) {
+                        $retryKey = 'ai_translate_retry_' . md5($key);
+                        $retryCount = (int) get_transient($retryKey);
+                        
+                        if ($retryCount < 1) {
                             // Body text: use retry counter to avoid infinite loops
                             set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
                             // Fall through to translation below (don't return cached)
@@ -252,6 +227,7 @@ final class AI_OB
                         }
                     } else {
                         // Cache is good, return it
+                        // Note: UI attributes will be translated client-side via batch-strings if needed
                         $processing = false;
                         return $cached;
                     }
