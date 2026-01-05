@@ -316,6 +316,7 @@ class AI_Cache_Meta
         
         // Add homepage row for "latest posts" front page (show_on_front = posts).
         // For a static front page, the homepage is already a regular page post and is included via the posts query.
+        // Always show homepage in list when show_on_front = posts, even if no metadata records exist yet
         if ($offset === 0 && get_option('show_on_front') === 'posts') {
             $homepage_cached = (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d",

@@ -47,12 +47,32 @@ final class AI_Slugs
         $schema = self::detect_schema();
         $colLang = $schema === 'original' ? 'language_code' : 'lang';
         $colTrans = 'translated_slug';
+        $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
+        
         // Exact match first (support both schemas)
         $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM {$table} WHERE {$colLang} = %s AND {$colTrans} = %s LIMIT 1", $lang, $slug));
         if ($post_id) return (int) $post_id;
+        
         // Fuzzy fallback: handle truncated prefixes (e.g., 'kketten' vs 'pakketten')
         $like = '%' . $wpdb->esc_like($slug);
         $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM {$table} WHERE {$colLang} = %s AND {$colTrans} LIKE %s ORDER BY LENGTH({$colTrans}) ASC LIMIT 1", $lang, $like));
+        if ($post_id) return (int) $post_id;
+        
+        // Fallback to original slug: if translated slug doesn't match, try matching against source slug
+        // This handles cases where the URL still uses the original slug (e.g., /it/blogs/ when translated slug is /it/blog/)
+        // Prefer posts that already have a translation entry for this language (even if slug differs)
+        $post_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$table} WHERE {$colSource} = %s AND {$colLang} = %s LIMIT 1",
+            $slug,
+            $lang
+        ));
+        if ($post_id) return (int) $post_id;
+        
+        // Final fallback: match source slug regardless of language (for posts that might not have translation entry yet)
+        $post_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$table} WHERE {$colSource} = %s LIMIT 1",
+            $slug
+        ));
         return $post_id ? (int)$post_id : null;
     }
 
