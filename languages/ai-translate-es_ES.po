@@ -80,28 +80,27 @@ msgstr "Error al borrar la caché:"
 
 #: includes/admin-page.php:87 includes/admin-page.php:432
 msgid "No post ID provided."
-msgstr ""
+msgstr "No se proporcionó ID de publicación."
 
 #: includes/admin-page.php:94 includes/admin-page.php:439
-#, fuzzy
 msgid "Invalid post ID."
-msgstr "Respuesta no válida de la API"
+msgstr "ID de publicación no válido."
 
 #: includes/admin-page.php:101 includes/admin-page.php:446
 msgid "Post not found."
-msgstr ""
+msgstr "Publicación no encontrada."
 
 #: includes/admin-page.php:129
 msgid "Invalid file path: %s"
-msgstr ""
+msgstr "Ruta de archivo no válida: %s"
 
 #: includes/admin-page.php:140
 msgid "Invalid file type: %s"
-msgstr ""
+msgstr "Tipo de archivo no válido: %s"
 
 #: includes/admin-page.php:147
 msgid "Could not delete file: %s"
-msgstr ""
+msgstr "No se pudo eliminar el archivo: %s"
 
 #: includes/admin-page.php:158
 #, fuzzy
@@ -110,57 +109,55 @@ msgstr "Resumen de caché por idioma"
 
 #: includes/admin-page.php:160 includes/admin-page.php:555
 msgid "Warnings:"
-msgstr ""
+msgstr "Advertencias:"
 
 #: includes/admin-page.php:281
 msgid "Cache file not generated"
-msgstr ""
+msgstr "Archivo de caché no generado"
 
 #: includes/admin-page.php:295
 msgid "HTTP %d (redirect)"
-msgstr ""
+msgstr "HTTP %d (redirección)"
 
 #: includes/admin-page.php:298 includes/admin-page.php:407
 msgid "HTTP %d"
-msgstr ""
+msgstr "HTTP %d"
 
 #: includes/admin-page.php:393
 msgid "Cache file not generated after successful request"
-msgstr ""
+msgstr "Archivo de caché no generado después de una solicitud exitosa"
 
 #: includes/admin-page.php:452
 msgid "Only published posts can be cached."
-msgstr ""
+msgstr "Solo las publicaciones publicadas pueden ser almacenadas en caché."
 
 #: includes/admin-page.php:465
-#, fuzzy
 msgid "No languages configured."
-msgstr "No se ha seleccionado ningún idioma."
+msgstr "No hay idiomas configurados."
 
 #: includes/admin-page.php:472
 msgid "Could not generate post URL."
-msgstr ""
+msgstr "No se pudo generar la URL de la publicación."
 
 #: includes/admin-page.php:480
 msgid "Invalid post URL."
-msgstr ""
+msgstr "URL de publicación no válida."
 
 #: includes/admin-page.php:522
 msgid "Error for %s: %s"
-msgstr ""
+msgstr "Error para %s: %s"
 
 #: includes/admin-page.php:550
-#, fuzzy
 msgid "Cache warmed for %d languages"
-msgstr "Resumen de caché por idioma"
+msgstr "Caché calentada para %d idiomas"
 
 #: includes/admin-page.php:552
 msgid " (%d skipped)"
-msgstr ""
+msgstr " (%d omitidos)"
 
 #: includes/admin-page.php:557
 msgid " and %d more"
-msgstr ""
+msgstr " y %d más"
 
 #: includes/admin-page.php:613
 msgid "Error generating context:"
@@ -431,6 +428,10 @@ msgstr ""
 #: includes/admin-page.php:1273
 msgid "Advanced Settings"
 msgstr "Ajustes avanzados"
+
+#: includes/class-ai-cache-meta.php:329
+msgid "Homepage"
+msgstr "Página de inicio"
 
 #: includes/admin-page.php:1281
 msgid "Homepage Meta Description"
@@ -704,102 +705,105 @@ msgstr "Total"
 
 #: includes/admin-page.php:1715
 msgid "Translated Pages Overview"
-msgstr ""
+msgstr "Resumen de páginas traducidas"
 
 #: includes/admin-page.php:1716
 msgid ""
 "Manage cache per page or blog. Delete cache to retranslate, or warm cache to "
 "proactively generate translations."
 msgstr ""
+"Gestionar la caché por página o blog. Eliminar la caché para volver a traducir "
+"o calentar la caché para generar traducciones de forma proactiva."
 
 #: includes/admin-page.php:1724
 msgid "Cache metadata rescanned: %d cache records added or updated."
-msgstr ""
+msgstr "Metadatos de caché reescaneados: %d registros de caché añadidos o actualizados."
 
 #: includes/admin-page.php:1728
 msgid "No cache records added. Possible causes:"
-msgstr ""
+msgstr "No se añadieron registros de caché. Posibles causas:"
 
 #: includes/admin-page.php:1730
 msgid "Cache files do not exist at the expected location"
-msgstr ""
+msgstr "Los archivos de caché no existen en la ubicación esperada"
 
 #: includes/admin-page.php:1731
 msgid "Cache files have a different format than expected"
-msgstr ""
+msgstr "Los archivos de caché tienen un formato diferente al esperado"
 
 #: includes/admin-page.php:1732
 msgid "Multi-domain caching configuration does not match"
-msgstr ""
+msgstr "La configuración de caché de múltiples dominios no coincide"
 
 #: includes/admin-page.php:1745
 msgid "Cache metadata initialized: %d existing cache records added."
-msgstr ""
+msgstr "Metadatos de caché inicializados: %d registros de caché existentes añadidos."
 
 #: includes/admin-page.php:1776
 msgid ""
 "Cache directory found but no metadata. Click \"Scan Cache Files\" to "
 "generate metadata."
 msgstr ""
+"Directorio de caché encontrado pero sin metadatos. Haga clic en \"Escanear "
+"archivos de caché\" para generar metadatos."
 
 #: includes/admin-page.php:1787
-#, fuzzy
 msgid "Scan Cache Files"
-msgstr "Archivos de caché"
+msgstr "Escanear archivos de caché"
 
 #: includes/admin-page.php:1790
 msgid "Scan the filesystem for cache files and add metadata to the database."
 msgstr ""
+"Escanear el sistema de archivos en busca de archivos de caché y añadir "
+"metadatos a la base de datos."
 
 #: includes/admin-page.php:1798
 msgid "Type"
-msgstr ""
+msgstr "Tipo"
 
 #: includes/admin-page.php:1799
 msgid "Title"
-msgstr ""
+msgstr "Título"
 
 #: includes/admin-page.php:1800
 msgid "URL"
-msgstr ""
+msgstr "URL"
 
 #: includes/admin-page.php:1801
 msgid "Status"
-msgstr ""
+msgstr "Estado"
 
 #: includes/admin-page.php:1802
-#, fuzzy
 msgid "Actions"
-msgstr "Acción"
+msgstr "Acciones"
 
 #: includes/admin-page.php:1809
 msgid "No published pages or posts found."
-msgstr ""
+msgstr "No se encontraron páginas o publicaciones publicadas."
 
 #: includes/admin-page.php:1852
 msgid "Delete cache for this page in all languages"
-msgstr ""
+msgstr "Eliminar la caché de esta página en todos los idiomas"
 
 #: includes/admin-page.php:1854
 msgid "Delete Cache"
-msgstr ""
+msgstr "Eliminar caché"
 
 #: includes/admin-page.php:1862
 msgid "Generate translations for all enabled languages"
-msgstr ""
+msgstr "Generar traducciones para todos los idiomas habilitados"
 
 #: includes/admin-page.php:1864
-#, fuzzy
 msgid "Warm Cache"
-msgstr "Caché"
+msgstr "Calentar caché"
 
 #: includes/admin-page.php:1880
 msgid "&laquo; Previous"
-msgstr ""
+msgstr "« Anterior"
 
 #: includes/admin-page.php:1881
 msgid "Next &raquo;"
-msgstr ""
+msgstr "Siguiente »"
 
 #: includes/admin-page.php:1931
 msgid "API Provider, API Key or Custom API URL is missing or invalid."

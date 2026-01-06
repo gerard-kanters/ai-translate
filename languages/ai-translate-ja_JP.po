@@ -420,6 +420,10 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr "詳細設定"
 
+#: includes/class-ai-cache-meta.php:329
+msgid "Homepage"
+msgstr "ホームページ"
+
 #: includes/admin-page.php:1281
 msgid "Homepage Meta Description"
 msgstr "ホームページのメタ説明"
@@ -783,11 +787,11 @@ msgstr "キャッシュ"
 
 #: includes/admin-page.php:1880
 msgid "&laquo; Previous"
-msgstr ""
+msgstr "&laquo; 前へ"
 
 #: includes/admin-page.php:1881
 msgid "Next &raquo;"
-msgstr ""
+msgstr "次へ &raquo;"
 
 #: includes/admin-page.php:1931
 msgid "API Provider, API Key or Custom API URL is missing or invalid."

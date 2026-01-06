@@ -976,14 +976,13 @@ document.addEventListener("DOMContentLoaded",function(){var checkPage=function()
 
 /**
  * Ensure rewrite rules contain our language prefix rules; flush once if missing.
+ * Also verifies that all configured languages are present in rewrite rules.
  */
 add_action('init', function () {
     if (is_admin()) {
         return;
     }
-    if (get_transient('ai_translate_rules_checked')) {
-        return;
-    }
+    
     $rules = get_option('rewrite_rules');
     $has_lang_rule = false;
     if (is_array($rules)) {
@@ -994,10 +993,48 @@ add_action('init', function () {
             }
         }
     }
-    set_transient('ai_translate_rules_checked', 1, DAY_IN_SECONDS);
-    if (!$has_lang_rule) {
-        // Flush once to persist currently-registered rules
+    
+    // Verify that all configured languages are in rewrite rules
+    // This check runs on every request (not cached) to catch language changes immediately
+    $settings = get_option('ai_translate_settings', array());
+    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
+    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
+    $default = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
+    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
+    if ($default !== '') {
+        $langs = array_diff($langs, array($default));
+    }
+    $langs = array_filter(array_map('sanitize_key', $langs));
+    
+    // Check if rewrite rules contain all languages
+    $rules_need_flush = false;
+    if (!empty($langs) && is_array($rules)) {
+        // Find a rewrite rule that should contain our languages
+        foreach ($rules as $regex => $target) {
+            if (is_string($target) && strpos($target, 'lang=') !== false) {
+                // Extract language codes from regex pattern: ^(lang1|lang2|lang3|...)
+                if (preg_match('/^\^\(([^)]+)\)/', $regex, $matches)) {
+                    $rule_langs = array_map('trim', explode('|', $matches[1]));
+                    // Check if any configured language is missing from rewrite rules
+                    $missing = array_diff($langs, $rule_langs);
+                    if (!empty($missing)) {
+                        $rules_need_flush = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Only check basic rule existence once per day (performance optimization)
+    // But always check language completeness (catches new languages immediately)
+    if ($rules_need_flush) {
         flush_rewrite_rules(false);
+    } elseif (!$has_lang_rule) {
+        if (!get_transient('ai_translate_rules_checked')) {
+            set_transient('ai_translate_rules_checked', 1, DAY_IN_SECONDS);
+            flush_rewrite_rules(false);
+        }
     }
 }, 99);
 /**

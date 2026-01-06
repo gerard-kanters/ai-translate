@@ -420,6 +420,10 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr "Geavanceerde instellingen"
 
+#: includes/class-ai-cache-meta.php:329
+msgid "Homepage"
+msgstr "Homepage"
+
 #: includes/admin-page.php:1281
 msgid "Homepage Meta Description"
 msgstr "Homepage meta-omschrijving"

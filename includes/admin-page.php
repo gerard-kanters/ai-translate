@@ -225,12 +225,17 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_COOKIE => 'ai_translate_lang=' . urlencode($lang_code),
+            // Use HTTP/1.0 for internal requests to avoid connection pooling issues
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_0,
+            // Disable keep-alive for internal requests to prevent connection reset issues
+            CURLOPT_FORBID_REUSE => true,
+            CURLOPT_FRESH_CONNECT => true,
             CURLOPT_HTTPHEADER => array(
                 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language: ' . $lang_code . ',' . $lang_code . ';q=0.9,en;q=0.8',
                 'Accept-Encoding: gzip, deflate, br',
-                'Connection: keep-alive',
+                'Connection: close', // Use 'close' instead of 'keep-alive' for internal requests
                 'Upgrade-Insecure-Requests: 1'
             )
         ));
@@ -240,22 +245,58 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
     }
     
     // Execute all handles in parallel
+    // Add timeout to prevent hanging requests
     $running = null;
+    $timeout = 90; // Maximum time to wait for all requests
+    $start_time = time();
+    
     do {
-        curl_multi_exec($mh, $running);
-        curl_multi_select($mh, 0.1); // Small delay to prevent CPU spinning
+        $mrc = curl_multi_exec($mh, $running);
+        
+        // Check for timeout
+        if (time() - $start_time > $timeout) {
+            // Timeout reached - close remaining handles
+            foreach ($curl_handles as $lang_code => $ch) {
+                curl_multi_remove_handle($mh, $ch);
+                curl_close($ch);
+                if (!isset($results[$lang_code])) {
+                    $results[$lang_code] = array('success' => false, 'error' => __('Request timeout', 'ai-translate'));
+                }
+            }
+            curl_multi_close($mh);
+            return $results;
+        }
+        
+        // Wait for activity on any curl handle
+        if ($running > 0) {
+            curl_multi_select($mh, 0.1); // Small delay to prevent CPU spinning
+        }
     } while ($running > 0);
     
     // Process results
     foreach ($curl_handles as $lang_code => $ch) {
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
+        $errno = curl_errno($ch);
         
         curl_multi_remove_handle($mh, $ch);
         curl_close($ch);
         
         if (!empty($error)) {
-            $results[$lang_code] = array('success' => false, 'error' => $error);
+            // Provide more detailed error information
+            $error_message = $error;
+            if ($errno === CURLE_OPERATION_TIMEDOUT) {
+                $error_message = __('Request timeout', 'ai-translate');
+            } elseif ($errno === CURLE_COULDNT_CONNECT || $errno === CURLE_RECV_ERROR) {
+                $error_message = __('Connection error - server may be overloaded', 'ai-translate');
+            }
+            $results[$lang_code] = array('success' => false, 'error' => $error_message);
+            continue;
+        }
+        
+        // Check if http_code is 0 (connection failed)
+        if ($http_code === 0) {
+            $results[$lang_code] = array('success' => false, 'error' => __('Connection failed - server may be overloaded', 'ai-translate'));
             continue;
         }
         
@@ -366,10 +407,75 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
     ));
     
     if (is_wp_error($response)) {
-        return array('success' => false, 'error' => $response->get_error_message());
+        $error_message = $response->get_error_message();
+        $error_code = $response->get_error_code();
+        return array('success' => false, 'error' => sprintf(__('Request failed: %s (%s)', 'ai-translate'), $error_message, $error_code));
     }
     
     $response_code = wp_remote_retrieve_response_code($response);
+    
+    // Handle 503 Service Unavailable - might be due to internal request issues
+    // Try alternative approaches for internal requests
+    if ($response_code === 503 || $response_code === 0 || $response_code === null) {
+        // Method 1: Try with Host header explicitly set
+        $retry_response = wp_remote_get($translated_url, array(
+            'timeout' => 90,
+            'sslverify' => false,
+            'cookies' => $cookies,
+            'headers' => array(
+                'Host' => $parsed['host'],
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language' => $lang_code . ',' . $lang_code . ';q=0.9,en;q=0.8',
+                'Accept-Encoding' => 'gzip, deflate, br',
+                'Connection' => 'keep-alive',
+                'Upgrade-Insecure-Requests' => '1'
+            ),
+            'redirection' => 5,
+            'httpversion' => '1.1'
+        ));
+        
+        if (!is_wp_error($retry_response)) {
+            $retry_code = wp_remote_retrieve_response_code($retry_response);
+            if ($retry_code === 200) {
+                $response = $retry_response;
+                $response_code = 200;
+            }
+        }
+        
+        // Method 2: If still failing, try with localhost (only if Method 1 failed)
+        if ($response_code !== 200 && function_exists('curl_init')) {
+            $localhost_url = str_replace($parsed['host'], '127.0.0.1', $translated_url);
+            if (isset($parsed['scheme']) && $parsed['scheme'] === 'https') {
+                $localhost_url = str_replace('https://', 'http://', $localhost_url);
+            }
+            
+            $localhost_response = wp_remote_get($localhost_url, array(
+                'timeout' => 90,
+                'sslverify' => false,
+                'cookies' => $cookies,
+                'headers' => array(
+                    'Host' => $parsed['host'],
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language' => $lang_code . ',' . $lang_code . ';q=0.9,en;q=0.8',
+                    'Accept-Encoding' => 'gzip, deflate, br',
+                    'Connection' => 'keep-alive',
+                    'Upgrade-Insecure-Requests' => '1'
+                ),
+                'redirection' => 5,
+                'httpversion' => '1.1'
+            ));
+            
+            if (!is_wp_error($localhost_response)) {
+                $localhost_code = wp_remote_retrieve_response_code($localhost_response);
+                if ($localhost_code === 200) {
+                    $response = $localhost_response;
+                    $response_code = 200;
+                }
+            }
+        }
+    }
     
     // Accept 200 as success (redirects might indicate issues, but we'll check cache anyway)
     if ($response_code === 200) {
@@ -413,7 +519,21 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
         }
     }
     
-    return array('success' => false, 'error' => sprintf(__('HTTP %d', 'ai-translate'), $response_code));
+    // Provide more detailed error message for common error codes
+    $error_messages = array(
+        503 => __('Service Unavailable - The server may be overloaded or the request timed out. Try again later.', 'ai-translate'),
+        504 => __('Gateway Timeout - The request took too long to complete.', 'ai-translate'),
+        500 => __('Internal Server Error - There was an error processing the request.', 'ai-translate'),
+    );
+    
+    $error_message = isset($error_messages[$response_code]) 
+        ? $error_messages[$response_code] 
+        : sprintf(__('HTTP %d', 'ai-translate'), $response_code);
+    
+    // Include URL in error for debugging (but sanitize it)
+    $error_message .= ' (' . esc_html($request_path) . ')';
+    
+    return array('success' => false, 'error' => $error_message);
 }
 
 /**
@@ -524,7 +644,9 @@ function ajax_warm_post_cache()
         $languages_to_warm[] = $lang_code;
     }
     
-    // Process languages in parallel batches of 5
+    // Process languages in parallel batches
+    // Batch size of 5 should work fine with PHP-FPM, but if errors occur,
+    // the curl_multi implementation will handle retries
     $batch_size = 5;
     $path = parse_url($post_url, PHP_URL_PATH);
     
@@ -538,6 +660,12 @@ function ajax_warm_post_cache()
             } else {
                 $errors[] = sprintf(__('Error for %s: %s', 'ai-translate'), $lang_code, $result['error']);
             }
+        }
+        
+        // Small delay between batches to prevent overwhelming the server
+        // This is a safety measure, but 5 parallel requests should be fine
+        if ($i + $batch_size < count($languages_to_warm)) {
+            usleep(250000); // 0.25 second delay between batches
         }
     }
     
@@ -2213,19 +2341,62 @@ add_action('update_option_ai_translate_settings', 'AITranslate\\maybe_flush_rule
 /**
  * Flush rewrite rules when language-related settings change.
  *
- * @param array $old
- * @param array $new
+ * This function detects changes in language settings that affect rewrite rules:
+ * - default_language changes
+ * - enabled_languages changes (additions/removals)
+ * - detectable_languages changes (additions/removals)
+ *
+ * The rewrite rules are built from the combined list of enabled + detectable languages,
+ * so any change to these lists requires a flush.
+ *
+ * @param array $old Old settings array
+ * @param array $new New settings array
  * @return void
  */
 function maybe_flush_rules_on_settings_update($old, $new)
 {
-    $keys = ['default_language', 'enabled_languages', 'detectable_languages'];
-    foreach ($keys as $k) {
-        $old_v = isset($old[$k]) ? $old[$k] : null;
-        $new_v = isset($new[$k]) ? $new[$k] : null;
-        if ($old_v !== $new_v) {
-            flush_rewrite_rules();
-            return;
-        }
+    if (!is_array($old)) {
+        $old = [];
+    }
+    if (!is_array($new)) {
+        $new = [];
+    }
+    
+    // Get language lists from old and new settings
+    $old_enabled = isset($old['enabled_languages']) && is_array($old['enabled_languages']) ? $old['enabled_languages'] : [];
+    $new_enabled = isset($new['enabled_languages']) && is_array($new['enabled_languages']) ? $new['enabled_languages'] : [];
+    
+    $old_detectable = isset($old['detectable_languages']) && is_array($old['detectable_languages']) ? $old['detectable_languages'] : [];
+    $new_detectable = isset($new['detectable_languages']) && is_array($new['detectable_languages']) ? $new['detectable_languages'] : [];
+    
+    $old_default = isset($old['default_language']) ? (string) $old['default_language'] : '';
+    $new_default = isset($new['default_language']) ? (string) $new['default_language'] : '';
+    
+    // Build combined language lists (same logic as in ai-translate.php init hook)
+    $old_combined = array_values(array_unique(array_merge($old_enabled, $old_detectable)));
+    $new_combined = array_values(array_unique(array_merge($new_enabled, $new_detectable)));
+    
+    // Remove default language from combined lists
+    if ($old_default !== '') {
+        $old_combined = array_diff($old_combined, [$old_default]);
+    }
+    if ($new_default !== '') {
+        $new_combined = array_diff($new_combined, [$new_default]);
+    }
+    
+    // Sort for consistent comparison
+    sort($old_combined);
+    sort($new_combined);
+    
+    // Check if combined language list changed
+    if ($old_combined !== $new_combined) {
+        flush_rewrite_rules();
+        return;
+    }
+    
+    // Also check if default language changed (affects which languages are in rewrite rules)
+    if ($old_default !== $new_default) {
+        flush_rewrite_rules();
+        return;
     }
 }

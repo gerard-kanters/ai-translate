@@ -405,6 +405,10 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr "高级设置"
 
+#: includes/class-ai-cache-meta.php:329
+msgid "Homepage"
+msgstr "首页"
+
 #: includes/admin-page.php:1281
 msgid "Homepage Meta Description"
 msgstr "首页元描述"
@@ -752,11 +756,11 @@ msgstr "缓存"
 
 #: includes/admin-page.php:1880
 msgid "&laquo; Previous"
-msgstr ""
+msgstr "&laquo; 上一页"
 
 #: includes/admin-page.php:1881
 msgid "Next &raquo;"
-msgstr ""
+msgstr "下一页 &raquo;"
 
 #: includes/admin-page.php:1931
 msgid "API Provider, API Key or Custom API URL is missing or invalid."

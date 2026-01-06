@@ -428,6 +428,10 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr "Impostazioni avanzate"
 
+#: includes/class-ai-cache-meta.php:329
+msgid "Homepage"
+msgstr "Homepage"
+
 #: includes/admin-page.php:1281
 msgid "Homepage Meta Description"
 msgstr "Meta descrizione della homepage"
@@ -798,11 +802,11 @@ msgstr "Cache"
 
 #: includes/admin-page.php:1880
 msgid "&laquo; Previous"
-msgstr ""
+msgstr "&laquo; Precedente"
 
 #: includes/admin-page.php:1881
 msgid "Next &raquo;"
-msgstr ""
+msgstr "Successivo &raquo;"
 
 #: includes/admin-page.php:1931
 msgid "API Provider, API Key or Custom API URL is missing or invalid."

@@ -372,6 +372,10 @@ msgstr ""
 msgid "Advanced Settings"
 msgstr ""
 
+#: includes/class-ai-cache-meta.php:329
+msgid "Homepage"
+msgstr ""
+
 #: includes/admin-page.php:1281
 msgid "Homepage Meta Description"
 msgstr ""
