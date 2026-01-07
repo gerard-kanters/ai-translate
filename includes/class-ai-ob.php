@@ -843,7 +843,12 @@ final class AI_OB
                 return true;
             }
             if (function_exists('is_search') && is_search()) {
-                return true; // Always translate search pages
+                // Don't translate empty search queries - they produce no meaningful results
+                $search_query = isset($_GET['s']) ? trim($_GET['s']) : '';
+                if (empty($search_query)) {
+                    return false; // Skip empty search queries
+                }
+                return true; // Translate search pages with actual queries
             }
             if (function_exists('is_front_page') && is_front_page()) {
                 return true;
@@ -887,8 +892,9 @@ final class AI_OB
         if (strpos($route, 'path:') === 0) {
             // Never cache pages with search query parameters - they are dynamic
             // This catches search pages, filtered archives, and other dynamic content
-            if (isset($_GET['s']) && !empty($_GET['s'])) {
-                return false; // Don't cache search results
+            // Block any page that has a search parameter, even if empty
+            if (isset($_GET['s'])) {
+                return false; // Don't cache search results (even empty searches)
             }
 
             // Also check for other dynamic query parameters that indicate non-cacheable content
