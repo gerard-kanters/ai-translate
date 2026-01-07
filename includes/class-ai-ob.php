@@ -776,6 +776,7 @@ final class AI_OB
         return false;
     }
 
+
     /**
      * Check if current page is an archive page
      */
@@ -871,18 +872,28 @@ final class AI_OB
 
         // For path-based routes, check if WordPress has a valid query
         if (strpos($route, 'path:') === 0) {
+            // Never cache pages with search query parameters - they are dynamic
+            // This catches search pages, filtered archives, and other dynamic content
+            if (isset($_GET['s']) && !empty($_GET['s'])) {
+                return false; // Don't cache search results
+            }
+
+            // Also check for other dynamic query parameters that indicate non-cacheable content
+            $dynamic_params = ['filter', 'orderby', 'order', 'paged'];
+            foreach ($dynamic_params as $param) {
+                if (isset($_GET[$param]) && !empty($_GET[$param])) {
+                    return false; // Don't cache filtered/paged content
+                }
+            }
+
             // Check if current query has valid posts
             if (function_exists('have_posts') && have_posts()) {
                 return true;
             }
 
             // Check for archives or other valid non-singular pages
-            // NOTE: Search pages are dynamic and should NOT be cached
             if (function_exists('is_archive') && is_archive()) {
                 return true;
-            }
-            if (function_exists('is_search') && is_search()) {
-                return false; // Don't cache search pages - they are dynamic
             }
             if (function_exists('is_front_page') && is_front_page()) {
                 return true;
