@@ -92,6 +92,17 @@ final class AI_OB
             return $html;
         }
         
+        // Additional check: verify current post is not an attachment
+        // This prevents attachments from being cached via get_queried_object_id()
+        $current_post_id = get_queried_object_id();
+        if ($current_post_id > 0) {
+            $current_post = get_post($current_post_id);
+            if ($current_post && isset($current_post->post_type) && $current_post->post_type === 'attachment') {
+                $processing = false;
+                return $html;
+            }
+        }
+        
         // Skip archive pages - do not translate or cache them
         // Archives (category, tag, author, date, taxonomy) should not be translated
         // Only singular posts/pages should be translated and cached
@@ -578,12 +589,17 @@ final class AI_OB
             }
         }
         
-        // For homepage: always use post ID if it's a static front page
-        // This prevents homepage from being cached as both 'post:ID' and 'path:md5(/)'
+        // For homepage: always use consistent route_id to prevent duplicate caches
+        // This prevents homepage from being cached multiple times with different route_ids
         if (function_exists('is_front_page') && is_front_page()) {
             $front_page_id = (int) get_option('page_on_front');
             if ($front_page_id > 0) {
+                // Static front page: use post ID
                 return 'post:' . $front_page_id;
+            } else {
+                // Posts listing homepage: always use normalized path
+                // Normalize to '/' to prevent /en/, /en, //, etc. from creating different caches
+                return 'path:' . md5('/');
             }
         }
         
@@ -663,6 +679,14 @@ final class AI_OB
         if ($req_path === null) {
             $req_path = $req;
         }
+        
+        // Normalize homepage paths to prevent duplicate caches
+        // /, /en/, /en, //, etc. should all become /
+        $req_path = preg_replace('#^/+$#', '/', $req_path);
+        if ($req_path === '' || $req_path === '//') {
+            $req_path = '/';
+        }
+        
         return 'path:' . md5($req_path);
     }
 

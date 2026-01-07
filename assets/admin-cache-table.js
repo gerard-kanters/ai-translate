@@ -186,6 +186,16 @@ jQuery(document).ready(function($) {
                 $li.append($('<span class="cache-url-meta"></span>').text(' (' + metaParts.join(' · ') + ')'));
             }
             
+            // Add delete button
+            const $deleteBtn = $('<button></button>')
+                .addClass('button button-small ai-delete-cache-file')
+                .attr('type', 'button')
+                .attr('data-cache-file', item.cache_file || '')
+                .attr('data-lang', data.language || '')
+                .attr('data-post-id', item.post_id || '')
+                .text(aiTranslateCacheTable?.strings?.delete_file || 'Delete file');
+            $li.append(' ').append($deleteBtn);
+            
             $list.append($li);
         });
         
@@ -368,9 +378,20 @@ jQuery(document).ready(function($) {
     
     // Handle column header clicks
     $(document).on('click', '#cache-language-table th.sortable', function(e) {
+        // Don't sort if clicking on a child element (like a button or link)
+        if ($(e.target).closest('button, a, .ai-cache-toggle-urls').length > 0) {
+            return;
+        }
+        
         e.preventDefault();
+        e.stopPropagation();
+        
         var $th = $(this);
         var column = $th.data('sort');
+        if (!column) {
+            return;
+        }
+        
         var newDirection = 'asc';
         
         // Toggle direction if clicking the same column
@@ -379,6 +400,68 @@ jQuery(document).ready(function($) {
         }
         
         sortTable(column, newDirection);
+    });
+    
+    // Handle delete cache file button
+    $(document).on('click', '.ai-delete-cache-file', function(e) {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event bubbling
+        
+        const $button = $(this);
+        const cacheFile = $button.attr('data-cache-file');
+        const lang = $button.attr('data-lang');
+        const postId = $button.attr('data-post-id');
+        
+        if (!cacheFile) {
+            return;
+        }
+        
+        // Confirm deletion
+        const confirmMsg = aiTranslateCacheTable?.strings?.confirm_delete || 'Are you sure you want to delete this cache file?';
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+        
+        // Disable button
+        $button.prop('disabled', true).text(aiTranslateCacheTable?.strings?.deleting || 'Deleting...');
+        
+        // Send AJAX request
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                action: 'ai_translate_delete_cache_file',
+                nonce: aiTranslateCacheTable?.delete_nonce || '',
+                cache_file: cacheFile,
+                language: lang,
+                post_id: postId
+            },
+            success: function(response) {
+                if (response && response.success) {
+                    // Remove the list item from the DOM
+                    $button.closest('li').fadeOut(300, function() {
+                        $(this).remove();
+                        
+                        // Update count in the table
+                        const $detailRow = $button.closest('.cache-language-details');
+                        const $mainRow = $detailRow.prev('.cache-language-row');
+                        const $countCell = $mainRow.find('td').eq(1); // Cache files column
+                        const currentCount = parseInt($countCell.text()) || 0;
+                        if (currentCount > 0) {
+                            $countCell.text((currentCount - 1) + ' bestanden');
+                        }
+                    });
+                } else {
+                    alert(response?.data?.message || (aiTranslateCacheTable?.strings?.delete_error || 'Failed to delete cache file'));
+                    $button.prop('disabled', false).text(aiTranslateCacheTable?.strings?.delete_file || 'Delete file');
+                }
+            },
+            error: function() {
+                alert(aiTranslateCacheTable?.strings?.delete_error || 'Failed to delete cache file');
+                $button.prop('disabled', false).text(aiTranslateCacheTable?.strings?.delete_file || 'Delete file');
+            }
+        });
     });
     
     // Initialize sorting on page load

@@ -208,6 +208,68 @@ function ajax_get_cache_urls_by_language()
 add_action('wp_ajax_ai_translate_get_cache_urls_by_language', __NAMESPACE__ . '\\ajax_get_cache_urls_by_language');
 
 /**
+ * AJAX handler: Delete a single cache file
+ *
+ * @return void (sends JSON response)
+ */
+function ajax_delete_cache_file()
+{
+    // Verify nonce
+    $nonce_value = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
+    if (!$nonce_value || !wp_verify_nonce($nonce_value, 'ai_translate_delete_cache_file_nonce')) {
+        wp_send_json_error(array('message' => __('Security check failed', 'ai-translate')));
+        return;
+    }
+    
+    // Check capabilities
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => __('Insufficient permissions', 'ai-translate')));
+        return;
+    }
+    
+    // Get parameters
+    $cache_file = isset($_POST['cache_file']) ? wp_normalize_path(sanitize_text_field(wp_unslash($_POST['cache_file']))) : '';
+    $language = isset($_POST['language']) ? sanitize_text_field(wp_unslash($_POST['language'])) : '';
+    $post_id = isset($_POST['post_id']) ? (int) $_POST['post_id'] : 0;
+    
+    if (empty($cache_file)) {
+        wp_send_json_error(array('message' => __('No cache file specified', 'ai-translate')));
+        return;
+    }
+    
+    // Verify file exists and is in allowed cache directory
+    $uploads = wp_upload_dir();
+    $cache_base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+    $cache_file_normalized = wp_normalize_path($cache_file);
+    
+    // Security check: ensure file is within cache directory
+    if (strpos($cache_file_normalized, wp_normalize_path($cache_base)) !== 0) {
+        wp_send_json_error(array('message' => __('Invalid cache file path', 'ai-translate')));
+        return;
+    }
+    
+    if (!file_exists($cache_file_normalized)) {
+        wp_send_json_error(array('message' => __('Cache file not found', 'ai-translate')));
+        return;
+    }
+    
+    // Delete the file
+    if (!@unlink($cache_file_normalized)) {
+        wp_send_json_error(array('message' => __('Failed to delete cache file', 'ai-translate')));
+        return;
+    }
+    
+    // Delete from database metadata if it exists
+    if (class_exists('\\AITranslate\\AI_Cache_Meta')) {
+        \AITranslate\AI_Cache_Meta::delete_by_file($cache_file_normalized);
+    }
+    
+    wp_send_json_success(array('message' => __('Cache file deleted successfully', 'ai-translate')));
+}
+
+add_action('wp_ajax_ai_translate_delete_cache_file', __NAMESPACE__ . '\\ajax_delete_cache_file');
+
+/**
  * Warm cache for multiple languages in parallel using curl_multi.
  *
  * @param int $post_id Post ID to warm cache for
@@ -803,6 +865,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
     wp_localize_script('ai-translate-cache-table-js', 'aiTranslateCacheTable', array(
         'ajaxurl' => admin_url('admin-ajax.php'),
         'listNonce' => wp_create_nonce('ai_translate_cache_urls_nonce'),
+        'delete_nonce' => wp_create_nonce('ai_translate_delete_cache_file_nonce'),
         'strings' => array(
             'loading' => __('Loading cached URLs...', 'ai-translate'),
             'error' => __('Could not load cached URLs. Please try again.', 'ai-translate'),
@@ -810,6 +873,10 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'show' => __('Show cached URLs', 'ai-translate'),
             'hide' => __('Hide cached URLs', 'ai-translate'),
             'truncated' => __('Showing first %1$s of %2$s entries', 'ai-translate'),
+            'delete_file' => __('Delete file', 'ai-translate'),
+            'deleting' => __('Deleting...', 'ai-translate'),
+            'confirm_delete' => __('Are you sure you want to delete this cache file?', 'ai-translate'),
+            'delete_error' => __('Failed to delete cache file', 'ai-translate'),
         ),
     ));
 });

@@ -183,6 +183,27 @@
     margin-left: 6px;
 }
 
+.ai-delete-cache-file {
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    line-height: 1.5;
+    vertical-align: baseline;
+    background: #dc3232;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+.ai-delete-cache-file:hover {
+    background: #a52b2b;
+}
+
+.ai-delete-cache-file:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
+
 .cache-url-loading,
 .cache-url-error,
 .cache-url-empty,

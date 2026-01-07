@@ -209,6 +209,26 @@ class AI_Cache_Meta
     }
 
     /**
+     * Delete cache metadata for a specific cache file
+     *
+     * @param string $cache_file Full path to cache file
+     * @return int Number of records deleted
+     */
+    public static function delete_by_file($cache_file)
+    {
+        global $wpdb;
+        
+        // Ensure table exists before querying
+        self::ensure_table_exists();
+        
+        return (int) $wpdb->delete(
+            self::get_table_name(),
+            array('cache_file' => wp_normalize_path($cache_file)),
+            array('%s')
+        );
+    }
+
+    /**
      * Get all cache records for a post
      *
      * @param int $post_id Post ID
@@ -440,55 +460,153 @@ class AI_Cache_Meta
         $limit = max(1, min((int) $limit, 1000));
         $table = self::get_table_name();
         
-        // Total for truncated flag
-        $total = (int) $wpdb->get_var($wpdb->prepare(
+        // Count actual cache files on filesystem for this language
+        $uploads = wp_upload_dir();
+        $cache_base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+        
+        // Add site-specific directory if multi-domain caching is enabled
+        $site_dir = self::get_site_cache_dir();
+        if (!empty($site_dir)) {
+            $cache_base = trailingslashit($cache_base) . $site_dir . '/';
+        }
+        
+        $lang_cache_dir = $cache_base . $lang . '/pages/';
+        $filesystem_count = 0;
+        if (is_dir($lang_cache_dir)) {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($lang_cache_dir, \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if ($file->isFile() && $file->getExtension() === 'html') {
+                    $filesystem_count++;
+                }
+            }
+        }
+        
+        // Total in database for truncated flag
+        $db_count = (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$table} WHERE language_code = %s",
             $lang
         ));
         
-        // Fetch latest records first
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, cache_file, file_size, created_at FROM {$table} WHERE language_code = %s ORDER BY created_at DESC LIMIT %d",
-            $lang,
-            $limit
-        ));
-        
-        $items = [];
-        if (is_array($rows)) {
-            foreach ($rows as $row) {
-                $cache_file = wp_normalize_path((string) $row->cache_file);
-                
-                // Skip invalid paths or missing files
-                if ($cache_file === '' || !file_exists($cache_file) || !is_file($cache_file)) {
-                    continue;
+        $buildItems = function() use ($wpdb, $table, $lang, $limit) {
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT post_id, cache_file, file_size, created_at FROM {$table} WHERE language_code = %s ORDER BY created_at DESC LIMIT %d",
+                $lang,
+                $limit
+            ));
+            
+            $items = [];
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    $cache_file = wp_normalize_path((string) $row->cache_file);
+                    
+                    // Skip invalid paths or missing files
+                    if ($cache_file === '' || !file_exists($cache_file) || !is_file($cache_file)) {
+                        continue;
+                    }
+                    
+                    $post_id = (int) $row->post_id;
+                    $title = $post_id === 0 ? __('Homepage', 'ai-translate') : get_the_title($post_id);
+                    if ($title === '') {
+                        $title = sprintf(__('Post %d', 'ai-translate'), $post_id);
+                    }
+                    
+                    $url = self::build_translated_url($post_id, $lang);
+                    $mtime = @filemtime($cache_file);
+                    $filesize = file_exists($cache_file) ? (int) filesize($cache_file) : 0;
+                    
+                    $items[] = [
+                        'post_id' => $post_id,
+                        'url' => $url,
+                        'title' => $title,
+                        'file_size' => $filesize,
+                        'updated_at' => $mtime ? (int) $mtime : (int) strtotime((string) $row->created_at),
+                        'cache_file' => $cache_file,
+                    ];
                 }
-                
-                $post_id = (int) $row->post_id;
-                $title = $post_id === 0 ? __('Homepage', 'ai-translate') : get_the_title($post_id);
-                if ($title === '') {
-                    $title = sprintf(__('Post %d', 'ai-translate'), $post_id);
-                }
-                
-                $url = self::build_translated_url($post_id, $lang);
-                $mtime = @filemtime($cache_file);
-                $filesize = file_exists($cache_file) ? (int) filesize($cache_file) : 0;
-                
-                $items[] = [
-                    'post_id' => $post_id,
-                    'url' => $url,
-                    'title' => $title,
-                    'file_size' => $filesize,
-                    'updated_at' => $mtime ? (int) $mtime : (int) strtotime((string) $row->created_at),
-                    'cache_file' => $cache_file,
-                ];
             }
+            return $items;
+        };
+        
+        $items = $buildItems();
+        
+        // Als het aantal bestanden op filesystem hoger is dan in database, forceer rescan
+        if ($filesystem_count > $db_count) {
+            self::populate_existing_cache(true);
+            $items = $buildItems();
+            // Update db_count na rescan
+            global $wpdb;
+            $db_count = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE language_code = %s",
+                $lang
+            ));
+        }
+        
+        // Als er nog steeds bestanden op filesystem zijn die niet in database staan,
+        // voeg ze toe aan de lijst (oude cache bestanden die niet meer in DB staan)
+        if ($filesystem_count > count($items) && is_dir($lang_cache_dir)) {
+            $db_files = array_column($items, 'cache_file');
+            $db_files_normalized = array_map('wp_normalize_path', $db_files);
+            
+            // Scan filesystem voor ontbrekende bestanden
+                $iterator = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($lang_cache_dir, \FilesystemIterator::SKIP_DOTS)
+                );
+                foreach ($iterator as $file) {
+                    if ($file->isFile() && $file->getExtension() === 'html') {
+                        $file_path = wp_normalize_path($file->getPathname());
+                        if (!in_array($file_path, $db_files_normalized, true)) {
+                            // Dit bestand staat op filesystem maar niet in database
+                            // Probeer te bepalen wat het is door de inhoud te lezen
+                            $content = @file_get_contents($file_path, false, null, 0, 5000);
+                            if ($content !== false) {
+                                $post_id = -1; // -1 = unknown/not in DB
+                                $title = __('Unknown (not in DB)', 'ai-translate');
+                                $url = '#';
+                                
+                                // Check voor homepage indicatoren in title
+                                if (preg_match('/<title[^>]*>([^<]+)<\/title>/i', $content, $matches)) {
+                                    $title_text = trim(strip_tags($matches[1]));
+                                    // Als de title de site naam bevat (bijv. "Learn to play the violin" of "Aprende a tocar el violín")
+                                    // en geen specifieke pagina naam, is het waarschijnlijk de homepage
+                                    $homepage_indicators = array('violin', 'violín', 'clases de violín', 'violin lessons');
+                                    $is_likely_homepage = false;
+                                    foreach ($homepage_indicators as $indicator) {
+                                        if (stripos($title_text, $indicator) !== false) {
+                                            $is_likely_homepage = true;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if ($is_likely_homepage) {
+                                        $post_id = 0;
+                                        $title = __('Homepage (duplicate?)', 'ai-translate');
+                                        $url = self::build_translated_url(0, $lang);
+                                    } else {
+                                        $title = $title_text . ' (' . __('not in DB', 'ai-translate') . ')';
+                                    }
+                                }
+                                
+                                $items[] = [
+                                    'post_id' => $post_id,
+                                    'url' => $url,
+                                    'title' => $title,
+                                    'file_size' => (int) $file->getSize(),
+                                    'updated_at' => (int) $file->getMTime(),
+                                    'cache_file' => $file_path,
+                                ];
+                            }
+                        }
+                    }
+                }
         }
         
         return [
             'language' => $lang,
-            'total' => $total,
+            'total' => max($filesystem_count, $db_count),
             'items' => $items,
-            'truncated' => $total > $limit,
+            'truncated' => max($filesystem_count, $db_count) > $limit,
         ];
     }
     
@@ -652,12 +770,15 @@ class AI_Cache_Meta
         
         // Also try the reverse: generate keys for all posts and check if files exist
         // This catches any files that the filesystem scan might have missed
-        $posts = get_posts(array(
-            'post_type' => array('page', 'post'),
-            'post_status' => 'publish',
-            'posts_per_page' => -1,
-            'fields' => 'ids'
-        ));
+        // Include all post types (attachments included so we can detect if they were incorrectly cached)
+        // The actual prevention happens in class-ai-ob.php where attachments are excluded from caching
+        global $wpdb;
+        $all_post_ids = $wpdb->get_col(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'inherit') AND post_type NOT IN ('revision', 'nav_menu_item', 'custom_css', 'jp_img_sitemap', 'jp_sitemap', 'jp_sitemap_master', 'wds-slider', 'fmemailverification', 'is_search_form', 'oembed_cache')"
+        );
+        
+        // Also include homepage (post_id = 0)
+        $posts = array_merge(array(0), (array) $all_post_ids);
         
         if (empty($posts)) {
             return $added;
@@ -669,12 +790,16 @@ class AI_Cache_Meta
         $default_lang = \AITranslate\AI_Lang::default();
         
         foreach ($posts as $post_id) {
-            $permalink = get_permalink($post_id);
-            if (!$permalink) {
-                continue;
+            // Handle homepage (post_id = 0)
+            if ($post_id === 0) {
+                $route_id = 'path:' . md5('/');
+            } else {
+                $permalink = get_permalink($post_id);
+                if (!$permalink) {
+                    continue;
+                }
+                $route_id = 'post:' . $post_id;
             }
-            
-            $route_id = 'post:' . $post_id;
             
             foreach ($all_langs as $lang) {
                 // Skip default language
@@ -758,13 +883,16 @@ class AI_Cache_Meta
         $files_found = 0;
         $files_matched = 0;
         
-        // Get all published posts first (more efficient than checking for each file)
-        $posts = get_posts(array(
-            'post_type' => array('page', 'post'),
-            'post_status' => 'publish',
-            'posts_per_page' => -1,
-            'fields' => 'ids'
-        ));
+        // Get all published posts first (including all post types)
+        // Note: Attachments are included here so we can detect if they were incorrectly cached
+        // The actual prevention happens in class-ai-ob.php where attachments are excluded from caching
+        global $wpdb;
+        $all_post_ids = $wpdb->get_col(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'inherit') AND post_type NOT IN ('revision', 'nav_menu_item', 'custom_css', 'jp_img_sitemap', 'jp_sitemap', 'jp_sitemap_master', 'wds-slider', 'fmemailverification', 'is_search_form', 'oembed_cache')"
+        );
+        
+        // Also include homepage (post_id = 0)
+        $posts = array_merge(array(0), (array) $all_post_ids);
         
         if (empty($posts)) {
             return 0;
@@ -940,6 +1068,40 @@ class AI_Cache_Meta
                         if (self::insert($found_post_id, $lang, $cache_file, $cache_hash)) {
                             return 1;
                         }
+                    }
+                }
+            }
+        }
+        
+        // Final fallback: try all post IDs in database if no match found yet
+        // This catches cases where post types were excluded or posts were deleted
+        // Attachments included so we can detect if they were incorrectly cached
+        if (empty($posts) || count($posts) < 100) {
+            global $wpdb;
+            $all_post_ids_fallback = $wpdb->get_col(
+                "SELECT ID FROM {$wpdb->posts} WHERE ID > 0 AND post_type NOT IN ('revision', 'nav_menu_item') LIMIT 1000"
+            );
+            
+            if (!empty($all_post_ids_fallback)) {
+                // Also try homepage
+                $all_post_ids_fallback = array_merge(array(0), $all_post_ids_fallback);
+                
+                foreach ($all_post_ids_fallback as $post_id) {
+                    if (in_array($post_id, $posts, true)) {
+                        continue; // Already checked
+                    }
+                    
+                    $route_id = $post_id === 0 ? 'path:' . md5('/') : 'post:' . $post_id;
+                    $key = \AITranslate\AI_Cache::key($lang, $route_id, '');
+                    $expected_hash = md5($key);
+                    
+                    if ($expected_hash === $filename) {
+                        // Found matching post
+                        $cache_hash = md5($key);
+                        if (self::insert($post_id, $lang, $cache_file, $cache_hash)) {
+                            return 1;
+                        }
+                        return 0;
                     }
                 }
             }
