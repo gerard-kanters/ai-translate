@@ -807,13 +807,26 @@ final class AI_OB
      */
     private function route_should_be_translated($route)
     {
-        // If route is post-based, verify the post exists and is published
+        // If route is post-based, verify the post exists, is published, and has content
         if (strpos($route, 'post:') === 0) {
             $post_id = (int) substr($route, 5);
             if ($post_id > 0) {
                 $post = get_post($post_id);
-                // Translate if post exists and is published (even nav_menu_item gets translated)
-                return $post && $post->post_status === 'publish';
+                // Translate if post exists, is published, and has meaningful content
+                if ($post && $post->post_status === 'publish') {
+                    // Skip specific post types that are plugin elements without real content
+                    $skip_post_types = ['easy-pricing-table', 'nav_menu_item'];
+                    if (in_array($post->post_type, $skip_post_types)) {
+                        return false;
+                    }
+
+                    // For other post types, require at least some meaningful content
+                    $content_length = strlen(trim($post->post_content ?? ''));
+                    // Allow posts with substantial content, or any content for standard post types
+                    if ($content_length > 50 || in_array($post->post_type, ['post', 'page'])) {
+                        return true;
+                    }
+                }
             }
             return false;
         }
