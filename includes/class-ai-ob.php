@@ -113,10 +113,10 @@ final class AI_OB
         // Cache expiry (14+ days) ensures automatic refresh
         $key = AI_Cache::key($lang, $route, '');
 
-        // Check if route has valid content before proceeding with translation or caching
-        // This prevents API calls for menu items, redirects, or paths without actual content
-        $hasValidContent = $this->route_has_valid_content($route);
-        if (!$hasValidContent) {
+        // Check if route should be translated (but may not be cached)
+        // This allows search pages and other dynamic content to be translated but not cached
+        $shouldTranslate = $this->route_should_be_translated($route);
+        if (!$shouldTranslate) {
             $processing = false;
             return $html; // Return untranslated HTML without processing
         }
@@ -352,10 +352,12 @@ final class AI_OB
             return $html3; // Return output but don't cache it
         }
 
-        // Only cache if not bypassed and no dynamic query parameters
+        // Only cache if not bypassed, no dynamic query parameters, and content is cacheable
         // Dynamic query parameters indicate pages that should be translated but not cached
         // (e.g., WooCommerce add-to-cart, form submissions, AJAX actions)
-        if (!$bypassUserCache && !$hasDynamicQueryParams) {
+        // Additional check: only cache if route corresponds to cacheable content (not search pages, etc.)
+        $isCacheable = $this->route_has_valid_content($route);
+        if (!$bypassUserCache && !$hasDynamicQueryParams && $isCacheable) {
             AI_Cache::set($key, $html3);
         }
         
@@ -792,6 +794,58 @@ final class AI_OB
             }
         }
 
+        return false;
+    }
+
+    /**
+     * Check if a route should be translated (may or may not be cached).
+     * This is more permissive than route_has_valid_content() - allows search pages, etc.
+     *
+     * @param string $route The route_id (e.g., 'post:123' or 'path:md5hash')
+     * @return bool True if route should be translated
+     */
+    private function route_should_be_translated($route)
+    {
+        // If route is post-based, verify the post exists and is published
+        if (strpos($route, 'post:') === 0) {
+            $post_id = (int) substr($route, 5);
+            if ($post_id > 0) {
+                $post = get_post($post_id);
+                // Translate if post exists and is published (even nav_menu_item gets translated)
+                return $post && $post->post_status === 'publish';
+            }
+            return false;
+        }
+
+        // For path-based routes, allow more content types
+        if (strpos($route, 'path:') === 0) {
+            // Check if current query has valid posts (including search results)
+            if (function_exists('have_posts')) {
+                return true; // Allow even empty search results to be translated
+            }
+
+            // Check for archives, search, or other valid pages
+            if (function_exists('is_archive') && is_archive()) {
+                return true;
+            }
+            if (function_exists('is_search') && is_search()) {
+                return true; // Always translate search pages
+            }
+            if (function_exists('is_front_page') && is_front_page()) {
+                return true;
+            }
+
+            // For other paths, check if there's a queried object
+            $queried_object = get_queried_object();
+            if ($queried_object) {
+                return true; // Allow translation for any valid WordPress query
+            }
+
+            // If no valid content found, don't translate
+            return false;
+        }
+
+        // Unknown route format, be conservative and don't translate
         return false;
     }
 
