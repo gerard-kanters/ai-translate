@@ -822,12 +822,13 @@ final class AI_OB
                 return true;
             }
 
-            // Check for archives, search, or other valid non-singular pages
+            // Check for archives or other valid non-singular pages
+            // NOTE: Search pages are dynamic and should NOT be cached
             if (function_exists('is_archive') && is_archive()) {
                 return true;
             }
             if (function_exists('is_search') && is_search()) {
-                return true;
+                return false; // Don't cache search pages - they are dynamic
             }
             if (function_exists('is_front_page') && is_front_page()) {
                 return true;
