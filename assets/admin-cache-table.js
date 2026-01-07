@@ -166,35 +166,45 @@ jQuery(document).ready(function($) {
             const updated = item.updated_at ? new Date(item.updated_at * 1000).toLocaleString() : '';
             const sizeBytes = item.file_size ? parseInt(item.file_size, 10) : 0;
             const sizeMb = sizeBytes > 0 ? (sizeBytes / (1024 * 1024)).toFixed(2) : '';
+            const postId = parseInt(item.post_id, 10) || 0;
             
             const $li = $('<li></li>');
-            const $link = $('<a></a>')
-                .attr('href', url)
-                .attr('target', '_blank')
-                .attr('rel', 'noopener');
-            $link.text(title);
-            $li.append($link);
             
-            const metaParts = [];
-            if (updated) {
-                metaParts.push(updated);
+            // Special handling for info messages (post_id = -2)
+            if (postId === -2) {
+                $li.addClass('cache-url-info-message');
+                $li.append($('<span class="cache-url-meta"></span>').text(title));
+            } else {
+                const $link = $('<a></a>')
+                    .attr('href', url)
+                    .attr('target', '_blank')
+                    .attr('rel', 'noopener');
+                $link.text(title);
+                $li.append($link);
+                
+                const metaParts = [];
+                if (updated) {
+                    metaParts.push(updated);
+                }
+                if (sizeMb) {
+                    metaParts.push(sizeMb + ' MB');
+                }
+                if (metaParts.length > 0) {
+                    $li.append($('<span class="cache-url-meta"></span>').text(' (' + metaParts.join(' · ') + ')'));
+                }
+                
+                // Add delete button (only if cache_file exists)
+                if (item.cache_file) {
+                    const $deleteBtn = $('<button></button>')
+                        .addClass('button button-small ai-delete-cache-file')
+                        .attr('type', 'button')
+                        .attr('data-cache-file', item.cache_file)
+                        .attr('data-lang', data.language || '')
+                        .attr('data-post-id', postId)
+                        .text(aiTranslateCacheTable?.strings?.delete_file || 'Delete file');
+                    $li.append(' ').append($deleteBtn);
+                }
             }
-            if (sizeMb) {
-                metaParts.push(sizeMb + ' MB');
-            }
-            if (metaParts.length > 0) {
-                $li.append($('<span class="cache-url-meta"></span>').text(' (' + metaParts.join(' · ') + ')'));
-            }
-            
-            // Add delete button
-            const $deleteBtn = $('<button></button>')
-                .addClass('button button-small ai-delete-cache-file')
-                .attr('type', 'button')
-                .attr('data-cache-file', item.cache_file || '')
-                .attr('data-lang', data.language || '')
-                .attr('data-post-id', item.post_id || '')
-                .text(aiTranslateCacheTable?.strings?.delete_file || 'Delete file');
-            $li.append(' ').append($deleteBtn);
             
             $list.append($li);
         });
@@ -249,18 +259,31 @@ jQuery(document).ready(function($) {
             return;
         }
         
+        // Set timeout to prevent hanging
+        const ajaxTimeout = setTimeout(function() {
+            if ($content.find('.cache-url-loading').length > 0) {
+                const timeoutText = aiTranslateCacheTable?.strings?.timeout || 'Request timed out. The site may have many cache files. Please try again or use the rescan function.';
+                $content.empty().append($('<p class="cache-url-error"></p>').text(timeoutText));
+                $button.prop('disabled', false);
+                $details.data('loaded', '0');
+                $('[data-lang="' + lang + '"].ai-cache-toggle-urls').attr('aria-expanded', 'false');
+            }
+        }, 30000); // 30 second timeout
+        
         $.ajax({
             url: ajaxUrl,
             method: 'POST',
+            timeout: 30000, // 30 second timeout
             data: {
                 action: 'ai_translate_get_cache_urls_by_language',
                 nonce: aiTranslateCacheTable.listNonce,
                 lang_code: lang
             },
             success: function(response) {
+                clearTimeout(ajaxTimeout);
                 $button.prop('disabled', false);
                 if (!response || !response.success || !response.data) {
-                    const errText = aiTranslateCacheTable?.strings?.error || 'Could not load cached URLs. Please try again.';
+                    const errText = response?.data?.message || (aiTranslateCacheTable?.strings?.error || 'Could not load cached URLs. Please try again.');
                     $content.empty().append($('<p class="cache-url-error"></p>').text(errText));
                     $details.data('loaded', '0');
                     return;
@@ -271,12 +294,18 @@ jQuery(document).ready(function($) {
                 $('[data-lang="' + lang + '"].ai-cache-toggle-urls').attr('aria-expanded', 'true');
             },
             error: function(jqXHR, textStatus, errorThrown) {
+                clearTimeout(ajaxTimeout);
                 console.error('AI Translate Cache URL list error:', {
                     status: textStatus,
                     error: errorThrown,
                     response: jqXHR.responseText
                 });
-                const errText = aiTranslateCacheTable?.strings?.error || 'Could not load cached URLs. Please try again.';
+                
+                let errText = aiTranslateCacheTable?.strings?.error || 'Could not load cached URLs. Please try again.';
+                if (textStatus === 'timeout') {
+                    errText = aiTranslateCacheTable?.strings?.timeout || 'Request timed out. The site may have many cache files. Please try again or use the rescan function.';
+                }
+                
                 $content.empty().append($('<p class="cache-url-error"></p>').text(errText));
                 $button.prop('disabled', false);
                 $details.data('loaded', '0');

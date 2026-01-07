@@ -511,6 +511,8 @@ class AI_Cache_Meta
                     if ($title === '') {
                         $title = sprintf(__('Post %d', 'ai-translate'), $post_id);
                     }
+                    // Decode HTML entities to normal characters
+                    $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     
                     $url = self::build_translated_url($post_id, $lang);
                     $mtime = @filemtime($cache_file);
@@ -531,75 +533,86 @@ class AI_Cache_Meta
         
         $items = $buildItems();
         
-        // Als het aantal bestanden op filesystem hoger is dan in database, forceer rescan
-        if ($filesystem_count > $db_count) {
-            self::populate_existing_cache(true);
-            $items = $buildItems();
-            // Update db_count na rescan
-            global $wpdb;
-            $db_count = (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE language_code = %s",
-                $lang
-            ));
-        }
-        
-        // Als er nog steeds bestanden op filesystem zijn die niet in database staan,
-        // voeg ze toe aan de lijst (oude cache bestanden die niet meer in DB staan)
+        // Als het aantal bestanden op filesystem hoger is dan in database,
+        // voeg alleen de ontbrekende bestanden toe zonder volledige rescan (te traag voor AJAX)
+        // De volledige rescan kan handmatig worden gedaan via een aparte actie
         if ($filesystem_count > count($items) && is_dir($lang_cache_dir)) {
             $db_files = array_column($items, 'cache_file');
             $db_files_normalized = array_map('wp_normalize_path', $db_files);
             
-            // Scan filesystem voor ontbrekende bestanden
-                $iterator = new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator($lang_cache_dir, \FilesystemIterator::SKIP_DOTS)
-                );
-                foreach ($iterator as $file) {
-                    if ($file->isFile() && $file->getExtension() === 'html') {
-                        $file_path = wp_normalize_path($file->getPathname());
-                        if (!in_array($file_path, $db_files_normalized, true)) {
-                            // Dit bestand staat op filesystem maar niet in database
-                            // Probeer te bepalen wat het is door de inhoud te lezen
-                            $content = @file_get_contents($file_path, false, null, 0, 5000);
-                            if ($content !== false) {
-                                $post_id = -1; // -1 = unknown/not in DB
-                                $title = __('Unknown (not in DB)', 'ai-translate');
-                                $url = '#';
-                                
-                                // Check voor homepage indicatoren in title
-                                if (preg_match('/<title[^>]*>([^<]+)<\/title>/i', $content, $matches)) {
-                                    $title_text = trim(strip_tags($matches[1]));
-                                    // Als de title de site naam bevat (bijv. "Learn to play the violin" of "Aprende a tocar el violín")
-                                    // en geen specifieke pagina naam, is het waarschijnlijk de homepage
-                                    $homepage_indicators = array('violin', 'violín', 'clases de violín', 'violin lessons');
-                                    $is_likely_homepage = false;
-                                    foreach ($homepage_indicators as $indicator) {
-                                        if (stripos($title_text, $indicator) !== false) {
-                                            $is_likely_homepage = true;
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if ($is_likely_homepage) {
-                                        $post_id = 0;
-                                        $title = __('Homepage (duplicate?)', 'ai-translate');
-                                        $url = self::build_translated_url(0, $lang);
-                                    } else {
-                                        $title = $title_text . ' (' . __('not in DB', 'ai-translate') . ')';
-                                    }
-                                }
-                                
-                                $items[] = [
-                                    'post_id' => $post_id,
-                                    'url' => $url,
-                                    'title' => $title,
-                                    'file_size' => (int) $file->getSize(),
-                                    'updated_at' => (int) $file->getMTime(),
-                                    'cache_file' => $file_path,
-                                ];
+            // Limiteer het aantal bestanden dat we scannen om timeout te voorkomen
+            $max_scan = 50; // Max 50 bestanden per AJAX call
+            $scanned = 0;
+            
+            // Scan filesystem voor ontbrekende bestanden (beperkt)
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($lang_cache_dir, \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if ($scanned >= $max_scan) {
+                    break; // Stop na max aantal scans
+                }
+                
+                if ($file->isFile() && $file->getExtension() === 'html') {
+                    $file_path = wp_normalize_path($file->getPathname());
+                    if (!in_array($file_path, $db_files_normalized, true)) {
+                        $scanned++;
+                        
+                        // Probeer snel te bepalen wat het is zonder volledige file read
+                        // Gebruik alleen filename hash matching als snelle check
+                        $filename = basename($file_path, '.html');
+                        
+                        // Quick check: als het een bekende homepage hash is
+                        global $wpdb;
+                        $db_identifier = defined('DB_NAME') ? DB_NAME : '';
+                        $table_prefix = isset($wpdb->prefix) ? $wpdb->prefix : 'wp_';
+                        $site_hash = substr(md5($db_identifier . '|' . $table_prefix), 0, 8);
+                        $homepage_route = 'path:' . md5('/');
+                        $homepage_hash = md5('ait:v4:' . $site_hash . ':' . $lang . ':' . $homepage_route);
+                        
+                        $post_id = -1;
+                        $title = __('Unknown (not in DB)', 'ai-translate');
+                        $url = '#';
+                        
+                        if ($filename === $homepage_hash) {
+                            $post_id = 0;
+                            $title = __('Homepage (not in DB)', 'ai-translate');
+                            $url = self::build_translated_url(0, $lang);
+                        } else {
+                            // Probeer alleen eerste paar bytes te lezen voor title
+                            $content = @file_get_contents($file_path, false, null, 0, 2000);
+                            if ($content !== false && preg_match('/<title[^>]*>([^<]+)<\/title>/i', $content, $matches)) {
+                                $title_text = trim(strip_tags($matches[1]));
+                                // Decode HTML entities to normal characters
+                                $title_text = html_entity_decode($title_text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                                $title = $title_text . ' (' . __('not in DB', 'ai-translate') . ')';
                             }
                         }
+                        
+                        $items[] = [
+                            'post_id' => $post_id,
+                            'url' => $url,
+                            'title' => $title,
+                            'file_size' => (int) $file->getSize(),
+                            'updated_at' => (int) $file->getMTime(),
+                            'cache_file' => $file_path,
+                        ];
                     }
                 }
+            }
+            
+            // Als er nog meer bestanden zijn, voeg een melding toe
+            if ($filesystem_count > count($items)) {
+                $remaining = $filesystem_count - count($items);
+                $items[] = [
+                    'post_id' => -2, // Special ID voor info message
+                    'url' => '#',
+                    'title' => sprintf(__('... and %d more files not in database (use rescan to add them)', 'ai-translate'), $remaining),
+                    'file_size' => 0,
+                    'updated_at' => 0,
+                    'cache_file' => '',
+                ];
+            }
         }
         
         return [

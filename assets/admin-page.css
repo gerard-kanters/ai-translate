@@ -183,6 +183,12 @@
     margin-left: 6px;
 }
 
+.cache-url-info-message {
+    font-style: italic;
+    color: #666;
+    padding: 4px 0;
+}
+
 .ai-delete-cache-file {
     margin-left: 8px;
     padding: 2px 8px;

@@ -869,6 +869,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'strings' => array(
             'loading' => __('Loading cached URLs...', 'ai-translate'),
             'error' => __('Could not load cached URLs. Please try again.', 'ai-translate'),
+            'timeout' => __('Request timed out. The site may have many cache files. Please try again or use the rescan function.', 'ai-translate'),
             'empty' => __('No cached pages for this language.', 'ai-translate'),
             'show' => __('Show cached URLs', 'ai-translate'),
             'hide' => __('Hide cached URLs', 'ai-translate'),
