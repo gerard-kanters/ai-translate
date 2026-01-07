@@ -415,6 +415,168 @@ class AI_Cache_Meta
     }
     
     /**
+     * Get cached URLs for a language without preloading everything (lazy for admin).
+     *
+     * @param string $language_code Language code.
+     * @param int    $limit         Max number of records to return (cap at 1000).
+     * @return array{language:string,total:int,items:array<int,array{post_id:int,url:string,title:string,file_size:int,updated_at:int,cache_file:string}>,truncated:bool}
+     */
+    public static function get_cached_urls_for_language($language_code, $limit = 300)
+    {
+        global $wpdb;
+        
+        self::ensure_table_exists();
+        
+        $lang = strtolower(sanitize_key($language_code));
+        if ($lang === '') {
+            return [
+                'language' => '',
+                'total' => 0,
+                'items' => [],
+                'truncated' => false,
+            ];
+        }
+        
+        $limit = max(1, min((int) $limit, 1000));
+        $table = self::get_table_name();
+        
+        // Total for truncated flag
+        $total = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$table} WHERE language_code = %s",
+            $lang
+        ));
+        
+        // Fetch latest records first
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, cache_file, file_size, created_at FROM {$table} WHERE language_code = %s ORDER BY created_at DESC LIMIT %d",
+            $lang,
+            $limit
+        ));
+        
+        $items = [];
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $cache_file = wp_normalize_path((string) $row->cache_file);
+                
+                // Skip invalid paths or missing files
+                if ($cache_file === '' || !file_exists($cache_file) || !is_file($cache_file)) {
+                    continue;
+                }
+                
+                $post_id = (int) $row->post_id;
+                $title = $post_id === 0 ? __('Homepage', 'ai-translate') : get_the_title($post_id);
+                if ($title === '') {
+                    $title = sprintf(__('Post %d', 'ai-translate'), $post_id);
+                }
+                
+                $url = self::build_translated_url($post_id, $lang);
+                $mtime = @filemtime($cache_file);
+                $filesize = file_exists($cache_file) ? (int) filesize($cache_file) : 0;
+                
+                $items[] = [
+                    'post_id' => $post_id,
+                    'url' => $url,
+                    'title' => $title,
+                    'file_size' => $filesize,
+                    'updated_at' => $mtime ? (int) $mtime : (int) strtotime((string) $row->created_at),
+                    'cache_file' => $cache_file,
+                ];
+            }
+        }
+        
+        return [
+            'language' => $lang,
+            'total' => $total,
+            'items' => $items,
+            'truncated' => $total > $limit,
+        ];
+    }
+    
+    /**
+     * Build translated URL for a post and language without triggering new translations.
+     *
+     * @param int    $post_id Post ID (0 = homepage).
+     * @param string $lang    Language code.
+     * @return string
+     */
+    private static function build_translated_url($post_id, $lang)
+    {
+        $lang = strtolower(sanitize_key($lang));
+        $path = '/';
+        
+        if ($post_id === 0) {
+            $path = '/';
+        } else {
+            $permalink = get_permalink($post_id);
+            if ($permalink) {
+                $parsed = parse_url($permalink, PHP_URL_PATH);
+                if (is_string($parsed) && $parsed !== '') {
+                    $path = '/' . ltrim($parsed, '/');
+                }
+            }
+        }
+        
+        $path = trim($path, '/');
+        
+        // Gebruik bestaande vertaalde slug als die er is (geen nieuwe vertaling triggeren)
+        $translated_slug = self::get_translated_slug_for_lang($post_id, $lang);
+        if ($translated_slug !== '') {
+            $segments = $path === '' ? [] : explode('/', $path);
+            if (!empty($segments)) {
+                // Vervang laatste segment door de vertaalde slug
+                $segments[count($segments) - 1] = $translated_slug;
+            } else {
+                $segments[] = $translated_slug;
+            }
+            $path = implode('/', array_map('rawurlencode', $segments));
+        }
+        
+        $translated_path = '/' . $lang;
+        if ($path !== '') {
+            $translated_path .= '/' . $path;
+        }
+        $translated_path = user_trailingslashit('/' . trim($translated_path, '/'));
+        
+        return home_url($translated_path);
+    }
+    
+    /**
+     * Haal bestaande vertaalde slug op uit de slug-tabel (geen nieuwe vertaling genereren).
+     *
+     * @param int    $post_id Post ID
+     * @param string $lang    Language code
+     * @return string Vertaalde slug of lege string
+     */
+    private static function get_translated_slug_for_lang($post_id, $lang)
+    {
+        if ($post_id <= 0 || $lang === '') {
+            return '';
+        }
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'ai_translate_slugs';
+        
+        // Detecteer kolomnamen (oude vs nieuwe schema)
+        static $schema = null;
+        if ($schema === null) {
+            $cols = $wpdb->get_col("SHOW COLUMNS FROM {$table}", 0);
+            $schema = [
+                'lang_col' => in_array('lang', (array) $cols, true) ? 'lang' : 'language_code',
+                'source_col' => in_array('source_slug', (array) $cols, true) ? 'source_slug' : 'original_slug',
+            ];
+        }
+        
+        $lang_col = $schema['lang_col'];
+        $translated_slug = (string) $wpdb->get_var($wpdb->prepare(
+            "SELECT translated_slug FROM {$table} WHERE post_id = %d AND {$lang_col} = %s LIMIT 1",
+            $post_id,
+            $lang
+        ));
+        
+        return $translated_slug !== '' ? $translated_slug : '';
+    }
+    
+    /**
      * Ensure the cache metadata table exists, create it if it doesn't
      *
      * @return void

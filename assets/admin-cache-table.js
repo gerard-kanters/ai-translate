@@ -137,6 +137,144 @@ jQuery(document).ready(function($) {
         });
     });
     
+    /**
+     * Render list of cached URLs for a language.
+     *
+     * @param {jQuery} $container
+     * @param {object} data
+     */
+    function renderCacheUrlList($container, data) {
+        $container.empty();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        
+        if (!items.length) {
+            const emptyText = aiTranslateCacheTable?.strings?.empty || 'No cached pages for this language.';
+            $container.append($('<p class="cache-url-empty"></p>').text(emptyText));
+            return;
+        }
+        
+        if (data.truncated && data.total) {
+            const tmpl = aiTranslateCacheTable?.strings?.truncated || 'Showing first %1$s of %2$s entries';
+            const msg = tmpl.replace('%1$s', items.length).replace('%2$s', data.total);
+            $container.append($('<p class="cache-url-info"></p>').text(msg));
+        }
+        
+        const $list = $('<ul class="cache-url-list"></ul>');
+        items.forEach(function(item) {
+            const url = item.url || '';
+            const title = item.title || url || '';
+            const updated = item.updated_at ? new Date(item.updated_at * 1000).toLocaleString() : '';
+            const sizeBytes = item.file_size ? parseInt(item.file_size, 10) : 0;
+            const sizeMb = sizeBytes > 0 ? (sizeBytes / (1024 * 1024)).toFixed(2) : '';
+            
+            const $li = $('<li></li>');
+            const $link = $('<a></a>')
+                .attr('href', url)
+                .attr('target', '_blank')
+                .attr('rel', 'noopener');
+            $link.text(title);
+            $li.append($link);
+            
+            const metaParts = [];
+            if (updated) {
+                metaParts.push(updated);
+            }
+            if (sizeMb) {
+                metaParts.push(sizeMb + ' MB');
+            }
+            if (metaParts.length > 0) {
+                $li.append($('<span class="cache-url-meta"></span>').text(' (' + metaParts.join(' · ') + ')'));
+            }
+            
+            $list.append($li);
+        });
+        
+        $container.append($list);
+    }
+    
+    // Lazy-load cached URLs per language (expandable rows)
+    $(document).on('click', '.ai-cache-toggle-urls', function(e) {
+        e.preventDefault();
+        
+        const $button = $(this);
+        const lang = $button.data('lang');
+        if (!lang) {
+            return;
+        }
+        
+        const $details = $('#cache-details-' + lang);
+        if ($details.length === 0) {
+            return;
+        }
+        const $content = $details.find('.cache-language-details__content');
+        // Bewaar oorspronkelijke label (taalnaam) zodat we de tekst niet vervangen
+        if (!$button.data('origLabel')) {
+            $button.data('origLabel', $button.text());
+        }
+        const originalLabel = $button.data('origLabel');
+        
+        // Toggle when already loaded
+        if ($details.data('loaded') === '1') {
+            if ($details.is(':visible')) {
+                $details.hide();
+                $('[data-lang="' + lang + '"].ai-cache-toggle-urls').attr('aria-expanded', 'false');
+            } else {
+                $details.show();
+                $('[data-lang="' + lang + '"].ai-cache-toggle-urls').attr('aria-expanded', 'true');
+            }
+            return;
+        }
+        
+        // First load
+        $button.prop('disabled', true);
+        $details.show();
+        const loadingText = aiTranslateCacheTable?.strings?.loading || 'Loading cached URLs...';
+        $content.empty().append($('<p class="cache-url-loading"></p>').text(loadingText));
+        
+        if (!ajaxUrl) {
+            const errText = aiTranslateCacheTable?.strings?.error || 'Could not load cached URLs. Please try again.';
+            $content.empty().append($('<p class="cache-url-error"></p>').text(errText));
+            $button.prop('disabled', false);
+            $details.data('loaded', '0');
+            return;
+        }
+        
+        $.ajax({
+            url: ajaxUrl,
+            method: 'POST',
+            data: {
+                action: 'ai_translate_get_cache_urls_by_language',
+                nonce: aiTranslateCacheTable.listNonce,
+                lang_code: lang
+            },
+            success: function(response) {
+                $button.prop('disabled', false);
+                if (!response || !response.success || !response.data) {
+                    const errText = aiTranslateCacheTable?.strings?.error || 'Could not load cached URLs. Please try again.';
+                    $content.empty().append($('<p class="cache-url-error"></p>').text(errText));
+                    $details.data('loaded', '0');
+                    return;
+                }
+                
+                renderCacheUrlList($content, response.data);
+                $details.data('loaded', '1');
+                $('[data-lang="' + lang + '"].ai-cache-toggle-urls').attr('aria-expanded', 'true');
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('AI Translate Cache URL list error:', {
+                    status: textStatus,
+                    error: errorThrown,
+                    response: jqXHR.responseText
+                });
+                const errText = aiTranslateCacheTable?.strings?.error || 'Could not load cached URLs. Please try again.';
+                $content.empty().append($('<p class="cache-url-error"></p>').text(errText));
+                $button.prop('disabled', false);
+                $details.data('loaded', '0');
+                $('[data-lang="' + lang + '"].ai-cache-toggle-urls').attr('aria-expanded', 'false');
+            }
+        });
+    });
+    
     // Table sorting functionality for cache language table
     var currentSort = {
         column: 'language',
@@ -161,7 +299,8 @@ jQuery(document).ready(function($) {
     function sortTable(column, direction) {
         var $table = $('#cache-language-table');
         var $tbody = $table.find('tbody');
-        var $rows = $tbody.find('tr').toArray();
+        // Sorteer alleen hoofd-rijen (taal) en hang bij re-append de detail-rij er direct onder
+        var $rows = $tbody.find('tr.cache-language-row').toArray();
         var sortType = $table.find('th.sortable[data-sort="' + column + '"]').data('sort-type') || 'text';
         
         $rows.sort(function(a, b) {
@@ -209,7 +348,14 @@ jQuery(document).ready(function($) {
         
         // Re-append sorted rows
         $.each($rows, function(index, row) {
-            $tbody.append(row);
+            var $row = $(row);
+            var lang = $row.attr('id') ? $row.attr('id').replace('cache-row-', '') : '';
+            var $detail = lang ? $('#cache-details-' + lang) : null;
+            
+            $tbody.append($row);
+            if ($detail && $detail.length) {
+                $tbody.append($detail);
+            }
         });
         
         // Update sort indicators

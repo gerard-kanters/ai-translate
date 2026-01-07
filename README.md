@@ -101,6 +101,10 @@ Translations are only updated when the original content changes. This happens au
 
 Yes! AI Translate is fully SEO-friendly. It automatically generates hreflang tags, translates URL slugs, and ensures search engines can properly index all language versions.
 
+### What do I need to do if a language is not translated ?
+
+Not all languages can be translated with all models. So first make sure you use a model that supports the language. Another reason can be that the rewrite rules must be flushed when adding an new language. Disable and enable the plugin will do this. 
+
 ### Can I customize the AI prompts?
 
 The AI prompts are optimized for the best translations by analyzing your website and adjusting the tone. You can add extra context about your site in the admin settings, but this is usually not necessary.

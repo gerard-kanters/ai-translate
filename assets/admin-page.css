@@ -159,3 +159,40 @@
     opacity: 1;
     color: #2271b1;
 }
+
+.cache-language-details td {
+    background: #f9f9f9;
+}
+
+.cache-language-details__content {
+    padding: 10px 5px;
+}
+
+.cache-url-list {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.cache-url-list li {
+    margin: 2px 0;
+}
+
+.cache-url-meta {
+    color: #666;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.cache-url-loading,
+.cache-url-error,
+.cache-url-empty,
+.cache-url-info {
+    margin: 0 0 8px 0;
+}
+
+.ai-cache-lang-trigger {
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    cursor: pointer;
+}
