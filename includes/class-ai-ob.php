@@ -42,136 +42,41 @@ final class AI_OB
             return $html;
         }
         $processing = true;
-        
-        if (is_admin()) {
+
+        // PHASE 1: Basic environment checks
+        if ($this->should_skip_basic_checks()) {
             $processing = false;
             return $html;
         }
-        
-        // Skip 404 pages FIRST - do not translate, cache, or process them
-        // This check must happen BEFORE any translation or cache operations to prevent API costs
-        global $wp_query;
-        if (isset($wp_query) && is_object($wp_query) && $wp_query->is_404()) {
+
+        // PHASE 2: Content type validation
+        if ($this->should_skip_content_type($html)) {
             $processing = false;
             return $html;
         }
-        
-        // Also check HTML content for 404 indicators as fallback
-        // Some themes/plugins might not set is_404() correctly
-        // This check uses minimal processing (no full HTML parsing) to avoid costs
-        $htmlLower = strtolower($html);
-        $is404InContent = (
-            stripos($html, '404') !== false && (
-                stripos($htmlLower, 'page not found') !== false ||
-                stripos($htmlLower, 'niet gevonden') !== false ||
-                stripos($htmlLower, 'nicht gefunden') !== false ||
-                stripos($htmlLower, 'page non trouvée') !== false ||
-                stripos($htmlLower, 'página no encontrada') !== false ||
-                stripos($htmlLower, 'pagina non trovata') !== false ||
-                (stripos($htmlLower, '<title') !== false && stripos($htmlLower, '404') !== false && stripos($htmlLower, 'not found') !== false)
-            )
-        );
-        if ($is404InContent) {
+
+        // PHASE 3: Page structure validation
+        if ($this->should_skip_page_structure()) {
             $processing = false;
             return $html;
         }
-        
-        // Skip attachment pages - do not translate or cache them
-        // Attachments (images, files) should not be translated or cached
-        // This check must happen BEFORE any translation or cache operations to prevent API costs
-        if (function_exists('is_attachment') && is_attachment()) {
+
+        // PHASE 4: File type checks
+        if ($this->should_skip_file_types($html)) {
             $processing = false;
             return $html;
         }
-        
-        // Also check if queried object is an attachment by post_type
-        // This catches cases where is_attachment() might not work correctly
-        $queried_object = get_queried_object();
-        if ($queried_object && isset($queried_object->post_type) && $queried_object->post_type === 'attachment') {
+
+        // PHASE 5: Language and user validation
+        if ($this->should_skip_language_or_user()) {
             $processing = false;
             return $html;
         }
-        
-        // Additional check: verify current post is not an attachment
-        // This prevents attachments from being cached via get_queried_object_id()
-        $current_post_id = get_queried_object_id();
-        if ($current_post_id > 0) {
-            $current_post = get_post($current_post_id);
-            if ($current_post && isset($current_post->post_type) && $current_post->post_type === 'attachment') {
-                $processing = false;
-                return $html;
-            }
-        }
-        
-        // Skip archive pages - do not translate or cache them
-        // Archives (category, tag, author, date, taxonomy) should not be translated
-        // Only singular posts/pages should be translated and cached
-        // This check must happen BEFORE any translation or cache operations to prevent API costs
-        if (function_exists('is_archive') && is_archive()) {
-            $processing = false;
-            return $html;
-        }
-        
-        // Also check for other archive types that might not be caught by is_archive()
-        // These checks ensure we exclude all archive-like pages from translation
-        if (function_exists('is_category') && is_category()) {
-            $processing = false;
-            return $html;
-        }
-        if (function_exists('is_tag') && is_tag()) {
-            $processing = false;
-            return $html;
-        }
-        if (function_exists('is_author') && is_author()) {
-            $processing = false;
-            return $html;
-        }
-        if (function_exists('is_date') && is_date()) {
-            $processing = false;
-            return $html;
-        }
-        if (function_exists('is_tax') && is_tax()) {
-            $processing = false;
-            return $html;
-        }
-        
-        // Only translate singular posts/pages - exclude archives, search, and other non-singular pages
-        // This ensures we only translate actual content pages, not archive listings
-        // Note: Search pages and homepage are handled separately (they are translated but not cached)
-        if (function_exists('is_singular') && !is_singular()) {
-            // Allow search pages and homepage to be translated (but not cached, handled elsewhere)
-            $is_search = function_exists('is_search') && is_search();
-            $is_front_page = function_exists('is_front_page') && is_front_page();
-            if (!$is_search && !$is_front_page) {
-                $processing = false;
-                return $html;
-            }
-        }
-        
-        // Skip XML files (sitemaps, etc.) - they should not be processed
-        $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-        if (preg_match('/\.xml$/i', $reqPath) || 
-            isset($_GET['sitemap']) || 
-            isset($_GET['sitemap-index']) ||
-            preg_match('/sitemap/i', $reqPath)) {
-            $processing = false;
-            return $html;
-        }
-        
-        // Additional check: if content starts with XML declaration, skip processing
-        $htmlTrimmed = trim($html);
-        if (strpos($htmlTrimmed, '<?xml') === 0 || strpos($htmlTrimmed, '<xml') === 0) {
-            $processing = false;
-            return $html;
-        }
-        
+
+        // Get validated language (already checked in PHASE 5)
         $lang = AI_Lang::current();
-        if ($lang === null) {
-            $processing = false;
-            return $html;
-        }
-        
-        // For default language: inject SEO tags (meta description, hreflang) but no translation
+
+        // For default language: inject SEO tags but no translation
         $needsTranslation = AI_Lang::should_translate($lang);
         if (!$needsTranslation) {
             $htmlWithSEO = AI_SEO::inject($html, $lang);
@@ -179,13 +84,11 @@ final class AI_OB
             return $htmlWithSEO;
         }
 
-        // Never serve cached HTML to logged-in users or when admin bar should be visible.
-        // This prevents returning a cached anonymous page that lacks the admin toolbar.
-        // EXCEPTION: If stop_translations is enabled, ALWAYS use cache (even for logged-in users)
-        // to ensure translated content is served when new translations are blocked.
+        // Get user cache bypass setting (already determined in PHASE 5)
         $settings = get_option('ai_translate_settings', array());
-        $stopTranslations = isset($settings['stop_translations_except_cache_invalidation']) && $settings['stop_translations_except_cache_invalidation'];
-        
+        $stopTranslations = isset($settings['stop_translations_except_cache_invalidation']) &&
+                           $settings['stop_translations_except_cache_invalidation'];
+
         $bypassUserCache = false;
         if (!$stopTranslations) {
             if (function_exists('is_user_logged_in') && is_user_logged_in()) {
@@ -209,6 +112,15 @@ final class AI_OB
         // route_id is already unique per page, making content_version unnecessary
         // Cache expiry (14+ days) ensures automatic refresh
         $key = AI_Cache::key($lang, $route, '');
+
+        // Check if route has valid content before proceeding with translation or caching
+        // This prevents API calls for menu items, redirects, or paths without actual content
+        $hasValidContent = $this->route_has_valid_content($route);
+        if (!$hasValidContent) {
+            $processing = false;
+            return $html; // Return untranslated HTML without processing
+        }
+
         if (!$bypassUserCache && !$nocache && !$hasDynamicQueryParams) {
             $cached = AI_Cache::get($key);
             if ($cached !== false) {
@@ -688,6 +600,253 @@ final class AI_OB
         }
         
         return 'path:' . md5($req_path);
+    }
+
+    /**
+     * PHASE 1: Basic environment checks
+     * Skip processing for admin pages, etc.
+     */
+    private function should_skip_basic_checks()
+    {
+        // Skip admin pages
+        if (is_admin()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * PHASE 2: Content type validation
+     * Skip processing for 404s, attachments, archives, etc.
+     */
+    private function should_skip_content_type($html)
+    {
+        // Skip 404 pages - multiple detection methods
+        if ($this->is_404_page($html)) {
+            return true;
+        }
+
+        // Skip attachment pages - multiple detection methods
+        if ($this->is_attachment_page()) {
+            return true;
+        }
+
+        // Skip archive pages - multiple archive types
+        if ($this->is_archive_page()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * PHASE 3: Page structure validation
+     * Ensure we only process appropriate page types
+     */
+    private function should_skip_page_structure()
+    {
+        // Only translate singular posts/pages, with exceptions for search/homepage
+        if (function_exists('is_singular') && !is_singular()) {
+            $is_search = function_exists('is_search') && is_search();
+            $is_front_page = function_exists('is_front_page') && is_front_page();
+            if (!$is_search && !$is_front_page) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * PHASE 4: File type checks
+     * Skip XML files, sitemaps, etc.
+     */
+    private function should_skip_file_types($html)
+    {
+        // Skip XML files and sitemaps
+        $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if (preg_match('/\.xml$/i', $reqPath) ||
+            isset($_GET['sitemap']) ||
+            isset($_GET['sitemap-index']) ||
+            preg_match('/sitemap/i', $reqPath)) {
+            return true;
+        }
+
+        // Skip XML content
+        $htmlTrimmed = trim($html);
+        if (strpos($htmlTrimmed, '<?xml') === 0 || strpos($htmlTrimmed, '<xml') === 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * PHASE 5: Language and user validation
+     * Handle language settings and user-specific bypasses
+     */
+    private function should_skip_language_or_user()
+    {
+        // Language validation
+        $lang = AI_Lang::current();
+        if ($lang === null) {
+            return true;
+        }
+
+        // For default language: inject SEO but no translation (handled later)
+        $needsTranslation = AI_Lang::should_translate($lang);
+        if (!$needsTranslation) {
+            return false; // Allow processing for SEO injection
+        }
+
+        // User cache bypass (logged-in users, admin bar) - allow processing but skip caching
+        $settings = get_option('ai_translate_settings', array());
+        $stopTranslations = isset($settings['stop_translations_except_cache_invalidation']) &&
+                           $settings['stop_translations_except_cache_invalidation'];
+
+        if (!$stopTranslations) {
+            if (function_exists('is_user_logged_in') && is_user_logged_in()) {
+                return false; // Allow processing, bypass cache later
+            }
+            if (function_exists('is_admin_bar_showing') && is_admin_bar_showing()) {
+                return false; // Allow processing, bypass cache later
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if current page is a 404 error page
+     */
+    private function is_404_page($html)
+    {
+        global $wp_query;
+        if (isset($wp_query) && is_object($wp_query) && $wp_query->is_404()) {
+            return true;
+        }
+
+        // Fallback: check HTML content for 404 indicators
+        $htmlLower = strtolower($html);
+        $is404InContent = (
+            stripos($html, '404') !== false && (
+                stripos($htmlLower, 'page not found') !== false ||
+                stripos($htmlLower, 'niet gevonden') !== false ||
+                stripos($htmlLower, 'nicht gefunden') !== false ||
+                stripos($htmlLower, 'page non trouvée') !== false ||
+                stripos($htmlLower, 'página no encontrada') !== false ||
+                stripos($htmlLower, 'pagina non trovata') !== false ||
+                (stripos($htmlLower, '<title') !== false &&
+                 stripos($htmlLower, '404') !== false &&
+                 stripos($htmlLower, 'not found') !== false)
+            )
+        );
+
+        return $is404InContent;
+    }
+
+    /**
+     * Check if current page is an attachment page
+     */
+    private function is_attachment_page()
+    {
+        // Primary check
+        if (function_exists('is_attachment') && is_attachment()) {
+            return true;
+        }
+
+        // Queried object check
+        $queried_object = get_queried_object();
+        if ($queried_object && isset($queried_object->post_type) && $queried_object->post_type === 'attachment') {
+            return true;
+        }
+
+        // Post ID check
+        $current_post_id = get_queried_object_id();
+        if ($current_post_id > 0) {
+            $current_post = get_post($current_post_id);
+            if ($current_post && isset($current_post->post_type) && $current_post->post_type === 'attachment') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if current page is an archive page
+     */
+    private function is_archive_page()
+    {
+        // Primary archive check
+        if (function_exists('is_archive') && is_archive()) {
+            return true;
+        }
+
+        // Specific archive types
+        $archive_functions = ['is_category', 'is_tag', 'is_author', 'is_date', 'is_tax'];
+        foreach ($archive_functions as $function) {
+            if (function_exists($function) && $function()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a route corresponds to valid content that should be cached.
+     * Prevents caching of menu items, redirects, or paths without actual content.
+     *
+     * @param string $route The route_id (e.g., 'post:123' or 'path:md5hash')
+     * @return bool True if route has valid content, false otherwise
+     */
+    private function route_has_valid_content($route)
+    {
+        // If route is post-based, verify the post exists and is published
+        if (strpos($route, 'post:') === 0) {
+            $post_id = (int) substr($route, 5);
+            if ($post_id > 0) {
+                $post = get_post($post_id);
+                // Only cache if post exists, is published, and is not a nav_menu_item
+                return $post && $post->post_status === 'publish' && $post->post_type !== 'nav_menu_item';
+            }
+            return false;
+        }
+
+        // For path-based routes, check if WordPress has a valid query
+        if (strpos($route, 'path:') === 0) {
+            // Check if current query has valid posts
+            if (function_exists('have_posts') && have_posts()) {
+                return true;
+            }
+
+            // Check for archives, search, or other valid non-singular pages
+            if (function_exists('is_archive') && is_archive()) {
+                return true;
+            }
+            if (function_exists('is_search') && is_search()) {
+                return true;
+            }
+            if (function_exists('is_front_page') && is_front_page()) {
+                return true;
+            }
+
+            // For other paths, try to find if there's actual content
+            // This prevents caching of menu-only paths or redirects
+            $queried_object = get_queried_object();
+            if ($queried_object && isset($queried_object->post_type)) {
+                // Allow real content types, but not nav_menu_item
+                return $queried_object->post_type !== 'nav_menu_item';
+            }
+
+            // If no valid content found, don't cache
+            return false;
+        }
+
+        // Unknown route format, be conservative and don't cache
+        return false;
     }
 
     /**
