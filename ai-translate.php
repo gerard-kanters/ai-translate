@@ -419,9 +419,13 @@ register_activation_hook(__FILE__, function () {
     }
 
     flush_rewrite_rules();
-    
+
     // Create cache metadata table
     \AITranslate\AI_Cache_Meta::create_table();
+
+    // Ensure database indexes exist (for existing installations)
+    \AITranslate\AI_Cache_Meta::ensure_indexes();
+    \AITranslate\AI_Slugs::ensure_indexes();
 });
 
 /**
@@ -1583,10 +1587,13 @@ add_action('init', function () {
     $pages = get_posts(array(
         'post_type' => array('page', 'post'),
         'post_status' => 'publish',
-        'posts_per_page' => -1,
+        'posts_per_page' => 1000, // Limit to prevent memory issues
         'fields' => 'ids',
-        'orderby' => 'date',
-        'order' => 'DESC',
+        'orderby' => 'ID',
+        'order' => 'ASC',
+        'no_found_rows' => true, // Performance optimization
+        'update_post_term_cache' => false,
+        'update_post_meta_cache' => false,
     ));
     if (empty($pages)) {
         update_option('ai_translate_slug_warmup_done', 1);

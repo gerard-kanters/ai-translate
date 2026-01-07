@@ -305,7 +305,13 @@ final class AI_Translate_Core
         global $wpdb;
         // Clear all transients (including segment translations ai_tr_seg_* and menu items ai_tr_attr_*)
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_%' OR option_name LIKE '_site_transient_%'");
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options}
+            WHERE option_name LIKE %s
+            OR option_name LIKE %s",
+            '_transient_%',
+            '_site_transient_%'
+        ));
         // In-memory nothing persistent beyond this request
         wp_cache_flush();
     }
@@ -433,9 +439,18 @@ final class AI_Translate_Core
         global $wpdb;
         
         // Delete all transients starting with ai_tr_attr_ or ai_tr_seg_
-        $sql = "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_ai_tr_attr_%' OR option_name LIKE '_transient_timeout_ai_tr_attr_%' OR option_name LIKE '_transient_ai_tr_seg_%' OR option_name LIKE '_transient_timeout_ai_tr_seg_%'";
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-        $result = $wpdb->query($sql);
+        $result = $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options}
+            WHERE option_name LIKE %s
+            OR option_name LIKE %s
+            OR option_name LIKE %s
+            OR option_name LIKE %s",
+            '_transient_ai_tr_attr_%',
+            '_transient_timeout_ai_tr_attr_%',
+            '_transient_ai_tr_seg_%',
+            '_transient_timeout_ai_tr_seg_%'
+        ));
         if ($result !== false) {
             $transients_cleared = (int) $result;
         }
@@ -450,7 +465,7 @@ final class AI_Translate_Core
             $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $tbl));
             if ($exists === $tbl) {
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-                $wpdb->query("TRUNCATE TABLE {$tbl}");
+                $wpdb->query($wpdb->prepare("TRUNCATE TABLE %i", $tbl));
                 $tablesCleared[] = $tbl;
             }
         }
@@ -482,7 +497,7 @@ final class AI_Translate_Core
         $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
         // Truncate the table
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-        $wpdb->query("TRUNCATE TABLE {$table}");
+        $wpdb->query($wpdb->prepare("TRUNCATE TABLE %i", $table));
         return ['success' => true, 'cleared' => $count];
     }
 

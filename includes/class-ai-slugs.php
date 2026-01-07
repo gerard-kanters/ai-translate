@@ -25,10 +25,61 @@ final class AI_Slugs
             source_version VARCHAR(32) NOT NULL,
             updated_gmt DATETIME NOT NULL,
             PRIMARY KEY (post_id, lang),
-            KEY lang_slug (lang, translated_slug)
+            KEY lang_slug (lang, translated_slug),
+            KEY source_slug (source_slug),
+            KEY translated_slug (translated_slug),
+            KEY lang_updated (lang, updated_gmt),
+            KEY post_id_updated (post_id, updated_gmt)
         ) {$charset_collate};";
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
+
+        // Ensure indexes exist (for existing installations)
+        self::ensure_indexes();
+    }
+
+    /**
+     * Ensure all required indexes exist on the slug map table
+     * Called during table creation and plugin updates
+     *
+     * @return void
+     */
+    public static function ensure_indexes()
+    {
+        global $wpdb;
+
+        $table = self::table_name();
+
+        // Check if table exists first
+        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) !== $table) {
+            return;
+        }
+
+        // Get existing indexes
+        $existing_indexes = $wpdb->get_col($wpdb->prepare(
+            "SHOW INDEX FROM %i WHERE Key_name != 'PRIMARY'",
+            $table
+        ));
+
+        $indexes_to_check = [
+            'lang_slug' => "KEY lang_slug (lang, translated_slug)",
+            'source_slug' => "KEY source_slug (source_slug)",
+            'translated_slug' => "KEY translated_slug (translated_slug)",
+            'lang_updated' => "KEY lang_updated (lang, updated_gmt)",
+            'post_id_updated' => "KEY post_id_updated (post_id, updated_gmt)"
+        ];
+
+        foreach ($indexes_to_check as $index_name => $index_definition) {
+            if (!in_array($index_name, $existing_indexes, true)) {
+                // Index doesn't exist, create it
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
+                $wpdb->query($wpdb->prepare(
+                    "ALTER TABLE %i ADD %1s",
+                    $table,
+                    $index_definition
+                ));
+            }
+        }
     }
 
     /**
@@ -54,8 +105,16 @@ final class AI_Slugs
         if ($post_id) return (int) $post_id;
         
         // Fuzzy fallback: handle truncated prefixes (e.g., 'kketten' vs 'pakketten')
-        $like = '%' . $wpdb->esc_like($slug);
-        $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM {$table} WHERE {$colLang} = %s AND {$colTrans} LIKE %s ORDER BY LENGTH({$colTrans}) ASC LIMIT 1", $lang, $like));
+        $like_pattern = '%' . $wpdb->esc_like($slug) . '%';
+        $post_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$table}
+            WHERE {$colLang} = %s
+            AND {$colTrans} LIKE %s
+            ORDER BY LENGTH({$colTrans}) ASC
+            LIMIT 1",
+            $lang,
+            $like_pattern
+        ));
         if ($post_id) return (int) $post_id;
         
         // Fallback to original slug: if translated slug doesn't match, try matching against source slug
@@ -315,7 +374,7 @@ final class AI_Slugs
         if ($schema !== null) return $schema;
         global $wpdb;
         $table = self::table_name();
-        $cols = $wpdb->get_col("SHOW COLUMNS FROM {$table}", 0);
+        $cols = $wpdb->get_col($wpdb->prepare("SHOW COLUMNS FROM %i", $table), 0);
         if (!is_array($cols)) {
             // Safe default: assume original to avoid querying non-existent 'lang'/'source_slug'
             $schema = 'original';

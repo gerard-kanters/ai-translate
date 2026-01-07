@@ -108,10 +108,10 @@ class AI_Cache_Meta
     public static function create_table()
     {
         global $wpdb;
-        
+
         $table_name = self::get_table_name();
         $charset_collate = $wpdb->get_charset_collate();
-        
+
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             post_id BIGINT UNSIGNED NOT NULL,
@@ -124,11 +124,63 @@ class AI_Cache_Meta
             UNIQUE KEY post_lang (post_id, language_code),
             KEY post_id (post_id),
             KEY language_code (language_code),
-            KEY created_at (created_at)
+            KEY created_at (created_at),
+            KEY language_created (language_code, created_at),
+            KEY post_id_created (post_id, created_at),
+            KEY cache_hash (cache_hash)
         ) $charset_collate;";
-        
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+
+        // Ensure indexes exist (for existing installations)
+        self::ensure_indexes();
+    }
+
+    /**
+     * Ensure all required indexes exist on the cache metadata table
+     * Called during table creation and plugin updates
+     *
+     * @return void
+     */
+    public static function ensure_indexes()
+    {
+        global $wpdb;
+
+        $table_name = self::get_table_name();
+
+        // Check if table exists first
+        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_name)) !== $table_name) {
+            return;
+        }
+
+        // Get existing indexes
+        $existing_indexes = $wpdb->get_col($wpdb->prepare(
+            "SHOW INDEX FROM %i WHERE Key_name != 'PRIMARY'",
+            $table_name
+        ));
+
+        $indexes_to_check = [
+            'post_lang' => "UNIQUE KEY post_lang (post_id, language_code)",
+            'post_id' => "KEY post_id (post_id)",
+            'language_code' => "KEY language_code (language_code)",
+            'created_at' => "KEY created_at (created_at)",
+            'language_created' => "KEY language_created (language_code, created_at)",
+            'post_id_created' => "KEY post_id_created (post_id, created_at)",
+            'cache_hash' => "KEY cache_hash (cache_hash)"
+        ];
+
+        foreach ($indexes_to_check as $index_name => $index_definition) {
+            if (!in_array($index_name, $existing_indexes, true)) {
+                // Index doesn't exist, create it
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
+                $wpdb->query($wpdb->prepare(
+                    "ALTER TABLE %i ADD %1s",
+                    $table_name,
+                    $index_definition
+                ));
+            }
+        }
     }
 
     /**
@@ -395,10 +447,15 @@ class AI_Cache_Meta
         global $wpdb;
         
         $count = $wpdb->get_var(
-            "SELECT COUNT(*) 
-            FROM {$wpdb->posts} 
-            WHERE post_status = 'publish' 
-            AND post_type IN ('page', 'post')"
+            $wpdb->prepare(
+                "SELECT COUNT(*)
+                FROM {$wpdb->posts}
+                WHERE post_status = %s
+                AND post_type IN (%s, %s)",
+                'publish',
+                'page',
+                'post'
+            )
         );
 
         // Add 1 for homepage row when the front page is a posts listing.
@@ -425,7 +482,7 @@ class AI_Cache_Meta
         $table_name = self::get_table_name();
         
         // Try to get count, return 0 if table doesn't exist
-        $count = $wpdb->get_var("SELECT COUNT(*) FROM " . $table_name);
+        $count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $table_name));
         
         if ($wpdb->last_error) {
             return 0;
@@ -690,7 +747,7 @@ class AI_Cache_Meta
         // Detecteer kolomnamen (oude vs nieuwe schema)
         static $schema = null;
         if ($schema === null) {
-            $cols = $wpdb->get_col("SHOW COLUMNS FROM {$table}", 0);
+            $cols = $wpdb->get_col($wpdb->prepare("SHOW COLUMNS FROM %i", $table), 0);
             $schema = [
                 'lang_col' => in_array('lang', (array) $cols, true) ? 'lang' : 'language_code',
                 'source_col' => in_array('source_slug', (array) $cols, true) ? 'source_slug' : 'original_slug',
@@ -901,7 +958,14 @@ class AI_Cache_Meta
         // The actual prevention happens in class-ai-ob.php where attachments are excluded from caching
         global $wpdb;
         $all_post_ids = $wpdb->get_col(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'inherit') AND post_type NOT IN ('revision', 'nav_menu_item', 'custom_css', 'jp_img_sitemap', 'jp_sitemap', 'jp_sitemap_master', 'wds-slider', 'fmemailverification', 'is_search_form', 'oembed_cache')"
+            $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts}
+                WHERE post_status IN ('publish', 'inherit')
+                AND post_type NOT IN ('revision', 'nav_menu_item', 'custom_css', 'jp_img_sitemap', 'jp_sitemap', 'jp_sitemap_master', 'wds-slider', 'fmemailverification', 'is_search_form', 'oembed_cache')
+                ORDER BY ID ASC
+                LIMIT %d",
+                10000
+            )
         );
         
         // Also include homepage (post_id = 0)
@@ -1092,7 +1156,14 @@ class AI_Cache_Meta
         if (empty($posts) || count($posts) < 100) {
             global $wpdb;
             $all_post_ids_fallback = $wpdb->get_col(
-                "SELECT ID FROM {$wpdb->posts} WHERE ID > 0 AND post_type NOT IN ('revision', 'nav_menu_item') LIMIT 1000"
+                $wpdb->prepare(
+                    "SELECT ID FROM {$wpdb->posts}
+                    WHERE ID > 0
+                    AND post_type NOT IN ('revision', 'nav_menu_item')
+                    ORDER BY ID ASC
+                    LIMIT %d",
+                    1000
+                )
             );
             
             if (!empty($all_post_ids_fallback)) {
