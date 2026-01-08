@@ -973,6 +973,12 @@ add_action('wp_footer', function () {
 
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
+
+        // Skip current language
+        if ($code === $currentLang) {
+            continue;
+        }
+
         $label = strtoupper($code === $default ? $default : $code);
         // Use ?switch_lang= parameter to ensure cookie is set via init hook
         // Build relative URL to avoid host/home filters
@@ -1984,3 +1990,838 @@ add_action('admin_notices', function () {
         echo '</div>';
     }
 });
+
+// Admin notice removed per user request - the interface should be self-explanatory
+
+/**
+ * Generate language switcher HTML (shared between shortcode and menu)
+ */
+function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = true, $show_codes = true, $class = '') {
+    // Get plugin settings
+    $settings = get_option('ai_translate_settings', array());
+    $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
+        array_values($settings['enabled_languages']) : array();
+    $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+
+    if (empty($enabled_languages) || empty($default_language)) {
+        return '';
+    }
+
+    // Determine current language
+    $current_lang = null;
+    $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+    $path = (string) parse_url($req_uri, PHP_URL_PATH);
+    if ($path === '') {
+        $path = '/';
+    }
+
+    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $matches)) {
+        $current_lang = strtolower($matches[1]);
+    }
+
+    if (!$current_lang) {
+        $current_lang = $default_language;
+    }
+
+    // Build base path (remove language prefix if present)
+    $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
+    if ($path_no_lang === '') {
+        $path_no_lang = '/';
+    }
+
+    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
+
+    if ($type === 'inline') {
+        $output = '<div class="ai-language-switcher-inline ' . esc_attr($class) . '">';
+        foreach ($enabled_languages as $lang_code) {
+            $lang_code = sanitize_key($lang_code);
+            if ($lang_code === $current_lang) continue;
+
+            $lang_label = strtoupper($lang_code);
+            $lang_url = $lang_code === $default_language ? esc_url($path_no_lang) : esc_url('/' . $lang_code . $path_no_lang);
+
+            $output .= '<a href="' . $lang_url . '" class="ai-language-item" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
+            if ($show_flags) $output .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" />';
+            if ($show_codes) $output .= '<span class="ai-language-code">' . esc_html($lang_label) . '</span>';
+            $output .= '</a>';
+        }
+        $output .= '</div>';
+    } else {
+        $unique_id = 'ai-trans-' . wp_generate_password(8, false);
+        $current_flag = esc_url($flags_url . sanitize_key($current_lang) . '.png');
+        $current_label = strtoupper($current_lang);
+
+        $output = '<div class="ai-language-switcher-dropdown ' . esc_attr($class) . '" id="' . esc_attr($unique_id) . '">';
+        $output .= '<button type="button" class="ai-language-switcher-btn" aria-haspopup="true" aria-expanded="false" aria-controls="' . esc_attr($unique_id) . '-menu">';
+        if ($show_flags) $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_lang) . '" class="ai-language-flag" />';
+        if ($show_codes) $output .= '<span class="ai-language-code">' . esc_html($current_label) . '</span>';
+        $output .= '<span class="ai-language-arrow" aria-hidden="true">▼</span></button>';
+
+        $output .= '<div class="ai-language-switcher-menu" id="' . esc_attr($unique_id) . '-menu" role="menu" hidden>';
+        foreach ($enabled_languages as $lang_code) {
+            $lang_code = sanitize_key($lang_code);
+            if ($lang_code === $current_lang) continue;
+
+            $lang_label = strtoupper($lang_code);
+            $lang_url = $lang_code === $default_language ? esc_url($path_no_lang) : esc_url('/' . $lang_code . $path_no_lang);
+
+            $output .= '<a href="' . $lang_url . '" class="ai-language-item" role="menuitem" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
+            if ($show_flags) $output .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" />';
+            if ($show_codes) $output .= '<span class="ai-language-code">' . esc_html($lang_label) . '</span>';
+            $output .= '</a>';
+        }
+        $output .= '</div></div>';
+    }
+
+    return $output;
+}
+add_shortcode('ai_language_switcher', 'ai_translate_language_switcher_shortcode');
+
+/**
+ * Enqueue CSS and JavaScript for the language switcher shortcode
+ */
+add_action('wp_enqueue_scripts', function() {
+    // Always enqueue for frontend (needed for menu integration)
+    if (!is_admin()) {
+        wp_enqueue_style(
+            'ai-language-switcher',
+            plugin_dir_url(__FILE__) . 'assets/language-switcher.css',
+            array(),
+            filemtime(plugin_dir_path(__FILE__) . 'assets/language-switcher.css')
+        );
+
+        wp_enqueue_script(
+            'ai-language-switcher',
+            plugin_dir_url(__FILE__) . 'assets/language-switcher.js',
+            array(),
+            filemtime(plugin_dir_path(__FILE__) . 'assets/language-switcher.js'),
+            true
+        );
+    }
+});
+
+/**
+ * Add Language Switcher tab to menu editor using WordPress hooks
+ */
+
+add_action('admin_head-nav-menus.php', function() {
+    // Add Language Switcher directly to the menu item types list
+    ?>
+    <style>
+    .ai-language-menu-item {
+        margin: 5px 0;
+        padding: 8px;
+        border: 1px solid #ddd;
+        background: #fff;
+        border-radius: 4px;
+    }
+    .ai-language-menu-item label {
+        display: block;
+        cursor: pointer;
+        margin: 0;
+    }
+    .ai-language-menu-item input[type="checkbox"] {
+        margin-right: 8px;
+    }
+    .ai-language-menu-item strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #007cba;
+    }
+    .ai-language-menu-item .menu-item-description {
+        color: #666;
+        font-size: 12px;
+    }
+    .ai-language-add-button {
+        margin-top: 8px;
+        background: #007cba;
+        color: #fff;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .ai-language-add-button:hover {
+        background: #005a87;
+    }
+    </style>
+    <script type="text/javascript">
+    jQuery(document).ready(function($) {
+        // Wait for menu editor to load
+        setTimeout(function() {
+            // Find the menu item types list (where Pages, Posts, Custom Links, Categories are listed)
+            // Based on the DOM structure I saw, it should be in tabs-panel-posttype-page-most-recent or similar
+            var $menuItemList = $('.tabs-panel-posttype-page .categorychecklist, #tabs-panel-posttype-page-most-recent .categorychecklist, .tabs-panel .categorychecklist').first();
+
+            // Alternative: look for any categorychecklist that contains menu items
+            if (!$menuItemList.length) {
+                $menuItemList = $('ul.categorychecklist').filter(function() {
+                    return $(this).find('li').length > 0;
+                }).first();
+            }
+
+            console.log('AI Translate: Looking for menu item list');
+            console.log('Found menu item list:', $menuItemList.length);
+
+            if ($menuItemList.length && !$menuItemList.find('.ai-language-menu-item').length) {
+                console.log('AI Translate: Adding Language Switcher to menu item list');
+
+                // Add the language switcher item to the end of the list
+                var currentUrl = window.location.href;
+                var separator = currentUrl.indexOf('?') !== -1 ? '&' : '?';
+                var addUrl = currentUrl + separator +
+                    'ai-add-language-switcher=1&' +
+                    'menu-item-title=<?php echo urlencode(__('Language Switcher', 'ai-translate')); ?>';
+
+                $menuItemList.append(
+                    '<li class="ai-language-menu-item">' +
+                        '<strong><?php _e('🌐 Language Switcher', 'ai-translate'); ?></strong>' +
+                        '<span class="menu-item-description"><?php _e('Add a dropdown language switcher with flags to your menu', 'ai-translate'); ?></span>' +
+                        '<br><a href="' + addUrl + '" class="ai-language-add-link button button-secondary"><?php _e('Add to Menu', 'ai-translate'); ?></a>' +
+                    '</li>'
+                );
+            } else {
+                console.log('AI Translate: Could not find menu item list or item already exists');
+                console.log('Menu item list length:', $menuItemList.length);
+                console.log('Has AI language item:', $menuItemList.find('.ai-language-menu-item').length);
+            }
+        }, 1500); // Wait 1.5 seconds for menu to load
+    });
+    </script>
+    <?php
+});
+
+/**
+ * Add custom fields to menu items for language switcher
+ */
+add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $args) {
+    $is_language_switcher = get_post_meta($item_id, '_menu_item_is_language_switcher', true);
+    $switcher_type = get_post_meta($item_id, '_menu_item_switcher_type', true) ?: 'dropdown';
+    $show_flags = get_post_meta($item_id, '_menu_item_show_flags', true) !== 'false'; // Default true
+    $show_codes = get_post_meta($item_id, '_menu_item_show_codes', true) !== 'false'; // Default true
+    ?>
+    <p class="field-menu-item-is-language-switcher description description-wide">
+        <label for="edit-menu-item-is-language-switcher-<?php echo $item_id; ?>">
+            <input type="checkbox" id="edit-menu-item-is-language-switcher-<?php echo $item_id; ?>"
+                   name="menu-item-is-language-switcher[<?php echo $item_id; ?>]"
+                   value="1" <?php checked($is_language_switcher, '1'); ?> />
+            <?php _e('Make this a language switcher', 'ai-translate'); ?>
+        </label>
+    </p>
+
+    <div class="field-menu-item-switcher-options description description-wide" style="display: <?php echo $is_language_switcher ? 'block' : 'none'; ?>;">
+        <p>
+            <label for="edit-menu-item-switcher-type-<?php echo $item_id; ?>">
+                <?php _e('Switcher Type:', 'ai-translate'); ?>
+                <select id="edit-menu-item-switcher-type-<?php echo $item_id; ?>"
+                        name="menu-item-switcher-type[<?php echo $item_id; ?>]">
+                    <option value="dropdown" <?php selected($switcher_type, 'dropdown'); ?>><?php _e('Dropdown', 'ai-translate'); ?></option>
+                    <option value="inline" <?php selected($switcher_type, 'inline'); ?>><?php _e('Inline', 'ai-translate'); ?></option>
+                </select>
+            </label>
+        </p>
+
+        <p>
+            <label for="edit-menu-item-show-flags-<?php echo $item_id; ?>">
+                <input type="checkbox" id="edit-menu-item-show-flags-<?php echo $item_id; ?>"
+                       name="menu-item-show-flags[<?php echo $item_id; ?>]"
+                       value="1" <?php checked($show_flags, true); ?> />
+                <?php _e('Show language flags', 'ai-translate'); ?>
+            </label>
+        </p>
+
+        <p>
+            <label for="edit-menu-item-show-codes-<?php echo $item_id; ?>">
+                <input type="checkbox" id="edit-menu-item-show-codes-<?php echo $item_id; ?>"
+                       name="menu-item-show-codes[<?php echo $item_id; ?>]"
+                       value="1" <?php checked($show_codes, true); ?> />
+                <?php _e('Show language codes', 'ai-translate'); ?>
+            </label>
+        </p>
+    </div>
+
+    <script type="text/javascript">
+    (function($) {
+        $('#edit-menu-item-is-language-switcher-<?php echo $item_id; ?>').on('change', function() {
+            $(this).closest('.menu-item-settings').find('.field-menu-item-switcher-options').toggle($(this).is(':checked'));
+        });
+    })(jQuery);
+    </script>
+    <?php
+}, 10, 4);
+
+/**
+ * Handle language switcher menu items added via JavaScript
+ */
+add_action('wp_ajax_add-menu-item', function() {
+    // This will be called when wpNavMenu.addItemToMenu() is used
+    // The item will be processed normally by WordPress
+}, 1);
+
+/**
+ * Handle direct language switcher addition via GET parameter
+ */
+add_action('admin_init', function() {
+    if (isset($_GET['ai-add-language-switcher']) && isset($_GET['menu-item-title'])) {
+        // Get current menu ID from URL or POST
+        $menu_id = isset($_REQUEST['menu']) ? intval($_REQUEST['menu']) : 0;
+
+        if (!$menu_id) {
+            // Try to get from referer or find the first available menu
+            $menus = wp_get_nav_menus();
+            if (!empty($menus)) {
+                $menu_id = $menus[0]->term_id;
+            }
+        }
+
+        if ($menu_id) {
+            $title = sanitize_text_field($_GET['menu-item-title']);
+
+            // Keep title simple for clean admin display - HTML rendering handled by walker in frontend
+
+            // Create the menu item
+            $menu_item_id = wp_update_nav_menu_item($menu_id, 0, array(
+                'menu-item-title' => $title,
+                'menu-item-url' => '#',
+                'menu-item-type' => 'custom',
+                'menu-item-object' => 'ai_language_switcher',
+                'menu-item-status' => 'publish',
+                'menu-item-classes' => 'menu-item-language-switcher menu-item-has-children'
+            ));
+
+            if (!is_wp_error($menu_item_id)) {
+                // Mark this item as a language switcher
+                update_post_meta($menu_item_id, '_menu_item_is_language_switcher', '1');
+                update_post_meta($menu_item_id, '_menu_item_switcher_type', 'dropdown');
+                update_post_meta($menu_item_id, '_menu_item_show_flags', 'true');
+                update_post_meta($menu_item_id, '_menu_item_show_codes', 'true');
+
+                // Redirect back to menu editor with success message
+                $redirect_url = add_query_arg(array(
+                    'menu' => $menu_id,
+                    'ai-language-added' => '1'
+                ), admin_url('nav-menus.php'));
+
+                wp_redirect($redirect_url);
+                exit;
+            }
+        }
+    }
+});
+
+// Success message removed per user request - interface should be self-explanatory
+
+/**
+ * Force custom walker when menu contains language switcher items
+ */
+add_filter('wp_nav_menu_args', function($args) {
+    // Check if this menu contains language switcher items
+    if (isset($args['menu']) && is_object($args['menu'])) {
+        $menu_items = wp_get_nav_menu_items($args['menu']->term_id);
+    } elseif (isset($args['menu']) && is_numeric($args['menu'])) {
+        $menu_items = wp_get_nav_menu_items($args['menu']);
+    } elseif (isset($args['theme_location'])) {
+        $menu_locations = get_nav_menu_locations();
+        if (isset($menu_locations[$args['theme_location']])) {
+            $menu_items = wp_get_nav_menu_items($menu_locations[$args['theme_location']]);
+        }
+    }
+
+    if (isset($menu_items) && is_array($menu_items)) {
+        foreach ($menu_items as $item) {
+            $is_language_switcher = get_post_meta($item->ID, '_menu_item_is_language_switcher', true);
+            if ($is_language_switcher === '1' || $item->object === 'ai_language_switcher') {
+                // This menu contains a language switcher, force our custom walker
+                $args['walker'] = new AI_Translate_Menu_Walker();
+                break;
+            }
+        }
+    }
+
+    return $args;
+});
+
+// Add shortcode for menu language switcher
+add_shortcode('ai_menu_language_switcher', function($atts) {
+    $atts = shortcode_atts(array(
+        'show_flags' => 'true',
+        'show_codes' => 'true',
+    ), $atts);
+
+    $settings = get_option('ai_translate_settings', array());
+    $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
+        array_values($settings['enabled_languages']) : array();
+    $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+
+    if (empty($enabled_languages) || empty($default_language)) {
+        return '';
+    }
+
+    // Determine current language
+    $current_lang = null;
+    $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+    $path = (string) parse_url($req_uri, PHP_URL_PATH);
+    if ($path === '') {
+        $path = '/';
+    }
+
+    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $matches)) {
+        $current_lang = strtolower($matches[1]);
+    }
+
+    if (!$current_lang) {
+        $current_lang = $default_language;
+    }
+
+    // Build base path (remove language prefix if present)
+    $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
+    if ($path_no_lang === '') {
+        $path_no_lang = '/';
+    }
+
+    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
+
+    // Generate submenu HTML
+    $submenu_html = '<ul class="sub-menu children">';
+    foreach ($enabled_languages as $lang_code) {
+        $lang_code = sanitize_key($lang_code);
+        $is_current = ($lang_code === $current_lang);
+        $lang_label = strtoupper($lang_code);
+
+        // Build URL
+        if ($lang_code === $default_language) {
+            $lang_url = esc_url($path_no_lang);
+        } else {
+            $lang_url = esc_url('/' . $lang_code . $path_no_lang);
+        }
+
+        $item_classes = 'menu-item';
+        if ($is_current) {
+            $item_classes .= ' current-menu-item';
+        }
+
+        $submenu_html .= '<li class="' . esc_attr($item_classes) . '">';
+        $submenu_html .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
+
+        if ($atts['show_flags'] === 'true') {
+            $submenu_html .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-menu-language-flag" />';
+        }
+        if ($atts['show_codes'] === 'true') {
+            $submenu_html .= '<span class="ai-menu-language-code">' . esc_html($lang_label) . '</span>';
+        }
+
+        $submenu_html .= '</a>';
+        $submenu_html .= '</li>';
+    }
+    $submenu_html .= '</ul>';
+
+    // Current language display
+    $current_flag = esc_url($flags_url . sanitize_key($current_lang) . '.png');
+    $current_label = strtoupper($current_lang);
+
+    $output = '<div class="menu-item-language-switcher menu-item-has-children">';
+    $output .= '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
+    if ($atts['show_flags'] === 'true') {
+        $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_label) . '" class="ai-menu-language-flag" />';
+    }
+    if ($atts['show_codes'] === 'true') {
+        $output .= '<span class="ai-menu-language-code">' . esc_html($current_label) . '</span>';
+    }
+    $output .= '</a>';
+    $output .= $submenu_html;
+    $output .= '</div>';
+
+    return $output;
+});
+
+// Direct database approach: Update menu items when they are saved
+
+// Clean up existing menu items that have HTML in title
+add_action('admin_init', function() {
+    $menu_items = get_posts(array(
+        'post_type' => 'nav_menu_item',
+        'meta_key' => '_menu_item_object',
+        'meta_value' => 'ai_language_switcher',
+        'posts_per_page' => -1
+    ));
+
+    foreach ($menu_items as $menu_item) {
+        $current_title = get_post_meta($menu_item->ID, '_menu_item_title', true);
+
+        // If title contains HTML, clean it up
+        if (strpos($current_title, '<img') !== false) {
+            wp_update_nav_menu_item(
+                get_post_meta($menu_item->ID, '_menu_item_menu_item_parent', true) ?: 0,
+                $menu_item->ID,
+                array(
+                    'menu-item-title' => 'Language Switcher'
+                )
+            );
+        }
+    }
+});
+
+// Force our walker for menus with language switcher items
+add_filter('wp_nav_menu_args', function($args) {
+    // Simple check - if walker not set, try to detect language switchers
+    if (!isset($args['walker'])) {
+        $menu_items = array();
+
+        if (isset($args['theme_location'])) {
+            $menu_locations = get_nav_menu_locations();
+            if (isset($menu_locations[$args['theme_location']])) {
+                $menu_items = wp_get_nav_menu_items($menu_locations[$args['theme_location']]);
+            }
+        }
+
+        foreach ($menu_items as $item) {
+            if (get_post_meta($item->ID, '_menu_item_object', true) === 'ai_language_switcher') {
+                $args['walker'] = new AI_Translate_Menu_Walker();
+                break;
+            }
+        }
+    }
+
+    return $args;
+}, 9999);
+
+// Add JavaScript to replace language switcher menu items on frontend
+add_action('wp_footer', function() {
+    // Only run if we have language switcher menu items
+    $settings = get_option('ai_translate_settings', array());
+    $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
+        array_values($settings['enabled_languages']) : array();
+    $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+
+    if (empty($enabled_languages) || empty($default_language)) {
+        return;
+    }
+
+    // Determine current language
+    $current_lang = null;
+    $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+    $path = (string) parse_url($req_uri, PHP_URL_PATH);
+    if ($path === '') {
+        $path = '/';
+    }
+
+    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $matches)) {
+        $current_lang = strtolower($matches[1]);
+    }
+
+    if (!$current_lang) {
+        $current_lang = $default_language;
+    }
+
+    // Build base path (remove language prefix if present)
+    $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
+    if ($path_no_lang === '') {
+        $path_no_lang = '/';
+    }
+
+    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
+
+    // Generate submenu HTML (exclude current language)
+    $submenu_html = '<ul class="sub-menu children">';
+    foreach ($enabled_languages as $lang_code) {
+        $lang_code = sanitize_key($lang_code);
+        $is_current = ($lang_code === $current_lang);
+
+        // Skip current language
+        if ($is_current) {
+            continue;
+        }
+
+        $lang_label = strtoupper($lang_code);
+
+        // Build URL
+        if ($lang_code === $default_language) {
+            $lang_url = esc_url($path_no_lang);
+        } else {
+            $lang_url = esc_url('/' . $lang_code . $path_no_lang);
+        }
+
+        $submenu_html .= '<li class="menu-item">';
+        $submenu_html .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
+
+        $submenu_html .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-menu-language-flag" />';
+        $submenu_html .= '<span class="ai-menu-language-code">' . esc_html($lang_label) . '</span>';
+
+        $submenu_html .= '</a>';
+        $submenu_html .= '</li>';
+    }
+    $submenu_html .= '</ul>';
+
+    // Current language display
+    $current_flag = esc_url($flags_url . sanitize_key($current_lang) . '.png');
+    $current_label = strtoupper($current_lang);
+
+    $replacement_html = '<li class="menu-item menu-item-language-switcher menu-item-has-children">';
+    $replacement_html .= '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
+    $replacement_html .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_label) . '" class="ai-menu-language-flag" />';
+    $replacement_html .= '<span class="ai-menu-language-code">' . esc_html($current_label) . '</span>';
+    $replacement_html .= '</a>';
+    $replacement_html .= $submenu_html;
+    $replacement_html .= '</li>';
+
+    ?>
+    <script>
+    (function() {
+        // Wait for DOM to be ready
+        function initLanguageSwitcherReplacement() {
+            console.log('AI Translate: Looking for language switcher menu items...');
+
+            // Find language switcher menu items (links with href="#" containing "Language Switcher")
+            const languageItems = document.querySelectorAll('a[href="#"]');
+            console.log('Found links with href="#":', languageItems.length);
+
+            languageItems.forEach(function(link, index) {
+                console.log('Link', index, ':', link.textContent.trim());
+                if (link.textContent.trim() === 'Language Switcher') {
+                    const listItem = link.closest('li');
+                    if (listItem) {
+                        console.log('Found Language Switcher menu item, replacing...');
+                        // Replace the entire menu item
+                        listItem.outerHTML = <?php echo json_encode($replacement_html); ?>;
+                        console.log('AI Translate: Replaced language switcher menu item');
+                    }
+                }
+            });
+
+            // Also check for items that might have been created differently
+            const allMenuItems = document.querySelectorAll('li.menu-item a[href="#"]');
+            console.log('Found all menu items with href="#":', allMenuItems.length);
+
+            allMenuItems.forEach(function(link, index) {
+                console.log('Menu item', index, ':', link.textContent.trim());
+                if (link.textContent.includes('NL') && link.querySelector('img')) {
+                    console.log('Found language switcher with NL and image');
+                    // This looks like our language switcher, make sure it has submenu
+                    const listItem = link.closest('li');
+                    if (listItem && !listItem.querySelector('.sub-menu')) {
+                        console.log('Adding submenu to language switcher');
+                        // Add submenu if missing
+                        const submenu = <?php echo json_encode($submenu_html); ?>;
+                        listItem.insertAdjacentHTML('beforeend', submenu);
+                        listItem.classList.add('menu-item-has-children');
+                        console.log('AI Translate: Added submenu to language switcher');
+                    }
+                }
+            });
+        }
+
+        // Run immediately and after a delay for dynamically loaded content
+        initLanguageSwitcherReplacement();
+        setTimeout(initLanguageSwitcherReplacement, 1000);
+        setTimeout(initLanguageSwitcherReplacement, 3000);
+
+        console.log('AI Translate: Language switcher replacement initialized');
+    })();
+    </script>
+    <?php
+});
+
+/**
+ * Save custom menu item fields
+ */
+add_action('wp_update_nav_menu_item', function($menu_id, $menu_item_db_id) {
+    // Save language switcher checkbox
+    if (isset($_POST['menu-item-is-language-switcher'][$menu_item_db_id])) {
+        update_post_meta($menu_item_db_id, '_menu_item_is_language_switcher', '1');
+    } else {
+        delete_post_meta($menu_item_db_id, '_menu_item_is_language_switcher');
+    }
+
+    // Save switcher type
+    if (isset($_POST['menu-item-switcher-type'][$menu_item_db_id])) {
+        update_post_meta($menu_item_db_id, '_menu_item_switcher_type', sanitize_text_field($_POST['menu-item-switcher-type'][$menu_item_db_id]));
+    }
+
+    // Save show flags
+    if (isset($_POST['menu-item-show-flags'][$menu_item_db_id])) {
+        update_post_meta($menu_item_db_id, '_menu_item_show_flags', 'true');
+    } else {
+        update_post_meta($menu_item_db_id, '_menu_item_show_flags', 'false');
+    }
+
+    // Save show codes
+    if (isset($_POST['menu-item-show-codes'][$menu_item_db_id])) {
+        update_post_meta($menu_item_db_id, '_menu_item_show_codes', 'true');
+    } else {
+        update_post_meta($menu_item_db_id, '_menu_item_show_codes', 'false');
+    }
+}, 10, 2);
+
+/**
+ * Custom menu walker to render language switcher items
+ */
+class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
+    public function start_el(&$output, $item, $depth = 0, $args = null, $id = 0) {
+        // Check for language switcher menu items
+        $is_language_switcher = $item->object === 'ai_language_switcher' ||
+                               get_post_meta($item->ID, '_menu_item_is_language_switcher', true) === '1';
+
+        if ($is_language_switcher) {
+            $this->render_language_switcher_menu_item($output, $item, $depth, $args, $id);
+            return;
+        }
+
+        parent::start_el($output, $item, $depth, $args, $id);
+    }
+
+    /**
+     * Render language switcher as a menu item with submenu
+     */
+    private function render_language_switcher_menu_item(&$output, $item, $depth, $args, $id) {
+        // Get plugin settings
+        $settings = get_option('ai_translate_settings', array());
+        $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
+            array_values($settings['enabled_languages']) : array();
+        $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+
+        if (empty($enabled_languages) || empty($default_language)) {
+            return; // No languages configured
+        }
+
+        // Determine current language
+        $current_lang = null;
+        $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $path = (string) parse_url($req_uri, PHP_URL_PATH);
+        if ($path === '') {
+            $path = '/';
+        }
+
+        if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $matches)) {
+            $current_lang = strtolower($matches[1]);
+        }
+
+        if (!$current_lang) {
+            $current_lang = $default_language;
+        }
+
+        // Build base path (remove language prefix if present)
+        $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
+        if ($path_no_lang === '') {
+            $path_no_lang = '/';
+        }
+
+        $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
+
+        // Get switcher options
+        $switcher_type = get_post_meta($item->ID, '_menu_item_switcher_type', true) ?: 'dropdown';
+        $show_flags = get_post_meta($item->ID, '_menu_item_show_flags', true) !== 'false';
+        $show_codes = get_post_meta($item->ID, '_menu_item_show_codes', true) !== 'false';
+
+        if ($switcher_type === 'inline') {
+            // Inline layout - all languages horizontal
+            $classes = array('menu-item', 'menu-item-language-switcher');
+            if (!empty($item->classes)) {
+                $classes = array_merge($classes, $item->classes);
+            }
+
+            $class_str = 'class="' . esc_attr(implode(' ', $classes)) . '"';
+            $output .= '<li id="menu-item-' . $item->ID . '" ' . $class_str . '>';
+            $output .= '<div class="ai-language-switcher-inline">';
+
+            foreach ($enabled_languages as $lang_code) {
+                $lang_code = sanitize_key($lang_code);
+                $is_current = ($lang_code === $current_lang);
+
+                // Skip current language
+                if ($is_current) {
+                    continue;
+                }
+
+                $lang_label = strtoupper($lang_code);
+
+                // Build URL
+                if ($lang_code === $default_language) {
+                    $lang_url = esc_url($path_no_lang);
+                } else {
+                    $lang_url = esc_url('/' . $lang_code . $path_no_lang);
+                }
+
+                $output .= '<a href="' . $lang_url . '" class="ai-language-item" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
+
+                if ($show_flags) {
+                    $flag_src = esc_url($flags_url . $lang_code . '.png');
+                    $output .= '<img src="' . $flag_src . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" />';
+                }
+
+                if ($show_codes) {
+                    $output .= '<span class="ai-language-code">' . esc_html($lang_label) . '</span>';
+                }
+
+                $output .= '</a>';
+            }
+
+            $output .= '</div>';
+            $output .= '</li>';
+        } else {
+            // Dropdown layout (default)
+            $classes = array('menu-item', 'menu-item-language-switcher', 'menu-item-has-children');
+            if (!empty($item->classes)) {
+                $classes = array_merge($classes, $item->classes);
+            }
+
+            $class_str = 'class="' . esc_attr(implode(' ', $classes)) . '"';
+
+            // Output the menu item with submenu
+            $output .= '<li id="menu-item-' . $item->ID . '" ' . $class_str . '>';
+
+            // Current language display (what shows in the menu bar)
+            $current_label = strtoupper($current_lang);
+            $current_flag = esc_url($flags_url . sanitize_key($current_lang) . '.png');
+
+            $output .= '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
+            if ($show_flags) {
+                $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_label) . '" class="ai-menu-language-flag" />';
+            }
+            if ($show_codes) {
+                $output .= '<span class="ai-menu-language-code">' . esc_html($current_label) . '</span>';
+            }
+            $output .= '</a>';
+
+            // Submenu with all languages
+            $output .= '<ul class="sub-menu children">';
+
+            foreach ($enabled_languages as $lang_code) {
+                $lang_code = sanitize_key($lang_code);
+                $is_current = ($lang_code === $current_lang);
+
+                // Skip current language
+                if ($is_current) {
+                    continue;
+                }
+
+                $lang_label = strtoupper($lang_code);
+
+                // Build URL
+                if ($lang_code === $default_language) {
+                    $lang_url = esc_url($path_no_lang);
+                } else {
+                    $lang_url = esc_url('/' . $lang_code . $path_no_lang);
+                }
+
+                $output .= '<li class="menu-item ai-menu-language-item">';
+                $output .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
+
+                if ($show_flags) {
+                    $flag_src = esc_url($flags_url . $lang_code . '.png');
+                    $output .= '<img src="' . $flag_src . '" alt="' . esc_attr($lang_label) . '" class="ai-menu-language-flag" />';
+                }
+
+                if ($show_codes) {
+                    $output .= '<span class="ai-menu-language-code">' . esc_html($lang_label) . '</span>';
+                }
+
+                $output .= '</a>';
+                $output .= '</li>';
+            }
+
+            $output .= '</ul>';
+            $output .= '</li>';
+        }
+    }
+}
