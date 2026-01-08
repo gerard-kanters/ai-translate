@@ -794,21 +794,9 @@ final class AI_OB
      */
     private function is_redirect_page($html)
     {
-        // Check if redirect headers are set
-        if (headers_sent()) {
-            return false; // Can't check headers if already sent
-        }
-
-        // Check for common redirect status codes
-        if (function_exists('http_response_code')) {
-            $status = http_response_code();
-            if ($status >= 300 && $status < 400) {
-                return true;
-            }
-        }
-
-        // Check for Location header (indicates redirect)
-        if (function_exists('headers_list')) {
+        // Only detect actual redirects, not regular pages
+        // We check this by looking for Location headers that have already been set
+        if (!headers_sent() && function_exists('headers_list')) {
             $headers = headers_list();
             foreach ($headers as $header) {
                 if (stripos($header, 'Location:') === 0) {
@@ -817,17 +805,7 @@ final class AI_OB
             }
         }
 
-        // Fallback: check HTML content for redirect indicators
-        $htmlLower = strtolower($html);
-        $isRedirectInContent = (
-            stripos($htmlLower, 'redirect') !== false ||
-            stripos($htmlLower, 'moved permanently') !== false ||
-            stripos($htmlLower, 'moved temporarily') !== false ||
-            (stripos($htmlLower, '<meta') !== false &&
-             stripos($htmlLower, 'http-equiv="refresh"') !== false)
-        );
-
-        return $isRedirectInContent;
+        return false;
     }
 
     /**

@@ -329,7 +329,12 @@ add_action('init', function () {
  * This runs BEFORE redirect_canonical to prevent redirect before cookie is set
  */
 add_filter('do_redirect_guess_404_permalink', function ($do_redirect) {
-    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $reqPathRaw = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqPathRaw, '%25') !== false) {
+        $reqPathRaw = urldecode($reqPathRaw);
+    }
+    $reqPath = (string) parse_url($reqPathRaw, PHP_URL_PATH);
     $defaultLang = \AITranslate\AI_Lang::default();
     
     if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
@@ -471,7 +476,12 @@ add_filter('request', function ($vars) {
  */
 function ai_translate_is_xml_request()
 {
-    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $reqPathRaw = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqPathRaw, '%25') !== false) {
+        $reqPathRaw = urldecode($reqPathRaw);
+    }
+    $reqPath = (string) parse_url($reqPathRaw, PHP_URL_PATH);
 
     // Check if path ends with .xml
     if (preg_match('/\.xml$/i', $reqPath)) {
@@ -501,7 +511,12 @@ add_action('template_redirect', function () {
         return;
     }
 
-    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $reqPathRaw = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqPathRaw, '%25') !== false) {
+        $reqPathRaw = urldecode($reqPathRaw);
+    }
+    $reqPath = (string) parse_url($reqPathRaw, PHP_URL_PATH);
     $defaultLang = \AITranslate\AI_Lang::default();
     
     // CRITICAL: If we're on /{default}/ and cookie doesn't match, render page FIRST
@@ -593,7 +608,12 @@ add_action('template_redirect', function () {
         // Use cookie language if available, otherwise use URL language, otherwise default
         $searchLang = $cookieLang !== '' ? $cookieLang : ($langFromUrl !== null ? $langFromUrl : (string) $defaultLang);
         if ($searchLang !== '' && $defaultLang && strtolower($searchLang) !== strtolower((string) $defaultLang)) {
-            $pathNow = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+            $reqUriRaw = (string) ($_SERVER['REQUEST_URI'] ?? '');
+            // URL decode only if double-encoded (contains %25 indicating double encoding)
+            if (strpos($reqUriRaw, '%25') !== false) {
+                $reqUriRaw = urldecode($reqUriRaw);
+            }
+            $pathNow = (string) parse_url($reqUriRaw, PHP_URL_PATH);
             if ($pathNow === '' || $pathNow === '/' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
                 $base = home_url('/' . $searchLang . '/');
                 $target = add_query_arg($_GET, $base);
@@ -1291,7 +1311,12 @@ add_action('parse_request', function ($wp) {
     if (ai_translate_is_xml_request()) {
         return;
     }
-    $request_path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
+    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqUriRaw, '%25') !== false) {
+        $reqUriRaw = urldecode($reqUriRaw);
+    }
+    $request_path = wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/';
     if (!is_string($request_path)) {
         $request_path = '/';
     }
@@ -1352,7 +1377,12 @@ add_action('parse_request', function ($wp) {
     if (ai_translate_is_xml_request()) {
         return;
     }
-    $path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
+    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqUriRaw, '%25') !== false) {
+        $reqUriRaw = urldecode($reqUriRaw);
+    }
+    $path = wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/';
     if (!is_string($path) || $path === '/') {
         return;
     }
@@ -1390,7 +1420,12 @@ add_action('parse_request', function ($wp) {
     if (ai_translate_is_xml_request()) {
         return;
     }
-    $path = isset($_SERVER['REQUEST_URI']) ? wp_parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
+    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqUriRaw, '%25') !== false) {
+        $reqUriRaw = urldecode($reqUriRaw);
+    }
+    $path = wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/';
     if (!is_string($path) || $path === '/') {
         return;
     }
@@ -1627,7 +1662,12 @@ add_filter('pre_handle_404', function ($preempt, $wp_query) {
     if (!$wp_query->is_404()) {
         return $preempt;
     }
-    $reqPath = isset($_SERVER['REQUEST_URI']) ? (string) parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
+    $reqPathRaw = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqPathRaw, '%25') !== false) {
+        $reqPathRaw = urldecode($reqPathRaw);
+    }
+    $reqPath = (string) parse_url($reqPathRaw, PHP_URL_PATH);
     if ($reqPath === '' || !preg_match('#^/([a-z]{2})(?:/(.*))?$#i', $reqPath, $m)) {
         return $preempt;
     }
@@ -1705,7 +1745,12 @@ add_filter('home_url', function ($url, $path, $scheme) {
     }
     
     // Extract language from current URL if present
-    $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $reqPathRaw = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    // URL decode only if double-encoded (contains %25 indicating double encoding)
+    if (strpos($reqPathRaw, '%25') !== false) {
+        $reqPathRaw = urldecode($reqPathRaw);
+    }
+    $reqPath = (string) parse_url($reqPathRaw, PHP_URL_PATH);
     $langFromUrl = null;
     if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
         $langFromUrl = strtolower(sanitize_key($m[1]));
