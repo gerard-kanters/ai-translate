@@ -430,13 +430,21 @@ final class AI_URL
         if ($source === null) {
             $source = $basenameNoLang; // assume already source
         }
+        $dirname = rtrim(dirname($pathNoLang), '/');
+        if ($dirname === '\\' || $dirname === '.') $dirname = '';
+        $reconstructed = $dirname !== '' ? ('/' . trim($dirname, '/') . '/' . $source) : ('/' . $source);
+        $fullOriginal = home_url($reconstructed);
 
-        // Find post by source slug directly from database (more reliable during output buffering)
-        global $wpdb;
-        $post_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type IN ('post', 'page') AND post_status = 'publish' LIMIT 1",
-            $source
-        ));
+        // Try url_to_postid first (works for custom post types with rewrite rules)
+        $post_id = url_to_postid($fullOriginal);
+        if (!$post_id) {
+            // Fallback: direct database query (more reliable during output buffering)
+            global $wpdb;
+            $post_id = $wpdb->get_var($wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_status = 'publish' AND post_type NOT IN ('revision', 'nav_menu_item', 'custom_css', 'jp_img_sitemap', 'jp_sitemap', 'jp_sitemap_master', 'wds-slider', 'fmemailverification', 'is_search_form', 'oembed_cache') LIMIT 1",
+                $source
+            ));
+        }
         if (!$post_id) return null;
 
         $translated_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
