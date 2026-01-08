@@ -101,6 +101,10 @@ final class AI_OB
 
         $route = $this->current_route_id();
         $url = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        // URL decode only if double-encoded (contains %25)
+        if (strpos($url, '%25') !== false) {
+            $url = urldecode($url);
+        }
         // Allow cache bypass via nocache parameter for testing
         $nocache = isset($_GET['nocache']) || isset($_GET['no_cache']);
         
@@ -456,6 +460,10 @@ final class AI_OB
         // Check for search pages first - these need query parameters in route_id
         if (function_exists('is_search') && is_search()) {
             $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+            // URL decode only if double-encoded (contains %25)
+            if (strpos($req, '%25') !== false) {
+                $req = urldecode($req);
+            }
             // For search: include query parameters (especially 's' parameter) in route_id
             // This ensures different search terms get different caches
             $req = preg_replace('#/+#', '/', $req);
@@ -537,6 +545,10 @@ final class AI_OB
         // Fallback: Try to find post by URL path for edge cases where is_singular() fails
         // This prevents duplicate caches for the same page
         $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        // URL decode only if double-encoded (contains %25)
+        if (strpos($req, '%25') !== false) {
+            $req = urldecode($req);
+        }
         if ($req !== '') {
             // Normalize: remove query string and fragments for path lookup
             $path = (string) parse_url($req, PHP_URL_PATH);
@@ -576,6 +588,10 @@ final class AI_OB
         if ($req === '') {
             $req = '/';
         }
+        // URL decode only if double-encoded (contains %25 indicating double encoding)
+        if (strpos($req, '%25') !== false) {
+            $req = urldecode($req);
+        }
         // Normalize multiple slashes
         $req = preg_replace('#/+#', '/', $req);
         // Remove leading language code (e.g., /en/ or /de/)
@@ -583,7 +599,19 @@ final class AI_OB
         if ($req === '') {
             $req = '/';
         }
-        
+
+        // Try to resolve translated slugs back to source slugs for proper caching
+        $path_parts = array_filter(explode('/', trim($req, '/')));
+        if (!empty($path_parts)) {
+            $last_part = end($path_parts);
+            $source_slug = \AITranslate\AI_Slugs::resolve_any_to_source_slug($last_part);
+            if ($source_slug !== null) {
+                // Replace the translated slug with the source slug
+                $path_parts[count($path_parts) - 1] = $source_slug;
+                $req = '/' . implode('/', $path_parts) . '/';
+            }
+        }
+
         // For regular archives/pages: use path only (no query parameters)
         // Query parameters are handled separately:
         // - Search: query params included in route_id (handled above)
@@ -629,6 +657,11 @@ final class AI_OB
             return true;
         }
 
+        // Skip redirect pages - detect redirect responses
+        if ($this->is_redirect_page($html)) {
+            return true;
+        }
+
         // Skip attachment pages - multiple detection methods
         if ($this->is_attachment_page()) {
             return true;
@@ -667,7 +700,12 @@ final class AI_OB
     private function should_skip_file_types($html)
     {
         // Skip XML files and sitemaps
-        $reqPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+        // URL decode only if double-encoded (contains %25)
+        if (strpos($req_uri, '%25') !== false) {
+            $req_uri = urldecode($req_uri);
+        }
+        $reqPath = (string) parse_url($req_uri, PHP_URL_PATH);
         if (preg_match('/\.xml$/i', $reqPath) ||
             isset($_GET['sitemap']) ||
             isset($_GET['sitemap-index']) ||
@@ -746,6 +784,50 @@ final class AI_OB
         );
 
         return $is404InContent;
+    }
+
+    /**
+     * Check if current page is a redirect response.
+     *
+     * @param string $html
+     * @return bool
+     */
+    private function is_redirect_page($html)
+    {
+        // Check if redirect headers are set
+        if (headers_sent()) {
+            return false; // Can't check headers if already sent
+        }
+
+        // Check for common redirect status codes
+        if (function_exists('http_response_code')) {
+            $status = http_response_code();
+            if ($status >= 300 && $status < 400) {
+                return true;
+            }
+        }
+
+        // Check for Location header (indicates redirect)
+        if (function_exists('headers_list')) {
+            $headers = headers_list();
+            foreach ($headers as $header) {
+                if (stripos($header, 'Location:') === 0) {
+                    return true;
+                }
+            }
+        }
+
+        // Fallback: check HTML content for redirect indicators
+        $htmlLower = strtolower($html);
+        $isRedirectInContent = (
+            stripos($htmlLower, 'redirect') !== false ||
+            stripos($htmlLower, 'moved permanently') !== false ||
+            stripos($htmlLower, 'moved temporarily') !== false ||
+            (stripos($htmlLower, '<meta') !== false &&
+             stripos($htmlLower, 'http-equiv="refresh"') !== false)
+        );
+
+        return $isRedirectInContent;
     }
 
     /**

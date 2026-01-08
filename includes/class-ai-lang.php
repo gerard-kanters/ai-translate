@@ -46,6 +46,10 @@ final class AI_Lang
         } else {
             // Fallback: parse leading /xx/ from request URI if present
             $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+            // URL decode only if double-encoded (contains %25)
+            if (strpos($req, '%25') !== false) {
+                $req = urldecode($req);
+            }
             if ($req !== '') {
                 if (preg_match('#^/([a-z]{2})(?:/|$)#i', $req, $m)) {
                     $lang = strtolower($m[1]);

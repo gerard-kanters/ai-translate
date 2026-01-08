@@ -796,7 +796,12 @@ final class AI_SEO
         if (is_front_page() || is_home()) {
             return home_url('/');
         }
-        $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+        $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        // URL decode only if double-encoded (contains %25)
+        if (strpos($req_uri, '%25') !== false) {
+            $req_uri = urldecode($req_uri);
+        }
+        $path = (string) parse_url($req_uri, PHP_URL_PATH);
         if ($path === '') { $path = '/'; }
         return home_url($path);
     }

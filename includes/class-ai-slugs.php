@@ -201,6 +201,14 @@ final class AI_Slugs
             'segments' => [ ['id' => 'slug', 'text' => $source_slug, 'type' => 'meta'] ],
         ];
         $settings = get_option('ai_translate_settings', []);
+        $keep_slugs_english = isset($settings['keep_slugs_in_english']) ? (bool) $settings['keep_slugs_in_english'] : false;
+
+        // If slugs should be kept in English, return source slug directly
+        if ($keep_slugs_english) {
+            self::upsert_row($post_id, $lang, $source_slug, $source_slug, $version);
+            return $source_slug;
+        }
+
         $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
         
         // Get website context (per-domain if multi-domain caching is enabled)

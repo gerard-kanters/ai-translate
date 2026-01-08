@@ -1404,6 +1404,19 @@ add_action('admin_init', function () {
         'ai_translate_cache'
     );
     add_settings_field(
+        'keep_slugs_in_english',
+        __('Keep URL Slugs in English', 'ai-translate'),
+        function () {
+            $settings = get_option('ai_translate_settings');
+            $value = isset($settings['keep_slugs_in_english']) ? (bool)$settings['keep_slugs_in_english'] : false;
+            echo '<input type="checkbox" name="ai_translate_settings[keep_slugs_in_english]" value="1" ' . checked($value, true, false) . '> ';
+            echo '<label>' . esc_html__('Keep URL slugs in English instead of translating them to target languages', 'ai-translate') . '</label>';
+            echo '<p class="description">' . esc_html__('When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/). This improves SEO and makes URLs more predictable.', 'ai-translate') . '</p>';
+        },
+        'ai-translate',
+        'ai_translate_cache'
+    );
+    add_settings_field(
         'auto_clear_pages_on_menu_update',
         __('Auto-Clear Pages on Menu Update', 'ai-translate'),
         function () {
