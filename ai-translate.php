@@ -1446,12 +1446,80 @@ add_action('parse_request', function ($wp) {
     // Removed handlers for translated posts index pagination
 
     // Try exact mapping from translated path to post ID via slug map
-    $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
+    $post_id = null;
+    $expected_post_type = null;
+
+    // Check if path contains a post type prefix (e.g., service/slug)
+    $slug_used_for_lookup = null;
+    if (strpos($rest, '/') !== false) {
+        $parts = explode('/', $rest, 2);
+        if (count($parts) === 2) {
+            $potential_post_type = $parts[0];
+            $potential_slug = $parts[1];
+            $slug_used_for_lookup = $potential_slug;
+
+            // Check if this is a registered post type
+            if (post_type_exists($potential_post_type)) {
+                $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $potential_slug);
+                if ($post_id) {
+                    $post = get_post((int) $post_id);
+                    if ($post && $post->post_type === $potential_post_type) {
+                        $expected_post_type = $potential_post_type;
+                    } else {
+                        // Post type mismatch, invalid result
+                        $post_id = null;
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: try the entire path as slug (for pages/posts without post type prefix)
+    if (!$post_id) {
+        $slug_used_for_lookup = $rest;
+        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
+    }
+
+    // Fallback: try the entire path as slug (for pages/posts without post type prefix)
+    if (!$post_id) {
+        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
+    }
+
     if ($post_id) {
+        // Check if we found the post via the correct translated slug, or via fallback
+        $correct_translated_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
+        $found_via_correct_slug = ($correct_translated_slug && $slug_used_for_lookup === $correct_translated_slug);
+
+        if (!$found_via_correct_slug && $correct_translated_slug) {
+            // Found via fallback (source slug), redirect to correct translated URL
+            if ($expected_post_type && post_type_exists($expected_post_type)) {
+                $correct_url = home_url('/' . $lang . '/' . $expected_post_type . '/' . $correct_translated_slug . '/');
+            } elseif ($post->post_type === 'page') {
+                $correct_url = home_url('/' . $lang . '/' . $correct_translated_slug . '/');
+            } else {
+                $correct_url = home_url('/' . $lang . '/' . $correct_translated_slug . '/');
+            }
+
+            // Only redirect if the URL is different
+            $current_url = home_url($path);
+            if ($correct_url !== $current_url) {
+                nocache_headers();
+                wp_redirect($correct_url, 301);
+                exit;
+            }
+        }
+
         $post = get_post((int) $post_id);
         $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
         $posts_page_id = (int) get_option('page_for_posts');
-        if ($post && $post->post_type === 'page') {
+
+        if ($expected_post_type && post_type_exists($expected_post_type)) {
+            // Custom post type
+            $wp->query_vars['post_type'] = $expected_post_type;
+            $wp->query_vars['name'] = $post->post_name;
+            $wp->is_singular = true;
+            $wp->is_single = true;
+        } elseif ($post && $post->post_type === 'page') {
             if ($posts_page_id > 0 && (int)$post_id === $posts_page_id) {
                 // Treat posts page as home (blog index) so pagination works
                 $wp->query_vars['pagename'] = (string) get_page_uri($posts_page_id);
@@ -1461,16 +1529,18 @@ add_action('parse_request', function ($wp) {
             } else {
                 $wp->query_vars['page_id'] = (int) $post_id;
                 $wp->is_page = true;
+                $wp->is_singular = true;
             }
         } else {
+            // Regular post
             $wp->query_vars['p'] = (int) $post_id;
             if ($post && !empty($post->post_type)) {
                 $wp->query_vars['post_type'] = $post->post_type;
             }
             $wp->is_single = true;
+            $wp->is_singular = true;
         }
         $wp->is_404 = false;
-        $wp->is_singular = true;
         return;
     }
 
@@ -1554,6 +1624,30 @@ add_filter('page_link', function ($permalink, $post_id, $sample) {
     $path = '/' . $lang . '/' . trim($translated, '/') . $trail;
     return home_url($path);
 }, 10, 3);
+
+/**
+ * Rewrite internal permalinks (custom post types) to stable translated slugs for current language.
+ */
+add_filter('post_type_link', function ($permalink, $post, $leavename, $sample) {
+    if (is_admin()) return $permalink;
+    if (ai_translate_is_xml_request()) return $permalink;
+    $lang = \AITranslate\AI_Lang::current();
+    $default = \AITranslate\AI_Lang::default();
+    if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
+        return $permalink;
+    }
+    $translated = \AITranslate\AI_Slugs::get_or_generate((int) $post->ID, $lang);
+    if ($translated === null) return $permalink;
+
+    // For custom post types, we need to build the path manually
+    // Extract the post type from the current permalink structure
+    $post_type = $post->post_type;
+    $trail = substr($permalink, -1) === '/' ? '/' : '';
+
+    // Build path: /{lang}/{post_type}/{translated-slug}/
+    $path = '/' . $lang . '/' . $post_type . '/' . trim($translated, '/') . $trail;
+    return home_url($path);
+}, 10, 4);
 
 /**
  * Keep translated slugs in sync when the original permalink (post_name) changes.
