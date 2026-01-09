@@ -805,7 +805,52 @@ final class AI_OB
             }
         }
 
+        // For 302 redirects, don't make API calls - just check if status code indicates redirect
+        // This prevents caching of temporary redirects and avoids unnecessary API calls
+        $status_code = http_response_code();
+        if ($status_code === 302) {
+            return true;
+        }
+
+        // Additional check for other redirect types: make a test request to detect server-level redirects (301/303/307/308)
+        // Skip 302 since those are temporary and shouldn't be cached anyway
+        $current_url = $this->get_current_url();
+        if ($current_url) {
+            $test_response = wp_remote_head($current_url, array(
+                'timeout' => 10,
+                'redirection' => 0, // Don't follow redirects, we want to see the status code
+                'sslverify' => false,
+                'user-agent' => 'AI-Translate Redirect Check'
+            ));
+
+            if (!is_wp_error($test_response)) {
+                $status_code = wp_remote_retrieve_response_code($test_response);
+                // Consider it a redirect if status code is 301, 303, 307, 308 (skip 302 as handled above)
+                if (in_array($status_code, array(301, 303, 307, 308), true)) {
+                    return true;
+                }
+            }
+        }
+
         return false;
+    }
+
+    /**
+     * Get the current request URL.
+     *
+     * @return string|null
+     */
+    private function get_current_url()
+    {
+        if (!isset($_SERVER['HTTP_HOST']) || !isset($_SERVER['REQUEST_URI'])) {
+            return null;
+        }
+
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $uri = $_SERVER['REQUEST_URI'];
+
+        return $protocol . '://' . $host . $uri;
     }
 
     /**

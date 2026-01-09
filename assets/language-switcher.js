@@ -266,12 +266,9 @@ function initMobileMenuSupport() {
                 // Add ARIA attributes for accessibility
                 link.setAttribute('aria-expanded', 'false');
                 link.setAttribute('aria-haspopup', 'true');
-
-                console.log('AI Translate: Click handler added to language switcher');
             }
         });
 
 
-        console.log('AI Translate: Mobile menu support initialized for', languageItems.length, 'language switcher items');
     }, 1000); // Shorter timeout for testing
 }

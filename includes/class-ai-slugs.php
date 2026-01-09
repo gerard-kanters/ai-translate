@@ -55,6 +55,14 @@ final class AI_Slugs
             return;
         }
 
+        // Check if table has the expected new schema (contains 'lang' and 'source_slug' columns)
+        $cols = $wpdb->get_col($wpdb->prepare("SHOW COLUMNS FROM %i", $table), 0);
+        $has_new_schema = in_array('lang', $cols, true) && in_array('source_slug', $cols, true);
+        if (!$has_new_schema) {
+            // Table still has old schema, skip index management to avoid errors
+            return;
+        }
+
         // Get existing indexes
         $existing_indexes = $wpdb->get_col($wpdb->prepare(
             "SHOW INDEX FROM %i WHERE Key_name != 'PRIMARY'",
@@ -73,11 +81,15 @@ final class AI_Slugs
             if (!in_array($index_name, $existing_indexes, true)) {
                 // Index doesn't exist, create it
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
-                $wpdb->query($wpdb->prepare(
+                $result = $wpdb->query($wpdb->prepare(
                     "ALTER TABLE %i ADD %1s",
                     $table,
                     $index_definition
                 ));
+                if ($result === false) {
+                    // Log error but don't fail completely
+                    error_log("AI-Translate: Failed to add index {$index_name} to table {$table}: " . $wpdb->last_error);
+                }
             }
         }
     }

@@ -18,26 +18,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-/**
- * Simple debug logger for the plugin.
- * Writes to debug.log only when WP_DEBUG is true.
- *
- * @param string $message Log message title.
- * @param array  $context Additional structured context.
- * @return void
- */
-if (!function_exists('ai_translate_dbg')) {
-    function ai_translate_dbg($message, array $context = array())
-    {
-        $msg = is_scalar($message) ? (string) $message : wp_json_encode($message);
-        $ctx = !empty($context) ? wp_json_encode($context) : '';
-        $line = '[AI-Translate] ' . $msg;
-        if ($ctx !== '') {
-            $line .= ' | ' . $ctx;
-        }
-        error_log($line);
-    }
-}
 
 /**
  * Load plugin textdomain for translations with comprehensive locale fallback.
@@ -277,8 +257,8 @@ add_action('init', function () {
     // Explicit CPT bases similar to org implementation (keep before generic page/name rules)
     add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(product)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]', 'top');
     add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');
-    add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(.+?)/?$', 'index.php?lang=$matches[1]&pagename=$matches[2]', 'top');
-    add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)([^/]+)/?$', 'index.php?lang=$matches[1]&name=$matches[2]', 'top');
+    // Generic rule for hierarchical paths - try to resolve without language prefix first
+    add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(.+)$', 'index.php?ai_translate_path=$matches[2]&lang=$matches[1]', 'top');
     // Pagination for posts index: /{lang}/page/{n}/ (added last so it sits on top due to 'top')
     add_rewrite_rule('^' . $regex . '/page/([0-9]+)/?$', 'index.php?lang=$matches[1]&paged=$matches[2]', 'top');
 }, 2);
@@ -364,14 +344,14 @@ add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
     if ($path !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $path, $m)) {
         $langFromUrl = strtolower(sanitize_key($m[1]));
         $defaultLang = \AITranslate\AI_Lang::default();
-        
+
         // If this is the default language, ALWAYS block redirect to allow page to render
         // This ensures the flag cookie is set and page can render before redirect
         if ($defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
             // ALWAYS block redirect for /nl/ to allow page to render and set cookies
             return false; // Block redirect - render page first so cookies are set
         }
-        
+
         // ALWAYS block redirect for language-prefixed URLs
         // This allows template_redirect to handle the redirect logic
         return false;
@@ -506,6 +486,27 @@ function ai_translate_is_xml_request()
  * Handles language detection and redirection according to the 4 language switcher rules.
  */
 add_action('template_redirect', function () {
+    // Handle ai_translate_path query var for custom URL resolution
+    if (isset($_GET['ai_translate_path'])) {
+        $path = sanitize_text_field(wp_unslash($_GET['ai_translate_path']));
+        // Remove the query var so WordPress doesn't see it
+        unset($_GET['ai_translate_path']);
+
+        // Try to resolve the path without language prefix
+        $resolved_post = \AITranslate\AI_Slugs::resolve_path_to_post('', $path);
+        if ($resolved_post) {
+            // Set the resolved post ID so WordPress loads the correct content
+            global $wp_query;
+            $wp_query->set('p', $resolved_post);
+            $wp_query->set('post_type', 'any');
+            // Make sure WordPress knows this is a singular post
+            $wp_query->is_singular = true;
+            $wp_query->is_single = true;
+            $wp_query->is_archive = false;
+            $wp_query->is_page = false;
+        }
+    }
+
     // Skip admin/AJAX/REST/feeds/XML files
     if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed() || ai_translate_is_xml_request()) {
         return;
@@ -2161,11 +2162,8 @@ add_action('admin_head-nav-menus.php', function() {
                 }).first();
             }
 
-            console.log('AI Translate: Looking for menu item list');
-            console.log('Found menu item list:', $menuItemList.length);
 
             if ($menuItemList.length && !$menuItemList.find('.ai-language-menu-item').length) {
-                console.log('AI Translate: Adding Language Switcher to menu item list');
 
                 // Add the language switcher item to the end of the list
                 var currentUrl = window.location.href;
@@ -2181,10 +2179,6 @@ add_action('admin_head-nav-menus.php', function() {
                         '<br><a href="' + addUrl + '" class="ai-language-add-link button button-secondary"><?php _e('Add to Menu', 'ai-translate'); ?></a>' +
                     '</li>'
                 );
-            } else {
-                console.log('AI Translate: Could not find menu item list or item already exists');
-                console.log('Menu item list length:', $menuItemList.length);
-                console.log('Has AI language item:', $menuItemList.find('.ai-language-menu-item').length);
             }
         }, 1500); // Wait 1.5 seconds for menu to load
     });
@@ -2570,42 +2564,32 @@ add_action('wp_footer', function() {
     (function() {
         // Wait for DOM to be ready
         function initLanguageSwitcherReplacement() {
-            console.log('AI Translate: Looking for language switcher menu items...');
 
             // Find language switcher menu items (links with href="#" containing "Language Switcher")
             const languageItems = document.querySelectorAll('a[href="#"]');
-            console.log('Found links with href="#":', languageItems.length);
 
             languageItems.forEach(function(link, index) {
-                console.log('Link', index, ':', link.textContent.trim());
                 if (link.textContent.trim() === 'Language Switcher') {
                     const listItem = link.closest('li');
                     if (listItem) {
-                        console.log('Found Language Switcher menu item, replacing...');
                         // Replace the entire menu item
                         listItem.outerHTML = <?php echo json_encode($replacement_html); ?>;
-                        console.log('AI Translate: Replaced language switcher menu item');
                     }
                 }
             });
 
             // Also check for items that might have been created differently
             const allMenuItems = document.querySelectorAll('li.menu-item a[href="#"]');
-            console.log('Found all menu items with href="#":', allMenuItems.length);
 
             allMenuItems.forEach(function(link, index) {
-                console.log('Menu item', index, ':', link.textContent.trim());
                 if (link.textContent.includes('NL') && link.querySelector('img')) {
-                    console.log('Found language switcher with NL and image');
                     // This looks like our language switcher, make sure it has submenu
                     const listItem = link.closest('li');
                     if (listItem && !listItem.querySelector('.sub-menu')) {
-                        console.log('Adding submenu to language switcher');
                         // Add submenu if missing
                         const submenu = <?php echo json_encode($submenu_html); ?>;
                         listItem.insertAdjacentHTML('beforeend', submenu);
                         listItem.classList.add('menu-item-has-children');
-                        console.log('AI Translate: Added submenu to language switcher');
                     }
                 }
             });
@@ -2616,7 +2600,6 @@ add_action('wp_footer', function() {
         setTimeout(initLanguageSwitcherReplacement, 1000);
         setTimeout(initLanguageSwitcherReplacement, 3000);
 
-        console.log('AI Translate: Language switcher replacement initialized');
     })();
     </script>
     <?php
