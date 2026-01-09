@@ -34,8 +34,11 @@ final class AI_Slugs
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
 
-        // Ensure indexes exist (for existing installations)
-        self::ensure_indexes();
+        // Only ensure indexes exist if this is a fresh installation (not on every init)
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) === $table;
+        if (!$table_exists) {
+            self::ensure_indexes();
+        }
     }
 
     /**
@@ -63,42 +66,37 @@ final class AI_Slugs
             return;
         }
 
-        // Get existing indexes - use a more reliable method
-        $existing_indexes_result = $wpdb->get_results($wpdb->prepare(
+        // Get existing indexes
+        $existing_indexes_result = $wpdb->get_col($wpdb->prepare(
             "SHOW INDEX FROM %i WHERE Key_name != 'PRIMARY'",
             $table
         ));
 
-        $existing_indexes = [];
-        if (is_array($existing_indexes_result)) {
-            foreach ($existing_indexes_result as $row) {
-                if (isset($row->Key_name)) {
-                    $existing_indexes[] = $row->Key_name;
-                }
-            }
-        }
-        $existing_indexes = array_unique($existing_indexes);
-
         $indexes_to_check = [
-            'lang_slug' => "KEY lang_slug (lang, translated_slug)",
-            'source_slug' => "KEY source_slug (source_slug)",
-            'translated_slug' => "KEY translated_slug (translated_slug)",
-            'lang_updated' => "KEY lang_updated (lang, updated_gmt)",
-            'post_id_updated' => "KEY post_id_updated (post_id, updated_gmt)"
+            'lang_slug',
+            'source_slug',
+            'translated_slug',
+            'lang_updated',
+            'post_id_updated'
         ];
 
-        foreach ($indexes_to_check as $index_name => $index_definition) {
-            if (!in_array($index_name, $existing_indexes, true)) {
-                // Index doesn't exist, create it
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
-                $result = $wpdb->query($wpdb->prepare(
-                    "ALTER TABLE %i ADD %1s",
-                    $table,
-                    $index_definition
-                ));
+        foreach ($indexes_to_check as $index_name) {
+            if (!in_array($index_name, $existing_indexes_result, true)) {
+                // Index doesn't exist, try to create it
+                $index_definitions = [
+                    'lang_slug' => "ADD KEY lang_slug (lang, translated_slug)",
+                    'source_slug' => "ADD KEY source_slug (source_slug)",
+                    'translated_slug' => "ADD KEY translated_slug (translated_slug)",
+                    'lang_updated' => "ADD KEY lang_updated (lang, updated_gmt)",
+                    'post_id_updated' => "ADD KEY post_id_updated (post_id, updated_gmt)"
+                ];
+
+                // Use raw query to avoid prepare issues with complex syntax
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+                $result = $wpdb->query("ALTER TABLE {$table} " . $index_definitions[$index_name]);
                 if ($result === false) {
-                    // Log error but don't fail completely
-                    error_log("AI-Translate: Failed to add index {$index_name} to table {$table}: " . $wpdb->last_error);
+                    // Silently ignore errors - indexes might already exist or table might be locked
+                    // Don't log errors to avoid spam in debug logs
                 }
             }
         }

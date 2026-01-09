@@ -407,10 +407,6 @@ register_activation_hook(__FILE__, function () {
 
     // Create cache metadata table
     \AITranslate\AI_Cache_Meta::create_table();
-
-    // Ensure database indexes exist (for existing installations)
-    \AITranslate\AI_Cache_Meta::ensure_indexes();
-    \AITranslate\AI_Slugs::ensure_indexes();
 });
 
 /**
