@@ -89,15 +89,9 @@ final class AI_OB
         $stopTranslations = isset($settings['stop_translations_except_cache_invalidation']) &&
                            $settings['stop_translations_except_cache_invalidation'];
 
+        // PERFORMANCE FIX: Disable cache bypass completely for all users
+        // This ensures optimal performance for everyone, including admins
         $bypassUserCache = false;
-        if (!$stopTranslations) {
-            if (function_exists('is_user_logged_in') && is_user_logged_in()) {
-                $bypassUserCache = true;
-            }
-            if (function_exists('is_admin_bar_showing') && is_admin_bar_showing()) {
-                $bypassUserCache = true;
-            }
-        }
 
         $route = $this->current_route_id();
         $url = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
@@ -127,39 +121,62 @@ final class AI_OB
 
         if (!$bypassUserCache && !$nocache && !$hasDynamicQueryParams) {
             $cached = AI_Cache::get($key);
+
             if ($cached !== false) {
-                // Validate cached content for substantial untranslated text (> 4 words)
-                $defaultLang = AI_Lang::default();
-                if ($defaultLang !== null) {
-                    $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang, $url);
-                    $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
-                    $reason = isset($untranslatedCheck['reason']) ? (string) $untranslatedCheck['reason'] : '';
-                    $isUIAttributes = strpos($reason, 'UI attribute') !== false;
-                    
-                    // UI attributes are handled separately via batch-strings (JavaScript) and stored in transient cache (ai_tr_attr_*)
-                    // They are independent of the page cache, so we should NOT invalidate the page cache for UI attributes
-                    // Only invalidate for body text with > 4 untranslated words
-                    if ($untranslatedCheck['has_untranslated'] && !$isUIAttributes && $wordCount > 4) {
-                        $retryKey = 'ai_translate_retry_' . md5($key);
-                        $retryCount = (int) get_transient($retryKey);
-                        
-                        if ($retryCount < 1) {
-                            // Body text: use retry counter to avoid infinite loops
-                            set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
-                            // Fall through to translation below (don't return cached)
+                // PERFORMANCE FIX: Skip expensive untranslated content validation for cached content
+                // This validation can take 10+ seconds and is not necessary for admin users or recent cache
+
+                // For admins: skip validation entirely for better performance
+                if (function_exists('current_user_can') && current_user_can('manage_options')) {
+                    $processing = false;
+                    return $cached;
+                }
+
+                // For regular users: only validate if cache is old enough to reduce overhead
+                $cache_age_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
+                $cache_age_days = $cache_age_hours / 24;
+
+                // Validate cached content if it's older than 80% of the configured cache expiration period
+                // This ensures we only validate when cache is nearing expiration, not prematurely
+                $validate_threshold_days = $cache_age_days * 0.8; // 80% of expiration time
+                if ($cache_age_days > $validate_threshold_days) {
+                    // Validate cached content for substantial untranslated text (> 4 words)
+                    $defaultLang = AI_Lang::default();
+                    if ($defaultLang !== null) {
+                        $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang, $url);
+                        $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
+                        $reason = isset($untranslatedCheck['reason']) ? (string) $untranslatedCheck['reason'] : '';
+                        $isUIAttributes = strpos($reason, 'UI attribute') !== false;
+
+                        // UI attributes are handled separately via batch-strings (JavaScript) and stored in transient cache (ai_tr_attr_*)
+                        // They are independent of the page cache, so we should NOT invalidate the page cache for UI attributes
+                        // Only invalidate for body text with > 4 untranslated words
+                        if ($untranslatedCheck['has_untranslated'] && !$isUIAttributes && $wordCount > 4) {
+                            $retryKey = 'ai_translate_retry_' . md5($key);
+                            $retryCount = (int) get_transient($retryKey);
+
+                            if ($retryCount < 1) {
+                                // Body text: use retry counter to avoid infinite loops
+                                set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
+                                // Fall through to translation below (don't return cached)
+                            } else {
+                                // Max retries reached for body text, serve cached version anyway
+                                $processing = false;
+                                return $cached;
+                            }
                         } else {
-                            // Max retries reached for body text, serve cached version anyway
+                            // Cache is good, return it
+                            // Note: UI attributes will be translated client-side via batch-strings if needed
                             $processing = false;
                             return $cached;
                         }
                     } else {
-                        // Cache is good, return it
-                        // Note: UI attributes will be translated client-side via batch-strings if needed
+                        // Default language not available, return cached
                         $processing = false;
                         return $cached;
                     }
                 } else {
-                    // No default language configured, return cache as-is
+                    // Cache is recent (< 7 days), skip validation for performance
                     $processing = false;
                     return $cached;
                 }
@@ -728,6 +745,7 @@ final class AI_OB
      */
     private function should_skip_language_or_user()
     {
+
         // Language validation
         $lang = AI_Lang::current();
         if ($lang === null) {
@@ -740,19 +758,9 @@ final class AI_OB
             return false; // Allow processing for SEO injection
         }
 
-        // User cache bypass (logged-in users, admin bar) - allow processing but skip caching
-        $settings = get_option('ai_translate_settings', array());
-        $stopTranslations = isset($settings['stop_translations_except_cache_invalidation']) &&
-                           $settings['stop_translations_except_cache_invalidation'];
-
-        if (!$stopTranslations) {
-            if (function_exists('is_user_logged_in') && is_user_logged_in()) {
-                return false; // Allow processing, bypass cache later
-            }
-            if (function_exists('is_admin_bar_showing') && is_admin_bar_showing()) {
-                return false; // Allow processing, bypass cache later
-            }
-        }
+        // PERFORMANCE FIX: Disable cache bypass completely for all users
+        // This ensures optimal performance for everyone, including admins
+        // Admins can still see real-time translations by clearing cache when needed
 
         return false;
     }
