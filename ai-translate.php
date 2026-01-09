@@ -1493,6 +1493,9 @@ add_action('parse_request', function ($wp) {
     }
 
     if ($post_id) {
+        // Get the post object for further processing
+        $post = get_post((int) $post_id);
+
         // Check if we found the post via the correct translated slug, or via fallback
         $correct_translated_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
         $found_via_correct_slug = ($correct_translated_slug && $slug_used_for_lookup === $correct_translated_slug);
@@ -1501,7 +1504,7 @@ add_action('parse_request', function ($wp) {
             // Found via fallback (source slug), redirect to correct translated URL
             if ($expected_post_type && post_type_exists($expected_post_type)) {
                 $correct_url = home_url('/' . $lang . '/' . $expected_post_type . '/' . $correct_translated_slug . '/');
-            } elseif ($post->post_type === 'page') {
+            } elseif ($post && $post->post_type === 'page') {
                 $correct_url = home_url('/' . $lang . '/' . $correct_translated_slug . '/');
             } else {
                 $correct_url = home_url('/' . $lang . '/' . $correct_translated_slug . '/');
@@ -1515,8 +1518,6 @@ add_action('parse_request', function ($wp) {
                 exit;
             }
         }
-
-        $post = get_post((int) $post_id);
         $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
         $posts_page_id = (int) get_option('page_for_posts');
 

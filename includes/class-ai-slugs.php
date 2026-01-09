@@ -57,17 +57,27 @@ final class AI_Slugs
 
         // Check if table has the expected new schema (contains 'lang' and 'source_slug' columns)
         $cols = $wpdb->get_col($wpdb->prepare("SHOW COLUMNS FROM %i", $table), 0);
-        $has_new_schema = in_array('lang', $cols, true) && in_array('source_slug', $cols, true);
+        $has_new_schema = in_array('lang', $cols, true) && in_array('source_slug', $cols, true) && in_array('updated_gmt', $cols, true);
         if (!$has_new_schema) {
             // Table still has old schema, skip index management to avoid errors
             return;
         }
 
-        // Get existing indexes
-        $existing_indexes = $wpdb->get_col($wpdb->prepare(
+        // Get existing indexes - use a more reliable method
+        $existing_indexes_result = $wpdb->get_results($wpdb->prepare(
             "SHOW INDEX FROM %i WHERE Key_name != 'PRIMARY'",
             $table
         ));
+
+        $existing_indexes = [];
+        if (is_array($existing_indexes_result)) {
+            foreach ($existing_indexes_result as $row) {
+                if (isset($row->Key_name)) {
+                    $existing_indexes[] = $row->Key_name;
+                }
+            }
+        }
+        $existing_indexes = array_unique($existing_indexes);
 
         $indexes_to_check = [
             'lang_slug' => "KEY lang_slug (lang, translated_slug)",
