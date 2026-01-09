@@ -794,8 +794,10 @@ final class AI_OB
      */
     private function is_redirect_page($html)
     {
-        // Only detect actual redirects, not regular pages
-        // We check this by looking for Location headers that have already been set
+        // PERFORMANCE CRITICAL: Avoid expensive HTTP requests on every page load
+        // Only check for actual redirect indicators, not make HTTP requests
+
+        // Check 1: headers already sent contain Location header
         if (!headers_sent() && function_exists('headers_list')) {
             $headers = headers_list();
             foreach ($headers as $header) {
@@ -805,33 +807,16 @@ final class AI_OB
             }
         }
 
-        // For 302 redirects, don't make API calls - just check if status code indicates redirect
-        // This prevents caching of temporary redirects and avoids unnecessary API calls
+        // Check 2: HTTP status code indicates redirect
         $status_code = http_response_code();
-        if ($status_code === 302) {
+        if (in_array($status_code, array(301, 302, 303, 307, 308), true)) {
             return true;
         }
 
-        // Additional check for other redirect types: make a test request to detect server-level redirects (301/303/307/308)
-        // Skip 302 since those are temporary and shouldn't be cached anyway
-        $current_url = $this->get_current_url();
-        if ($current_url) {
-            $test_response = wp_remote_head($current_url, array(
-                'timeout' => 10,
-                'redirection' => 0, // Don't follow redirects, we want to see the status code
-                'sslverify' => false,
-                'user-agent' => 'AI-Translate Redirect Check'
-            ));
-
-            if (!is_wp_error($test_response)) {
-                $status_code = wp_remote_retrieve_response_code($test_response);
-                // Consider it a redirect if status code is 301, 303, 307, 308 (skip 302 as handled above)
-                if (in_array($status_code, array(301, 303, 307, 308), true)) {
-                    return true;
-                }
-            }
-        }
-
+        // PERFORMANCE CRITICAL: Completely disable HTTP requests for redirect detection
+        // The performance impact is too severe. Rely only on WordPress built-in redirect detection
+        // which uses headers and status codes, not external HTTP requests.
+        // This check is not critical for the plugin's core functionality.
         return false;
     }
 
