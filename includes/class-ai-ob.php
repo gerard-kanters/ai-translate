@@ -30,6 +30,49 @@ final class AI_OB
     }
 
     /**
+     * Post-process cached content to handle admin bar.
+     *
+     * @param string $html The cached HTML content
+     * @return string Modified HTML with correct admin bar state
+     */
+    private function post_process_cached_content($html)
+    {
+        // Check if current user should see admin bar
+        $should_show_admin_bar = function_exists('is_admin_bar_showing') && is_admin_bar_showing();
+
+        // Check if admin bar is currently present in HTML
+        $has_admin_bar = strpos($html, 'id="wpadminbar"') !== false;
+
+
+        if ($should_show_admin_bar && !$has_admin_bar) {
+            // Admin should see admin bar but it's not in cached content
+            // Add simple admin bar HTML
+            $admin_bar_html = $this->get_simple_admin_bar_html();
+            $html = preg_replace('/(<body[^>]*>)/', '$1' . $admin_bar_html, $html, 1);
+        } elseif (!$should_show_admin_bar && $has_admin_bar) {
+            // Regular user should NOT see admin bar but it's in cached content
+            // Remove admin bar completely
+            $html = preg_replace(
+                '/<div[^>]*id=["\']wpadminbar["\'][^>]*>.*?<\/div>/s',
+                '',
+                $html
+            );
+        }
+
+        return $html;
+    }
+
+    /**
+     * Get simple admin bar HTML for cached content.
+     *
+     * @return string Simple admin bar HTML
+     */
+    private function get_simple_admin_bar_html()
+    {
+        return '<div id="wpadminbar" class="nojq"><div class="quicklinks"><ul class="ab-top-menu"><li><a href="/wp-admin/">Dashboard</a></li><li><a href="/wp-admin/edit.php">Posts</a></li><li><a href="/wp-admin/users.php">Users</a></li><li><a href="/wp-login.php?action=logout">Logout</a></li></ul></div></div><style>#wpadminbar{background:#23282d;height:32px;position:fixed;top:0;left:0;right:0;z-index:99999;font-size:13px}#wpadminbar .quicklinks{padding:0 24px}#wpadminbar .ab-top-menu{margin:0;padding:6px 0;list-style:none}#wpadminbar .ab-top-menu li{float:left;margin:0 6px 0 0}#wpadminbar .ab-top-menu li a{color:#eee;text-decoration:none;padding:4px 8px}#wpadminbar .ab-top-menu li a:hover{background:#32373c}body{margin-top:32px!important}</style>';
+    }
+
+    /**
      * OB callback to translate and cache the page.
      *
      * @param string $html
@@ -126,13 +169,9 @@ final class AI_OB
                 // PERFORMANCE FIX: Skip expensive untranslated content validation for cached content
                 // This validation can take 10+ seconds and is not necessary for admin users or recent cache
 
-                // For admins: skip validation entirely for better performance
-                if (function_exists('current_user_can') && current_user_can('manage_options')) {
-                    $processing = false;
-                    return $cached;
-                }
-
-                // For regular users: only validate if cache is old enough to reduce overhead
+                // All users get cached content with admin bar post-processing
+                $processing = false;
+                return $this->post_process_cached_content($cached);
                 $cache_age_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
                 $cache_age_days = $cache_age_hours / 24;
 
@@ -162,23 +201,23 @@ final class AI_OB
                             } else {
                                 // Max retries reached for body text, serve cached version anyway
                                 $processing = false;
-                                return $cached;
+                                return $this->post_process_cached_content($cached);
                             }
                         } else {
                             // Cache is good, return it
                             // Note: UI attributes will be translated client-side via batch-strings if needed
                             $processing = false;
-                            return $cached;
+                            return $this->post_process_cached_content($cached);
                         }
                     } else {
                         // Default language not available, return cached
                         $processing = false;
-                        return $cached;
+                        return $this->post_process_cached_content($cached);
                     }
                 } else {
                     // Cache is recent (< 7 days), skip validation for performance
                     $processing = false;
-                    return $cached;
+                    return $this->post_process_cached_content($cached);
                 }
             }
         } else {
@@ -370,7 +409,7 @@ final class AI_OB
                 delete_transient($lockKey);
             }
             $processing = false;
-            return $html3; // Return output but don't cache it
+            return $this->post_process_cached_content($html3); // Return output but don't cache it
         }
 
         // Only cache if not bypassed, no dynamic query parameters, and content is cacheable
@@ -388,7 +427,7 @@ final class AI_OB
         }
         
         $processing = false;
-        return $html3;
+        return $this->post_process_cached_content($html3);
     }
 
     /**
