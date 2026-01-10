@@ -375,7 +375,6 @@ msgid "When disabled:"
 msgstr "Wanneer uitgeschakeld:"
 
 #: includes/admin-page.php:1229
-#, fuzzy
 msgid ""
 "Only menu caches are cleared. Page HTML caches remain. Menu changes in "
 "already-cached pages will only be visible after cache expires or manual "
@@ -384,6 +383,62 @@ msgstr ""
 "Alleen menucaches worden gewist. Pagina HTML-caches blijven behouden. "
 "Menuwijzigingen in reeds gecachte pagina's zijn alleen zichtbaar na het "
 "verlopen van de cache of handmatig wissen via het Cache-tabblad."
+
+#: includes/admin-page.php:1411
+msgid "Keep URL Slugs in English"
+msgstr "URL-slugs in het Engels houden"
+
+#: includes/admin-page.php:1416
+msgid "Keep URL slugs in English instead of translating them to target languages"
+msgstr "Houd URL-slugs in het Engels in plaats van ze naar doeltalen te vertalen"
+
+#: includes/admin-page.php:1417
+msgid "When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/)."
+msgstr ""
+"Indien ingeschakeld, blijven URL's consistent over talen heen (bijv. /zh/"
+"cv-tips/ in plaats van /zh/简历技巧/)."
+
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "Verborgen - Handmatig toevoegen via Weergave > Menu's"
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr "Linkeronderhoek"
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr "Rechteronderhoek"
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr "Linkerbovenhoek"
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr "Rechterbovenhoek"
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+"Kies waar de taalwisselaar verschijnt op uw website. \"Verborgen - "
+"Handmatig toevoegen via Weergave > Menu's\" betekent dat de wisselaar niet "
+"zichtbaar is in hoeken - voeg deze handmatig toe aan uw navigatiemenu. "
+"Hoekposities tonen een zwevende wisselaar. Het menu opent omhoog voor "
+"onderposities en omlaag voor bovenposities."
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr "Open Menu-editor"
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr "Taalwisselaar toevoegen aan uw navigatiemenu's"
 
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"

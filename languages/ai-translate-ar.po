@@ -382,6 +382,47 @@ msgstr ""
 "بعد انتهاء صلاحية التخزين المؤقت أو المسح اليدوي عبر علامة تبويب التخزين "
 "المؤقت."
 
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "مخفي - إضافة يدوياً عبر المظهر > القوائم"
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr "الزاوية السفلية اليسرى"
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr "الزاوية السفلية اليمنى"
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr "الزاوية العلوية اليسرى"
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr "الزاوية العلوية اليمنى"
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+"اختر مكان ظهور مبدل اللغة على موقعك. \"مخفي - إضافة يدوياً عبر المظهر > "
+"القوائم\" يعني أن المبدل لن يكون مرئياً في الزوايا - أضفه يدوياً إلى قائمة "
+"التنقل الخاصة بك. مواقع الزوايا تظهر مبدل عائم. القائمة تفتح لأعلى للمواقع "
+"السفلية ولأسفل للمواقع العلوية."
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr "فتح محرر القائمة"
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr "إضافة مبدل اللغة إلى قوائم التنقل الخاصة بك"
+
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"
 msgstr "التخزين المؤقت متعدد النطاقات"

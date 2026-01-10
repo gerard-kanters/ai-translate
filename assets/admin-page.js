@@ -1,4 +1,21 @@
+/**
+ * Admin Page JavaScript for AI Translate Plugin
+ *
+ * Handles all client-side functionality for the admin settings page including:
+ * - Tab navigation
+ * - API provider and model configuration
+ * - API validation
+ * - Cache management per language
+ * - Website context generation
+ * - Menu editor integration
+ *
+ * @since 1.0.0
+ */
 document.addEventListener('DOMContentLoaded', function () {
+    /**
+     * Initialize tab navigation for admin settings page
+     * Updates tab links to use proper WordPress admin URLs
+     */
     var tabLinks = document.querySelectorAll('.nav-tab-wrapper a');
     tabLinks.forEach(function (link) {
         var tab = link.getAttribute('href').split('&tab=')[1];
@@ -7,11 +24,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Show/hide custom model text field based on selected value
+    /**
+     * API Configuration Section
+     * Handles API provider selection, model configuration, and validation
+     */
+
+    // DOM elements for API configuration
     var selectedModel = document.getElementById('selected_model');
     var customModelDiv = document.getElementById('custom_model_div');
 
-    // API Validation functionality
+    // API Validation elements
     var apiStatusSpan = document.getElementById('ai-translate-api-status');
     var validateApiBtn = document.getElementById('ai-translate-validate-api');
     var apiKeyInput = document.querySelector('input[name="ai_translate_settings[api_key]"]');
@@ -21,10 +43,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var customApiUrlDiv = document.getElementById('custom_api_url_div');
     var customApiUrlInput = document.querySelector('input[name="ai_translate_settings[custom_api_url]"]');
     
-    // Get stored API keys
+    // Get stored API keys from WordPress admin localization
     var apiKeys = aiTranslateAdmin.apiKeys || {};
 
-    // API Provider data (mirrors PHP for client-side use)
+    /**
+     * API Provider Configuration Data
+     * Mirrors PHP configuration for client-side API provider handling
+     * Contains URLs and key request links for each supported provider
+     */
     const apiProvidersData = {
         'openai': {
             name: 'OpenAI',
@@ -58,8 +84,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    // Models configuration per provider from WordPress admin
     var modelsPerProvider = aiTranslateAdmin.models || {};
 
+    /**
+     * Toggle visibility of custom model input field
+     * Shows custom model field only when custom provider is selected AND model is set to 'custom'
+     */
     function toggleCustomModelField() {
         if (!customModelDiv || !apiProviderSelect) return;
         var selectedProvider = apiProviderSelect.value;
@@ -72,6 +103,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    /**
+     * Update API key request link based on selected provider
+     * Dynamically shows the appropriate link to request API keys for the selected provider
+     */
     function updateApiKeyRequestLink() {
         // Re-fetch elements in case they weren't available on initial load
         if (!apiKeyRequestLinkSpan) {
@@ -117,6 +152,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    /**
+     * Update model selection field based on selected API provider
+     * Loads available models via AJAX for supported providers or shows custom options
+     */
     function updateModelField() {
         if (!selectedModel) return;
         var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
@@ -163,6 +202,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    /**
+     * Load available models for a specific API provider via AJAX
+     * @param {string} provider - The API provider (openai, deepseek, etc.)
+     * @param {string} currentModel - Currently selected model to maintain selection
+     */
     function loadModelsForProvider(provider, currentModel) {
         var apiUrl = getSelectedApiUrl();
         var apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
@@ -581,7 +625,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /**
-     * Updates the UI elements after cache clearing
+     * Cache Management Section
+     * Handles cache clearing and UI updates for language-specific caches
+     */
+
+    /**
+     * Update cache UI elements after clearing cache for a language
+     * Updates table counts, row styling, and action buttons
      * @param {string} langCode - The language code that was cleared
      */
     function updateCacheUI(langCode) {
@@ -858,7 +908,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Generate Website Context functionality
+    /**
+     * Website Context Generation Section
+     * Automatically generates website context from homepage for better translations
+     */
     var generateContextBtn = document.getElementById('generate-context-btn');
     var generateContextStatus = document.getElementById('generate-context-status');
     var websiteContextField = document.getElementById('website_context_field');
@@ -937,7 +990,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Menu editor link with save reminder
+    /**
+     * Menu Editor Integration Section
+     * Warns users to save settings before opening menu editor to prevent cache issues
+     */
     var menuEditorLinks = document.querySelectorAll('a[href*="nav-menus.php"]');
     menuEditorLinks.forEach(function(link) {
         link.addEventListener('click', function(e) {

@@ -380,6 +380,48 @@ msgstr ""
 "परिवर्तन केवल कैश समाप्त होने या कैश टैब के माध्यम से मैन्युअल रूप से क्लियर करने के बाद ही "
 "दिखाई देंगे।"
 
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "छिपा हुआ - मैन्युअल रूप से Appearance > Menus के माध्यम से जोड़ें"
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr "नीचे बायाँ कोना"
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr "नीचे दायाँ कोना"
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr "ऊपर बायाँ कोना"
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr "ऊपर दायाँ कोना"
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+"चुनें कि आपकी वेबसाइट पर भाषा स्विचर कहाँ दिखाई देता है। \"छिपा हुआ - "
+"Appearance > Menus के माध्यम से मैन्युअल रूप से जोड़ें\" का मतलब है कि स्विचर "
+"कोनों में दिखाई नहीं देगा - इसे इसके बजाय अपने नेविगेशन मेनू में मैन्युअल रूप "
+"से जोड़ें। कोना स्थितियां एक फ्लोटिंग स्विचर दिखाती हैं। मेनू नीचे की "
+"स्थितियों के लिए ऊपर की ओर और ऊपर की स्थितियों के लिए नीचे की ओर खुलेगा।"
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr "मेनू एडिटर खोलें"
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr "अपने नेविगेशन मेनू में भाषा स्विचर जोड़ें"
+
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"
 msgstr "मल्टी-डोमेन कैशिंग"
@@ -867,3 +909,4 @@ msgstr "मॉडल लोड करने में त्रुटि"
 #: includes/admin-page.php:722
 msgid "Select API Provider first..."
 msgstr "पहले API प्रदाता चुनें..."
+

@@ -394,6 +394,49 @@ msgstr ""
 "solo serán visibles después de que la caché expire o se limpie manualmente a "
 "través de la pestaña Caché."
 
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "Oculto - Agregar manualmente a través de Apariencia > Menús"
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr "Esquina inferior izquierda"
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr "Esquina inferior derecha"
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr "Esquina superior izquierda"
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr "Esquina superior derecha"
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+"Elija dónde aparece el selector de idiomas en su sitio web. \"Oculto - "
+"Agregar manualmente a través de Apariencia > Menús\" significa que el "
+"selector no será visible en las esquinas - agréguelo manualmente a su menú "
+"de navegación. Las posiciones de esquina muestran un selector flotante. El "
+"menú se abrirá hacia arriba para las posiciones inferiores y hacia abajo "
+"para las posiciones superiores."
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr "Abrir editor de menús"
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr "Agregar selector de idiomas a sus menús de navegación"
+
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"
 msgstr "Caché de dominios múltiples"

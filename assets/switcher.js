@@ -1,8 +1,32 @@
+/**
+ * Language Switcher Frontend JavaScript
+ *
+ * Handles the client-side functionality for language switcher widgets on the website.
+ * Provides dropdown behavior, language switching with cookie persistence, and URL hash preservation.
+ *
+ * Features:
+ * - Toggle language dropdown menus
+ * - Set language cookies on switching
+ * - Preserve URL hashes during language changes
+ * - Close other open dropdowns when opening new ones
+ *
+ * @since 1.0.0
+ */
 (function () {
+  /**
+   * Utility function to get all elements matching a selector as an Array
+   * @param {string} sel - CSS selector
+   * @param {Element} root - Root element to search in (defaults to document)
+   * @returns {Array} Array of matching elements
+   */
   function qsAll(sel, root) {
     return Array.prototype.slice.call((root || document).querySelectorAll(sel));
   }
 
+  /**
+   * Close all open language switcher dropdowns except the specified one
+   * @param {Element} except - Element to exclude from closing (can be null to close all)
+   */
   function closeAll(except) {
     qsAll(".ai-trans.ai-trans-open").forEach(function (w) {
       if (except && w === except) return;
@@ -12,6 +36,10 @@
     });
   }
 
+  /**
+   * Execute function when DOM is ready
+   * @param {Function} fn - Function to execute when DOM is ready
+   */
   function onReady(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn);
@@ -20,13 +48,20 @@
     }
   }
 
+  /**
+   * Initialize language switcher functionality when DOM is ready
+   */
   onReady(function () {
+    // Find all language switcher widgets on the page
     var wrappers = qsAll(".ai-trans");
     if (!wrappers.length) return;
 
+    // Initialize each language switcher widget
     wrappers.forEach(function (w) {
       var b = w.querySelector(".ai-trans-btn");
       if (!b) return;
+
+      // Handle dropdown toggle button clicks
       b.addEventListener("click", function (e) {
         e.stopPropagation();
         var open = !w.classList.contains("ai-trans-open");
@@ -41,10 +76,13 @@
       });
     });
 
-    // Set cookie and preserve hash when switching language
+    /**
+     * Language Switching Logic
+     * Handle clicks on language switcher items to set cookies and preserve URL state
+     */
     qsAll(".ai-trans-item").forEach(function (a) {
       a.addEventListener("click", function (e) {
-        // Get language code from data-lang attribute (primary method)
+        // Extract language code from data-lang attribute or fallback to URL parsing
         var lang = a.getAttribute("data-lang") || "";
         if (!lang) {
           // Fallback: Try to extract from href
@@ -62,17 +100,18 @@
             }
           }
         }
-        
-        // Set cookie immediately via JavaScript (before navigation)
+
+        // Set language preference cookie immediately before navigation
         if (lang) {
           var expires = new Date();
           expires.setTime(expires.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
           var secure = window.location.protocol === "https:" ? ";secure" : "";
           
-          // Extract domain from current hostname (e.g., netcare.nl from www.netcare.nl)
+          // Extract domain from current hostname for cookie scope
+          // Examples: www.netcare.nl -> .netcare.nl, netcare.nl -> .netcare.nl
           var hostname = window.location.hostname;
           var domain = hostname;
-          // If hostname has subdomain, use parent domain (.netcare.nl)
+          // If hostname has subdomain, use parent domain for broader cookie scope
           if (hostname.split('.').length > 2) {
             domain = hostname.substring(hostname.indexOf('.'));
           } else {
@@ -82,8 +121,8 @@
           var cookieStr = "ai_translate_lang=" + lang + ";path=/;domain=" + domain + ";expires=" + expires.toUTCString() + ";samesite=lax" + secure;
           document.cookie = cookieStr;
         }
-        
-        // Preserve current hash (#...) when switching language
+
+        // Preserve current URL hash (anchor links) when switching language
         var h = window.location.hash || "";
         if (h) {
           var href = a.getAttribute("href") || "";
@@ -96,6 +135,7 @@
       });
     });
 
+    // Close all dropdowns when clicking outside
     document.addEventListener("click", function () {
       closeAll(null);
     });

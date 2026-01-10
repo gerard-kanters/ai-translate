@@ -397,6 +397,49 @@ msgstr ""
 "visibles qu'après l'expiration du cache ou un effacement manuel via l'onglet "
 "Cache."
 
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "Masqué - Ajouter manuellement via Apparence > Menus"
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr "Coin inférieur gauche"
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr "Coin inférieur droit"
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr "Coin supérieur gauche"
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr "Coin supérieur droit"
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+"Choisissez où le sélecteur de langue apparaît sur votre site web. \"Masqué - "
+"Ajouter manuellement via Apparence > Menus\" signifie que le sélecteur ne "
+"sera pas visible dans les coins - ajoutez-le manuellement à votre menu de "
+"navigation. Les positions de coin affichent un sélecteur flottant. Le menu "
+"s'ouvre vers le haut pour les positions inférieures et vers le bas pour les "
+"positions supérieures."
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr "Ouvrir l'éditeur de menu"
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr "Ajouter le sélecteur de langue à vos menus de navigation"
+
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"
 msgstr "Mise en cache multi-domaines"
@@ -905,3 +948,4 @@ msgstr "Sélectionnez d'abord un fournisseur API..."
 #~ "Lorsqu'il est activé, les pages d'archive (catégories, tags, archives de "
 #~ "dates, etc.) ne seront pas traduites. Les pages singulières (articles, "
 #~ "pages, types de publication personnalisés) seront toujours traduites."
+

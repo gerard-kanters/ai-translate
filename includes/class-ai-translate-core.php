@@ -828,20 +828,20 @@ final class AI_Translate_Core
                         $content = mb_substr($content, 0, 4000);
                         
                         if (!empty($content)) {
-                            if (function_exists('ai_translate_dbg')) {
-                                ai_translate_dbg('Fetched content from domain', ['domain' => $domain, 'content_length' => mb_strlen($content)]);
+                            if (defined('WP_DEBUG') && WP_DEBUG) {
+                                error_log('AI Translate: Fetched content from domain ' . $domain . ' (length: ' . mb_strlen($content) . ')');
                             }
                             return $content;
                         }
                     }
                 } else {
-                    if (function_exists('ai_translate_dbg')) {
-                        ai_translate_dbg('Failed to fetch from domain', ['domain' => $domain, 'code' => $response_code]);
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('AI Translate: Failed to fetch from domain ' . $domain . ' (HTTP code: ' . $response_code . ')');
                     }
                 }
             } else {
-                if (function_exists('ai_translate_dbg')) {
-                    ai_translate_dbg('Error fetching from domain', ['domain' => $domain, 'error' => $response->get_error_message()]);
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('AI Translate: Error fetching from domain ' . $domain . ': ' . $response->get_error_message());
                 }
             }
         }
@@ -1103,8 +1103,8 @@ final class AI_Translate_Core
                 $site_name = strtok($domain, ':');
             }
             
-            if (function_exists('ai_translate_dbg')) {
-                ai_translate_dbg('Using domain-specific site name', ['domain' => $domain, 'site_name' => $site_name]);
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('AI Translate: Using domain-specific site name for ' . $domain . ': ' . $site_name);
             }
         } else {
             $site_name = (string) get_bloginfo('name');

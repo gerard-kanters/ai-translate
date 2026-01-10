@@ -98,8 +98,6 @@ require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
 
 
-
-
 /**
  * Get transient with database fallback for ai_tr_attr_ keys.
  * First tries memcached (via get_transient), then falls back to database.

@@ -348,7 +348,6 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
         $error = curl_error($ch);
         
         curl_multi_remove_handle($mh, $ch);
-        curl_close($ch);
         
         if (!empty($error)) {
             $results[$lang_code] = array('success' => false, 'error' => $error);
@@ -1414,7 +1413,7 @@ add_action('admin_init', function () {
             $value = isset($settings['keep_slugs_in_english']) ? (bool)$settings['keep_slugs_in_english'] : false;
             echo '<input type="checkbox" name="ai_translate_settings[keep_slugs_in_english]" value="1" ' . checked($value, true, false) . '> ';
             echo '<label>' . esc_html__('Keep URL slugs in English instead of translating them to target languages', 'ai-translate') . '</label>';
-            echo '<p class="description">' . esc_html__('When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/). This improves SEO and makes URLs more predictable.', 'ai-translate') . '</p>';
+            echo '<p class="description">' . esc_html__('When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/).', 'ai-translate') . '</p>';
         },
         'ai-translate',
         'ai_translate_cache'

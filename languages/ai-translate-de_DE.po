@@ -397,6 +397,48 @@ msgstr ""
 "Menüänderungen in bereits gecachten Seiten sind erst nach Ablauf des Caches "
 "oder manueller Löschung über den Cache-Tab sichtbar."
 
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "Hidden - Add manually via Appearance > Menus"
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr "Bottom Left Corner"
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr "Bottom Right Corner"
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr "Top Left Corner"
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr "Top Right Corner"
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr "Open Menu Editor"
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr "Add language switcher to your navigation menus"
+
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"
 msgstr "Multi-Domain-Caching"

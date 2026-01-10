@@ -21,7 +21,7 @@ AI Translate automatically translates your entire website using advanced artific
 ### What makes AI Translate unique?
 
 **🎯 Smart AI Analysis**
-The AI first analyzes your website to understand what you do and how you communicate. This ensures translations are always tailored to your brand, terminology, and tone of voice.
+The AI has an option to analyze your website to understand what you do and how you communicate. This ensures translations are tailored to your brand, terminology, and tone of voice.
 
 **⚡ Intelligent Caching**
 With intelligent caching, your site runs fast, even with many translations. Translations are automatically updated when you change original content, without extra API costs.
@@ -43,7 +43,7 @@ Automatic hreflang tags, translated URL slugs, and proper indexing ensure search
 
 ## Installation
 
-1. **Install the plugin** - Upload to `/wp-content/plugins/ai-translate/` or install directly via the WordPress plugin screen
+1. **Install the plugin** - Upload to `/wp-content/plugins/ai-translate/` or install directly via  WordPress (plugin screen)
 2. **Activate** - Go to the 'Plugins' menu and activate AI Translate
 3. **Configure** - Go to 'Admin > AI Translate' to configure settings
 4. **Add API key** - Add your API key and select which languages you want to support
@@ -91,7 +91,7 @@ For optimal performance, we recommend:
 
 ### Can I use AI Translate for a multilingual webshop?
 
-Yes! AI Translate works perfectly with WooCommerce and other e-commerce plugins. Product titles, descriptions, and categories are automatically translated. Note: prices and technical specifications are not translated.
+Yes! AI Translate works with WooCommerce and other e-commerce plugins. Product titles, descriptions, and categories are automatically translated. Note: prices and technical specifications are not translated.
 
 ### How often are translations updated?
 
@@ -99,7 +99,7 @@ Translations are only updated when the original content changes. This happens au
 
 ### Is AI Translate SEO-friendly?
 
-Yes! AI Translate is fully SEO-friendly. It automatically generates hreflang tags, translates URL slugs, and ensures search engines can properly index all language versions.
+Yes! AI Translate is fully SEO-friendly. It automatically generates hreflang tags, meta tags,  translates URL slugs, and ensures search engines can properly index all language versions. You do not even need additional SEO plugins anymore
 
 ### What do I need to do if a language is not translated ?
 
@@ -107,7 +107,7 @@ Not all languages can be translated with all models. So first make sure you use 
 
 ### Can I customize the AI prompts?
 
-The AI prompts are optimized for the best translations by analyzing your website and adjusting the tone. You can add extra context about your site in the admin settings, but this is usually not necessary.
+The AI prompts are optimized for the best translations by analyzing your website and adjusting the tone. You can add extra context about your site in the admin settings, but this should not be necessary.
 
 ### What's the difference between "Enabled Languages" and "Detectable Languages"?
 
@@ -121,7 +121,7 @@ All plugin settings can be found under 'AI Translate' in your WordPress admin me
 
 ### API Settings
 
-- **🔑 API URL** - The address of your AI translation API (e.g., `https://api.openai.com/v1/`)
+- **🔑 API Provider** - Select a provider of your AI translation API (e.g. OpenAI) 
 - **🔐 API Key** - Your API authentication key
 - **🤖 Translation Model** - Choose your preferred AI model
 
@@ -139,12 +139,12 @@ All plugin settings can be found under 'AI Translate' in your WordPress admin me
 
 ### Advanced Settings
 
-- **📄 Homepage Meta Description** - Set a custom meta description that is automatically translated
+- **📄 Homepage Meta Description** - Set a custom meta description that will be automatically translated.
 - **✨ Auto-generate site context** - Let the AI automatically analyze your site for better translations
 
 ## Usage
 
-After configuration, AI Translate automatically adds a language switcher to your website (default: bottom left). Visitors can select their preferred language; content is translated instantly or loaded from cache.
+After configuration, AI Translate automatically adds a language switcher to your website (default: bottom left). Visitors can select their preferred language; content is translated instantly or loaded from cache. 
 
 Each visitor's language preference is remembered for future visits.
 
@@ -156,9 +156,11 @@ Each visitor's language preference is remembered for future visits.
 
 ## Recommended Model Selection
 
-- **💡 OpenAI**: `gpt-4.1-mini` - Do not use GPT 5.1 for translations (slow, expensive, and unnecessarily complex)
-- **💰 Deepseek**: `deepseek-chat` - Slower, but cost-effective
-- **🔧 Custom**: Use OpenRouter and select google/gemini-2.5-flash-lite 
+- **💡 OpenAI**: `gpt-4.1-mini` 
+- **💰 Deepseek**: `deepseek-chat` - Slower, but more cost-effective
+- **🔧 OpenRouter**: Select google/gemini-2.5-flash-lite which has the best price/performance
+- **💡 Groq**: Select LLama 3.1/8b which is fast and the cheapest option. It does not support all languages.
+  
 
 Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing. 
 
@@ -171,17 +173,6 @@ Gemini flash is the best price performance model available now. It is fast, supp
 ## External Services
 
 AI Translate requires an API key from one of the supported providers:
-
-### Supported AI Translation Services
-
-#### OpenAI API
-
-- **What it is**: OpenAI's GPT models for text translation
-- **What data is sent**: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information
-- **When data is sent**: When a visitor accesses your website in a language different from the default language, and the content is not already cached
-- **Service provider**: OpenAI
-- **Terms of service**: <https://openai.com/terms/>
-- **Privacy policy**: <https://openai.com/privacy/>
 
 #### Data Handling
 

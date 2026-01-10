@@ -372,6 +372,46 @@ msgstr ""
 "仅清除菜单缓存。页面 HTML 缓存保留。已缓存页面中的菜单更改仅在缓存过期或通"
 "过“缓存”选项卡手动清除后才可见。"
 
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "隐藏 - 通过外观 > 菜单手动添加"
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr "左下角"
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr "右下角"
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr "左上角"
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr "右上角"
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+"选择语言切换器在您的网站上显示的位置。「隐藏 - 通过外观 > 菜单手动添加」意味"
+"着切换器不会在角落显示 - 请手动将其添加到您的导航菜单中。角落位置显示浮动切"
+"换器。对于底部位置，菜单向上打开；对于顶部位置，菜单向下打开。"
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr "打开菜单编辑器"
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr "将语言切换器添加到您的导航菜单"
+
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"
 msgstr "多域缓存"

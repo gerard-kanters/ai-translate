@@ -347,6 +347,55 @@ msgstr ""
 msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
 msgstr ""
 
+#: includes/admin-page.php:1411
+msgid "Keep URL Slugs in English"
+msgstr ""
+
+#: includes/admin-page.php:1416
+msgid "Keep URL slugs in English instead of translating them to target languages"
+msgstr ""
+
+#: includes/admin-page.php:1417
+msgid "When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/)."
+msgstr ""
+
+#: includes/admin-page.php:1352
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr ""
+
+#: includes/admin-page.php:1353
+msgid "Bottom Left Corner"
+msgstr ""
+
+#: includes/admin-page.php:1354
+msgid "Bottom Right Corner"
+msgstr ""
+
+#: includes/admin-page.php:1355
+msgid "Top Left Corner"
+msgstr ""
+
+#: includes/admin-page.php:1356
+msgid "Top Right Corner"
+msgstr ""
+
+#: includes/admin-page.php:1366
+msgid ""
+"Choose where the language switcher appears on your website. \"Hidden - Add "
+"manually via Appearance > Menus\" means the switcher will not be visible in "
+"corners - add it manually to your navigation menu instead. Corner positions "
+"show a floating switcher. The menu will open upward for bottom positions and "
+"downward for top positions."
+msgstr ""
+
+#: includes/admin-page.php:1367
+msgid "Open Menu Editor"
+msgstr ""
+
+#: includes/admin-page.php:1367
+msgid "Add language switcher to your navigation menus"
+msgstr ""
+
 #: includes/admin-page.php:1237
 msgid "Multi-Domain Caching"
 msgstr ""
