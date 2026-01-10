@@ -185,19 +185,6 @@ AI Translate requires an API key from one of the supported providers:
 - ✅ PHP 8 or higher
 - 🔑 API key for OpenAI, Deepseek, or compatible service
 
-## Crawler/Spider Best Practices
-
-When using automated crawlers or spiders to warm up the cache (e.g., wget, curl), follow these guidelines to prevent race conditions and ensure proper cache generation:
-
-### Recommended Spider Settings
-
-```bash
-# Good: Sequential crawling with adequate delays
-wget --spider --no-directories --delete-after --recursive --level=10 \
-     --wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \
-     https://yoursite.com
-```
-
 ## Changelog
 
 ### 2.2.0
