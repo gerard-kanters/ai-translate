@@ -1137,15 +1137,15 @@ add_action('admin_init', function () {
 
             // Switcher position
             if (isset($input['switcher_position'])) {
-                $valid_positions = array('none', 'bottom-left', 'bottom-right', 'top-left', 'top-right');
+                $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right', 'none');
                 $position = sanitize_text_field($input['switcher_position']);
                 if (in_array($position, $valid_positions, true)) {
                     $sanitized['switcher_position'] = $position;
                 } else {
-                    $sanitized['switcher_position'] = 'none';
+                    $sanitized['switcher_position'] = 'bottom-left';
                 }
             } elseif (!isset($sanitized['switcher_position'])) {
-                $sanitized['switcher_position'] = 'none';
+                $sanitized['switcher_position'] = 'bottom-left';
             }
 
             // Multi-domain caching toggle
@@ -1346,13 +1346,13 @@ add_action('admin_init', function () {
         __('Language Switcher Position', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
-            $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
+            $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
             $positions = array(
-                'none' => __('Hidden - Add manually via Appearance > Menus', 'ai-translate'),
                 'bottom-left' => __('Bottom Left Corner', 'ai-translate'),
                 'bottom-right' => __('Bottom Right Corner', 'ai-translate'),
                 'top-left' => __('Top Left Corner', 'ai-translate'),
                 'top-right' => __('Top Right Corner', 'ai-translate'),
+                'none' => __('Hidden - Add manually via Appearance > Menus', 'ai-translate'),
             );
             echo '<fieldset>';
             foreach ($positions as $value => $label) {

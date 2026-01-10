@@ -911,11 +911,11 @@ add_action('wp_footer', function () {
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
-    // Get switcher position from settings (default: none)
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
-    $valid_positions = array('none', 'bottom-left', 'bottom-right', 'top-left', 'top-right');
+    // Get switcher position from settings (default: bottom-left)
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right', 'none');
     if (!in_array($position, $valid_positions, true)) {
-        $position = 'none';
+        $position = 'bottom-left';
     }
     
     // Skip footer switcher if none is selected
