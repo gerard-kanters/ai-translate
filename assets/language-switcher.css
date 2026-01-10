@@ -3,6 +3,19 @@
 /* Menu integration - ensure proper positioning in nav menus */
 .menu-item-language-switcher {
     position: relative;
+    padding-top: 16px;
+}
+
+/* Force black text only on submenu elements for contrast */
+.menu-item-language-switcher .sub-menu .ai-menu-language-item a,
+.menu-item-language-switcher .sub-menu .ai-menu-language-item a *,
+.menu-item-language-switcher .sub-menu .ai-menu-language-item .ai-menu-language-code {
+    color: #000 !important;
+}
+
+/* Main menu inherits parent color */
+.menu-item-language-switcher .ai-menu-language-current {
+    color: inherit !important;
 }
 
 .menu-item-language-switcher > .ai-language-switcher-dropdown,
@@ -69,8 +82,9 @@
 .ai-menu-language-flag {
     width: 16px;
     height: 12px;
-    border-radius: 1px;
-    margin-right: 2px;
+    border-radius: 3px;
+    margin-right: 3px;
+    margin-left: 3px;
     vertical-align: middle;
 }
 
@@ -82,10 +96,10 @@
 
 /* Submenu styling for language switcher */
 .menu-item-language-switcher .sub-menu {
-    min-width: 120px !important;
+    min-width: 55px !important;
     background: #fff !important;
-    border: 1px solid #ddd !important;
-    border-radius: 4px !important;
+    border: 2px solid #ddd !important;
+    border-radius: 0 0 4px 4px !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
     list-style: none !important;
     margin: 0 !important;
@@ -93,7 +107,8 @@
     position: absolute !important;
     top: 100% !important;
     left: 0 !important;
-    z-index: 999999 !important; /* Very high z-index to go over blue overlay */
+    z-index: 999999 !important; /* Very high z-index to go over topbar overlay */
+    margin-top: 0 !important;
     display: none !important; /* Hidden by default */
     opacity: 1 !important;
     visibility: visible !important;
@@ -102,7 +117,9 @@
 /* Desktop hover/focus behavior */
 @media (min-width: 769px) {
     .menu-item-language-switcher:hover .sub-menu,
-    .menu-item-language-switcher:focus-within .sub-menu {
+    .menu-item-language-switcher:focus-within .sub-menu,
+    .menu-item-language-switcher .sub-menu:hover,
+    .menu-item-language-switcher .sub-menu:focus-within {
         display: block !important; /* Show on hover/focus */
     }
 }
@@ -127,7 +144,7 @@
     gap: 6px !important;
     padding: 8px 12px !important;
     text-decoration: none !important;
-    color: inherit !important;
+    color: #333 !important;
     white-space: nowrap !important;
     border-bottom: 1px solid #f0f0f0 !important;
 }
@@ -144,7 +161,7 @@
 .menu-item-language-switcher .sub-menu .ai-menu-language-item.current-menu-item a {
     font-weight: 600 !important;
     background-color: #e3f2fd !important;
-    color: #007cba !important;
+    color: #000 !important;
 }
 
 /* Admin menu interface styling */
@@ -245,7 +262,7 @@
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 1000;
-    margin-top: 4px;
+    margin-top: 15px;
     max-height: 300px;
     overflow-y: auto;
 }
@@ -264,7 +281,7 @@
     gap: 8px;
     padding: 10px 12px;
     text-decoration: none;
-    color: #495057;
+    color: inherit;
     font-size: 14px;
     transition: background-color 0.2s ease;
     border-bottom: 1px solid #f8f9fa;
@@ -275,11 +292,12 @@
     background: #f8f9fa;
     outline: 2px solid #007cba;
     outline-offset: -2px;
+    color: #000 !important;
 }
 
 .ai-language-item.current {
     background: #e3f2fd;
-    color: #007cba;
+    color: #000 !important;
     font-weight: 600;
 }
 
@@ -294,9 +312,22 @@
     flex-shrink: 0;
 }
 
-.ai-language-code {
-    font-weight: 600;
-    text-transform: uppercase;
+/* All language codes inherit by default */
+.ai-language-code,
+.ai-menu-language-code {
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    color: inherit !important;
+}
+
+/* Main menu language codes match menu link color */
+.menu-item-language-switcher .ai-menu-language-current .ai-menu-language-code {
+    color: #fff !important; /* Match typical menu link color */
+}
+
+/* Submenu language codes are black for contrast */
+.menu-item-language-switcher .sub-menu .ai-menu-language-code {
+    color: #868e96 !important;
 }
 
 /* Mobile responsive styles */
@@ -333,10 +364,17 @@
         z-index: 999999 !important; /* Keep high z-index for mobile too */
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
         border: 1px solid #ddd !important;
+        border-radius: 0 0 4px 4px !important;
         background: #fff !important;
-        margin-left: 20px !important; /* Indent submenu */
+        margin-left: 10px !important; /* Indent submenu */
+        max-width: 55px !important; /* Limit width to match desktop */
         opacity: 1 !important;
         visibility: visible !important;
+        color: #000 !important;
+    }
+
+    .menu-item-language-switcher .sub-menu .ai-language-item {
+        color: #000 !important;
     }
 
     .menu-item-language-switcher .ai-menu-language-current {
@@ -348,6 +386,7 @@
         content: " ▼";
         font-size: 10px;
         margin-left: 2px;
+        padding: 17px 15px !important;
     }
 
     .menu-item-language-switcher .ai-menu-language-current[aria-expanded="true"]::after {

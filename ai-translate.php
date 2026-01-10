@@ -761,7 +761,7 @@ add_action('wp_enqueue_scripts', function () {
     }
     
     $settings = get_option('ai_translate_settings', array());
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
     
     // Only enqueue switcher assets for nav menu positions (not floating positions)
     if ($position === 'nav-start' || $position === 'nav-end') {
@@ -800,7 +800,7 @@ function ai_translate_get_nav_switcher_html() {
     }
     
     $settings = get_option('ai_translate_settings', array());
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
     
     // Only generate if nav-start or nav-end is selected
     if ($position !== 'nav-start' && $position !== 'nav-end') {
@@ -867,25 +867,26 @@ function ai_translate_get_nav_switcher_html() {
 /**
  * Inject language switcher into navigation menu when nav-start or nav-end is selected.
  */
-add_filter('wp_nav_menu_items', function ($items, $args) {
-    $switcher_html = ai_translate_get_nav_switcher_html();
-    if (empty($switcher_html)) {
-        return $items;
-    }
-    if (!is_string($items)) {
-        $items = '';
-    }
-    
-    $settings = get_option('ai_translate_settings', array());
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
-    
-    // Inject at start or end based on position
-    if ($position === 'nav-start') {
-        return $switcher_html . $items;
-    } else {
-        return $items . $switcher_html;
-    }
-}, 10, 2);
+// Note: Automatic menu injection is disabled. Users should add language switcher via Appearance > Menus
+// add_filter('wp_nav_menu_items', function ($items, $args) {
+//     $switcher_html = ai_translate_get_nav_switcher_html();
+//     if (empty($switcher_html)) {
+//         return $items;
+//     }
+//     if (!is_string($items)) {
+//         $items = '';
+//     }
+//
+//     $settings = get_option('ai_translate_settings', array());
+//     $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
+//
+//     // Inject at start or end based on position
+//     if ($position === 'nav-start') {
+//         return $switcher_html . $items;
+//     } else {
+//         return $items . $switcher_html;
+//     }
+// }, 10, 2);
 
 // Language switcher is intentionally removed as per request
 /**
@@ -912,15 +913,15 @@ add_action('wp_footer', function () {
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
-    // Get switcher position from settings (default: bottom-left)
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
-    $valid_positions = array('nav-start', 'nav-end', 'bottom-left', 'bottom-right', 'top-left', 'top-right');
+    // Get switcher position from settings (default: none)
+    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
+    $valid_positions = array('none', 'bottom-left', 'bottom-right', 'top-left', 'top-right');
     if (!in_array($position, $valid_positions, true)) {
-        $position = 'bottom-left';
+        $position = 'none';
     }
     
-    // Skip footer switcher if nav-start or nav-end is selected (switcher will be in menu)
-    if ($position === 'nav-start' || $position === 'nav-end') {
+    // Skip footer switcher if none is selected
+    if ($position === 'none') {
         return;
     }
 
@@ -2099,87 +2100,72 @@ add_action('wp_enqueue_scripts', function() {
 });
 
 /**
- * Add Language Switcher tab to menu editor using WordPress hooks
+ * Add Language Switcher meta box to menu editor
+ */
+add_action('admin_head-nav-menus.php', function() {
+    add_meta_box(
+        'ai-translate-language-switcher',
+        __('🌐 Language Switcher', 'ai-translate'),
+        function() {
+            ?>
+            <div id="ai-language-switcher" class="posttypediv">
+                <div class="tabs-panel tabs-panel-active">
+                    <ul class="categorychecklist form-no-clear">
+                        <li>
+                            <label class="menu-item-title">
+                                <input type="checkbox" class="menu-item-checkbox" name="menu-item[-1][menu-item-object-id]" value="-1">
+                                <?php _e('🌐 Language Switcher', 'ai-translate'); ?>
+                            </label>
+                            <input type="hidden" class="menu-item-type" name="menu-item[-1][menu-item-type]" value="custom">
+                            <input type="hidden" class="menu-item-title" name="menu-item[-1][menu-item-title]" value="<?php esc_attr_e('Language Switcher', 'ai-translate'); ?>">
+                            <input type="hidden" class="menu-item-url" name="menu-item[-1][menu-item-url]" value="#">
+                            <input type="hidden" class="menu-item-classes" name="menu-item[-1][menu-item-classes]" value="ai-language-switcher">
+                        </li>
+                    </ul>
+                </div>
+                <p class="button-controls">
+                    <span class="add-to-menu">
+                        <input type="submit" class="button-secondary submit-add-to-menu right" value="<?php esc_attr_e('Add to Menu', 'ai-translate'); ?>" name="add-ai-language-switcher-menu-item" id="submit-ai-language-switcher">
+                        <span class="spinner"></span>
+                    </span>
+                </p>
+            </div>
+            <?php
+        },
+        'nav-menus',
+        'side',
+        'default'
+    );
+});
+
+/**
+ * Handle adding language switcher menu item via normal WordPress menu process
+ */
+add_action('wp_update_nav_menu', function($menu_id, $menu_data = null) {
+    if (isset($_POST['menu-item'][-1]['menu-item-object-id']) && $_POST['menu-item'][-1]['menu-item-object-id'] == '-1') {
+        // Language switcher was selected, it will be processed by wp_update_nav_menu_item
+    }
+});
+
+add_action('wp_update_nav_menu_item', function($menu_id, $menu_item_db_id, $args) {
+    // Check if this is our language switcher item
+    if (isset($args['menu-item-classes']) && in_array('ai-language-switcher', $args['menu-item-classes'])) {
+        // Mark it as a language switcher
+        update_post_meta($menu_item_db_id, '_menu_item_is_language_switcher', '1');
+        update_post_meta($menu_item_db_id, '_menu_item_switcher_type', 'dropdown');
+        update_post_meta($menu_item_db_id, '_menu_item_show_flags', 'true');
+        update_post_meta($menu_item_db_id, '_menu_item_show_codes', 'true');
+    }
+}, 10, 3);
+
+/**
+ * Add Language Switcher tab to menu editor using WordPress hooks (fallback)
  */
 
 add_action('admin_head-nav-menus.php', function() {
     // Add Language Switcher directly to the menu item types list
     ?>
-    <style>
-    .ai-language-menu-item {
-        margin: 5px 0;
-        padding: 8px;
-        border: 1px solid #ddd;
-        background: #fff;
-        border-radius: 4px;
-    }
-    .ai-language-menu-item label {
-        display: block;
-        cursor: pointer;
-        margin: 0;
-    }
-    .ai-language-menu-item input[type="checkbox"] {
-        margin-right: 8px;
-    }
-    .ai-language-menu-item strong {
-        display: block;
-        margin-bottom: 4px;
-        color: #007cba;
-    }
-    .ai-language-menu-item .menu-item-description {
-        color: #666;
-        font-size: 12px;
-    }
-    .ai-language-add-button {
-        margin-top: 8px;
-        background: #007cba;
-        color: #fff;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-    }
-    .ai-language-add-button:hover {
-        background: #005a87;
-    }
-    </style>
-    <script type="text/javascript">
-    jQuery(document).ready(function($) {
-        // Wait for menu editor to load
-        setTimeout(function() {
-            // Find the menu item types list (where Pages, Posts, Custom Links, Categories are listed)
-            // Based on the DOM structure I saw, it should be in tabs-panel-posttype-page-most-recent or similar
-            var $menuItemList = $('.tabs-panel-posttype-page .categorychecklist, #tabs-panel-posttype-page-most-recent .categorychecklist, .tabs-panel .categorychecklist').first();
-
-            // Alternative: look for any categorychecklist that contains menu items
-            if (!$menuItemList.length) {
-                $menuItemList = $('ul.categorychecklist').filter(function() {
-                    return $(this).find('li').length > 0;
-                }).first();
-            }
-
-
-            if ($menuItemList.length && !$menuItemList.find('.ai-language-menu-item').length) {
-
-                // Add the language switcher item to the end of the list
-                var currentUrl = window.location.href;
-                var separator = currentUrl.indexOf('?') !== -1 ? '&' : '?';
-                var addUrl = currentUrl + separator +
-                    'ai-add-language-switcher=1&' +
-                    'menu-item-title=<?php echo urlencode(__('Language Switcher', 'ai-translate')); ?>';
-
-                $menuItemList.append(
-                    '<li class="ai-language-menu-item">' +
-                        '<strong><?php _e('🌐 Language Switcher', 'ai-translate'); ?></strong>' +
-                        '<span class="menu-item-description"><?php _e('Add a dropdown language switcher with flags to your menu', 'ai-translate'); ?></span>' +
-                        '<br><a href="' + addUrl + '" class="ai-language-add-link button button-secondary"><?php _e('Add to Menu', 'ai-translate'); ?></a>' +
-                    '</li>'
-                );
-            }
-        }, 1500); // Wait 1.5 seconds for menu to load
-    });
-    </script>
+    // Using native WordPress meta box approach instead of JavaScript manipulation
     <?php
 });
 
@@ -2793,7 +2779,7 @@ class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
                 }
 
                 if ($show_codes) {
-                    $output .= '<span class="ai-menu-language-code">' . esc_html($lang_label) . '</span>';
+                    $output .= '<span class="ai-menu-language-code" style="color: #000 !important;">' . esc_html($lang_label) . '</span>';
                 }
 
                 $output .= '</a>';

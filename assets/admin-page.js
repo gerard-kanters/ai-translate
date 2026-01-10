@@ -936,4 +936,35 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    // Menu editor link with save reminder
+    var menuEditorLinks = document.querySelectorAll('a[href*="nav-menus.php"]');
+    menuEditorLinks.forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            var form = document.querySelector('form[action="options.php"]');
+            if (form) {
+                var hasUnsavedChanges = false;
+                var inputs = form.querySelectorAll('input, select, textarea');
+                inputs.forEach(function(input) {
+                    if (input.type !== 'submit' && input.type !== 'button') {
+                        var originalValue = input.getAttribute('data-original-value');
+                        if (!originalValue) {
+                            input.setAttribute('data-original-value', input.value);
+                        } else if (originalValue !== input.value) {
+                            hasUnsavedChanges = true;
+                        }
+                    }
+                });
+
+                if (hasUnsavedChanges) {
+                    e.preventDefault();
+                    if (confirm(aiTranslateAdmin.strings.saveSettingsFirst || 'Save your settings first before opening the menu editor.')) {
+                        // Submit the form first
+                        form.submit();
+                    }
+                    return false;
+                }
+            }
+        });
+    });
 });

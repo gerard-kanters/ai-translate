@@ -858,6 +858,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'errorLoadingModels' => __('Error loading models', 'ai-translate'),
             'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
             'unknownError' => __('Unknown error', 'ai-translate'),
+            'saveSettingsFirst' => __('Save your settings first before opening the menu editor.', 'ai-translate'),
         ),
     ));
     
@@ -1137,15 +1138,15 @@ add_action('admin_init', function () {
 
             // Switcher position
             if (isset($input['switcher_position'])) {
-                $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right');
+                $valid_positions = array('none', 'bottom-left', 'bottom-right', 'top-left', 'top-right');
                 $position = sanitize_text_field($input['switcher_position']);
                 if (in_array($position, $valid_positions, true)) {
                     $sanitized['switcher_position'] = $position;
                 } else {
-                    $sanitized['switcher_position'] = 'bottom-left';
+                    $sanitized['switcher_position'] = 'none';
                 }
             } elseif (!isset($sanitized['switcher_position'])) {
-                $sanitized['switcher_position'] = 'bottom-left';
+                $sanitized['switcher_position'] = 'none';
             }
 
             // Multi-domain caching toggle
@@ -1346,12 +1347,13 @@ add_action('admin_init', function () {
         __('Language Switcher Position', 'ai-translate'),
         function () {
             $settings = get_option('ai_translate_settings');
-            $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+            $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
             $positions = array(
-                'bottom-left' => __('Bottom Left', 'ai-translate'),
-                'bottom-right' => __('Bottom Right', 'ai-translate'),
-                'top-left' => __('Top Left', 'ai-translate'),
-                'top-right' => __('Top Right', 'ai-translate'),
+                'none' => __('Hidden - Add manually via Appearance > Menus', 'ai-translate'),
+                'bottom-left' => __('Bottom Left Corner', 'ai-translate'),
+                'bottom-right' => __('Bottom Right Corner', 'ai-translate'),
+                'top-left' => __('Top Left Corner', 'ai-translate'),
+                'top-right' => __('Top Right Corner', 'ai-translate'),
             );
             echo '<fieldset>';
             foreach ($positions as $value => $label) {
@@ -1361,7 +1363,8 @@ add_action('admin_init', function () {
                 echo '</label>';
             }
             echo '</fieldset>';
-            echo '<p class="description">' . esc_html(__('Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions.', 'ai-translate')) . '</p>';
+            echo '<p class="description">' . esc_html(__('Choose where the language switcher appears on your website. "Hidden - Add manually via Appearance > Menus" means the switcher will not be visible in corners - add it manually to your navigation menu instead. Corner positions show a floating switcher. The menu will open upward for bottom positions and downward for top positions.', 'ai-translate')) . '</p>';
+            echo '<p><a href="' . esc_url(admin_url('nav-menus.php')) . '" target="_blank" class="button button-secondary">' . esc_html(__('Open Menu Editor', 'ai-translate')) . '</a> ' . esc_html(__('Add language switcher to your navigation menus', 'ai-translate')) . '</p>';
         },
         'ai-translate',
         'ai_translate_languages'
