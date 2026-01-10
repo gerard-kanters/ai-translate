@@ -16,7 +16,7 @@ AI Translate automatically makes your WordPress website available in 35+ languag
 
 ## Description
 
-AI Translate automatically translates your entire website using advanced artificial intelligence. The plugin translates pages, posts, titles, menus, and more in real-time or via smart caching.
+AI Translate automatically translates your entire website using advanced artificial intelligence. The plugin translates pages, posts, titles, menus, and more in real time while customers and bots visit your website in their perferred language. Use cache warming to improve performance for first visitors. 
 
 ### What makes AI Translate unique?
 
