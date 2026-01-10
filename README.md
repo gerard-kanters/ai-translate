@@ -204,6 +204,7 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
 
 - Added cache warming for pages to admin.
 - Support for Wordpress 6.9
+- Added NAV menu item for language switcher.
 - Issue with language parameter on home page fixed.
 - Issue with search not keeping language code fixed.
 - Improved validation of models, checking account and provider information.
