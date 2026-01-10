@@ -216,14 +216,14 @@ wget --spider --no-directories --delete-after --recursive --level=10 \
   
 ### 2.1.2
 
-- Fixed JS issue with speculationrules
+- Fixed JS issue with speculationrules.
 - Removed debug logging.
 - Fix browser language detection.
 - Fix admin setting selecting default language.
-- Set permalink structure on initialization to post-name
-- Fixed issue with existing meta tags in default language
-- Exclude xml files from processing
-- Added 10 languages
+- Set permalink structure on initialization to post-name.
+- Fixed issue with existing meta tags in default language.
+- Exclude xml files from processing.
+- Added 10 languages.
 
 ### 2.0.4
 
