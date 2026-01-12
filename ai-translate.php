@@ -84,6 +84,7 @@ function ai_translate_load_textdomain()
 
 add_action('plugins_loaded', 'ai_translate_load_textdomain', 1);
 
+
 // Include core/admin and runtime classes.
 require_once __DIR__ . '/includes/class-ai-translate-core.php';
 require_once __DIR__ . '/includes/admin-page.php';

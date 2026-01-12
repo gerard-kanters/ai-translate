@@ -1,10 +1,11 @@
 # Copyright (C) 2025 Netcare
 # This file is distributed under the same license as the AI Translate plugin.
+
 msgid ""
 msgstr ""
 "Project-Id-Version: AI Translate 2.1.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\n"
-"POT-Creation-Date: 2026-01-03T13:02:08+00:00\n"
+"POT-Creation-Date: 2026-01-11T11:07:29+00:00\n"
 "PO-Revision-Date: 2025-12-29 22:00+0000\n"
 "Last-Translator: Netcare <info@netcare.nl>\n"
 "Language-Team: Italiano\n"
@@ -15,167 +16,398 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. Plugin Name of the plugin
-#: ai-translate.php includes/admin-page.php:690 includes/admin-page.php:691
+#: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
+
 msgid "AI Translate"
 msgstr "AI Translate"
 
 #. Description of the plugin
 #: ai-translate.php
+
 msgid "AI based translation plugin. Adding 35 languages in a few clicks."
 msgstr "Plugin di traduzione basato sull'IA. Aggiungi 35 lingue in pochi clic."
 
 #. Author of the plugin
 #: ai-translate.php
+
 msgid "Netcare"
-msgstr ""
+msgstr "Netcare"
 
 #. Author URI of the plugin
 #: ai-translate.php
-msgid "https://netcare.nl/"
-msgstr ""
 
-#: ai-translate.php:342
+msgid "https://netcare.nl/"
+msgstr "https://netcare.nl/"
+
+#: ai-translate.php:377
+
 msgid "Rate on WordPress.org"
 msgstr "Vota su WordPress.org"
 
-#: ai-translate.php:1634
-msgid "Instellingen"
-msgstr ""
+#: ai-translate.php:1894
 
-#: ai-translate.php:1722
+msgid "Instellingen"
+msgstr "Impostazioni"
+
+#: ai-translate.php:1982
+
 msgid "This plugin requires a permalink structure other than \"Plain\". "
 msgstr ""
 "Questo plugin richiede una struttura permalink diversa da \"Semplice\". "
 
-#: ai-translate.php:1725
+#: ai-translate.php:1985
+
 msgid "Configure Permalinks"
 msgstr "Configura i permalink"
 
+#: ai-translate.php:2107 ai-translate.php:2116
+
+msgid "🌐 Language Switcher"
+msgstr "🌐 Selettore di lingua"
+
+#: ai-translate.php:2119
+
+msgid "Language Switcher"
+msgstr "Selettore di lingua"
+
+#: ai-translate.php:2127
+
+msgid "Add to Menu"
+msgstr "Aggiungi al menu"
+
+#: ai-translate.php:2185
+
+msgid "Make this a language switcher"
+msgstr "Rendi questo un selettore di lingua"
+
+#: ai-translate.php:2192
+
+msgid "Switcher Type:"
+msgstr "Tipo di selettore:"
+
+#: ai-translate.php:2195
+
+msgid "Dropdown"
+msgstr "Menu a tendina"
+
+#: ai-translate.php:2196
+
+msgid "Inline"
+msgstr "In linea"
+
+#: ai-translate.php:2206
+#, fuzzy
+
+msgid "Show language flags"
+msgstr "Nessuna lingua selezionata."
+
+#: ai-translate.php:2215
+#, fuzzy
+
+msgid "Show language codes"
+msgstr "Nessuna lingua selezionata."
+
 #: includes/admin-page.php:28 includes/admin-page.php:74
-#: includes/admin-page.php:419 includes/admin-page.php:581
-#: includes/admin-page.php:628
+#: includes/admin-page.php:186 includes/admin-page.php:523
+#: includes/admin-page.php:698 includes/admin-page.php:740
+
 msgid "Insufficient permissions to perform this action."
 msgstr "Autorizzazioni insufficienti per eseguire questa azione."
 
 #: includes/admin-page.php:35 includes/admin-page.php:81
-#: includes/admin-page.php:426 includes/admin-page.php:588
-#: includes/admin-page.php:635
+#: includes/admin-page.php:192 includes/admin-page.php:530
+#: includes/admin-page.php:705 includes/admin-page.php:747
+
 msgid "Security check failed (nonce). Refresh the page and try again."
 msgstr "Controllo di sicurezza fallito (nonce). Aggiorna la pagina e riprova."
 
-#: includes/admin-page.php:41
+#: includes/admin-page.php:41 includes/admin-page.php:198
+
 msgid "No language selected."
 msgstr "Nessuna lingua selezionata."
 
 #: includes/admin-page.php:52
+
 msgid "Cache for language \"%s\" cleared. %d files removed."
 msgstr "Cache per la lingua \"%s\" cancellata. %d file rimossi."
 
 #: includes/admin-page.php:57
+
 msgid "Error clearing cache:"
 msgstr "Errore durante la cancellazione della cache:"
 
-#: includes/admin-page.php:87 includes/admin-page.php:432
-msgid "No post ID provided."
-msgstr ""
+#: includes/admin-page.php:88 includes/admin-page.php:537
 
-#: includes/admin-page.php:94 includes/admin-page.php:439
+msgid "No post ID provided."
+msgstr "Nessun ID articolo fornito."
+
+#: includes/admin-page.php:95 includes/admin-page.php:544
 #, fuzzy
+
 msgid "Invalid post ID."
 msgstr "Risposta non valida dall'API"
 
-#: includes/admin-page.php:101 includes/admin-page.php:446
+#: includes/admin-page.php:104 includes/admin-page.php:553
+
 msgid "Post not found."
-msgstr ""
+msgstr "Articolo non trovato."
 
-#: includes/admin-page.php:129
+#: includes/admin-page.php:133
+
 msgid "Invalid file path: %s"
-msgstr ""
+msgstr "Percorso file non valido: %s"
 
-#: includes/admin-page.php:140
+#: includes/admin-page.php:144
+
 msgid "Invalid file type: %s"
-msgstr ""
+msgstr "Tipo di file non valido: %s"
 
-#: includes/admin-page.php:147
+#: includes/admin-page.php:151
+
 msgid "Could not delete file: %s"
-msgstr ""
+msgstr "Impossibile eliminare il file: %s"
 
-#: includes/admin-page.php:158
+#: includes/admin-page.php:162
 #, fuzzy
+
 msgid "Cache deleted for %d languages"
 msgstr "Panoramica della cache per lingua"
 
-#: includes/admin-page.php:160 includes/admin-page.php:555
+#: includes/admin-page.php:164 includes/admin-page.php:672
+
 msgid "Warnings:"
-msgstr ""
+msgstr "Avvertenze:"
 
-#: includes/admin-page.php:281
-msgid "Cache file not generated"
-msgstr ""
+#: includes/admin-page.php:220
 
-#: includes/admin-page.php:295
-msgid "HTTP %d (redirect)"
-msgstr ""
+msgid "Security check failed"
+msgstr "Controllo di sicurezza fallito"
 
-#: includes/admin-page.php:298 includes/admin-page.php:407
-msgid "HTTP %d"
-msgstr ""
+#: includes/admin-page.php:226
 
-#: includes/admin-page.php:393
-msgid "Cache file not generated after successful request"
-msgstr ""
+msgid "Insufficient permissions"
+msgstr "Permessi insufficienti"
 
-#: includes/admin-page.php:452
-msgid "Only published posts can be cached."
-msgstr ""
+#: includes/admin-page.php:236
 
-#: includes/admin-page.php:465
+msgid "No cache file specified"
+msgstr "Nessun file cache specificato"
+
+#: includes/admin-page.php:247
+
+msgid "Invalid cache file path"
+msgstr "Percorso file cache non valido"
+
+#: includes/admin-page.php:252
 #, fuzzy
+
+msgid "Cache file not found"
+msgstr "File di cache"
+
+#: includes/admin-page.php:258 includes/admin-page.php:880
+#, fuzzy
+
+msgid "Failed to delete cache file"
+msgstr "Impossibile cancellare la cache degli slug: %s."
+
+#: includes/admin-page.php:267
+#, fuzzy
+
+msgid "Cache file deleted successfully"
+msgstr "Modelli caricati con successo."
+
+#: includes/admin-page.php:385
+
+msgid "Cache file not generated"
+msgstr "File cache non generato"
+
+#: includes/admin-page.php:399
+
+msgid "HTTP %d (redirect)"
+msgstr "HTTP %d (reindirizzamento)"
+
+#: includes/admin-page.php:402 includes/admin-page.php:511
+
+msgid "HTTP %d"
+msgstr "HTTP %d"
+
+#: includes/admin-page.php:497
+
+msgid "Cache file not generated after successful request"
+msgstr "File cache non generato dopo richiesta riuscita"
+
+#: includes/admin-page.php:559
+
+msgid "Only published posts can be cached."
+msgstr "Solo gli articoli pubblicati possono essere memorizzati nella cache."
+
+#: includes/admin-page.php:573
+#, fuzzy
+
 msgid "No languages configured."
 msgstr "Nessuna lingua selezionata."
 
-#: includes/admin-page.php:472
+#: includes/admin-page.php:583
+
 msgid "Could not generate post URL."
-msgstr ""
+msgstr "Impossibile generare l'URL dell'articolo."
 
-#: includes/admin-page.php:480
+#: includes/admin-page.php:592
+
 msgid "Invalid post URL."
-msgstr ""
+msgstr "URL dell'articolo non valida."
 
-#: includes/admin-page.php:522
+#: includes/admin-page.php:634
+
 msgid "Error for %s: %s"
-msgstr ""
+msgstr "Errore per %s: %s"
 
-#: includes/admin-page.php:550
+#: includes/admin-page.php:667
 #, fuzzy
+
 msgid "Cache warmed for %d languages"
 msgstr "Panoramica della cache per lingua"
 
-#: includes/admin-page.php:552
+#: includes/admin-page.php:669
+
 msgid " (%d skipped)"
-msgstr ""
+msgstr " (%d saltato)"
 
-#: includes/admin-page.php:557
+#: includes/admin-page.php:674
+
 msgid " and %d more"
-msgstr ""
+msgstr " e altri %d"
 
-#: includes/admin-page.php:613
+#: includes/admin-page.php:725
+
 msgid "Error generating context:"
 msgstr "Errore durante la generazione del contesto:"
 
-#: includes/admin-page.php:660
+#: includes/admin-page.php:764
+
 msgid "Error generating meta description:"
 msgstr "Errore durante la generazione della meta descrizione:"
 
-#: includes/admin-page.php:794
+#: includes/admin-page.php:851
+
+msgid "Enter API Key first..."
+msgstr "Inserisci prima la chiave API..."
+
+#: includes/admin-page.php:852
+
+msgid "Enter API Key first to load models."
+msgstr "Inserisci prima la chiave API per caricare i modelli."
+
+#: includes/admin-page.php:853
+
+msgid "Loading models..."
+msgstr "Caricamento modelli..."
+
+#: includes/admin-page.php:854
+
+msgid "Models loaded successfully."
+msgstr "Modelli caricati con successo."
+
+#: includes/admin-page.php:855
+
+msgid "No models found"
+msgstr "Nessun modello trovato"
+
+#: includes/admin-page.php:856 includes/admin-page.php:2208
+
+msgid "Invalid key"
+msgstr "Chiave non valida"
+
+#: includes/admin-page.php:857
+
+msgid "Error loading models"
+msgstr "Errore nel caricamento dei modelli"
+
+#: includes/admin-page.php:858
+
+msgid "Select API Provider first..."
+msgstr "Seleziona prima un fornitore API..."
+
+#: includes/admin-page.php:859 includes/admin-page.php:1658
+#: includes/admin-page.php:1777
+
+msgid "Unknown error"
+msgstr "Errore sconosciuto"
+
+#: includes/admin-page.php:860
+
+msgid "Save your settings first before opening the menu editor."
+msgstr "Salva le tue impostazioni prima di aprire l'editor dei menu."
+
+#: includes/admin-page.php:870
+
+msgid "Loading cached URLs..."
+msgstr "Caricamento URL memorizzati nella cache..."
+
+#: includes/admin-page.php:871
+
+msgid "Could not load cached URLs. Please try again."
+msgstr "Impossibile caricare gli URL memorizzati nella cache. Riprova."
+
+#: includes/admin-page.php:872
+
+msgid ""
+"Request timed out. The site may have many cache files. Please try again or "
+"use the rescan function."
+msgstr ""
+"Richiesta scaduta. Il sito potrebbe avere molti file di cache. Riprova o usa "
+"la funzione di ri-scansione."
+
+#: includes/admin-page.php:873
+#, fuzzy
+
+msgid "No cached pages for this language."
+msgstr "Panoramica della cache per lingua"
+
+#: includes/admin-page.php:874
+#, fuzzy
+
+msgid "Show cached URLs"
+msgstr "Caricamento URL memorizzati nella cache..."
+
+#: includes/admin-page.php:875
+#, fuzzy
+
+msgid "Hide cached URLs"
+msgstr "Caricamento URL memorizzati nella cache..."
+
+#: includes/admin-page.php:876
+
+msgid "Showing first %1$s of %2$s entries"
+msgstr "Mostra prima %1$s di %2$s voci"
+
+#: includes/admin-page.php:877
+
+msgid "Delete file"
+msgstr "Elimina file"
+
+#: includes/admin-page.php:878
+
+msgid "Deleting..."
+msgstr "Eliminazione..."
+
+#: includes/admin-page.php:879
+
+msgid "Are you sure you want to delete this cache file?"
+msgstr "Sei sicuro di voler eliminare questo file cache?"
+
+#: includes/admin-page.php:930
+
 msgid "Invalid API provider selected."
 msgstr "Fornitore API selezionato non valido."
 
-#: includes/admin-page.php:814
+#: includes/admin-page.php:950
+
 msgid "Custom API URL is required for the custom provider."
 msgstr "L'URL API personalizzato è richiesto per il fornitore personalizzato."
 
-#: includes/admin-page.php:827
+#: includes/admin-page.php:964
+
 msgid ""
 "Cache duration cannot be less than 14 days. It has been automatically set to "
 "14 days."
@@ -183,34 +415,41 @@ msgstr ""
 "La durata della cache non può essere inferiore a 14 giorni. È stata "
 "impostata automaticamente a 14 giorni."
 
-#: includes/admin-page.php:855
+#: includes/admin-page.php:1024
+
 msgid "Custom model name is required when selecting a custom model."
-msgstr ""
+msgstr "Il nome del modello personalizzato è richiesto quando si seleziona un modello personalizzato."
 "Il nome del modello personalizzato è richiesto quando si seleziona un "
 "modello personalizzato."
 
-#: includes/admin-page.php:878
+#: includes/admin-page.php:1047
+
 msgid "API key is required for the selected provider."
 msgstr "La chiave API è richiesta per il fornitore selezionato."
 
-#: includes/admin-page.php:992
+#: includes/admin-page.php:1170
+
 msgid "API Settings"
 msgstr "Impostazioni API"
 
-#: includes/admin-page.php:998
+#: includes/admin-page.php:1176
+
 msgid "API Provider"
 msgstr "Fornitore API"
 
-#: includes/admin-page.php:1005
+#: includes/admin-page.php:1183
+
 msgid "— Select provider —"
 msgstr "— Seleziona fornitore —"
 
-#: includes/admin-page.php:1012 includes/admin-page.php:1222
-#: includes/admin-page.php:1432
+#: includes/admin-page.php:1190 includes/admin-page.php:1433
+#: includes/admin-page.php:1645
+
 msgid "Note:"
 msgstr "Nota:"
 
-#: includes/admin-page.php:1012
+#: includes/admin-page.php:1190
+
 msgid ""
 "GPT-5 is blocked, since reasoning cannot be disabled and not required for "
 "translations and therefore too slow and expensive."
@@ -218,41 +457,50 @@ msgstr ""
 "GPT-5 è bloccato, poiché il ragionamento non può essere disattivato e non è "
 "richiesto per le traduzioni, risultando quindi troppo lento e costoso."
 
-#: includes/admin-page.php:1018
+#: includes/admin-page.php:1196
+
 msgid "Enter the endpoint URL for your custom API provider. Example: %s"
-msgstr ""
+msgstr "Inserisci l'URL dell'endpoint per il tuo provider API personalizzato. Esempio: %s"
 "Inserisci l'URL dell'endpoint per il tuo fornitore API personalizzato. "
 "Esempio: %s"
 
-#: includes/admin-page.php:1029
+#: includes/admin-page.php:1207
+
 msgid "API Key"
 msgstr "Chiave API"
 
-#: includes/admin-page.php:1044
+#: includes/admin-page.php:1222
+
 msgid "Translation Model"
 msgstr "Modello di traduzione"
 
-#: includes/admin-page.php:1052
+#: includes/admin-page.php:1230
+
 msgid "— Select model —"
 msgstr "— Seleziona modello —"
 
-#: includes/admin-page.php:1056
+#: includes/admin-page.php:1234
+
 msgid "Select..."
 msgstr "Seleziona..."
 
-#: includes/admin-page.php:1059
+#: includes/admin-page.php:1237
+
 msgid "E.g.: deepseek-chat, gpt-4o, ..."
 msgstr "Es.: deepseek-chat, gpt-4o, ..."
 
-#: includes/admin-page.php:1061
+#: includes/admin-page.php:1239
+
 msgid "Validate API settings"
 msgstr "Convalida impostazioni API"
 
-#: includes/admin-page.php:1072
+#: includes/admin-page.php:1250
+
 msgid "Language Settings"
 msgstr "Impostazioni lingua"
 
-#: includes/admin-page.php:1074
+#: includes/admin-page.php:1252
+
 msgid ""
 "Select the default language for your site and which languages should be "
 "available in the language switcher. Detectable languages will be used if a "
@@ -263,31 +511,38 @@ msgstr ""
 "utilizzate se la preferenza del browser di un visitatore corrisponde, ma non "
 "verranno mostrate nel selettore."
 
-#: includes/admin-page.php:1080
+#: includes/admin-page.php:1258
+
 msgid "Default Language"
 msgstr "Lingua predefinita"
 
-#: includes/admin-page.php:1087
+#: includes/admin-page.php:1265
+
 msgid "— Select default language —"
 msgstr "— Seleziona lingua predefinita —"
 
-#: includes/admin-page.php:1090
+#: includes/admin-page.php:1268
+
 msgid "Current"
 msgstr "Corrente"
 
-#: includes/admin-page.php:1102
+#: includes/admin-page.php:1280
+
 msgid "Enabled Languages (in Switcher)"
 msgstr "Lingue abilitate (nel selettore)"
 
-#: includes/admin-page.php:1122
+#: includes/admin-page.php:1300
+
 msgid "Languages selected here will appear in the language switcher."
 msgstr "Le lingue selezionate qui appariranno nel selettore di lingua."
 
-#: includes/admin-page.php:1130
+#: includes/admin-page.php:1308
+
 msgid "Detectable Languages (Auto-Translate)"
 msgstr "Lingue rilevabili (traduzione automatica)"
 
-#: includes/admin-page.php:1159
+#: includes/admin-page.php:1337
+
 msgid ""
 "If a visitor's browser language matches one of these, the site will be "
 "automatically translated (if enabled), but these languages won't show in the "
@@ -297,123 +552,38 @@ msgstr ""
 "sito verrà tradotto automaticamente (se abilitato), ma queste lingue non "
 "verranno mostrate nel selettore."
 
-#: includes/admin-page.php:1168
+#: includes/admin-page.php:1346
+
 msgid "Language Switcher Position"
 msgstr "Posizione del selettore di lingua"
 
-#: includes/admin-page.php:1173
-msgid "Bottom Left"
-msgstr "In basso a sinistra"
+#: includes/admin-page.php:1351
 
-#: includes/admin-page.php:1174
-msgid "Bottom Right"
-msgstr "In basso a destra"
-
-#: includes/admin-page.php:1175
-msgid "Top Left"
-msgstr "In alto a sinistra"
-
-#: includes/admin-page.php:1176
-msgid "Top Right"
-msgstr "In alto a destra"
-
-#: includes/admin-page.php:1186
-#, fuzzy
-msgid ""
-"Choose where the language switcher appears on your website. The menu will "
-"open upward for bottom positions and downward for top positions."
-msgstr ""
-"Scegli dove appare il selettore di lingua sul tuo sito web. Le posizioni del "
-"menu di navigazione aggiungeranno il selettore al menu di navigazione "
-"principale. Le posizioni fluttuanti mostreranno un selettore fisso "
-"nell'angolo. Il menu si aprirà verso l'alto per le posizioni in basso e "
-"verso il basso per le posizioni in alto."
-
-#: includes/admin-page.php:1195
-msgid "Cache Settings"
-msgstr "Impostazioni cache"
-
-#: includes/admin-page.php:1201
-msgid "Cache Duration (days)"
-msgstr "Durata cache (giorni)"
-
-#: includes/admin-page.php:1205
-msgid "days"
-msgstr "giorni"
-
-#: includes/admin-page.php:1206
-msgid "minimum 14 days"
-msgstr "minimo 14 giorni"
-
-#: includes/admin-page.php:1213
-msgid "Auto-Clear Pages on Menu Update"
-msgstr "Cancella automaticamente le pagine all'aggiornamento del menu"
-
-#: includes/admin-page.php:1219
-msgid "Automatically clear all page caches when menu items are updated"
-msgstr ""
-"Cancella automaticamente tutte le cache delle pagine quando le voci del menu "
-"vengono aggiornate"
-
-#: includes/admin-page.php:1223
-msgid ""
-"Menu translation caches (transients) are ALWAYS cleared when you update "
-"menus, regardless of this setting."
-msgstr ""
-"Le cache delle traduzioni dei menu (transient) vengono SEMPRE cancellate "
-"quando si aggiornano i menu, indipendentemente da questa impostazione."
-
-#: includes/admin-page.php:1225
-msgid "When enabled:"
-msgstr "Quando abilitato:"
-
-#: includes/admin-page.php:1226
-msgid ""
-"All translated page HTML caches will also be cleared. Menu changes are "
-"visible immediately, but requires re-translating pages on next visit "
-"(expensive for large sites with many languages)."
-msgstr ""
-"Verranno cancellate anche tutte le cache HTML delle pagine tradotte. Le "
-"modifiche al menu sono visibili immediatamente, ma richiedono la traduzione "
-"delle pagine alla visita successiva (costoso per siti di grandi dimensioni "
-"con molte lingue)."
-
-#: includes/admin-page.php:1228
-msgid "When disabled:"
-msgstr "Quando disabilitato:"
-
-#: includes/admin-page.php:1229
-msgid ""
-"Only menu caches are cleared. Page HTML caches remain. Menu changes in "
-"already-cached pages will only be visible after cache expires or manual "
-"clearing via Cache tab."
-msgstr ""
-"Vengono cancellate solo le cache dei menu. Le cache HTML delle pagine "
-"rimangono. Le modifiche ai menu nelle pagine già memorizzate nella cache "
-"saranno visibili solo dopo la scadenza della cache o la cancellazione "
-"manuale tramite la scheda Cache."
-
-#: includes/admin-page.php:1352
-msgid "Hidden - Add manually via Appearance > Menus"
-msgstr "Nascosto - Aggiungi manualmente tramite Aspetto > Menu"
-
-#: includes/admin-page.php:1353
 msgid "Bottom Left Corner"
 msgstr "Angolo in basso a sinistra"
 
-#: includes/admin-page.php:1354
+#: includes/admin-page.php:1352
+
 msgid "Bottom Right Corner"
 msgstr "Angolo in basso a destra"
 
-#: includes/admin-page.php:1355
+#: includes/admin-page.php:1353
+
 msgid "Top Left Corner"
 msgstr "Angolo in alto a sinistra"
 
-#: includes/admin-page.php:1356
+#: includes/admin-page.php:1354
+
 msgid "Top Right Corner"
 msgstr "Angolo in alto a destra"
 
-#: includes/admin-page.php:1366
+#: includes/admin-page.php:1355
+
+msgid "Hidden - Add manually via Appearance > Menus"
+msgstr "Nascosto - Aggiungi manualmente tramite Aspetto > Menu"
+
+#: includes/admin-page.php:1365
+
 msgid ""
 "Choose where the language switcher appears on your website. \"Hidden - Add "
 "manually via Appearance > Menus\" means the switcher will not be visible in "
@@ -428,23 +598,120 @@ msgstr ""
 "menu si apre verso l'alto per le posizioni inferiori e verso il basso per le "
 "posizioni superiori."
 
-#: includes/admin-page.php:1367
+#: includes/admin-page.php:1366
+
 msgid "Open Menu Editor"
 msgstr "Apri editor menu"
 
-#: includes/admin-page.php:1367
+#: includes/admin-page.php:1366
+
 msgid "Add language switcher to your navigation menus"
 msgstr "Aggiungi selettore lingua ai tuoi menu di navigazione"
 
-#: includes/admin-page.php:1237
+#: includes/admin-page.php:1375
+
+msgid "Cache Settings"
+msgstr "Impostazioni cache"
+
+#: includes/admin-page.php:1381
+
+msgid "Cache Duration (days)"
+msgstr "Durata cache (giorni)"
+
+#: includes/admin-page.php:1402
+
+msgid "days"
+msgstr "giorni"
+
+#: includes/admin-page.php:1403
+
+msgid "minimum 14 days"
+msgstr "minimo 14 giorni"
+
+#: includes/admin-page.php:1410
+
+msgid "Keep URL Slugs in English"
+msgstr "Mantieni gli slug URL in inglese"
+
+#: includes/admin-page.php:1415
+
+msgid ""
+"Keep URL slugs in English instead of translating them to target languages"
+msgstr ""
+"Mantieni gli slug URL in inglese invece di tradurli nelle lingue di destinazione"
+
+#: includes/admin-page.php:1416
+
+msgid "When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/)."
+msgstr "Quando abilitato, gli URL rimarranno coerenti tra le lingue (ad es. /zh/cv-tips/ invece di /zh/简历技巧/)."
+
+#: includes/admin-page.php:1423
+
+msgid "Auto-Clear Pages on Menu Update"
+msgstr "Cancella automaticamente le pagine all'aggiornamento del menu"
+
+#: includes/admin-page.php:1430
+
+msgid "Automatically clear all page caches when menu items are updated"
+msgstr "Cancella automaticamente tutte le cache delle pagine quando gli elementi del menu vengono aggiornati"
+"Cancella automaticamente tutte le cache delle pagine quando le voci del menu "
+"vengono aggiornate"
+
+#: includes/admin-page.php:1434
+
+msgid ""
+"Menu translation caches (transients) are ALWAYS cleared when you update "
+"menus, regardless of this setting."
+msgstr ""
+"Le cache delle traduzioni dei menu (transient) vengono SEMPRE cancellate "
+"quando si aggiornano i menu, indipendentemente da questa impostazione."
+
+#: includes/admin-page.php:1436
+
+msgid "When enabled:"
+msgstr "Quando abilitato:"
+
+#: includes/admin-page.php:1437
+
+msgid ""
+"All translated page HTML caches will also be cleared. Menu changes are "
+"visible immediately, but requires re-translating pages on next visit "
+"(expensive for large sites with many languages)."
+msgstr ""
+"Verranno cancellate anche tutte le cache HTML delle pagine tradotte. Le "
+"modifiche al menu sono visibili immediatamente, ma richiedono la traduzione "
+"delle pagine alla visita successiva (costoso per siti di grandi dimensioni "
+"con molte lingue)."
+
+#: includes/admin-page.php:1439
+
+msgid "When disabled:"
+msgstr "Quando disabilitato:"
+
+#: includes/admin-page.php:1440
+
+msgid ""
+"Only menu caches are cleared. Page HTML caches remain. Menu changes in "
+"already-cached pages will only be visible after cache expires or manual "
+"clearing via Cache tab."
+msgstr ""
+"Vengono cancellate solo le cache dei menu. Le cache HTML delle pagine "
+"rimangono. Le modifiche ai menu nelle pagine già memorizzate nella cache "
+"saranno visibili solo dopo la scadenza della cache o la cancellazione "
+"manuale tramite la scheda Cache."
+
+#: includes/admin-page.php:1448
+
 msgid "Multi-Domain Caching"
 msgstr "Caching multi-dominio"
 
-#: includes/admin-page.php:1243
+#: includes/admin-page.php:1455
+
 msgid "Enable separate cache per domain"
 msgstr "Abilita cache separata per dominio"
 
-#: includes/admin-page.php:1246
+#: includes/admin-page.php:1458
+
 msgid ""
 "When enabled, each domain will have its own cache directory named after the "
 "site name. This prevents cache conflicts when multiple domains share the "
@@ -454,11 +721,13 @@ msgstr ""
 "nome dal sito. Ciò evita conflitti di cache quando più domini condividono la "
 "stessa installazione di WordPress."
 
-#: includes/admin-page.php:1254 includes/admin-page.php:1260
+#: includes/admin-page.php:1466 includes/admin-page.php:1473
+
 msgid "Stop translations (except cache invalidation)"
 msgstr "Interrompi le traduzioni (eccetto l'invalidazione della cache)"
 
-#: includes/admin-page.php:1263
+#: includes/admin-page.php:1476
+
 msgid ""
 "When enabled, new translations via API will be blocked. Translations will "
 "only occur when cached pages expire and need to be refreshed."
@@ -467,24 +736,24 @@ msgstr ""
 "traduzioni avverranno solo quando le pagine memorizzate nella cache scadono "
 "e devono essere aggiornate."
 
-#: includes/admin-page.php:1273
+#: includes/admin-page.php:1486
+
 msgid "Advanced Settings"
 msgstr "Impostazioni avanzate"
 
-#: includes/class-ai-cache-meta.php:329
-msgid "Homepage"
-msgstr "Homepage"
+#: includes/admin-page.php:1494
 
-#: includes/admin-page.php:1281
 msgid "Homepage Meta Description"
 msgstr "Meta descrizione della homepage"
 
-#: includes/admin-page.php:1310 includes/admin-page.php:1361
+#: includes/admin-page.php:1523 includes/admin-page.php:1574
 #, fuzzy
+
 msgid "Active domain:"
 msgstr "Azione"
 
-#: includes/admin-page.php:1317
+#: includes/admin-page.php:1530
+
 msgid ""
 "Enter the specific meta description for the homepage for the current domain "
 "(in the default language). This will override the site tagline or generated "
@@ -494,7 +763,8 @@ msgstr ""
 "corrente (nella lingua predefinita). Ciò sovrascriverà lo slogan del sito o "
 "l'estratto generato nella homepage."
 
-#: includes/admin-page.php:1319
+#: includes/admin-page.php:1532
+
 msgid ""
 "Enter the specific meta description for the homepage (in the default "
 "language). This will override the site tagline or generated excerpt on the "
@@ -504,21 +774,25 @@ msgstr ""
 "predefinita). Ciò sovrascriverà lo slogan del sito o l'estratto generato "
 "nella homepage."
 
-#: includes/admin-page.php:1321
+#: includes/admin-page.php:1534
+
 msgid "Generate Meta Description"
 msgstr "Genera meta descrizione"
 
-#: includes/admin-page.php:1332
+#: includes/admin-page.php:1545
+
 msgid "Website Context"
 msgstr "Contesto del sito web"
 
-#: includes/admin-page.php:1366
+#: includes/admin-page.php:1579
+
 msgid "Describe your website, business, or organization. For example:"
-msgstr ""
+msgstr "Descrivi il tuo sito web, attività o organizzazione. Per esempio:"
 "Descrivi il tuo sito web, la tua attività o la tua organizzazione. Ad "
 "esempio:"
 
-#: includes/admin-page.php:1367
+#: includes/admin-page.php:1580
+
 msgid ""
 "We are a healthcare technology company specializing in patient management "
 "systems. Our services include electronic health records, appointment "
@@ -531,11 +805,13 @@ msgstr ""
 "Serviamo ospedali, cliniche e fornitori di assistenza sanitaria in tutta "
 "Europa."
 
-#: includes/admin-page.php:1368
+#: includes/admin-page.php:1581
+
 msgid "Or:"
 msgstr "Oppure:"
 
-#: includes/admin-page.php:1369
+#: includes/admin-page.php:1582
+
 msgid ""
 "This is a personal blog about sustainable gardening and organic farming "
 "techniques. I share tips, tutorials, and experiences from my own garden."
@@ -544,7 +820,8 @@ msgstr ""
 "agricoltura biologica. Condivido consigli, tutorial ed esperienze dal mio "
 "giardino."
 
-#: includes/admin-page.php:1372
+#: includes/admin-page.php:1585
+
 msgid ""
 "Provide context about your website or business for the current domain to "
 "help the AI generate more accurate and contextually appropriate translations."
@@ -553,7 +830,8 @@ msgstr ""
 "corrente per aiutare l'IA a generare traduzioni più accurate e appropriate "
 "al contesto."
 
-#: includes/admin-page.php:1374
+#: includes/admin-page.php:1587
+
 msgid ""
 "Provide context about your website or business to help the AI generate more "
 "accurate and contextually appropriate translations. "
@@ -561,63 +839,72 @@ msgstr ""
 "Fornisci un contesto sul tuo sito web o sulla tua attività per aiutare l'IA "
 "a generare traduzioni più accurate e appropriate al contesto."
 
-#: includes/admin-page.php:1376
+#: includes/admin-page.php:1589
+
 msgid "Generate Context from Homepage"
 msgstr "Genera contesto dalla homepage"
 
-#: includes/admin-page.php:1425
+#: includes/admin-page.php:1638
 #, fuzzy
+
 msgid "Cache for language %s cleared."
 msgstr "Cache per la lingua \"%s\" cancellata. %d file rimossi."
 
-#: includes/admin-page.php:1428
+#: includes/admin-page.php:1641
+
 msgid "Files removed: %d"
-msgstr ""
+msgstr "File rimossi: %d"
 
-#: includes/admin-page.php:1429
+#: includes/admin-page.php:1642
+
 msgid "Remaining files: %d"
-msgstr ""
+msgstr "File rimanenti: %d"
 
-#: includes/admin-page.php:1439
+#: includes/admin-page.php:1652
+
 msgid "No cache files found for language %s."
-msgstr ""
+msgstr "Nessun file cache trovato per la lingua %s."
 
-#: includes/admin-page.php:1445 includes/admin-page.php:1560
-msgid "Unknown error"
-msgstr "Errore sconosciuto"
-
-#: includes/admin-page.php:1448
+#: includes/admin-page.php:1661
 #, fuzzy
+
 msgid "Error clearing cache for language %s: %s"
 msgstr "Errore durante la cancellazione della cache:"
 
-#: includes/admin-page.php:1464
+#: includes/admin-page.php:1677
+
 msgid "General"
 msgstr "Generale"
 
-#: includes/admin-page.php:1465
+#: includes/admin-page.php:1678
+
 msgid "Cache"
 msgstr "Cache"
 
-#: includes/admin-page.php:1479
+#: includes/admin-page.php:1696
+
 msgid "Cache Management"
 msgstr "Gestione cache"
 
-#: includes/admin-page.php:1483 includes/admin-page.php:1506
+#: includes/admin-page.php:1700 includes/admin-page.php:1723
+
 msgid "Clear all language caches"
 msgstr "Cancella tutte le cache delle lingue"
 
-#: includes/admin-page.php:1484
+#: includes/admin-page.php:1701
+
 msgid "Clear all language caches."
 msgstr "Cancella tutte le cache delle lingue."
 
-#: includes/admin-page.php:1484
+#: includes/admin-page.php:1701
+
 msgid "Menu and slug cache are preserved to maintain URL stability."
-msgstr ""
+msgstr "La cache dei menu e degli slug viene preservata per mantenere la stabilità degli URL."
 "La cache del menu e dello slug viene preservata per mantenere la stabilità "
 "dell'URL."
 
-#: includes/admin-page.php:1501
+#: includes/admin-page.php:1718
+
 msgid ""
 "All language caches and translation transients cleared. Menu and slug cache "
 "preserved."
@@ -625,11 +912,13 @@ msgstr ""
 "Tutte le cache delle lingue e i transient delle traduzioni sono stati "
 "cancellati. Cache del menu e dello slug preservate."
 
-#: includes/admin-page.php:1512 includes/admin-page.php:1540
+#: includes/admin-page.php:1729 includes/admin-page.php:1757
+
 msgid "Clear menu cache"
 msgstr "Cancella la cache del menu"
 
-#: includes/admin-page.php:1513
+#: includes/admin-page.php:1730
+
 msgid ""
 "Clear menu caches including all menu-item translations. This will force "
 "fresh translations for all menu items. Languages and Slug map are not "
@@ -639,32 +928,38 @@ msgstr ""
 "Ciò forzerà nuove traduzioni per tutte le voci di menu. Le lingue e la mappa "
 "degli slug non sono interessate."
 
-#: includes/admin-page.php:1517 includes/admin-page.php:1551
-#: includes/admin-page.php:1899 includes/admin-page.php:1973
-#: includes/admin-page.php:1985
+#: includes/admin-page.php:1734 includes/admin-page.php:1768
+#: includes/admin-page.php:2148 includes/admin-page.php:2235
+#: includes/admin-page.php:2247
 #, fuzzy
+
 msgid "Insufficient permissions."
 msgstr "Autorizzazioni insufficienti per eseguire questa azione."
 
-#: includes/admin-page.php:1526
+#: includes/admin-page.php:1743
+
 msgid "Menu cache cleared"
 msgstr "Cache del menu cancellata"
 
-#: includes/admin-page.php:1528
+#: includes/admin-page.php:1745
+
 msgid "%d menu-item translation removed"
 msgid_plural "%d menu-item translations removed"
 msgstr[0] "%d traduzione della voce di menu rimossa"
 msgstr[1] "%d traduzioni delle voci di menu rimosse"
 
-#: includes/admin-page.php:1532
+#: includes/admin-page.php:1749
+
 msgid "and tables truncated: %s"
 msgstr "e tabelle troncate: %s"
 
-#: includes/admin-page.php:1546 includes/admin-page.php:1568
+#: includes/admin-page.php:1763 includes/admin-page.php:1785
+
 msgid "Clear slug cache"
 msgstr "Cancella la cache degli slug"
 
-#: includes/admin-page.php:1547
+#: includes/admin-page.php:1764
+
 msgid ""
 "Clear the slug table used for translated URLs. Language and menu caches are "
 "not affected."
@@ -672,206 +967,307 @@ msgstr ""
 "Cancella la tabella degli slug utilizzata per gli URL tradotti. Le cache "
 "della lingua e del menu non sono interessate."
 
-#: includes/admin-page.php:1558
+#: includes/admin-page.php:1775
+
 msgid "Slug cache cleared. Rows removed: %d."
 msgstr "Cache degli slug cancellata. Righe rimosse: %d."
 
-#: includes/admin-page.php:1561
+#: includes/admin-page.php:1778
+
 msgid "Failed to clear slug cache: %s."
 msgstr "Impossibile cancellare la cache degli slug: %s."
 
-#: includes/admin-page.php:1574
+#: includes/admin-page.php:1791
+
 msgid "Clear cache per language"
 msgstr "Cancella la cache per lingua"
 
-#: includes/admin-page.php:1587
+#: includes/admin-page.php:1807
+
 msgid "Cache overview per language"
 msgstr "Panoramica della cache per lingua"
 
-#: includes/admin-page.php:1624
+#: includes/admin-page.php:1844
+
 msgid "Cache directory:"
 msgstr "Directory della cache:"
 
-#: includes/admin-page.php:1638
+#: includes/admin-page.php:1858
+
 msgid "Unknown"
 msgstr "Sconosciuto"
 
-#: includes/admin-page.php:1643
+#: includes/admin-page.php:1863
+
 msgid "Total number of files:"
 msgstr "Numero totale di file:"
 
-#: includes/admin-page.php:1646
+#: includes/admin-page.php:1866
+
 msgid "Total size:"
 msgstr "Dimensione totale:"
 
-#: includes/admin-page.php:1649
+#: includes/admin-page.php:1869
+
 msgid "Expired files:"
 msgstr "File scaduti:"
 
-#: includes/admin-page.php:1652
+#: includes/admin-page.php:1872
+
 msgid "Last update:"
 msgstr "Ultimo aggiornamento:"
 
-#: includes/admin-page.php:1659
+#: includes/admin-page.php:1880
+
 msgid "Language"
 msgstr "Lingua"
 
-#: includes/admin-page.php:1660
+#: includes/admin-page.php:1884
+
 msgid "Cache files"
 msgstr "File di cache"
 
-#: includes/admin-page.php:1661
+#: includes/admin-page.php:1888
+
 msgid "Size"
 msgstr "Dimensione"
 
-#: includes/admin-page.php:1662
+#: includes/admin-page.php:1892
+
 msgid "Expired"
 msgstr "Scaduto"
 
-#: includes/admin-page.php:1663
+#: includes/admin-page.php:1896
+
 msgid "Last update"
 msgstr "Ultimo aggiornamento"
 
-#: includes/admin-page.php:1664
+#: includes/admin-page.php:1899
+
 msgid "Action"
 msgstr "Azione"
 
-#: includes/admin-page.php:1682 includes/admin-page.php:1701
+#: includes/admin-page.php:1926 includes/admin-page.php:1950
+
 msgid "files"
 msgstr "file"
 
-#: includes/admin-page.php:1689
+#: includes/admin-page.php:1933
+
 msgid "Cache clear"
 msgstr "Cancella cache"
 
-#: includes/admin-page.php:1692
+#: includes/admin-page.php:1936
+
 msgid "No cache files"
 msgstr "Nessun file di cache"
 
-#: includes/admin-page.php:1700
+#: includes/admin-page.php:1949
+
 msgid "Total"
 msgstr "Totale"
 
-#: includes/admin-page.php:1715
-msgid "Translated Pages Overview"
-msgstr ""
+#: includes/admin-page.php:1964
 
-#: includes/admin-page.php:1716
+msgid "Translated Pages Overview"
+msgstr "Panoramica pagine tradotte"
+
+#: includes/admin-page.php:1965
+
 msgid ""
 "Manage cache per page or blog. Delete cache to retranslate, or warm cache to "
 "proactively generate translations."
 msgstr ""
 
-#: includes/admin-page.php:1724
+#: includes/admin-page.php:1973
+
 msgid "Cache metadata rescanned: %d cache records added or updated."
-msgstr ""
+msgstr "Metadati cache riscansionati: %d record cache aggiunti o aggiornati."
 
-#: includes/admin-page.php:1728
+#: includes/admin-page.php:1977
+
 msgid "No cache records added. Possible causes:"
-msgstr ""
+msgstr "Nessun record cache aggiunto. Possibili cause:"
 
-#: includes/admin-page.php:1730
+#: includes/admin-page.php:1979
+
 msgid "Cache files do not exist at the expected location"
-msgstr ""
+msgstr "I file cache non esistono nella posizione prevista"
 
-#: includes/admin-page.php:1731
+#: includes/admin-page.php:1980
+
 msgid "Cache files have a different format than expected"
-msgstr ""
+msgstr "I file cache hanno un formato diverso da quello previsto"
 
-#: includes/admin-page.php:1732
+#: includes/admin-page.php:1981
+
 msgid "Multi-domain caching configuration does not match"
-msgstr ""
+msgstr "La configurazione della cache multi-dominio non corrisponde"
 
-#: includes/admin-page.php:1745
+#: includes/admin-page.php:1994
+
 msgid "Cache metadata initialized: %d existing cache records added."
-msgstr ""
+msgstr "Metadati cache inizializzati: aggiunti %d record cache esistenti."
 
-#: includes/admin-page.php:1776
+#: includes/admin-page.php:2025
+
 msgid ""
 "Cache directory found but no metadata. Click \"Scan Cache Files\" to "
 "generate metadata."
 msgstr ""
 
-#: includes/admin-page.php:1787
+#: includes/admin-page.php:2036
 #, fuzzy
+
 msgid "Scan Cache Files"
 msgstr "File di cache"
 
-#: includes/admin-page.php:1790
+#: includes/admin-page.php:2039
+
 msgid "Scan the filesystem for cache files and add metadata to the database."
-msgstr ""
+msgstr "Scansiona il filesystem per i file cache e aggiungi i metadati al database."
 
-#: includes/admin-page.php:1798
+#: includes/admin-page.php:2047
+
 msgid "Type"
-msgstr ""
+msgstr "Tipo"
 
-#: includes/admin-page.php:1799
+#: includes/admin-page.php:2048
+
 msgid "Title"
-msgstr ""
+msgstr "Titolo"
 
-#: includes/admin-page.php:1800
+#: includes/admin-page.php:2049
+
 msgid "URL"
-msgstr ""
+msgstr "URL"
 
-#: includes/admin-page.php:1801
+#: includes/admin-page.php:2050
+
 msgid "Status"
-msgstr ""
+msgstr "Stato"
 
-#: includes/admin-page.php:1802
+#: includes/admin-page.php:2051
 #, fuzzy
+
 msgid "Actions"
 msgstr "Azione"
 
-#: includes/admin-page.php:1809
+#: includes/admin-page.php:2058
+
 msgid "No published pages or posts found."
-msgstr ""
+msgstr "Nessuna pagina o articolo pubblicato trovato."
 
-#: includes/admin-page.php:1852
+#: includes/admin-page.php:2101
+
 msgid "Delete cache for this page in all languages"
-msgstr ""
+msgstr "Elimina cache per questa pagina in tutte le lingue"
 
-#: includes/admin-page.php:1854
+#: includes/admin-page.php:2103
+
 msgid "Delete Cache"
-msgstr ""
+msgstr "Elimina cache"
 
-#: includes/admin-page.php:1862
+#: includes/admin-page.php:2111
+
 msgid "Generate translations for all enabled languages"
-msgstr ""
+msgstr "Genera traduzioni per tutte le lingue abilitate"
 
-#: includes/admin-page.php:1864
+#: includes/admin-page.php:2113
 #, fuzzy
+
 msgid "Warm Cache"
 msgstr "Cache"
 
-#: includes/admin-page.php:1880
+#: includes/admin-page.php:2129
+
 msgid "&laquo; Previous"
 msgstr "&laquo; Precedente"
 
-#: includes/admin-page.php:1881
+#: includes/admin-page.php:2130
+
 msgid "Next &raquo;"
 msgstr "Successivo &raquo;"
 
-#: includes/admin-page.php:1931
+#: includes/admin-page.php:2180
+
 msgid "API Provider, API Key or Custom API URL is missing or invalid."
-msgstr ""
+msgstr "Provider API, chiave API o URL API personalizzata mancante o non valida."
 "Il fornitore API, la chiave API o l'URL API personalizzato sono mancanti o "
 "non validi."
 
-#: includes/admin-page.php:1950
+#: includes/admin-page.php:2210
+
 msgid "API error:"
 msgstr "Errore API:"
 
-#: includes/admin-page.php:1954
+#: includes/admin-page.php:2216
+
 msgid "Invalid response from API"
 msgstr "Risposta non valida dall'API"
 
-#: includes/admin-page.php:2059
+#: includes/admin-page.php:2339
+
 msgid "API and model are working. API settings have been saved."
 msgstr "L'API e il modello funzionano. Le impostazioni API sono state salvate."
 
-#: includes/admin-page.php:2062
+#: includes/admin-page.php:2342
+
 msgid "API validation failed:"
 msgstr "Convalida API fallita:"
+
+#: includes/class-ai-cache-meta.php:401 includes/class-ai-cache-meta.php:567
+
+msgid "Homepage"
+msgstr "Homepage"
+
+#: includes/class-ai-cache-meta.php:569
+
+msgid "Post %d"
+msgstr "Articolo %d"
+
+#: includes/class-ai-cache-meta.php:631
+
+msgid "Unknown (not in DB)"
+msgstr "Sconosciuto (non nel DB)"
+
+#: includes/class-ai-cache-meta.php:636
+
+msgid "Homepage (not in DB)"
+msgstr "Homepage (non nel DB)"
+
+#: includes/class-ai-cache-meta.php:645
+
+msgid "not in DB"
+msgstr "non nel DB"
+
+#: includes/class-ai-cache-meta.php:667
+
+msgid "... and %d more files not in database (use rescan to add them)"
+msgstr "... e altri %d file non nel database (usa rescansione per aggiungerli)"
+
+#~ msgid "Bottom Left"
+#~ msgstr "In basso a sinistra"
+
+#~ msgid "Bottom Right"
+#~ msgstr "In basso a destra"
+
+#~ msgid "Top Left"
+#~ msgstr "In alto a sinistra"
+
+#~ msgid "Top Right"
+#~ msgstr "In alto a destra"
+
+#, fuzzy
+#~ msgid ""
+#~ "Choose where the language switcher appears on your website. The menu will "
+#~ "open upward for bottom positions and downward for top positions."
+#~ msgstr ""
+#~ "Scegli dove appare il selettore di lingua sul tuo sito web. Le posizioni "
+#~ "del menu di navigazione aggiungeranno il selettore al menu di navigazione "
+#~ "principale. Le posizioni fluttuanti mostreranno un selettore fisso "
+#~ "nell'angolo. Il menu si aprirà verso l'alto per le posizioni in basso e "
+#~ "verso il basso per le posizioni in alto."
 
 #, fuzzy
 #~ msgid "Acties"
@@ -888,38 +1284,6 @@ msgstr "Convalida API fallita:"
 
 #~ msgid "Please set your permalinks to \"Post name\" or another structure."
 #~ msgstr "Imposta i tuoi permalink su \"Nome articolo\" o un'altra struttura."
-
-#: includes/admin-page.php:722
-msgid "Enter API Key first..."
-msgstr "Inserisci prima la chiave API..."
-
-#: includes/admin-page.php:722
-msgid "Enter API Key first to load models."
-msgstr "Inserisci prima la chiave API per caricare i modelli."
-
-#: includes/admin-page.php:722
-msgid "Loading models..."
-msgstr "Caricamento modelli..."
-
-#: includes/admin-page.php:722
-msgid "Models loaded successfully."
-msgstr "Modelli caricati con successo."
-
-#: includes/admin-page.php:722
-msgid "No models found"
-msgstr "Nessun modello trovato"
-
-#: includes/admin-page.php:722
-msgid "Invalid key"
-msgstr "Chiave non valida"
-
-#: includes/admin-page.php:722
-msgid "Error loading models"
-msgstr "Errore nel caricamento dei modelli"
-
-#: includes/admin-page.php:722
-msgid "Select API Provider first..."
-msgstr "Seleziona prima un fornitore API..."
 
 #~ msgid "Start of Navigation Menu"
 #~ msgstr "Inizio del menu di navigazione"

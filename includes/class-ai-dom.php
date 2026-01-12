@@ -44,8 +44,8 @@ final class AI_DOM
         $counter = 0;
         $visitedTextNodes = new \SplObjectStorage();
 
-        $exclusions = ['script','style','code','pre','noscript'];
-        $translatableTags = ['title','p','h1','h2','h3','h4','h5','h6','li','td','th','caption','figcaption','span','label','a','button','img','input','textarea','select'];
+        $exclusions = ['script','style','code','pre','noscript','img'];
+        $translatableTags = ['title','p','h1','h2','h3','h4','h5','h6','li','td','th','caption','figcaption','span','label','a','button','input','textarea','select'];
         $attrNames = ['title','alt','placeholder','aria-label','value'];
 
         $xpath = new \DOMXPath($doc);
@@ -499,8 +499,13 @@ final class AI_DOM
                 if (strpos($classAttr, ' wp-admin ') !== false || strpos($classAttr, ' no-translate ') !== false || strpos($classAttr, ' notranslate ') !== false) {
                     return true;
                 }
+                // Skip ACF fields that should not be translated individually (only as part of page content)
+                if (strpos($classAttr, ' acf-field ') !== false || strpos($classAttr, ' acf- ') !== false) {
+                    return true;
+                }
             }
         }
+
         return false;
     }
 
