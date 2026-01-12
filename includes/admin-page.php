@@ -16,6 +16,44 @@ if (! class_exists('AI_Translate_Core')) {
 }
 
 /**
+ * Safe sprintf function that handles corrupted translations with wrong number of placeholders
+ *
+ * @param string $format The format string
+ * @param mixed ...$args The arguments to format
+ * @return string The formatted string
+ */
+function safe_sprintf($format, ...$args) {
+    // Count %s placeholders in the format string
+    $placeholder_count = substr_count($format, '%s');
+
+    // If no placeholders, return the format as-is
+    if ($placeholder_count === 0) {
+        return $format;
+    }
+
+    // If correct number of placeholders, use normal sprintf
+    if ($placeholder_count === count($args)) {
+        return sprintf($format, ...$args);
+    }
+
+    // Handle corrupted translations
+    if ($placeholder_count < count($args)) {
+        // Too many arguments - use only the needed ones
+        $used_args = array_slice($args, 0, $placeholder_count);
+        return sprintf($format, ...$used_args);
+    } else {
+        // Too few arguments - replace placeholders with available arguments
+        $result = $format;
+        foreach ($args as $arg) {
+            $result = preg_replace('/%s/', $arg, $result, 1);
+        }
+        // Remove any remaining %s placeholders
+        $result = str_replace('%s', '', $result);
+        return $result;
+    }
+}
+
+/**
  * Handle AJAX request to clear cache for a specific language.
  *
  * Security: requires manage_options capability and a valid nonce.
@@ -49,7 +87,7 @@ function ajax_clear_cache_language()
     try {
         $count = $translator->clear_cache_for_language($lang_code);
         wp_send_json_success([
-            'message' => sprintf(__('Cache for language "%s" cleared. %d files removed.', 'ai-translate'), $lang_code, $count),
+            'message' => safe_sprintf(__('Cache for language "%s" cleared. %d files removed.', 'ai-translate'), $lang_code, $count),
             'count' => $count
         ]);
     } catch (\Exception $e) {
@@ -130,7 +168,7 @@ function ajax_delete_post_cache()
             
             // Security: Ensure file is within allowed cache directory (prevent path traversal)
             if (strpos($cache_file, $allowed_base) !== 0) {
-                $errors[] = sprintf(__('Invalid file path: %s', 'ai-translate'), basename($cache_file));
+                $errors[] = safe_sprintf(__('Invalid file path: %s', 'ai-translate'), basename($cache_file));
                 continue;
             }
             
@@ -141,14 +179,14 @@ function ajax_delete_post_cache()
             
             // Security: Additional check - file must have .html extension
             if (substr($cache_file, -5) !== '.html') {
-                $errors[] = sprintf(__('Invalid file type: %s', 'ai-translate'), basename($cache_file));
+                $errors[] = safe_sprintf(__('Invalid file type: %s', 'ai-translate'), basename($cache_file));
                 continue;
             }
             
             if (@unlink($cache_file)) {
                 $deleted++;
             } else {
-                $errors[] = sprintf(__('Could not delete file: %s', 'ai-translate'), basename($cache_file));
+                $errors[] = safe_sprintf(__('Could not delete file: %s', 'ai-translate'), basename($cache_file));
             }
         }
     }
@@ -159,7 +197,7 @@ function ajax_delete_post_cache()
     // Clear any transients
     delete_transient('ai_translate_cache_table_data');
     
-    $message = sprintf(__('Cache deleted for %d languages', 'ai-translate'), $deleted);
+    $message = safe_sprintf(__('Cache deleted for %d languages', 'ai-translate'), $deleted);
     if (!empty($errors)) {
         $message .= '. ' . __('Warnings:', 'ai-translate') . ' ' . implode(', ', $errors);
     }
@@ -396,10 +434,10 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                 AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
                 $results[$lang_code] = array('success' => true, 'error' => '');
             } else {
-                $results[$lang_code] = array('success' => false, 'error' => sprintf(__('HTTP %d (redirect)', 'ai-translate'), $http_code));
+                $results[$lang_code] = array('success' => false, 'error' => safe_sprintf(__('HTTP %d (redirect)', 'ai-translate'), $http_code));
             }
         } else {
-            $results[$lang_code] = array('success' => false, 'error' => sprintf(__('HTTP %d', 'ai-translate'), $http_code));
+            $results[$lang_code] = array('success' => false, 'error' => safe_sprintf(__('HTTP %d', 'ai-translate'), $http_code));
         }
     }
     
@@ -508,7 +546,7 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
         }
     }
     
-    return array('success' => false, 'error' => sprintf(__('HTTP %d', 'ai-translate'), $response_code));
+    return array('success' => false, 'error' => safe_sprintf(__('HTTP %d', 'ai-translate'), $response_code));
 }
 
 /**
@@ -1192,10 +1230,24 @@ add_action('admin_init', function () {
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
             echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://your-custom-api.com/v1/" class="regular-text">';
-            echo '<p class="description">' . sprintf(
-                esc_html__('Enter the endpoint URL for your custom API provider. Example: %s', 'ai-translate'),
-                '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>'
-            ) . '</p>';
+            $description_text = esc_html__('Enter the endpoint URL for your custom API provider. Example: %s', 'ai-translate');
+            $url_link = '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>';
+
+            // Count %s placeholders in the translated string to prevent sprintf errors
+            $placeholder_count = substr_count($description_text, '%s');
+
+    if ($placeholder_count === 1) {
+        $description_html = safe_sprintf($description_text, $url_link);
+    } elseif ($placeholder_count === 0) {
+        $description_html = $description_text;
+    } else {
+        // Fallback for corrupted translations with too many placeholders
+        $description_html = str_replace('%s', $url_link, $description_text);
+        // Remove extra %s placeholders that couldn't be replaced
+        $description_html = preg_replace('/%s/', '', $description_html);
+    }
+
+            echo '<p class="description">' . $description_html . '</p>';
             echo '</div>';
 
         },

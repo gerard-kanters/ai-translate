@@ -718,7 +718,7 @@ msgstr "Clave de API"
 
 #: includes/admin-page.php:1196
 msgid "Enter the endpoint URL for your custom API provider. Example: %s"
-msgstr ""
+msgstr "Introduce la URL del endpoint para tu proveedor de API personalizado. Ejemplo: %s"
 
 #: includes/admin-page.php:1190
 msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."

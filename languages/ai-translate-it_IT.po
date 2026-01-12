@@ -461,8 +461,6 @@ msgstr ""
 
 msgid "Enter the endpoint URL for your custom API provider. Example: %s"
 msgstr "Inserisci l'URL dell'endpoint per il tuo provider API personalizzato. Esempio: %s"
-"Inserisci l'URL dell'endpoint per il tuo fornitore API personalizzato. "
-"Esempio: %s"
 
 #: includes/admin-page.php:1207
 
