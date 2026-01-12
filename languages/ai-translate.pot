@@ -807,7 +807,7 @@ msgstr ""
 msgid "Cache directory found but no metadata. Click \"Scan Cache Files\" to generate metadata."
 msgstr ""
 
-#: includes/admin-page.php:2036
+#: includes/admin-page.php:2089
 msgid "Scan Cache Files"
 msgstr ""
 
@@ -906,4 +906,8 @@ msgstr ""
 
 #: includes/class-ai-cache-meta.php:667
 msgid "... and %d more files not in database (use rescan to add them)"
+msgstr ""
+
+#: includes/admin-page.php:899
+msgid "Request Key"
 msgstr ""

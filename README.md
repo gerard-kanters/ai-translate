@@ -187,9 +187,10 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
-### 2.2.0
+### 2.2.1
 
 - Added cache warming for pages to admin.
+- Admin user language preferred over site language for admin page translation.
 - Support for Wordpress 6.9
 - Added NAV menu item for language switcher.
 - Issue with language parameter on home page fixed.

@@ -1101,7 +1101,7 @@ msgstr ""
 "Cache directory gevonden maar geen metadata. Klik op \"Scan Cache "
 "Bestanden\" om de metadata te genereren."
 
-#: includes/admin-page.php:2036
+#: includes/admin-page.php:2089
 
 msgid "Scan Cache Files"
 msgstr "Scan Cache Bestanden"
@@ -1372,3 +1372,7 @@ msgstr "... en %d meer bestanden niet in database (gebruik herscannen om ze toe 
 
 #~ msgid "Select all visible pages"
 #~ msgstr "Selecteer alle zichtbare pagina's"
+
+#: includes/admin-page.php:899
+msgid "Request Key"
+msgstr "Sleutel aanvragen"

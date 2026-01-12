@@ -1030,6 +1030,7 @@ msgid ""
 "Manage cache per page or blog. Delete cache to retranslate, or warm cache to "
 "proactively generate translations."
 msgstr ""
+"按页面或博客管理缓存。删除缓存以重新翻译，或预热缓存以主动生成翻译。"
 
 #: includes/admin-page.php:1973
 
@@ -1067,12 +1068,12 @@ msgid ""
 "Cache directory found but no metadata. Click \"Scan Cache Files\" to "
 "generate metadata."
 msgstr ""
+"找到缓存目录但没有元数据。点击\"扫描缓存文件\"来生成元数据。"
 
-#: includes/admin-page.php:2036
-#, fuzzy
+#: includes/admin-page.php:2089
 
 msgid "Scan Cache Files"
-msgstr "缓存文件"
+msgstr "扫描缓存文件"
 
 #: includes/admin-page.php:2039
 
@@ -1126,10 +1127,8 @@ msgid "Generate translations for all enabled languages"
 msgstr "为所有启用的语言生成翻译"
 
 #: includes/admin-page.php:2113
-#, fuzzy
-
 msgid "Warm Cache"
-msgstr "缓存"
+msgstr "预热缓存"
 
 #: includes/admin-page.php:2129
 
@@ -1252,3 +1251,7 @@ msgstr "... 以及数据库中没有的另外%d个文件（使用重新扫描来
 #~ msgstr ""
 #~ "启用后，归档页面（类别、标签、日期归档等）将不会被翻译。单个页面（文章、页"
 #~ "面、自定义文章类型）仍将被翻译。"
+
+#: includes/admin-page.php:899
+msgid "Request Key"
+msgstr "请求密钥"

@@ -239,9 +239,9 @@ msgstr "Tipo"
 msgid "Scan the filesystem for cache files and add metadata to the database."
 msgstr ""
 
-#: includes/admin-page.php:2036
+#: includes/admin-page.php:2089
 msgid "Scan Cache Files"
-msgstr ""
+msgstr "Escanear archivos de caché"
 
 #: includes/admin-page.php:2025
 msgid "Cache directory found but no metadata. Click \"Scan Cache Files\" to generate metadata."

@@ -121,7 +121,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (selectedProviderKey && selectedProviderKey !== '') {
                 var providerInfo = apiProvidersData[selectedProviderKey];
                 if (providerInfo && providerInfo.key_link && providerInfo.key_link !== '') {
-                    apiKeyRequestLinkSpan.innerHTML = '<a href="' + providerInfo.key_link + '" target="_blank">Request Key</a>';
+                    var requestKeyText = (aiTranslateAdmin && aiTranslateAdmin.strings && aiTranslateAdmin.strings.requestKey) ? aiTranslateAdmin.strings.requestKey : 'Request Key';
+                    apiKeyRequestLinkSpan.innerHTML = '<a href="' + providerInfo.key_link + '" target="_blank">' + requestKeyText + '</a>';
                 } else {
                     apiKeyRequestLinkSpan.innerHTML = '';
                 }

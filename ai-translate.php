@@ -36,12 +36,18 @@ if (!defined('ABSPATH')) {
  *
  * @return void
  */
-function ai_translate_load_textdomain()
+function ai_translate_load_textdomain($force_user_locale = false)
 {
-    $locale = get_locale();
+    // If forced to use user locale (for admin)
+    if ($force_user_locale && is_user_logged_in()) {
+        $locale = get_user_locale();
+    } else {
+        $locale = get_locale();
+    }
+
     $plugin_dir = plugin_dir_path(__FILE__);
     $lang_dir = $plugin_dir . 'languages/';
-    
+
     // Build fallback chain: exact -> base -> language code
     $fallback_locales = array($locale);
     
@@ -67,6 +73,10 @@ function ai_translate_load_textdomain()
     foreach ($fallback_locales as $try_locale) {
         $mofile = $lang_dir . 'ai-translate-' . $try_locale . '.mo';
         if (file_exists($mofile)) {
+            // Unload existing textdomain first if reloading
+            if ($force_user_locale && is_textdomain_loaded('ai-translate')) {
+                unload_textdomain('ai-translate');
+            }
             load_textdomain('ai-translate', $mofile);
             if (is_textdomain_loaded('ai-translate')) {
                 return;
@@ -82,7 +92,21 @@ function ai_translate_load_textdomain()
     );
 }
 
-add_action('plugins_loaded', 'ai_translate_load_textdomain', 1);
+// Load textdomain for frontend with site locale
+add_action('plugins_loaded', function() {
+    ai_translate_load_textdomain(); // Load with site locale for frontend
+}, 1);
+
+// For admin pages, load textdomain with user locale (this overrides the frontend load)
+add_action('admin_init', function() {
+    if (is_user_logged_in()) {
+        $user_locale = get_user_locale();
+        $site_locale = get_locale();
+
+        // Always load user locale for admin, even if same as site locale
+        ai_translate_load_textdomain(true); // Force load with user locale
+    }
+}, 1); // High priority to override any other loads
 
 
 // Include core/admin and runtime classes.

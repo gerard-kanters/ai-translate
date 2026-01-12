@@ -1101,8 +1101,7 @@ msgid ""
 "generate metadata."
 msgstr ""
 
-#: includes/admin-page.php:2036
-#, fuzzy
+#: includes/admin-page.php:2089
 
 msgid "Scan Cache Files"
 msgstr "キャッシュファイル"

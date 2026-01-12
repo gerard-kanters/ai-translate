@@ -896,6 +896,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
             'unknownError' => __('Unknown error', 'ai-translate'),
             'saveSettingsFirst' => __('Save your settings first before opening the menu editor.', 'ai-translate'),
+            'requestKey' => __('Request Key', 'ai-translate'),
         ),
     ));
     
@@ -1656,6 +1657,47 @@ add_action('admin_init', function () {
  */
 function render_admin_page()
 {
+    // Load textdomain with user locale for admin pages
+    if (is_user_logged_in()) {
+        $user_locale = get_user_locale();
+        $plugin_dir = plugin_dir_path(dirname(__FILE__));
+        $lang_dir = $plugin_dir . 'languages/';
+
+        // Build fallback chain: exact -> base -> language code
+        $fallback_locales = array($user_locale);
+
+        // If locale has underscores, extract base locale (e.g., nl_NL_formal -> nl_NL)
+        if (strpos($user_locale, '_') !== false) {
+            $parts = explode('_', $user_locale);
+            if (count($parts) >= 2) {
+                $base_locale = $parts[0] . '_' . $parts[1];
+                if (!in_array($base_locale, $fallback_locales, true)) {
+                    $fallback_locales[] = $base_locale;
+                }
+            }
+            // Also try language code only (e.g., nl_NL -> nl)
+            if (count($parts) >= 1) {
+                $lang_only = $parts[0];
+                if (!in_array($lang_only, $fallback_locales, true)) {
+                    $fallback_locales[] = $lang_only;
+                }
+            }
+        }
+
+        // Unload existing textdomain first
+        if (is_textdomain_loaded('ai-translate')) {
+            unload_textdomain('ai-translate');
+        }
+
+        // Try each locale in fallback chain
+        foreach ($fallback_locales as $try_locale) {
+            $mofile = $lang_dir . 'ai-translate-' . $try_locale . '.mo';
+            if (file_exists($mofile)) {
+                load_textdomain('ai-translate', $mofile);
+                break; // Stop at first successful load
+            }
+        }
+    }
     $cache_language_message = '';
     if (
         isset($_POST['clear_cache_language']) &&

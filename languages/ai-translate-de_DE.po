@@ -239,7 +239,7 @@ msgstr "Typ"
 msgid "Scan the filesystem for cache files and add metadata to the database."
 msgstr "Dateisystem nach Cache-Dateien durchsuchen und Metadaten zur Datenbank hinzufügen."
 
-#: includes/admin-page.php:2036
+#: includes/admin-page.php:2089
 msgid "Scan Cache Files"
 msgstr "Cache-Dateien"
 
