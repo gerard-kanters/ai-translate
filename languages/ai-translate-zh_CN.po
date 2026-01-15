@@ -19,7 +19,7 @@ msgstr ""
 #: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
 
 msgid "AI Translate"
-msgstr "AI Translate"
+msgstr "人工智能翻译"
 
 #. Description of the plugin
 #: ai-translate.php
@@ -31,7 +31,7 @@ msgstr "基于 AI 的翻译插件。只需点击几下即可添加 35 种语言�
 #: ai-translate.php
 
 msgid "Netcare"
-msgstr "Netcare"
+msgstr "NetCare"
 
 #. Author URI of the plugin
 #: ai-translate.php
@@ -1194,63 +1194,6 @@ msgstr "不在数据库中"
 
 msgid "... and %d more files not in database (use rescan to add them)"
 msgstr "... 以及数据库中没有的另外%d个文件（使用重新扫描来添加它们）"
-
-#~ msgid "Bottom Left"
-#~ msgstr "左下角"
-
-#~ msgid "Bottom Right"
-#~ msgstr "右下角"
-
-#~ msgid "Top Left"
-#~ msgstr "左上角"
-
-#~ msgid "Top Right"
-#~ msgstr "右上角"
-
-#, fuzzy
-#~ msgid ""
-#~ "Choose where the language switcher appears on your website. The menu will "
-#~ "open upward for bottom positions and downward for top positions."
-#~ msgstr ""
-#~ "选择语言切换器在网站上的显示位置。导航菜单位置会将切换器添加到主导航菜单"
-#~ "中。浮动位置将在角落显示固定切换器。对于底部位置，菜单将向上打开；对于顶部"
-#~ "位置，菜单将向下打开。"
-
-#, fuzzy
-#~ msgid "Acties"
-#~ msgstr "操作"
-
-#~ msgid "API Provider is missing."
-#~ msgstr "缺少 API 提供商。"
-
-#~ msgid "Settings"
-#~ msgstr "设置"
-
-#~ msgid "AI Translate Warning:"
-#~ msgstr "AI Translate 警告："
-
-#~ msgid "Please set your permalinks to \"Post name\" or another structure."
-#~ msgstr "请将您的固定链接设置为“文章名称”或其他结构。"
-
-#~ msgid "Start of Navigation Menu"
-#~ msgstr "导航菜单开始"
-
-#~ msgid "End of Navigation Menu"
-#~ msgstr "导航菜单结束"
-
-#~ msgid "Stop vertalingen"
-#~ msgstr "停止翻译"
-
-#~ msgid "Stop translation of archive pages"
-#~ msgstr "停止归档页面翻译"
-
-#~ msgid ""
-#~ "When enabled, archive pages (categories, tags, date archives, etc.) will "
-#~ "not be translated. Singular pages (posts, pages, custom post types) will "
-#~ "still be translated."
-#~ msgstr ""
-#~ "启用后，归档页面（类别、标签、日期归档等）将不会被翻译。单个页面（文章、页"
-#~ "面、自定义文章类型）仍将被翻译。"
 
 #: includes/admin-page.php:899
 msgid "Request Key"

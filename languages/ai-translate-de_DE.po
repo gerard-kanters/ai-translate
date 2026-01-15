@@ -876,3 +876,7 @@ msgstr "Netcare"
 #: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
 msgid "AI Translate"
 msgstr "AI Translate"
+
+#: includes/admin-page.php:899
+msgid "Request Key"
+msgstr "Schlüssel anfordern"
