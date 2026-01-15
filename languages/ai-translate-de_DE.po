@@ -197,7 +197,7 @@ msgstr "&laquo; Zurück"
 
 #: includes/admin-page.php:2113
 msgid "Warm Cache"
-msgstr "Cache"
+msgstr "Cache füllen"
 
 #: includes/admin-page.php:2111
 msgid "Generate translations for all enabled languages"
