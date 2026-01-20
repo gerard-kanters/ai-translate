@@ -1,0 +1,639 @@
+# Copyright (C) 2025 Netcare
+# This file is distributed under the same license as the AI Translate plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: AI Translate 2.1.7\n"
+"Report-Msgid-Bugs-To: https://netcare.nl/\n"
+"POT-Creation-Date: 2025-01-02 12:00+0000\n"
+"PO-Revision-Date: 2025-01-02 12:00+0000\n"
+"Last-Translator: Netcare <info@netcare.nl>\n"
+"Language-Team: Hindi\n"
+"Language: hi_IN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Plugin Name
+msgid "AI Translate"
+msgstr "AI Translate"
+
+msgid "Short Description"
+msgstr "संक्षिप्त विवरण"
+
+#. Short Description
+msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
+msgstr "35 भाषाओं में स्वचालित वेबसाइट अनुवाद के लिए AI-संचालित प्लगइन। ट्रैफ़िक बढ़ाता है और आपके SEO में सुधार करता है।"
+
+#. Description
+msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
+msgstr "AI Translate आपकी WordPress वेबसाइट को स्वचालित रूप से 35+ भाषाओं में उपलब्ध कराता है। मैनुअल कार्य के बिना अपनी पहुंच बढ़ाएं और अपने SEO में सुधार करें।"
+
+msgid "AI Translate automatically translates your entire website using advanced artificial intelligence. The plugin translates pages, posts, titles, menus, and more in real-time or via smart caching."
+msgstr "AI Translate उन्नत कृत्रिम बुद्धिमत्ता का उपयोग करके आपकी पूरी वेबसाइट का स्वचालित रूप से अनुवाद करता है। प्लगइन पृष्ठों, पोस्ट, शीर्षक, मेनू और अधिक का वास्तविक समय में या स्मार्ट कैशिंग के माध्यम से अनुवाद करता है।"
+
+msgid "What makes AI Translate unique?"
+msgstr "AI Translate को क्या विशिष्ट बनाता है?"
+
+msgid "<strong>🎯 Smart AI Analysis</strong>\nThe AI first analyzes your website to understand what you do and how you communicate. This ensures translations are always tailored to your brand, terminology, and tone of voice."
+msgstr "<strong>🎯 स्मार्ट AI विश्लेषण</strong>\nAI पहले आपकी वेबसाइट का विश्लेषण करता है ताकि यह समझ सके कि आप क्या करते हैं और आप कैसे संवाद करते हैं। यह सुनिश्चित करता है कि अनुवाद हमेशा आपके ब्रांड, शब्दावली और स्वर के अनुरूप हों।"
+
+msgid "<strong>⚡ Intelligent Caching</strong>\nWith intelligent caching, your site runs fast, even with many translations. Translations are automatically updated when you change original content, without extra API costs."
+msgstr "<strong>⚡ बुद्धिमान कैशिंग</strong>\nबुद्धिमान कैशिंग के साथ, आपकी साइट तेज़ी से चलती है, यहां तक कि कई अनुवादों के साथ भी। जब आप मूल सामग्री बदलते हैं, तो अनुवाद स्वचालित रूप से अपडेट हो जाते हैं, बिना अतिरिक्त API लागत के।"
+
+msgid "<strong>🌍 SEO-Friendly</strong>\nAutomatic hreflang tags, translated URL slugs, and proper indexing ensure search engines can properly index all language versions of your site."
+msgstr "<strong>🌍 SEO-अनुकूल</strong>\nस्वचालित hreflang टैग, अनुवादित URL स्लग, और उचित अनुक्रमण सुनिश्चित करते हैं कि खोज इंजन आपकी साइट के सभी भाषा संस्करणों को ठीक से अनुक्रमित कर सकें।"
+
+msgid "Features"
+msgstr "सुविधाएं"
+
+msgid "<strong>🌐 Automatic Translation</strong> - Pages, posts, and custom post types are automatically translated"
+msgstr "<strong>🌐 स्वचालित अनुवाद</strong> - पृष्ठ, पोस्ट और कस्टम पोस्ट प्रकार स्वचालित रूप से अनुवादित होते हैं"
+
+msgid "<strong>✨ Smart AI</strong> - Generates a summary of your site for context-aware translations."
+msgstr "<strong>✨ स्मार्ट AI</strong> - संदर्भ-जागरूक अनुवादों के लिए आपकी साइट का सारांश उत्पन्न करता है।"
+
+msgid "<strong>🌍 35+ Languages</strong> - Support for all major world languages and much more."
+msgstr "<strong>🌍 35+ भाषाएं</strong> - सभी प्रमुख विश्व भाषाओं और बहुत अधिक के लिए समर्थन।"
+
+msgid "<strong>⚡ Fast Caching</strong> - Intelligent cache for better performance and lower costs."
+msgstr "<strong>⚡ तेज़ कैशिंग</strong> - बेहतर प्रदर्शन और कम लागत के लिए बुद्धिमान कैश।"
+
+msgid "<strong>🔄 Automatic Updates</strong> - Translations are automatically updated when content changes."
+msgstr "<strong>🔄 स्वचालित अपडेट</strong> - सामग्री बदलने पर अनुवाद स्वचालित रूप से अपडेट हो जाते हैं।"
+
+msgid "<strong>🍪 Remembers Preferences</strong> - Saves each visitor's language preference (via cookies)."
+msgstr "<strong>🍪 प्राथमिकताएं याद रखता है</strong> - प्रत्येक आगंतुक की भाषा प्राथमिकता सहेजता है (कुकीज़ के माध्यम से)।"
+
+msgid "<strong>🎨 Easy to Use</strong> - Simple language switcher in the left corner of your website."
+msgstr "<strong>🎨 उपयोग में आसान</strong> - आपकी वेबसाइट के बाएं कोने में सरल भाषा स्विचर।"
+
+msgid "<strong>🔧 Flexible</strong> - Choose your own AI model (OpenAI, Deepseek, or other APIs)."
+msgstr "<strong>🔧 लचीला</strong> - अपना AI मॉडल चुनें (OpenAI, Deepseek, या अन्य API)।"
+
+msgid "<strong>🔗 SEO-Friendly</strong> - Also translates URLs for better search engine optimization."
+msgstr "<strong>🔗 SEO-अनुकूल</strong> - बेहतर खोज इंजन अनुकूलन के लिए URL का भी अनुवाद करता है।"
+
+msgid "Installation"
+msgstr "स्थापना"
+
+msgid "<strong>Install the plugin</strong> - Upload to <code>/wp-content/plugins/ai-translate/</code> or install directly via the WordPress plugin screen"
+msgstr "<strong>प्लगइन स्थापित करें</strong> - <code>/wp-content/plugins/ai-translate/</code> पर अपलोड करें या WordPress प्लगइन स्क्रीन के माध्यम से सीधे स्थापित करें"
+
+msgid "<strong>Activate</strong> - Go to the 'Plugins' menu and activate AI Translate"
+msgstr "<strong>सक्रिय करें</strong> - 'Plugins' मेनू पर जाएं और AI Translate को सक्रिय करें"
+
+msgid "<strong>Configure</strong> - Go to 'Admin &gt; AI Translate' to configure settings"
+msgstr "<strong>कॉन्फ़िगर करें</strong> - सेटिंग्स कॉन्फ़िगर करने के लिए 'Admin &gt; AI Translate' पर जाएं"
+
+msgid "<strong>Add API key</strong> - Add your API key and select which languages you want to support"
+msgstr "<strong>API कुंजी जोड़ें</strong> - अपनी API कुंजी जोड़ें और चुनें कि आप किन भाषाओं का समर्थन करना चाहते हैं"
+
+msgid "<strong>Tip for best performance</strong> - Use Memcached or Redis for even faster caching (optional)"
+msgstr "<strong>सर्वोत्तम प्रदर्शन के लिए सुझाव</strong> - और भी तेज़ कैशिंग के लिए Memcached या Redis का उपयोग करें (वैकल्पिक)"
+
+msgid "Permalinks"
+msgstr "स्थायी लिंक"
+
+msgid "AI Translate requires <strong>friendly permalinks</strong> to function properly. The plugin automatically sets your permalinks to the \"Post name\" structure (<code>/%postname%/</code>) during activation if they are currently set to \"Plain\". This is necessary for the language-prefixed URLs (e.g., <code>/de/</code>, <code>/en/</code>) to work correctly."
+msgstr "AI Translate को ठीक से काम करने के लिए <strong>अनुकूल स्थायी लिंक</strong> की आवश्यकता होती है। प्लगइन सक्रियता के दौरान आपके स्थायी लिंक को स्वचालित रूप से \"Post name\" संरचना (<code>/%postname%/</code>) पर सेट करता है यदि वे वर्तमान में \"Plain\" पर सेट हैं। भाषा-उपसर्गित URL (जैसे, <code>/de/</code>, <code>/en/</code>) के लिए यह आवश्यक है ताकि वे सही तरीके से काम करें।"
+
+msgid "If you manually change permalinks to \"Plain\" after activation, you will see a warning in the WordPress admin, and the language switching will not work as expected."
+msgstr "यदि आप सक्रियता के बाद स्थायी लिंक को मैन्युअल रूप से \"Plain\" में बदलते हैं, तो आपको WordPress एडमिन में एक चेतावनी दिखाई देगी, और भाषा स्विचिंग अपेक्षित रूप से काम नहीं करेगी।"
+
+msgid "Frequently Asked Questions"
+msgstr "अक्सर पूछे जाने वाले प्रश्न"
+
+msgid "What are the costs for using AI Translate?"
+msgstr "AI Translate का उपयोग करने की लागत क्या है?"
+
+msgid "AI Translate is free to use, but you need an API key from an AI service provider like OpenAI or Deepseek. Costs depend on your usage and the provider you choose. At OpenAI, translating an average 500-word page costs approximately €0.01."
+msgstr "AI Translate उपयोग करने के लिए मुफ़्त है, लेकिन आपको OpenAI या Deepseek जैसे AI सेवा प्रदाता से API कुंजी की आवश्यकता है। लागत आपके उपयोग और आपके द्वारा चुने गए प्रदाता पर निर्भर करती है। OpenAI पर, औसत 500-शब्द पृष्ठ का अनुवाद करने की लागत लगभग €0.01 है।"
+
+msgid "Which languages are supported?"
+msgstr "कौन सी भाषाएं समर्थित हैं?"
+
+msgid "AI Translate supports 35+ languages including Dutch, English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Thai, Georgian, Swedish, Norwegian, Danish, Finnish, Polish, Czech, Greek, Romanian, and more."
+msgstr "AI Translate 35+ भाषाओं का समर्थन करता है जिसमें डच, अंग्रेजी, जर्मन, फ्रेंच, स्पेनिश, इतालवी, पुर्तगाली, रूसी, चीनी, जापानी, कोरियाई, अरबी, हिंदी, थाई, जॉर्जियाई, स्वीडिश, नॉर्वेजियन, डेनिश, फिनिश, पोलिश, चेक, ग्रीक, रोमानियाई और अधिक शामिल हैं।"
+
+msgid "How does caching work?"
+msgstr "कैशिंग कैसे काम करती है?"
+
+msgid "AI Translate uses a smart caching system that stores translations in WordPress and files. Translations are only regenerated when the original content changes. This saves API costs and improves your website speed."
+msgstr "AI Translate एक स्मार्ट कैशिंग सिस्टम का उपयोग करता है जो WordPress और फ़ाइलों में अनुवाद संग्रहीत करता है। अनुवाद केवल तभी पुनर्जीवित होते हैं जब मूल सामग्री बदलती है। यह API लागत बचाता है और आपकी वेबसाइट की गति में सुधार करता है।"
+
+msgid "Does AI Translate work with all themes?"
+msgstr "क्या AI Translate सभी थीम के साथ काम करता है?"
+
+msgid "Yes! AI Translate is designed to work with all WordPress themes. The plugin uses standard WordPress functions, so compatibility is guaranteed."
+msgstr "हाँ! AI Translate सभी WordPress थीम के साथ काम करने के लिए डिज़ाइन किया गया है। प्लगइन मानक WordPress फ़ंक्शन का उपयोग करता है, इसलिए अनुकूलता की गारंटी है।"
+
+msgid "How is my privacy protected?"
+msgstr "मेरी गोपनीयता कैसे सुरक्षित है?"
+
+msgid "AI Translate only sends website content for translation to the AI service. No personal data, IP addresses, or other privacy-sensitive information is shared. All translations are stored locally in the cache."
+msgstr "AI Translate केवल अनुवाद के लिए वेबसाइट सामग्री को AI सेवा पर भेजता है। कोई व्यक्तिगत डेटा, IP पते, या अन्य गोपनीयता-संवेदनशील जानकारी साझा नहीं की जाती है। सभी अनुवाद स्थानीय रूप से कैश में संग्रहीत होते हैं।"
+
+msgid "What happens if the AI service is unavailable?"
+msgstr "यदि AI सेवा उपलब्ध नहीं है तो क्या होता है?"
+
+msgid "If the AI service is temporarily unavailable, AI Translate displays the original content in the default language. Cached translations remain available and your website continues to work normally."
+msgstr "यदि AI सेवा अस्थायी रूप से उपलब्ध नहीं है, तो AI Translate डिफ़ॉल्ट भाषा में मूल सामग्री प्रदर्शित करता है। कैश किए गए अनुवाद उपलब्ध रहते हैं और आपकी वेबसाइट सामान्य रूप से काम करना जारी रखती है।"
+
+msgid "How can I optimize performance?"
+msgstr "मैं प्रदर्शन को कैसे अनुकूलित कर सकता हूं?"
+
+msgid "For optimal performance, we recommend:"
+msgstr "इष्टतम प्रदर्शन के लिए, हम अनुशंसा करते हैं:"
+
+msgid "Using a caching plugin like Jetpack, WP Rocket, or W3 Total Cache"
+msgstr "Jetpack, WP Rocket, या W3 Total Cache जैसे कैशिंग प्लगइन का उपयोग करना"
+
+msgid "Configuring Memcached or Redis for database caching"
+msgstr "डेटाबेस कैशिंग के लिए Memcached या Redis कॉन्फ़िगर करना"
+
+msgid "Adjusting cache duration based on how often you update content"
+msgstr "आप कितनी बार सामग्री अपडेट करते हैं, इसके आधार पर कैश अवधि समायोजित करना"
+
+msgid "Can I use AI Translate for a multilingual webshop?"
+msgstr "क्या मैं बहुभाषी वेबशॉप के लिए AI Translate का उपयोग कर सकता हूं?"
+
+msgid "Yes! AI Translate works perfectly with WooCommerce and other e-commerce plugins. Product titles, descriptions, and categories are automatically translated. Note: prices and technical specifications are not translated."
+msgstr "हाँ! AI Translate WooCommerce और अन्य ई-कॉमर्स प्लगइन के साथ पूरी तरह से काम करता है। उत्पाद शीर्षक, विवरण और श्रेणियां स्वचालित रूप से अनुवादित होती हैं। नोट: मूल्य और तकनीकी विनिर्देश अनुवादित नहीं होते हैं।"
+
+msgid "How often are translations updated?"
+msgstr "अनुवाद कितनी बार अपडेट होते हैं?"
+
+msgid "Translations are only updated when the original content changes. This happens automatically and prevents unnecessary API costs. You can also manually clear the cache via the admin settings."
+msgstr "अनुवाद केवल तभी अपडेट होते हैं जब मूल सामग्री बदलती है। यह स्वचालित रूप से होता है और अनावश्यक API लागत को रोकता है। आप एडमिन सेटिंग्स के माध्यम से कैश को मैन्युअल रूप से भी साफ़ कर सकते हैं।"
+
+msgid "Is AI Translate SEO-friendly?"
+msgstr "क्या AI Translate SEO-अनुकूल है?"
+
+msgid "Yes! AI Translate is fully SEO-friendly. It automatically generates hreflang tags, translates URL slugs, and ensures search engines can properly index all language versions."
+msgstr "हाँ! AI Translate पूरी तरह से SEO-अनुकूल है। यह स्वचालित रूप से hreflang टैग उत्पन्न करता है, URL स्लग का अनुवाद करता है, और सुनिश्चित करता है कि खोज इंजन सभी भाषा संस्करणों को ठीक से अनुक्रमित कर सकें।"
+
+msgid "Yes! AI Translate is fully SEO-friendly. It automatically generates hreflang tags, meta tags, translates URL slugs, and ensures search engines can properly index all language versions. You do not even need additional SEO plugins anymore"
+msgstr "हाँ! AI Translate पूरी तरह से SEO-अनुकूल है। यह स्वचालित रूप से hreflang टैग, मेटा टैग उत्पन्न करता है, URL स्लग का अनुवाद करता है, और सुनिश्चित करता है कि खोज इंजन सभी भाषा संस्करणों को ठीक से अनुक्रमित कर सकें। आपको अतिरिक्त SEO प्लगइन्स की भी आवश्यकता नहीं है"
+
+msgid "What do I need to do if a language is not translated ?"
+msgstr "यदि कोई भाषा अनुवादित नहीं है तो मुझे क्या करना चाहिए?"
+
+msgid "Not all languages can be translated with all models. So first make sure you use a model that supports the language. Another reason can be that the rewrite rules must be flushed when adding an new language. Disable and enable the plugin will do this."
+msgstr "सभी भाषाओं को सभी मॉडलों के साथ अनुवादित नहीं किया जा सकता है। इसलिए पहले सुनिश्चित करें कि आप एक ऐसे मॉडल का उपयोग कर रहे हैं जो भाषा का समर्थन करता है। एक और कारण यह हो सकता है कि नई भाषा जोड़ते समय रीराइट नियमों को फ्लश करना होगा। प्लगइन को अक्षम और सक्षम करना यह करेगा।"
+
+msgid "Can I customize the AI prompts?"
+msgstr "क्या मैं AI प्रॉम्प्ट को अनुकूलित कर सकता हूं?"
+
+msgid "The AI prompts are optimized for the best translations by analyzing your website and adjusting the tone. You can add extra context about your site in the admin settings, but this is usually not necessary."
+msgstr "AI प्रॉम्प्ट आपकी वेबसाइट का विश्लेषण करके और स्वर को समायोजित करके सर्वोत्तम अनुवादों के लिए अनुकूलित हैं। आप एडमिन सेटिंग्स में अपनी साइट के बारे में अतिरिक्त संदर्भ जोड़ सकते हैं, लेकिन यह आमतौर पर आवश्यक नहीं है।"
+
+msgid "What's the difference between \"Enabled Languages\" and \"Detectable Languages\"?"
+msgstr "\"सक्षम भाषाएं\" और \"पहचान योग्य भाषाएं\" के बीच क्या अंतर है?"
+
+msgid "<strong>Enabled Languages</strong> are languages visible in the language switcher (the flag button on your website). Visitors can directly select these languages."
+msgstr "<strong>सक्षम भाषाएं</strong> भाषा स्विचर में दिखाई देने वाली भाषाएं हैं (आपकी वेबसाइट पर ध्वज बटन)। आगंतुक इन भाषाओं को सीधे चुन सकते हैं।"
+
+msgid "<strong>Detectable Languages</strong> are automatically detected based on the visitor's browser language, but are not visible in the switcher. Ideal for languages you want to support without cluttering the interface."
+msgstr "<strong>पहचान योग्य भाषाएं</strong> आगंतुक की ब्राउज़र भाषा के आधार पर स्वचालित रूप से पहचानी जाती हैं, लेकिन स्विचर में दिखाई नहीं देती हैं। उन भाषाओं के लिए आदर्श जिनका आप इंटरफ़ेस को अव्यवस्थित किए बिना समर्थन करना चाहते हैं।"
+
+msgid "Configuration"
+msgstr "कॉन्फ़िगरेशन"
+
+msgid "All plugin settings can be found under 'AI Translate' in your WordPress admin menu."
+msgstr "सभी प्लगइन सेटिंग्स आपके WordPress एडमिन मेनू में 'AI Translate' के तहत पाई जा सकती हैं।"
+
+msgid "API Settings"
+msgstr "API सेटिंग्स"
+
+msgid "<strong>🔑 API URL</strong> - The address of your AI translation API (e.g., <code>https://api.openai.com/v1/</code>)"
+msgstr "<strong>🔑 API URL</strong> - आपके AI अनुवाद API का पता (उदाहरण के लिए, <code>https://api.openai.com/v1/</code>)"
+
+msgid "<strong>🔑 API Provider</strong> - Select a provider of your AI translation API (e.g. OpenAI)"
+msgstr "<strong>🔑 API प्रदाता</strong> - अपनी AI अनुवाद API का प्रदाता चुनें (उदा. OpenAI)"
+
+msgid "<strong>🔑 API Provider</strong> - Select a provider of your AI translation API (e.g. OpenAI) "
+msgstr "<strong>🔑 API प्रदाता</strong> - अपनी AI अनुवाद API का प्रदाता चुनें (उदा. OpenAI) "
+
+msgid "<strong>🔑 API Provider</strong> - Select a provider of your AI translation API (e.g."
+msgstr "<strong>🔑 API प्रदाता</strong> - अपनी AI अनुवाद API का प्रदाता चुनें (उदा."
+
+msgid "<strong>🔐 API Key</strong> - Your API authentication key"
+msgstr "<strong>🔐 API कुंजी</strong> - आपकी API प्रमाणीकरण कुंजी"
+
+msgid "<strong>🤖 Translation Model</strong> - Choose your preferred AI model"
+msgstr "<strong>🤖 अनुवाद मॉडल</strong> - अपना पसंदीदा AI मॉडल चुनें"
+
+msgid "Language Settings"
+msgstr "भाषा सेटिंग्स"
+
+msgid "<strong>🌍 Default Language</strong> - The main language of your website"
+msgstr "<strong>🌍 डिफ़ॉल्ट भाषा</strong> - आपकी वेबसाइट की मुख्य भाषा"
+
+msgid "<strong>🎯 Enabled Languages</strong> - Languages visible in the language switcher"
+msgstr "<strong>🎯 सक्षम भाषाएं</strong> - भाषा स्विचर में दिखाई देने वाली भाषाएं"
+
+msgid "<strong>🔍 Detectable Languages</strong> - Automatic translation on browser match, but not in switcher"
+msgstr "<strong>🔍 पहचान योग्य भाषाएं</strong> - ब्राउज़र मैच पर स्वचालित अनुवाद, लेकिन स्विचर में नहीं"
+
+msgid "Cache Settings"
+msgstr "कैश सेटिंग्स"
+
+msgid "<strong>⏱️ Cache Duration (days)</strong> - How long translated content stays cached"
+msgstr "<strong>⏱️ कैश अवधि (दिन)</strong> - अनुवादित सामग्री कितने समय तक कैश में रहती है"
+
+msgid "<strong>🗑️ Cache Management</strong> - Clear all cache, only transient cache, or cache per language"
+msgstr "<strong>🗑️ कैश प्रबंधन</strong> - सभी कैश साफ़ करें, केवल क्षणिक कैश, या प्रति भाषा कैश"
+
+msgid "<strong>🔄 Automatic cache invalidation</strong> - Cache is only refreshed on content changes"
+msgstr "<strong>🔄 स्वचालित कैश अमान्यीकरण</strong> - कैश केवल सामग्री परिवर्तन पर ताज़ा होता है"
+
+msgid "Advanced Settings"
+msgstr "उन्नत सेटिंग्स"
+
+msgid "<strong>📄 Homepage Meta Description</strong> - Set a custom meta description that is automatically translated"
+msgstr "<strong>📄 होमपेज मेटा विवरण</strong> - एक कस्टम मेटा विवरण सेट करें जो स्वचालित रूप से अनुवादित हो"
+
+msgid "<strong>✨ Auto-generate site context</strong> - Let the AI automatically analyze your site for better translations"
+msgstr "<strong>✨ साइट संदर्भ स्वचालित रूप से उत्पन्न करें</strong> - बेहतर अनुवादों के लिए AI को अपनी साइट का स्वचालित रूप से विश्लेषण करने दें"
+
+msgid "Usage"
+msgstr "उपयोग"
+
+msgid "After configuration, AI Translate automatically adds a language switcher to your website (default: bottom left). Visitors can select their preferred language; content is translated instantly or loaded from cache."
+msgstr "कॉन्फ़िगरेशन के बाद, AI Translate स्वचालित रूप से आपकी वेबसाइट पर एक भाषा स्विचर जोड़ता है (डिफ़ॉल्ट: नीचे बाएं)। आगंतुक अपनी पसंदीदा भाषा चुन सकते हैं; सामग्री तुरंत अनुवादित होती है या कैश से लोड होती है।"
+
+msgid "Each visitor's language preference is remembered for future visits."
+msgstr "प्रत्येक आगंतुक की भाषा प्राथमिकता भविष्य की यात्राओं के लिए याद रखी जाती है।"
+
+msgid "Cache"
+msgstr "कैश"
+
+msgid "<strong>📁 Location</strong> - Translations are cached in <code>/wp-content/uploads/ai-translate/cache/</code>"
+msgstr "<strong>📁 स्थान</strong> - अनुवाद <code>/wp-content/uploads/ai-translate/cache/</code> में कैश किए जाते हैं"
+
+msgid "<strong>🧹 Auto-cleanup</strong> - Expired cache is automatically cleaned up"
+msgstr "<strong>🧹 स्वचालित सफाई</strong> - समाप्त कैश स्वचालित रूप से साफ़ हो जाता है"
+
+msgid "<strong>🔧 Manual clearing</strong> - Clear cache manually via plugin settings"
+msgstr "<strong>🔧 मैन्युअल सफाई</strong> - प्लगइन सेटिंग्स के माध्यम से कैश को मैन्युअल रूप से साफ़ करें"
+
+msgid "Recommended Model Selection"
+msgstr "अनुशंसित मॉडल चयन"
+
+msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code> - Do not use GPT 5.1 for translations (slow, expensive, and unnecessarily complex)"
+msgstr "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code> - अनुवाद के लिए GPT 5.1 का उपयोग न करें (धीमा, महंगा और अनावश्यक रूप से जटिल)"
+
+msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code\>"
+msgstr "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code>"
+
+msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code\> "
+msgstr "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code> "
+
+msgid "<strong>💰 Deepseek</strong>: <code>deepseek-chat</code> - Slower, but cost-effective"
+msgstr "<strong>💰 Deepseek</strong>: <code>deepseek-chat</code> - धीमा, लेकिन लागत प्रभावी"
+
+msgid "<strong>🔧 Custom</strong>: Use OpenRouter and select google/gemini-2.5-flash-lite "
+msgstr "<strong>🔧 कस्टम</strong>: OpenRouter का उपयोग करें और google/gemini-2.5-flash-lite चुनें "
+
+msgid "<strong>🔧 OpenRouter</strong>: Select google/gemini-2.5-flash-lite which has the best price/performance"
+msgstr "<strong>🔧 OpenRouter</strong>: google/gemini-2.5-flash-lite चुनें जिसमें सबसे अच्छा मूल्य/प्रदर्शन है"
+
+msgid "Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing."
+msgstr "Gemini flash अब उपलब्ध सर्वोत्तम मूल्य प्रदर्शन मॉडल है। यह तेज़ है, सभी भाषाओं का समर्थन करता है और कम मूल्य निर्धारण है।"
+
+msgid "Development"
+msgstr "विकास"
+
+msgid "🔗 Path-based language URLs for SEO"
+msgstr "🔗 SEO के लिए पथ-आधारित भाषा URL"
+
+msgid "🚀 Support for more content types and translation improvements are in development"
+msgstr "🚀 अधिक सामग्री प्रकारों और अनुवाद सुधारों के लिए समर्थन विकास में है"
+
+msgid "⚡ Caching and API optimization are continuously improved"
+msgstr "⚡ कैशिंग और API अनुकूलन लगातार सुधारे जा रहे हैं"
+
+msgid "External Services"
+msgstr "बाहरी सेवाएं"
+
+msgid "AI Translate requires an API key from one of the supported providers:"
+msgstr "AI Translate को समर्थित प्रदाताओं में से एक से API कुंजी की आवश्यकता है:"
+
+msgid "Supported AI Translation Services"
+msgstr "समर्थित AI अनुवाद सेवाएं"
+
+msgid "OpenAI API"
+msgstr "OpenAI API"
+
+msgid "<strong>What it is</strong>: OpenAI's GPT models for text translation"
+msgstr "<strong>यह क्या है</strong>: पाठ अनुवाद के लिए OpenAI के GPT मॉडल"
+
+msgid "<strong>What data is sent</strong>: Website content (posts, pages, titles, menu items, widget titles) that needs to be translated, along with source and target language information"
+msgstr "<strong>कौन सा डेटा भेजा जाता है</strong>: वेबसाइट सामग्री (पोस्ट, पृष्ठ, शीर्षक, मेनू आइटम, विजेट शीर्षक) जिसका अनुवाद करने की आवश्यकता है, स्रोत और लक्ष्य भाषा जानकारी के साथ"
+
+msgid "<strong>When data is sent</strong>: When a visitor accesses your website in a language different from the default language, and the content is not already cached"
+msgstr "<strong>डेटा कब भेजा जाता है</strong>: जब एक आगंतुक डिफ़ॉल्ट भाषा से अलग भाषा में आपकी वेबसाइट तक पहुंचता है, और सामग्री पहले से कैश नहीं है"
+
+msgid "<strong>Service provider</strong>: OpenAI"
+msgstr "<strong>सेवा प्रदाता</strong>: OpenAI"
+
+msgid "<strong>Terms of service</strong>: <a href=\"https://openai.com/terms/\">https://openai.com/terms/</a>"
+msgstr "<strong>सेवा की शर्तें</strong>: <a href=\"https://openai.com/terms/\">https://openai.com/terms/</a>"
+
+msgid "<strong>Privacy policy</strong>: <a href=\"https://openai.com/privacy/\">https://openai.com/privacy/</a>"
+msgstr "<strong>गोपनीयता नीति</strong>: <a href=\"https://openai.com/privacy/\">https://openai.com/privacy/</a>"
+
+msgid "Data Handling"
+msgstr "डेटा हैंडलिंग"
+
+msgid "🔒 Only website content for translation is sent—no visitor IP or personal data"
+msgstr "🔒 केवल अनुवाद के लिए वेबसाइट सामग्री भेजी जाती है—कोई आगंतुक IP या व्यक्तिगत डेटा नहीं"
+
+msgid "💾 All translations are cached locally; nothing is shared externally"
+msgstr "💾 सभी अनुवाद स्थानीय रूप से कैश किए जाते हैं; कुछ भी बाहरी रूप से साझा नहीं किया जाता है"
+
+msgid "Requirements"
+msgstr "आवश्यकताएं"
+
+msgid "✅ WordPress 5.0 or higher"
+msgstr "✅ WordPress 5.0 या उच्चतर"
+
+msgid "✅ PHP 8 or higher"
+msgstr "✅ PHP 8 या उच्चतर"
+
+msgid "🔑 API key for OpenAI, Deepseek, or compatible service"
+msgstr "🔑 OpenAI, Deepseek, या संगत सेवा के लिए API कुंजी"
+
+
+msgid "When using automated crawlers or spiders to warm up the cache (e.g., wget, curl), follow these guidelines to prevent race conditions and ensure proper cache generation:"
+msgstr "कैश को गर्म करने के लिए स्वचालित क्रॉलर या स्पाइडर का उपयोग करते समय (उदाहरण के लिए, wget, curl), रेस स्थितियों को रोकने और उचित कैश जनरेशन सुनिश्चित करने के लिए इन दिशानिर्देशों का पालन करें:"
+
+
+msgid "wget --spider --no-directories --delete-after --recursive --level=10 \\\n     --wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \\\n     https://yoursite.com\n    `"
+msgstr "wget --spider --no-directories --delete-after --recursive --level=10 \\\n     --wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \\\n     https://yoursite.com\n    `"
+
+msgid "Changelog"
+msgstr "परिवर्तन लॉग"
+
+msgid "2.2.0"
+msgstr "2.2.0"
+
+msgid "Added cache warming for pages to admin."
+msgstr "पृष्ठों के लिए कैश वार्मिंग को व्यवस्थापक में जोड़ा गया।"
+
+msgid "Admin user language preferred over site language for admin page translation."
+msgstr "व्यवस्थापक पृष्ठ अनुवाद के लिए व्यवस्थापक उपयोगकर्ता भाषा साइट भाषा से प्राथमिकता प्राप्त करती है।"
+
+msgid "Support for Wordpress 6.9"
+msgstr "WordPress 6.9 के लिए समर्थन"
+
+msgid "Issue with language parameter on home page fixed."
+msgstr "होम पेज पर भाषा पैरामीटर के साथ समस्या ठीक की गई।"
+
+msgid "Issue with search not keeping language code fixed."
+msgstr "खोज के साथ समस्या जो भाषा कोड नहीं रखती है, ठीक की गई।"
+
+msgid "Improved validation of models, checking account and provider information."
+msgstr "मॉडलों के सत्यापन में सुधार, खाता और प्रदाता जानकारी की जांच।"
+
+msgid "Dual caching strategy for object oriented caching implemented."
+msgstr "ऑब्जेक्ट-ओरिएंटेड कैशिंग के लिए दोहरी कैशिंग रणनीति लागू की गई।"
+
+msgid "Support for multi domain caching."
+msgstr "मल्टी-डोमेन कैशिंग के लिए समर्थन।"
+
+msgid "Added options for placing the Language switcher button on your site. "
+msgstr "अपनी साइट पर भाषा स्विचर बटन रखने के लिए विकल्प जोड़े गए। "
+
+msgid "Implemented stop API calls in admin to avoid cost."
+msgstr "लागत से बचने के लिए व्यवस्थापक में API कॉल रोकने को लागू किया गया।"
+
+msgid "Improved caching and reduce API calls of UI elements."
+msgstr "कैशिंग में सुधार और UI तत्वों के API कॉल कम किए गए।"
+
+msgid "2.1.7"
+msgstr "2.1.7"
+
+msgid "Support for Wordpress 6.9"
+msgstr "WordPress 6.9 के लिए समर्थन"
+
+msgid "Issue with language parameter on home page fixed."
+msgstr "होम पेज पर भाषा पैरामीटर के साथ समस्या ठीक की गई।"
+
+msgid "Issue with search not keeping language code fixed."
+msgstr "खोज के साथ समस्या जो भाषा कोड नहीं रख रही थी, ठीक की गई।"
+
+msgid "Improved validation of models, checking account and provider information."
+msgstr "मॉडल की बेहतर सत्यापन, खाता और प्रदाता जानकारी की जांच।"
+
+msgid "Improved UI caching of dynamic elements. "
+msgstr "गतिशील तत्वों की बेहतर UI कैशिंग। "
+
+msgid "Dual caching strategy for object oriented caching implemented."
+msgstr "ऑब्जेक्ट-ओरिएंटेड कैशिंग के लिए दोहरी कैशिंग रणनीति लागू की गई।"
+
+msgid "Support for multi domain caching."
+msgstr "मल्टी डोमेन कैशिंग के लिए समर्थन।"
+
+msgid "Select where to put the Language switcher button on your site. "
+msgstr "चुनें कि अपनी साइट पर भाषा स्विचर बटन कहाँ रखना है। "
+
+msgid "Implemented stop API calls in admin."
+msgstr "एडमिन में स्टॉप API कॉल लागू किए गए।"
+
+msgid "Improved caching and reduce API calls of UI elements"
+msgstr "बेहतर कैशिंग और UI तत्वों के API कॉल कम किए"
+
+msgid "2.1.2"
+msgstr "2.1.2"
+
+msgid "Fixed JS issue with speculationrules"
+msgstr "speculationrules के साथ JS समस्या ठीक की गई"
+
+msgid "Removed debug logging."
+msgstr "डीबग लॉगिंग हटाई गई।"
+
+msgid "Fix browser language detection."
+msgstr "ब्राउज़र भाषा पहचान ठीक करें।"
+
+msgid "Fix admin setting selecting default language."
+msgstr "डिफ़ॉल्ट भाषा चुनने वाली एडमिन सेटिंग ठीक करें।"
+
+msgid "Set permalink structure on initialization to post-name"
+msgstr "आरंभीकरण पर permalink संरचना को post-name पर सेट करें"
+
+msgid "Fixed issue with existing meta tags in default language"
+msgstr "डिफ़ॉल्ट भाषा में मौजूदा मेटा टैग के साथ समस्या ठीक की गई"
+
+msgid "Exclude xml files from processing"
+msgstr "प्रसंस्करण से xml फ़ाइलें बाहर करें"
+
+msgid "Added 10 languages"
+msgstr "10 भाषाएं जोड़ी गईं"
+
+msgid "2.0.4"
+msgstr "2.0.4"
+
+msgid "Fix switching back and forth with default language"
+msgstr "डिफ़ॉल्ट भाषा के साथ आगे-पीछे स्विचिंग ठीक करें"
+
+msgid "Fix race condition causing white pages for spiders/crawlers"
+msgstr "स्पाइडर/क्रॉलर के लिए सफेद पृष्ठों का कारण बनने वाली रेस स्थिति ठीक करें"
+
+msgid "Fixed hreflang tags for default language"
+msgstr "डिफ़ॉल्ट भाषा के लिए hreflang टैग ठीक किए गए"
+
+msgid "Fix issue SEO engine inject that might mess up already troubled HTML"
+msgstr "SEO इंजन इंजेक्शन समस्या ठीक करें जो पहले से ही परेशान HTML को खराब कर सकती है"
+
+msgid "More efficient merge of translated output resulting in faster load"
+msgstr "अनुवादित आउटपुट का अधिक कुशल मर्ज जिसके परिणामस्वरूप तेज़ लोड होता है"
+
+msgid "Detect untranslated text in cached pages and translated them"
+msgstr "कैश किए गए पृष्ठों में अनुवादित नहीं किए गए पाठ का पता लगाएं और उनका अनुवाद करें"
+
+msgid "Reduced url length and system prompt to generate slug"
+msgstr "स्लग उत्पन्न करने के लिए URL लंबाई और सिस्टम प्रॉम्प्ट कम किया"
+
+msgid "Placeholder translation improved"
+msgstr "प्लेसहोल्डर अनुवाद में सुधार"
+
+msgid "2.0.1"
+msgstr "2.0.1"
+
+msgid "Total rework, changing the translation architecture"
+msgstr "कुल पुनर्कार्य, अनुवाद वास्तुकला बदलना"
+
+msgid "Reduced cost of translation (increasing batch)"
+msgstr "अनुवाद की लागत कम की (बैच बढ़ाना)"
+
+msgid "Great performance boost"
+msgstr "महान प्रदर्शन बूस्ट"
+
+msgid "Better support for third party plugins and themes"
+msgstr "तीसरे पक्ष के प्लगइन और थीम के लिए बेहतर समर्थन"
+
+msgid "1.34"
+msgstr "1.34"
+
+msgid "Fix pagination with pretty URL"
+msgstr "सुंदर URL के साथ पेजिनेशन ठीक करें"
+
+msgid "Remove hallucinated html tags from ALT image tags"
+msgstr "ALT छवि टैग से हलुसिनेटेड HTML टैग हटाएं"
+
+msgid "Fix menu issues with translated URLs"
+msgstr "अनुवादित URL के साथ मेनू समस्याएं ठीक करें"
+
+msgid "Implemented translated open graph tags"
+msgstr "अनुवादित ओपन ग्राफ टैग लागू किए गए"
+
+msgid "Better prompting and reduced placeholder translation issues"
+msgstr "बेहतर प्रॉम्प्टिंग और कम प्लेसहोल्डर अनुवाद समस्याएं"
+
+msgid "1.3"
+msgstr "1.3"
+
+msgid "Added translation of (standard wordpress) translation functionality"
+msgstr "(मानक wordpress) अनुवाद कार्यक्षमता का अनुवाद जोड़ा गया"
+
+msgid "Improved translation context and more translation freedom for AI"
+msgstr "बेहतर अनुवाद संदर्भ और AI के लिए अधिक अनुवाद स्वतंत्रता"
+
+msgid "Improved caching and translation performance"
+msgstr "बेहतर कैशिंग और अनुवाद प्रदर्शन"
+
+msgid "Stable translated URLs: slugs only change if original changes"
+msgstr "स्थिर अनुवादित URL: स्लग केवल तभी बदलते हैं जब मूल बदलता है"
+
+msgid "Added Greek and Romanian"
+msgstr "ग्रीक और रोमानियाई जोड़े गए"
+
+msgid "Fixed 404 redirects to correct language homepage"
+msgstr "सही भाषा होमपेज पर 404 रीडायरेक्ट ठीक किए गए"
+
+msgid "Fixed cache clearing by language"
+msgstr "भाषा द्वारा कैश सफाई ठीक की गई"
+
+msgid "Fixed non-Latin language URL translations"
+msgstr "गैर-लैटिन भाषा URL अनुवाद ठीक किए गए"
+
+msgid "Better AI prompting for tags/placeholders"
+msgstr "टैग/प्लेसहोल्डर के लिए बेहतर AI प्रॉम्प्टिंग"
+
+msgid "Improved contextual translation for single words/slugs"
+msgstr "एकल शब्दों/स्लग के लिए बेहतर संदर्भगत अनुवाद"
+
+msgid "1.2"
+msgstr "1.2"
+
+msgid "Reduced API calls"
+msgstr "API कॉल कम किए"
+
+msgid "Dynamic content support without breaking cache"
+msgstr "कैश को तोड़े बिना गतिशील सामग्री समर्थन"
+
+msgid "Added hreflang tags"
+msgstr "hreflang टैग जोड़े गए"
+
+msgid "Automatic re-translation when original content changes"
+msgstr "मूल सामग्री बदलने पर स्वचालित पुन: अनुवाद"
+
+msgid "Fixed language code issues for Ukrainian"
+msgstr "यूक्रेनी के लिए भाषा कोड समस्याएं ठीक की गईं"
+
+msgid "Improved API settings UI"
+msgstr "बेहतर API सेटिंग्स UI"
+
+msgid "Custom post type support"
+msgstr "कस्टम पोस्ट प्रकार समर्थन"
+
+msgid "Improved non-Latin script URL translation"
+msgstr "गैर-लैटिन स्क्रिप्ट URL अनुवाद में सुधार"
+
+msgid "1.1"
+msgstr "1.1"
+
+msgid "Path-based language URLs for SEO"
+msgstr "SEO के लिए पथ-आधारित भाषा URL"
+
+msgid "Transient cache clearing option"
+msgstr "क्षणिक कैश सफाई विकल्प"
+
+msgid "Better widget and link translation"
+msgstr "बेहतर विजेट और लिंक अनुवाद"
+
+msgid "Homepage meta description option"
+msgstr "होमपेज मेटा विवरण विकल्प"
+
+msgid "API error handling with backoff"
+msgstr "बैकऑफ़ के साथ API त्रुटि हैंडलिंग"
+
+msgid "Detectable (auto-detect, no switcher) languages"
+msgstr "पहचान योग्य (स्वचालित-पहचान, कोई स्विचर नहीं) भाषाएं"
+
+msgid "Improved cache statistics in admin"
+msgstr "एडमिन में बेहतर कैश आंकड़े"
+
+msgid "Remembers each visitor's language preference"
+msgstr "प्रत्येक आगंतुक की भाषा प्राथमिकता याद रखता है"
+
+msgid "Bugfixes and style improvements"
+msgstr "बगफिक्स और शैली सुधार"
+
+msgid "Improved hreflang original URL logic"
+msgstr "बेहतर hreflang मूल URL तर्क"
+
+msgid "1.0"
+msgstr "1.0"
+
+msgid "Initial release with basic AI translation"
+msgstr "मूल AI अनुवाद के साथ प्रारंभिक रिलीज़"
+
+msgid "Provided by"
+msgstr "द्वारा प्रदान किया गया"
+
+msgid "🌐 <a href=\"https://netcare.nl\">NetCare</a>"
+msgstr "🌐 <a href=\"https://netcare.nl\">NetCare</a>"
+
