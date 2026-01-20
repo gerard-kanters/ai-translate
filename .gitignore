@@ -1,6 +1,7 @@
 /.github
 /scripts
 .cursor/
+.claude/
 .git_disabled/
 agent.md
 docs/
