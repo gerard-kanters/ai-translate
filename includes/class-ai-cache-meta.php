@@ -324,6 +324,35 @@ class AI_Cache_Meta
     }
 
     /**
+     * Delete cache metadata for all records whose cache_file path starts with the given prefix.
+     * Used when clearing disk cache for a directory so the "X of Y" per-page status stays in sync.
+     *
+     * @param string $path_prefix Directory path prefix (e.g. .../ai-translate/cache/de/pages/)
+     * @return int Number of records deleted
+     */
+    public static function delete_by_path_prefix($path_prefix)
+    {
+        global $wpdb;
+
+        self::ensure_table_exists();
+
+        $normalized = wp_normalize_path($path_prefix);
+        $pattern = $wpdb->esc_like($normalized) . '%';
+        $table = self::get_table_name();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $deleted = (int) $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$table} WHERE cache_file LIKE %s",
+            $pattern
+        ));
+
+        if ($deleted > 0) {
+            delete_transient('ai_translate_cache_table_data');
+        }
+
+        return $deleted;
+    }
+
+    /**
      * Get all cache records for a post
      *
      * @param int $post_id Post ID

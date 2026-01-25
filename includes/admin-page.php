@@ -2102,6 +2102,7 @@ function render_admin_page()
                 <?php
                 // Handle manual rescan request
                 if (isset($_POST['rescan_cache_meta']) && check_admin_referer('rescan_cache_meta_action', 'rescan_cache_meta_nonce')) {
+                    AI_Cache_Meta::sync_from_filesystem();
                     $count = AI_Cache_Meta::populate_existing_cache(true);
                     if ($count > 0) {
                         echo '<div class="notice notice-success is-dismissible"><p>';

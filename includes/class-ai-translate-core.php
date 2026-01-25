@@ -276,6 +276,8 @@ final class AI_Translate_Core
                 }
             }
         }
+
+        \AITranslate\AI_Cache_Meta::delete_by_path_prefix($base);
         
         // Clear segment translation transients for this language
         global $wpdb;
@@ -347,6 +349,7 @@ final class AI_Translate_Core
                 }
             }
         }
+        \AITranslate\AI_Cache_Meta::delete_by_path_prefix($root);
         $this->clear_memory_and_transients_except_slugs();
     }
 
@@ -368,6 +371,7 @@ final class AI_Translate_Core
         }
         
         if (!is_dir($root)) {
+            \AITranslate\AI_Cache_Meta::delete_by_path_prefix($root);
             return;
         }
         $rii = new \RecursiveIteratorIterator(
@@ -382,6 +386,7 @@ final class AI_Translate_Core
                 @unlink($file->getPathname());
             }
         }
+        \AITranslate\AI_Cache_Meta::delete_by_path_prefix($root);
     }
 
     /**

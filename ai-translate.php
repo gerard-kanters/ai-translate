@@ -1567,11 +1567,6 @@ add_action('parse_request', function ($wp) {
         $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
     }
 
-    // Fallback: try the entire path as slug (for pages/posts without post type prefix)
-    if (!$post_id) {
-        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
-    }
-
     if ($post_id) {
         // Get the post object for further processing
         $post = get_post((int) $post_id);
@@ -1675,6 +1670,57 @@ add_action('parse_request', function ($wp) {
             // Fallback: let WP try resolving as page path
             $wp->query_vars['pagename'] = $sourcePath;
             // Do not force 404 state here; allow core to resolve properly
+        }
+    }
+
+    // Fallback als er geen slug-mapregel is (pagina nog nooit vertaald): zoek op post_name (bron) via get_page_by_path.
+    // Zonder dit geeft /{lang}/{bron-slug}/ 404 en faalt warm cache.
+    if ($rest !== '') {
+        $public_types = get_post_types(['public' => true], 'names');
+        $public_types = array_diff((array) $public_types, ['attachment']);
+        if (empty($public_types)) {
+            $public_types = ['post', 'page'];
+        }
+        $public_types = array_values($public_types);
+
+        $post = null;
+        if (strpos($rest, '/') !== false) {
+            $parts = explode('/', $rest, 2);
+            $first = $parts[0];
+            foreach (get_post_types(['public' => true, '_builtin' => false], 'objects') as $pt) {
+                if (!empty($pt->rewrite['slug']) && $pt->rewrite['slug'] === $first) {
+                    $post = get_page_by_path($parts[1], OBJECT, [$pt->name]);
+                    break;
+                }
+            }
+            if (!$post) {
+                $post = get_page_by_path($rest, OBJECT, $public_types);
+            }
+        } else {
+            $post = get_page_by_path($rest, OBJECT, $public_types);
+        }
+        if ($post && isset($post->ID) && isset($post->post_type) && $post->post_type !== 'attachment') {
+            $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
+            $posts_page_id = (int) get_option('page_for_posts');
+            if ($post->post_type === 'page') {
+                if ($posts_page_id > 0 && (int) $post->ID === $posts_page_id) {
+                    $wp->query_vars['pagename'] = (string) get_page_uri($posts_page_id);
+                    $wp->is_home = true;
+                    $wp->is_page = false;
+                    $wp->is_singular = false;
+                } else {
+                    $wp->query_vars['page_id'] = (int) $post->ID;
+                    $wp->is_page = true;
+                    $wp->is_singular = true;
+                }
+            } else {
+                $wp->query_vars['p'] = (int) $post->ID;
+                $wp->query_vars['post_type'] = $post->post_type;
+                $wp->is_single = true;
+                $wp->is_singular = true;
+            }
+            $wp->is_404 = false;
+            return;
         }
     }
 });
