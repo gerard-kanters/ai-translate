@@ -384,6 +384,7 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
     foreach ($curl_handles as $lang_code => $ch) {
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
+        $response_body = curl_multi_getcontent($ch);
         
         curl_multi_remove_handle($mh, $ch);
         
@@ -392,8 +393,20 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             continue;
         }
         
-        // Accept 200 as success
-        if ($http_code === 200) {
+        // Check if response looks like an error page (404, 403, etc.)
+        $is_error_page = false;
+        if ($http_code === 200 && !empty($response_body)) {
+            // Check for common error indicators in HTML
+            if (stripos($response_body, '<title>404') !== false || 
+                stripos($response_body, 'page not found') !== false ||
+                stripos($response_body, 'Fatal error') !== false ||
+                stripos($response_body, 'Parse error') !== false) {
+                $is_error_page = true;
+            }
+        }
+        
+        // Accept 200 as success (unless it's an error page)
+        if ($http_code === 200 && !$is_error_page) {
             // Wait a moment for async cache writes to complete
             usleep(500000); // 0.5 second
             
@@ -420,9 +433,23 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                     AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
                     $results[$lang_code] = array('success' => true, 'error' => '');
                 } else {
-                    $results[$lang_code] = array('success' => false, 'error' => __('Cache file not generated', 'ai-translate'));
+                    // Provide more detailed error message
+                    $error_detail = __('Cache file not generated', 'ai-translate');
+                    if ($cache_file) {
+                        $cache_dir = dirname($cache_file);
+                        if (!is_dir($cache_dir)) {
+                            $error_detail .= ' (' . __('directory missing', 'ai-translate') . ')';
+                        } elseif (!is_writable($cache_dir)) {
+                            $error_detail .= ' (' . __('not writable', 'ai-translate') . ')';
+                        } else {
+                            $error_detail .= ' (' . __('check logs', 'ai-translate') . ')';
+                        }
+                    }
+                    $results[$lang_code] = array('success' => false, 'error' => $error_detail);
                 }
             }
+        } elseif ($is_error_page) {
+            $results[$lang_code] = array('success' => false, 'error' => __('Error page (404/500)', 'ai-translate'));
         } elseif ($http_code === 301 || $http_code === 302) {
             // Redirect - might be normal, but we'll mark as success if cache exists
             $route_id = 'post:' . $post_id;

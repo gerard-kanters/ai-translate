@@ -262,6 +262,7 @@ if (!wp_next_scheduled('ai_translate_sync_cache_metadata')) {
 
 
 // Add original-style language-prefixed rewrite rules using 'lang' query var to ensure WP resolves pages via pagename
+// Priority 999: runs AFTER custom post types are registered (default priority 10)
 add_action('init', function () {
     $settings = get_option('ai_translate_settings', array());
     $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
@@ -277,14 +278,27 @@ add_action('init', function () {
         return preg_quote($l, '/');
     }, $langs)) . ')';
     add_rewrite_rule('^' . $regex . '/?$', 'index.php?lang=$matches[1]', 'top');
-    // Explicit CPT bases similar to org implementation (keep before generic page/name rules)
-    add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(product)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=product&name=$matches[3]', 'top');
-    add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(service)/([^/]+)/?$', 'index.php?lang=$matches[1]&post_type=service&name=$matches[3]', 'top');
+    
+    // Add rewrite rules for all public custom post types (generiek)
+    $public_post_types = get_post_types(array('public' => true, '_builtin' => false), 'objects');
+    foreach ($public_post_types as $post_type) {
+        if (!empty($post_type->rewrite) && isset($post_type->rewrite['slug'])) {
+            $slug = $post_type->rewrite['slug'];
+            $type_name = $post_type->name;
+            // Add explicit rule for this CPT: /{lang}/{cpt-slug}/{post-name}
+            add_rewrite_rule(
+                '^' . $regex . '/(?!wp-admin|wp-login\.php)(' . preg_quote($slug, '/') . ')/([^/]+)/?$',
+                'index.php?lang=$matches[1]&post_type=' . $type_name . '&name=$matches[3]',
+                'top'
+            );
+        }
+    }
+    
     // Generic rule for hierarchical paths - try to resolve without language prefix first
     add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(.+)$', 'index.php?ai_translate_path=$matches[2]&lang=$matches[1]', 'top');
     // Pagination for posts index: /{lang}/page/{n}/ (added last so it sits on top due to 'top')
     add_rewrite_rule('^' . $regex . '/page/([0-9]+)/?$', 'index.php?lang=$matches[1]&paged=$matches[2]', 'top');
-}, 2);
+}, 999); // Priority 999: runs AFTER custom post types are registered (default priority 10)
 
 add_filter('query_vars', function ($vars) {
     if (!in_array('lang', $vars, true)) {

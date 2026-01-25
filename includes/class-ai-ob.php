@@ -678,8 +678,13 @@ final class AI_OB
             $path_parts = array_filter(explode('/', trim($clean_path, '/')));
             if (!empty($path_parts) && !in_array($clean_path, array('/category/', '/tag/', '/author/', '/date/'))) {
                 $slug = end($path_parts);
-            // Try to find post/page by slug (exclude attachments)
-            $found_post = get_page_by_path($slug, OBJECT, array('post', 'page'));
+            // Try to find post/page by slug - include all public post types (exclude attachments)
+            $public_post_types = get_post_types(array('public' => true), 'names');
+            $public_post_types = array_diff($public_post_types, array('attachment'));
+            if (empty($public_post_types)) {
+                $public_post_types = array('post', 'page');
+            }
+            $found_post = get_page_by_path($slug, OBJECT, array_values($public_post_types));
             if ($found_post && isset($found_post->ID)) {
                 // Skip attachments - they should not be cached
                 if (isset($found_post->post_type) && $found_post->post_type !== 'attachment') {

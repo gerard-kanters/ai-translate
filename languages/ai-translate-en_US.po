@@ -178,6 +178,18 @@ msgstr "Cache file deleted successfully"
 msgid "Cache file not generated"
 msgstr ""
 
+msgid "directory missing"
+msgstr ""
+
+msgid "not writable"
+msgstr ""
+
+msgid "check logs"
+msgstr ""
+
+msgid "Error page (404/500)"
+msgstr ""
+
 #: includes/admin-page.php:399
 msgid "HTTP %d (redirect)"
 msgstr ""
