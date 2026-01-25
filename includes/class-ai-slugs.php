@@ -161,7 +161,15 @@ final class AI_Slugs
      * @param string $path
      * @return string|null source slug (default language)
      */
-    public static function resolve_any_to_source_slug($path)
+    /**
+     * Resolve any slug (source or translated) to source slug.
+     * If post_type is provided, filters by that type to handle slug conflicts.
+     *
+     * @param string $path Slug to resolve
+     * @param string|null $post_type Optional post type to filter by
+     * @return string|null Source slug or null
+     */
+    public static function resolve_any_to_source_slug($path, $post_type = null)
     {
         global $wpdb;
         $table = self::table_name();
@@ -169,6 +177,27 @@ final class AI_Slugs
         if ($slug === '') return null;
         $schema = self::detect_schema();
         $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
+        
+        // If post_type is specified, filter by it to handle slug conflicts
+        if ($post_type !== null) {
+            // Get all posts with this translated slug, then filter by post_type
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT post_id, {$colSource} FROM {$table} WHERE translated_slug = %s",
+                $slug
+            ), ARRAY_A);
+            
+            if (!empty($rows)) {
+                foreach ($rows as $row) {
+                    $post_id = (int) $row['post_id'];
+                    $post = get_post($post_id);
+                    if ($post && $post->post_type === $post_type) {
+                        return isset($row[$colSource]) ? (string) $row[$colSource] : null;
+                    }
+                }
+            }
+        }
+        
+        // Default behavior: return first match (for backward compatibility)
         $source = $wpdb->get_var($wpdb->prepare("SELECT {$colSource} FROM {$table} WHERE translated_slug = %s LIMIT 1", $slug));
         return $source ? (string)$source : null;
     }
@@ -349,6 +378,45 @@ final class AI_Slugs
             }
         }
         
+        return null;
+    }
+
+    /**
+     * Resolve translated slug to post ID, filtered by post_type to handle slug conflicts.
+     *
+     * @param string $translated_slug The translated slug
+     * @param string $lang Language code
+     * @param string $post_type Expected post type
+     * @return int|null Post ID or null
+     */
+    public static function resolve_translated_slug_to_post_by_type($translated_slug, $lang, $post_type)
+    {
+        global $wpdb;
+        $table = self::table_name();
+        $schema = self::detect_schema();
+        $colLang = $schema === 'original' ? 'language_code' : 'lang';
+        
+        // Find all posts with this translated slug
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id FROM {$table} WHERE translated_slug = %s AND {$colLang} = %s",
+            $translated_slug,
+            $lang
+        ), ARRAY_A);
+        
+        if (empty($rows)) {
+            return null;
+        }
+        
+        // First try: find post with matching post_type
+        foreach ($rows as $row) {
+            $post_id = (int) $row['post_id'];
+            $post = get_post($post_id);
+            if ($post && $post->post_status === 'publish' && $post->post_type === $post_type) {
+                return $post_id;
+            }
+        }
+        
+        // No match found with the expected post_type
         return null;
     }
 

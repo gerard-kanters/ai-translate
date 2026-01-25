@@ -503,10 +503,16 @@ add_filter('request', function ($vars) {
         }
         if (!empty($vars['name'])) {
             $nm = (string) $vars['name'];
-            $src = \AITranslate\AI_Slugs::resolve_any_to_source_slug($nm);
+            // If post_type is specified, use it to resolve slug conflicts
+            $expected_post_type = !empty($vars['post_type']) ? $vars['post_type'] : null;
+            $src = \AITranslate\AI_Slugs::resolve_any_to_source_slug($nm, $expected_post_type);
             if (!$src && !empty($vars['lang'])) {
-                // Generic fallback: find post by translated slug (prefers non-attachments)
-                $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post($nm, (string) $vars['lang']);
+                // Generic fallback: find post by translated slug with post_type filter
+                if ($expected_post_type) {
+                    $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post_by_type($nm, (string) $vars['lang'], $expected_post_type);
+                } else {
+                    $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post($nm, (string) $vars['lang']);
+                }
                 if ($post_id) {
                     $post = get_post($post_id);
                     if ($post && $post->post_status === 'publish') {

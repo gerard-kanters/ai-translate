@@ -39,7 +39,11 @@ final class AI_Lang
         $lang = null;
         $hasLangInUrl = false;
 
-        $q_lang = get_query_var('ai_lang');
+        // Try both 'lang' (used by rewrite rules) and 'ai_lang' (legacy)
+        $q_lang = get_query_var('lang');
+        if (!is_string($q_lang) || $q_lang === '') {
+            $q_lang = get_query_var('ai_lang');
+        }
         if (is_string($q_lang) && $q_lang !== '') {
             $lang = strtolower(sanitize_key($q_lang));
             $hasLangInUrl = true;

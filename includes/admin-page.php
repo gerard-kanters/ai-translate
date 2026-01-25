@@ -426,19 +426,34 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                 
                 $results[$lang_code] = array('success' => true, 'error' => '');
             } else {
-                // Check again after a longer delay
-                sleep(1);
-                if ($cache_file && file_exists($cache_file)) {
-                    $cache_hash = md5($cache_key);
-                    AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
-                    $results[$lang_code] = array('success' => true, 'error' => '');
-                } else {
+                // Check again after longer delays (up to 3 seconds total)
+                $max_attempts = 6;
+                $found = false;
+                for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
+                    usleep(500000); // 0.5 seconds
+                    if ($cache_file && file_exists($cache_file)) {
+                        $cache_hash = md5($cache_key);
+                        AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+                        $results[$lang_code] = array('success' => true, 'error' => '');
+                        $found = true;
+                        break;
+                    }
+                }
+                
+                if (!$found) {
                     // Provide more detailed error message
                     $error_detail = __('Cache file not generated', 'ai-translate');
                     if ($cache_file) {
+                        // Check parent directories existence
                         $cache_dir = dirname($cache_file);
-                        if (!is_dir($cache_dir)) {
-                            $error_detail .= ' (' . __('directory missing', 'ai-translate') . ')';
+                        $parent_dir = dirname($cache_dir);
+                        
+                        if (!is_dir($parent_dir)) {
+                            $error_detail .= ' (' . __('lang directory missing', 'ai-translate') . ')';
+                        } elseif (!is_dir($cache_dir)) {
+                            // Hash subdirectory missing is normal - it gets created during write
+                            // This means the write never happened
+                            $error_detail .= ' (' . __('no write occurred', 'ai-translate') . ')';
                         } elseif (!is_writable($cache_dir)) {
                             $error_detail .= ' (' . __('not writable', 'ai-translate') . ')';
                         } else {
@@ -2091,7 +2106,7 @@ function render_admin_page()
                     $count = AI_Cache_Meta::populate_existing_cache(true);
                     if ($count > 0) {
                         echo '<div class="notice notice-success is-dismissible"><p>';
-                        echo sprintf(__('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
+                        echo safe_sprintf(__('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
                         echo '</p></div>';
                     } else {
                         echo '<div class="notice notice-warning is-dismissible"><p>';

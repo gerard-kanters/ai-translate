@@ -181,6 +181,12 @@ msgstr ""
 msgid "directory missing"
 msgstr ""
 
+msgid "lang directory missing"
+msgstr ""
+
+msgid "no write occurred"
+msgstr ""
+
 msgid "not writable"
 msgstr ""
 
