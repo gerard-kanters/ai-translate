@@ -290,6 +290,9 @@ add_filter('query_vars', function ($vars) {
     if (!in_array('lang', $vars, true)) {
         $vars[] = 'lang';
     }
+    if (!in_array('ai_translate_path', $vars, true)) {
+        $vars[] = 'ai_translate_path';
+    }
     return $vars;
 });
 
@@ -441,6 +444,33 @@ add_filter('request', function ($vars) {
     if ($req !== '' && (strpos($req, '/wp-admin/') !== false || strpos($req, 'wp-login.php') !== false)) {
         return $vars;
     }
+    // ai_translate_path: bij /{lang}/{pad}/ zet de generic rule ai_translate_path. Resolve naar post
+    // vóór de main query zodat de juiste page_id of p+post_type wordt meegenomen.
+    if (!empty($vars['ai_translate_path']) && !empty($vars['lang'])) {
+        $path = trim((string) $vars['ai_translate_path'], '/');
+        $lang = (string) $vars['lang'];
+        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $path);
+        if (!$post_id && strpos($path, '/') !== false) {
+            $base = basename($path);
+            $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $base);
+            if (!$post_id) {
+                // Generic fallback: try to find post by translated slug (prefers non-attachments)
+                $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post($base, $lang);
+            }
+        }
+        if ($post_id) {
+            $post = get_post($post_id);
+            if ($post && $post->post_status === 'publish') {
+                if ($post->post_type === 'page') {
+                    $vars['page_id'] = (int) $post->ID;
+                } else {
+                    $vars['p'] = (int) $post->ID;
+                    $vars['post_type'] = $post->post_type;
+                }
+            }
+        }
+        unset($vars['ai_translate_path']);
+    }
     // Handle 'lang' query var: map translated slug back to source for both pages and singles
     if (isset($vars['lang'])) {
         // pagename can be hierarchical: map EACH segment back to its source slug
@@ -460,6 +490,16 @@ add_filter('request', function ($vars) {
         if (!empty($vars['name'])) {
             $nm = (string) $vars['name'];
             $src = \AITranslate\AI_Slugs::resolve_any_to_source_slug($nm);
+            if (!$src && !empty($vars['lang'])) {
+                // Generic fallback: find post by translated slug (prefers non-attachments)
+                $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post($nm, (string) $vars['lang']);
+                if ($post_id) {
+                    $post = get_post($post_id);
+                    if ($post && $post->post_status === 'publish') {
+                        $src = $post->post_name;
+                    }
+                }
+            }
             if ($src) {
                 $vars['name'] = $src;
             }
@@ -1715,6 +1755,27 @@ add_action('post_updated', function ($post_id, $post_after, $post_before) {
 }, 10, 3);
 
 /**
+ * Bij gewijzigde inhoud of titel: vertaalcache voor dit bericht wissen zodat bij het volgende
+ * bezoek opnieuw wordt vertaald (hervertaling).
+ */
+add_action('post_updated', function ($post_id, $post_after, $post_before) {
+    if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
+        return;
+    }
+    if (!is_object($post_before) || !is_object($post_after)) {
+        return;
+    }
+    if ($post_after->post_status !== 'publish') {
+        return;
+    }
+    if ((string) $post_before->post_content === (string) $post_after->post_content
+        && (string) $post_before->post_title === (string) $post_after->post_title) {
+        return;
+    }
+    \AITranslate\AI_Cache_Meta::clear_post_cache($post_id);
+}, 10, 3);
+
+/**
  * One-time warmup: generate translated slugs for existing top-level pages so
  * language-prefixed URLs immediately resolve (prevents blank pages before first visit).
  * Mirrors robustness in the original implementation by pre-seeding the slug map.
@@ -1809,15 +1870,80 @@ add_filter('pre_handle_404', function ($preempt, $wp_query) {
         }
         return $preempt;
     }
-    // Try slug mapping
+    // Try slug mapping: resolve (translated) path to source pagename
     $source = \AITranslate\AI_Slugs::resolve_any_to_source_slug($rest);
     if ($source) {
-        $wp_query->query_vars = array_diff_key($wp_query->query_vars, ['name' => 1, 'pagename' => 1]);
-        $wp_query->query_vars['pagename'] = $source;
+        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $source);
+        $post = $post_id ? get_post($post_id) : get_page_by_path($source);
+        if (!$post) {
+            return $preempt;
+        }
+        $wp_query->query_vars = array_diff_key($wp_query->query_vars, ['name' => 1, 'pagename' => 1, 'p' => 1, 'post_type' => 1]);
+        if ($post->post_type === 'page') {
+            $wp_query->query_vars['pagename'] = get_page_uri($post->ID);
+            $wp_query->is_page = true;
+        } else {
+            $wp_query->query_vars['p'] = (int) $post->ID;
+            $wp_query->query_vars['post_type'] = $post->post_type;
+            $wp_query->is_page = false;
+        }
         $wp_query->is_404 = false;
-        $wp_query->is_page = true;
         $wp_query->is_singular = true;
+        $wp_query->is_author = false;
+        $wp_query->is_date = false;
+        $wp_query->is_category = false;
+        $wp_query->is_tag = false;
+        $wp_query->is_archive = false;
+        $wp_query->posts = array($post);
+        $wp_query->post = $post;
+        $wp_query->post_count = 1;
+        $wp_query->found_posts = 1;
+        $wp_query->max_num_pages = 1;
+        $wp_query->queried_object = $post;
+        $wp_query->queried_object_id = (int) $post->ID;
         return true;
+    }
+    // Hierarchische paden: slug map slaat alleen de leaf (post_name) op, niet bv. service/cloud-management.
+    // Probeer eerst het volledige pad, dan het laatste segment, daarna eventueel een slug-alias.
+    if (strpos($rest, '/') !== false) {
+        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
+        if (!$post_id) {
+            $base = basename($rest);
+            $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $base);
+            if (!$post_id) {
+                // Generic fallback: find post by translated slug (prefers non-attachments)
+                $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post($base, $lang);
+            }
+        }
+        if ($post_id) {
+            $post = get_post($post_id);
+            if ($post) {
+                $wp_query->query_vars = array_diff_key($wp_query->query_vars, ['name' => 1, 'pagename' => 1, 'p' => 1, 'post_type' => 1]);
+                if ($post->post_type === 'page') {
+                    $wp_query->query_vars['pagename'] = get_page_uri($post_id);
+                    $wp_query->is_page = true;
+                } else {
+                    $wp_query->query_vars['p'] = (int) $post->ID;
+                    $wp_query->query_vars['post_type'] = $post->post_type;
+                    $wp_query->is_page = false;
+                }
+                $wp_query->is_404 = false;
+                $wp_query->is_singular = true;
+                $wp_query->is_author = false;
+                $wp_query->is_date = false;
+                $wp_query->is_category = false;
+                $wp_query->is_tag = false;
+                $wp_query->is_archive = false;
+                $wp_query->posts = array($post);
+                $wp_query->post = $post;
+                $wp_query->post_count = 1;
+                $wp_query->found_posts = 1;
+                $wp_query->max_num_pages = 1;
+                $wp_query->queried_object = $post;
+                $wp_query->queried_object_id = (int) $post->ID;
+                return true;
+            }
+        }
     }
     return $preempt;
 }, 10, 2);

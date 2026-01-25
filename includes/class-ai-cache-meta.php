@@ -244,6 +244,49 @@ class AI_Cache_Meta
     }
 
     /**
+     * Clear all cached translations for a post: delete cache files and metadata.
+     * Gebruikt bij inhouds- of titelwijziging zodat bij het volgende bezoek opnieuw wordt vertaald.
+     *
+     * @param int $post_id Post ID
+     * @return array{deleted: int, meta_deleted: int, errors: string[]}
+     */
+    public static function clear_post_cache($post_id)
+    {
+        $deleted = 0;
+        $errors = [];
+        self::ensure_table_exists();
+        $records = self::get($post_id);
+        $uploads = wp_upload_dir();
+        $allowed_base = wp_normalize_path(trailingslashit($uploads['basedir']) . 'ai-translate/cache/');
+
+        foreach ($records as $record) {
+            if (empty($record->cache_file)) {
+                continue;
+            }
+            $cache_file = wp_normalize_path($record->cache_file);
+            if (strpos($cache_file, $allowed_base) !== 0) {
+                continue;
+            }
+            if (!file_exists($cache_file) || !is_file($cache_file)) {
+                continue;
+            }
+            if (substr($cache_file, -5) !== '.html') {
+                continue;
+            }
+            if (@unlink($cache_file)) {
+                ++$deleted;
+            } else {
+                $errors[] = basename($cache_file);
+            }
+        }
+
+        $meta_deleted = self::delete($post_id);
+        delete_transient('ai_translate_cache_table_data');
+
+        return ['deleted' => $deleted, 'meta_deleted' => $meta_deleted, 'errors' => $errors];
+    }
+
+    /**
      * Delete cache metadata for a specific language
      *
      * @param string $language_code Language code
@@ -331,6 +374,16 @@ class AI_Cache_Meta
         
         $table_name = self::get_table_name();
         
+        // Get all public post types (including custom post types)
+        $public_post_types = get_post_types(array('public' => true), 'names');
+        // Exclude attachments as they should not be translated
+        $public_post_types = array_diff($public_post_types, array('attachment'));
+        // Fallback to page and post if no public post types found
+        if (empty($public_post_types)) {
+            $public_post_types = array('page', 'post');
+        }
+        $post_types_placeholders = implode(', ', array_fill(0, count($public_post_types), '%s'));
+        
         // Try to execute query with JOIN first
         $query = $wpdb->prepare(
             "SELECT 
@@ -344,14 +397,13 @@ class AI_Cache_Meta
                 " . $table_name . " c ON p.ID = c.post_id
             WHERE 
                 p.post_status = 'publish'
-                AND p.post_type IN ('page', 'post')
+                AND p.post_type IN ($post_types_placeholders)
             GROUP BY 
                 p.ID, p.post_type, p.post_title
             ORDER BY 
                 p.post_type ASC, p.post_title ASC
             LIMIT %d OFFSET %d",
-            $limit,
-            $offset
+            array_merge(array_values($public_post_types), array($limit, $offset))
         );
         
         $results = $wpdb->get_results($query);
@@ -369,12 +421,11 @@ class AI_Cache_Meta
                     {$wpdb->posts} p
                 WHERE 
                     p.post_status = 'publish'
-                    AND p.post_type IN ('page', 'post')
+                    AND p.post_type IN ($post_types_placeholders)
                 ORDER BY 
                     p.post_type ASC, p.post_title ASC
                 LIMIT %d OFFSET %d",
-                $limit,
-                $offset
+                array_merge(array_values($public_post_types), array($limit, $offset))
             );
             $results = $wpdb->get_results($query);
             if (!is_array($results)) {
@@ -446,15 +497,23 @@ class AI_Cache_Meta
     {
         global $wpdb;
         
+        // Get all public post types (including custom post types)
+        $public_post_types = get_post_types(array('public' => true), 'names');
+        // Exclude attachments as they should not be translated
+        $public_post_types = array_diff($public_post_types, array('attachment'));
+        // Fallback to page and post if no public post types found
+        if (empty($public_post_types)) {
+            $public_post_types = array('page', 'post');
+        }
+        $post_types_placeholders = implode(', ', array_fill(0, count($public_post_types), '%s'));
+        
         $count = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT COUNT(*)
                 FROM {$wpdb->posts}
                 WHERE post_status = %s
-                AND post_type IN (%s, %s)",
-                'publish',
-                'page',
-                'post'
+                AND post_type IN ($post_types_placeholders)",
+                array_merge(array('publish'), array_values($public_post_types))
             )
         );
 

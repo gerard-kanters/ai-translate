@@ -305,6 +305,53 @@ final class AI_Slugs
         return $translated_slug;
     }
 
+    /**
+     * Fallback: find post_id for a translated slug when direct lookup fails.
+     * Prefers non-attachment posts (service, page, post).
+     * 
+     * @param string $translated_slug The translated slug to search for
+     * @param string $lang Language code
+     * @return int|null Post ID or null if not found
+     */
+    public static function resolve_translated_slug_to_post($translated_slug, $lang)
+    {
+        global $wpdb;
+        $table = self::table_name();
+        $schema = self::detect_schema();
+        $colLang = $schema === 'original' ? 'language_code' : 'lang';
+        
+        // Find all posts with this translated slug
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id FROM {$table} WHERE translated_slug = %s AND {$colLang} = %s",
+            $translated_slug,
+            $lang
+        ), ARRAY_A);
+        
+        if (empty($rows)) {
+            return null;
+        }
+        
+        // Prefer non-attachment posts
+        foreach ($rows as $row) {
+            $post_id = (int) $row['post_id'];
+            $post = get_post($post_id);
+            if ($post && $post->post_status === 'publish' && $post->post_type !== 'attachment') {
+                return $post_id;
+            }
+        }
+        
+        // Fallback: return first post if all are attachments
+        foreach ($rows as $row) {
+            $post_id = (int) $row['post_id'];
+            $post = get_post($post_id);
+            if ($post && $post->post_status === 'publish') {
+                return $post_id;
+            }
+        }
+        
+        return null;
+    }
+
     private static function get_source_slug($post_id)
     {
         $post = get_post($post_id);

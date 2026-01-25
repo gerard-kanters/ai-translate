@@ -30,10 +30,10 @@ final class AI_OB
     }
 
     /**
-     * Post-process cached content to handle admin bar.
+     * Post-process cached content to handle admin bar and update permalinks.
      *
      * @param string $html The cached HTML content
-     * @return string Modified HTML with correct admin bar state
+     * @return string Modified HTML with correct admin bar state and updated permalinks
      */
     private function post_process_cached_content($html)
     {
@@ -58,6 +58,57 @@ final class AI_OB
                 $html
             );
         }
+
+        // Update internal permalinks to use current translated slugs
+        $html = $this->update_cached_permalinks($html);
+
+        return $html;
+    }
+
+    /**
+     * Update internal permalinks in cached HTML to use current translated slugs.
+     * This ensures that even if slugs change after caching, links remain correct.
+     *
+     * @param string $html Cached HTML content
+     * @return string HTML with updated permalinks
+     */
+    private function update_cached_permalinks($html)
+    {
+        $lang = \AITranslate\AI_Lang::current();
+        $default = \AITranslate\AI_Lang::default();
+        
+        if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
+            return $html;
+        }
+
+        // Find all internal links: href="/xx/service/slug/" or href="/service/slug/"
+        // Pattern matches: /{lang}/service/{slug}/ or /service/{slug}/
+        $pattern = '#href="(/(?:' . preg_quote($lang, '#') . '/)?service/([^/"]+)/?)"#i';
+        
+        $html = preg_replace_callback($pattern, function ($matches) use ($lang) {
+            $full_href = $matches[1];
+            $old_slug = $matches[2];
+            
+            // Try to find the post by this slug (could be source or old translated slug)
+            $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post($old_slug, $lang);
+            if (!$post_id) {
+                // Try resolving as source slug
+                $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $old_slug);
+            }
+            
+            if ($post_id) {
+                // Get the current correct translated slug
+                $correct_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
+                if ($correct_slug && $correct_slug !== $old_slug) {
+                    // Replace with correct slug
+                    $new_href = '/' . $lang . '/service/' . trim($correct_slug, '/') . '/';
+                    return 'href="' . $new_href . '"';
+                }
+            }
+            
+            // No change needed or couldn't resolve
+            return $matches[0];
+        }, $html);
 
         return $html;
     }
