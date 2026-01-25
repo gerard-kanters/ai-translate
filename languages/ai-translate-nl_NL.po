@@ -1065,7 +1065,6 @@ msgstr ""
 
 msgid "Cache metadata rescanned: %d cache records added or updated."
 msgstr "Cache metadata opnieuw gescand: %d cache records toegevoegd of bijgewerkt."
-"Cache metadata opnieuw gescand: %d cache records toegevoegd of bijgewerkt."
 
 #: includes/admin-page.php:1977
 

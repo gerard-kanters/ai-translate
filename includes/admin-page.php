@@ -23,8 +23,8 @@ if (! class_exists('AI_Translate_Core')) {
  * @return string The formatted string
  */
 function safe_sprintf($format, ...$args) {
-    // Count %s placeholders in the format string
-    $placeholder_count = substr_count($format, '%s');
+    // Count printf-style placeholders (%s, %d, %u, %i, %f) in the format string
+    $placeholder_count = preg_match_all('/%[sduif]/', $format);
 
     // If no placeholders, return the format as-is
     if ($placeholder_count === 0) {
@@ -42,13 +42,12 @@ function safe_sprintf($format, ...$args) {
         $used_args = array_slice($args, 0, $placeholder_count);
         return sprintf($format, ...$used_args);
     } else {
-        // Too few arguments - replace placeholders with available arguments
+        // Too few arguments - replace placeholders with available args, strip the rest
         $result = $format;
         foreach ($args as $arg) {
-            $result = preg_replace('/%s/', $arg, $result, 1);
+            $result = preg_replace('/%[sduif]/', (string) $arg, $result, 1);
         }
-        // Remove any remaining %s placeholders
-        $result = str_replace('%s', '', $result);
+        $result = preg_replace('/%[sduif]/', '', $result);
         return $result;
     }
 }
