@@ -433,6 +433,22 @@ final class AI_SEO
                     $head->appendChild($doc->createTextNode("\n"));
                 }
             }
+            // og:image:alt: translate existing content for translated languages
+            if ($isTranslatedLang) {
+                $existingOgImageAlt = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
+                if ($existingOgImageAlt && $existingOgImageAlt->length > 0) {
+                    $ogImageAltElem = $existingOgImageAlt->item(0);
+                    if ($ogImageAltElem instanceof \DOMElement) {
+                        $existingAlt = trim((string) $ogImageAltElem->getAttribute('content'));
+                        if ($existingAlt !== '') {
+                            $translatedAlt = self::maybeTranslateMeta($existingAlt, $default, $lang);
+                            if (is_string($translatedAlt) && $translatedAlt !== '') {
+                                $ogImageAltElem->setAttribute('content', esc_attr(trim($translatedAlt)));
+                            }
+                        }
+                    }
+                }
+            }
             if ($ogUrlMissing && $ogUrl !== '') {
                 $meta = $doc->createElement('meta');
                 $meta->setAttribute('property', 'og:url');

@@ -312,9 +312,9 @@ final class AI_DOM
             }
         }
 
-        // OG title/description (but skip meta name="description" - handled by AI_SEO::inject())
+        // OG title/description/image:alt (but skip meta name="description" - handled by AI_SEO::inject())
         // AI_SEO handles meta description separately to ensure admin setting is used
-        $metaDesc = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:title" or translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description" ]');
+        $metaDesc = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:title" or translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description" or translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
         if ($metaDesc) {
             foreach ($metaDesc as $m) {
                 if ($m instanceof \DOMElement) {
