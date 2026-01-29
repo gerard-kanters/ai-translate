@@ -115,6 +115,13 @@ final class AI_Slugs
         $table = self::table_name();
         $slug = trim($path, '/');
         if ($slug === '') return null;
+        // Normaliseer URL-gecodeerd path (bijv. Hongaarse slugs) naar UTF-8 zodat exacte match werkt
+        if (strpos($slug, '%') !== false) {
+            $decoded = rawurldecode($slug);
+            if (mb_check_encoding($decoded, 'UTF-8')) {
+                $slug = $decoded;
+            }
+        }
         $schema = self::detect_schema();
         $colLang = $schema === 'original' ? 'language_code' : 'lang';
         $colTrans = 'translated_slug';

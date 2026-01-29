@@ -445,6 +445,14 @@ add_filter('request', function ($vars) {
     if ($req !== '' && (strpos($req, '/wp-admin/') !== false || strpos($req, 'wp-login.php') !== false)) {
         return $vars;
     }
+    // Fallback: als rewrite geen ai_translate_path zette (bijv. URL met %), haal path uit REQUEST_URI
+    if (empty($vars['ai_translate_path']) && !empty($req) && preg_match('#^/([a-z]{2})/([^?]+)#i', $req, $m)) {
+        $path_from_uri = (string) parse_url($req, PHP_URL_PATH);
+        if ($path_from_uri !== '' && preg_match('#^/([a-z]{2})(?:/(.*))?$#i', $path_from_uri, $path_m)) {
+            $vars['lang'] = strtolower($path_m[1]);
+            $vars['ai_translate_path'] = isset($path_m[2]) ? trim($path_m[2], '/') : '';
+        }
+    }
     // ai_translate_path: bij /{lang}/{pad}/ zet de generic rule ai_translate_path. Resolve naar post
     // vóór de main query zodat de juiste page_id of p+post_type wordt meegenomen.
     if (!empty($vars['ai_translate_path']) && !empty($vars['lang'])) {
@@ -649,12 +657,17 @@ add_action('template_redirect', function () {
                 $hasNonLatin = preg_match('/[\x{0080}-\x{FFFF}]/u', urldecode($pathWithoutLang));
                 
                 if ($hasNonLatin) {
-                    // Define character set mappings for languages
-                    $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi', 'bn', 'ta', 'te', 'ml', 'kn', 'gu', 'pa', 'ur', 'fa', 'ps', 'sd', 'ug', 'kk', 'ky', 'uz', 'mn', 'my', 'km', 'lo', 'ne', 'si', 'dz', 'bo', 'ti', 'am', 'hy', 'az', 'be', 'mk', 'sr', 'hr', 'bs', 'sq', 'mt', 'is', 'fo', 'cy', 'ga', 'gd', 'yi', 'yi'];
+                    // Define character set mappings for languages with truly non-Latin scripts
+                    $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi', 'bn', 'ta', 'te', 'ml', 'kn', 'gu', 'pa', 'ur', 'fa', 'ps', 'sd', 'ug', 'kk', 'ky', 'uz', 'mn', 'my', 'km', 'lo', 'ne', 'si', 'dz', 'bo', 'ti', 'am', 'hy', 'az', 'be', 'mk', 'sr', 'hr', 'bs', 'sq', 'mt', 'is', 'fo', 'cy', 'ga', 'gd', 'yi'];
                     $isNonLatinLang = in_array($langLower, $nonLatinLangs, true);
                     
-                    // If path has non-Latin characters but language code is Latin-based, block it
-                    if (!$isNonLatinLang) {
+                    // Latin-based languages that commonly use accented characters (Latin Extended)
+                    // These should NOT be blocked when the path contains Latin Extended chars
+                    $latinWithAccentsLangs = ['hu', 'cs', 'pl', 'sk', 'ro', 'tr', 'hr', 'sl', 'lv', 'lt', 'et', 'fi', 'sv', 'no', 'da', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'ga'];
+                    $isLatinWithAccents = in_array($langLower, $latinWithAccentsLangs, true);
+                    
+                    // Only block if it's truly non-Latin (not just accented Latin) for Latin-based languages
+                    if (!$isNonLatinLang && !$isLatinWithAccents) {
                         global $wp_query;
                         $wp_query->set_404();
                         status_header(404);
