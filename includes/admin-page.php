@@ -343,33 +343,40 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
     $mh = curl_multi_init();
     $curl_handles = [];
     
-    // Create curl handles for each language
+    // Use same URL as hreflang/crawlers: AI_SEO::get_translated_url.
     foreach ($lang_codes as $lang_code) {
-        $translated_path = "/{$lang_code}" . ($base_path ?: '/');
-        $translated_url = home_url($translated_path);
-        
-        $ch = curl_init($translated_url);
-        curl_setopt_array($ch, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
-            CURLOPT_TIMEOUT => 90,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_COOKIE => 'ai_translate_lang=' . urlencode($lang_code),
-            CURLOPT_HTTPHEADER => array(
-                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language: ' . $lang_code . ',' . $lang_code . ';q=0.9,en;q=0.8',
-                'Accept-Encoding: gzip, deflate, br',
-                'Connection: keep-alive',
-                'Upgrade-Insecure-Requests: 1'
-            )
-        ));
-        
-        curl_multi_add_handle($mh, $ch);
-        $curl_handles[$lang_code] = $ch;
+        try {
+            $translated_url = \AITranslate\AI_SEO::get_translated_url($post_id, $lang_code);
+            if ($translated_url === '') {
+                $results[$lang_code] = array('success' => false, 'error' => __('Could not generate post URL.', 'ai-translate'));
+                continue;
+            }
+
+            $ch = curl_init($translated_url);
+            curl_setopt_array($ch, array(
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 5,
+                CURLOPT_TIMEOUT => 90,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_COOKIE => 'ai_translate_lang=' . urlencode($lang_code),
+                CURLOPT_HTTPHEADER => array(
+                    'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language: ' . $lang_code . ',' . $lang_code . ';q=0.9,en;q=0.8',
+                    'Accept-Encoding: gzip, deflate, br',
+                    'Connection: keep-alive',
+                    'Upgrade-Insecure-Requests: 1'
+                )
+            ));
+
+            curl_multi_add_handle($mh, $ch);
+            $curl_handles[$lang_code] = $ch;
+        } catch (\Throwable $e) {
+            $results[$lang_code] = array('success' => false, 'error' => $e->getMessage());
+        }
     }
     
     // Execute all handles in parallel
@@ -501,9 +508,12 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
  */
 function warm_cache_internal_request($post_id, $request_path, $lang_code)
 {
-    // Build full URL for the request
-    $translated_url = home_url($request_path);
-    
+    $lang_code     = sanitize_key((string) $lang_code);
+    $translated_url = \AITranslate\AI_SEO::get_translated_url($post_id, $lang_code);
+    if ($translated_url === '') {
+        return array('success' => false, 'error' => __('Could not generate post URL.', 'ai-translate'));
+    }
+
     // Parse URL to get host and path
     $parsed = parse_url($translated_url);
     $host = isset($parsed['host']) ? $parsed['host'] : '';
@@ -704,13 +714,18 @@ function ajax_warm_post_cache()
     
     for ($i = 0; $i < count($languages_to_warm); $i += $batch_size) {
         $batch = array_slice($languages_to_warm, $i, $batch_size);
-        $results = warm_cache_batch($post_id, $path, $batch);
-        
-        foreach ($results as $lang_code => $result) {
-            if ($result['success']) {
-                $warmed++;
-            } else {
-                $errors[] = sprintf(__('Error for %s: %s', 'ai-translate'), $lang_code, $result['error']);
+        try {
+            $results = warm_cache_batch($post_id, $path, $batch);
+            foreach ($results as $lang_code => $result) {
+                if ($result['success']) {
+                    $warmed++;
+                } else {
+                    $errors[] = sprintf(__('Error for %s: %s', 'ai-translate'), $lang_code, $result['error']);
+                }
+            }
+        } catch (\Throwable $e) {
+            foreach ($batch as $lang_code) {
+                $errors[] = sprintf(__('Error for %s: %s', 'ai-translate'), $lang_code, $e->getMessage());
             }
         }
     }

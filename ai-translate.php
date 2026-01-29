@@ -20,19 +20,6 @@ if (!defined('ABSPATH')) {
 
 
 /**
- * Load plugin textdomain for translations with comprehensive locale fallback.
- *
- * WordPress supports various locale variants:
- * - Standard: nl_NL, de_DE, en_US
- * - Formal: nl_NL_formal, de_DE_formal
- * - Regional: nl_BE, de_AT, de_CH, pt_BR, es_MX, etc.
- * - Informal: (less common, but possible)
- *
- * This function implements a fallback chain:
- * 1. Try exact locale (e.g., nl_NL_formal)
- * 2. Try base locale (e.g., nl_NL)
- * 3. Try language code only (e.g., nl) - as last resort
- * 4. Fallback to standard load_plugin_textdomain()
  *
  * @return void
  */
@@ -717,8 +704,9 @@ add_action('template_redirect', function () {
     }
 
     // RULE 4: If cookie exists and on root, ensure language is set to default
-    // Skip this rule if there's a search parameter (handled above)
-    if ($reqPath === '/' && $cookieLang !== '' && !$hasSearchParam) {
+    // Skip this rule if there's a search parameter or explicit lang parameter (handled above)
+    $hasExplicitLang = isset($_GET['lang']) && trim((string) $_GET['lang']) !== '';
+    if ($reqPath === '/' && $cookieLang !== '' && !$hasSearchParam && !$hasExplicitLang) {
         \AITranslate\AI_Lang::set_cookie((string) $defaultLang);
         // Set language and stop processing
         $finalLang = (string) $defaultLang;

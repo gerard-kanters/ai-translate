@@ -808,6 +808,48 @@ final class AI_SEO
     }
 
     /**
+     * Return the translated URL for a post and language (same URL as hreflang uses).
+     * Use this for warm cache, crawlers, or any code that needs the canonical translated URL.
+     *
+     * @param int    $post_id Post ID (0 = homepage).
+     * @param string $lang    Language code.
+     * @return string Full URL or empty string on failure.
+     */
+    public static function get_translated_url($post_id, $lang)
+    {
+        $lang    = sanitize_key((string) $lang);
+        $default = AI_Lang::default();
+        if ($default === null || $default === '') {
+            return '';
+        }
+
+        if ((int) $post_id === 0) {
+            if (strtolower($lang) === strtolower($default)) {
+                return home_url('/');
+            }
+            return home_url('/' . $lang . '/');
+        }
+
+        $translatedSlug = AI_Slugs::get_or_generate((int) $post_id, $lang);
+        if ($translatedSlug !== null && $translatedSlug !== '') {
+            if (strtolower($lang) === strtolower($default)) {
+                return home_url('/' . ltrim($translatedSlug, '/') . '/');
+            }
+            return home_url('/' . $lang . '/' . ltrim($translatedSlug, '/') . '/');
+        }
+
+        $currentUrl = get_permalink((int) $post_id);
+        if (!$currentUrl) {
+            return '';
+        }
+        $path = AI_URL::rewrite_single_href($currentUrl, $lang, $default);
+        if (!is_string($path) || $path === '') {
+            return '';
+        }
+        return home_url($path);
+    }
+
+    /**
      * Determine if a given Open Graph property is missing.
      *
      * @param \DOMXPath $xpath
