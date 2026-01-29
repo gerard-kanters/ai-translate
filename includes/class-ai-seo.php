@@ -244,19 +244,26 @@ final class AI_SEO
         }
         
         if ($ogLocale !== '') {
+            // Always remove ALL existing og:locale tags first to ensure no duplicates
             $existingOgLocale = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:locale"]');
             if ($existingOgLocale && $existingOgLocale->length > 0) {
-                $ogLocaleElem = $existingOgLocale->item(0);
-                if ($ogLocaleElem instanceof \DOMElement) {
-                    $ogLocaleElem->setAttribute('content', esc_attr($ogLocale));
+                // Remove all existing og:locale tags (iterate backwards to avoid index issues)
+                for ($i = $existingOgLocale->length - 1; $i >= 0; $i--) {
+                    $ogLocaleElem = $existingOgLocale->item($i);
+                    if ($ogLocaleElem instanceof \DOMElement) {
+                        $parent = $ogLocaleElem->parentNode;
+                        if ($parent) {
+                            $parent->removeChild($ogLocaleElem);
+                        }
+                    }
                 }
-            } else {
-                $meta = $doc->createElement('meta');
-                $meta->setAttribute('property', 'og:locale');
-                $meta->setAttribute('content', esc_attr($ogLocale));
-                $head->appendChild($meta);
-                $head->appendChild($doc->createTextNode("\n"));
             }
+            // Always add exactly one correct og:locale tag
+            $meta = $doc->createElement('meta');
+            $meta->setAttribute('property', 'og:locale');
+            $meta->setAttribute('content', esc_attr($ogLocale));
+            $head->appendChild($meta);
+            $head->appendChild($doc->createTextNode("\n"));
         }
         
         // For all languages: synchronize og:description with computed meta description (admin setting)

@@ -1030,6 +1030,13 @@ add_action('admin_init', function () {
                         __('Custom API URL is required for the custom provider.', 'ai-translate'),
                         'error'
                     );
+                } elseif (strpos($sanitized['custom_api_url'], 'googleapis.com') !== false) {
+                    add_settings_error(
+                        'ai_translate_settings',
+                        'custom_url_not_openai_compatible',
+                        __('Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini.', 'ai-translate'),
+                        'error'
+                    );
                 }
             }
 
