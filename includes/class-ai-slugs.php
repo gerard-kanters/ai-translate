@@ -152,7 +152,65 @@ final class AI_Slugs
             "SELECT post_id FROM {$table} WHERE {$colSource} = %s LIMIT 1",
             $slug
         ));
-        return $post_id ? (int)$post_id : null;
+        if ($post_id) return (int) $post_id;
+
+        // Fallback for wrongly stored URL-encoded slugs (e.g. Hungarian): request path may be
+        // decoded ("fellépés-...") or still encoded ("fell%c3%a9p%c3%a9s-..."); DB may contain encoded.
+        // Compare both sides in decoded form.
+        $slug_normalized = (strpos($slug, '%') !== false) ? rawurldecode($slug) : $slug;
+        if ($slug_normalized !== $slug && !mb_check_encoding($slug_normalized, 'UTF-8')) {
+            $slug_normalized = $slug;
+        }
+        $encoded_like = '%' . $wpdb->esc_like('%', '\\') . '%';
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, translated_slug FROM {$table} WHERE {$colLang} = %s AND translated_slug LIKE %s",
+            $lang,
+            $encoded_like
+        ), ARRAY_A);
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $stored = isset($row['translated_slug']) ? (string) $row['translated_slug'] : '';
+                if ($stored === '') continue;
+                $stored_decoded = rawurldecode($stored);
+                if ($stored_decoded === $slug_normalized || $stored_decoded === $slug) {
+                    $post_id = (int) $row['post_id'];
+                    self::fix_encoded_slug_in_db($post_id, $lang, $stored);
+                    return $post_id;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Replace URL-encoded translated_slug with UTF-8 so future lookups match without fallback.
+     *
+     * @param int $post_id Post ID
+     * @param string $lang Language code
+     * @param string $encoded_slug Current stored (encoded) slug
+     */
+    private static function fix_encoded_slug_in_db($post_id, $lang, $encoded_slug)
+    {
+        $decoded = rawurldecode($encoded_slug);
+        if ($decoded === $encoded_slug || !mb_check_encoding($decoded, 'UTF-8')) {
+            return;
+        }
+        global $wpdb;
+        $table = self::table_name();
+        $schema = self::detect_schema();
+        $colLang = $schema === 'original' ? 'language_code' : 'lang';
+        $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT {$colSource} FROM {$table} WHERE post_id = %d AND {$colLang} = %s",
+            $post_id,
+            $lang
+        ), ARRAY_A);
+        if (!is_array($row) || empty($row[$colSource])) {
+            return;
+        }
+        $source_slug = (string) $row[$colSource];
+        $version = md5($source_slug);
+        self::upsert_row($post_id, $lang, $source_slug, $decoded, $version);
     }
 
     /**
@@ -199,7 +257,23 @@ final class AI_Slugs
         
         // Default behavior: return first match (for backward compatibility)
         $source = $wpdb->get_var($wpdb->prepare("SELECT {$colSource} FROM {$table} WHERE translated_slug = %s LIMIT 1", $slug));
-        return $source ? (string)$source : null;
+        if ($source) return (string) $source;
+
+        // Fallback: match URL-encoded stored slug (e.g. Hungarian)
+        $encoded_like = '%' . $wpdb->esc_like('%', '\\') . '%';
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, {$colSource}, translated_slug FROM {$table} WHERE translated_slug LIKE %s",
+            $encoded_like
+        ), ARRAY_A);
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $stored = isset($row['translated_slug']) ? (string) $row['translated_slug'] : '';
+                if ($stored !== '' && rawurldecode($stored) === $slug) {
+                    return isset($row[$colSource]) ? (string) $row[$colSource] : null;
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -398,15 +472,42 @@ final class AI_Slugs
         
         // Find all posts with this translated slug
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id FROM {$table} WHERE translated_slug = %s AND {$colLang} = %s",
+            "SELECT post_id, translated_slug FROM {$table} WHERE translated_slug = %s AND {$colLang} = %s",
             $translated_slug,
             $lang
         ), ARRAY_A);
-        
+
+        // Fallback: match URL-encoded stored slug (e.g. Hungarian); compare in decoded form
+        if (empty($rows)) {
+            $slug_norm = (strpos($translated_slug, '%') !== false) ? rawurldecode($translated_slug) : $translated_slug;
+            if ($slug_norm !== $translated_slug && !mb_check_encoding($slug_norm, 'UTF-8')) {
+                $slug_norm = $translated_slug;
+            }
+            $encoded_like = '%' . $wpdb->esc_like('%', '\\') . '%';
+            $rows_enc = $wpdb->get_results($wpdb->prepare(
+                "SELECT post_id, translated_slug FROM {$table} WHERE {$colLang} = %s AND translated_slug LIKE %s",
+                $lang,
+                $encoded_like
+            ), ARRAY_A);
+            if (is_array($rows_enc)) {
+                foreach ($rows_enc as $row) {
+                    $stored = isset($row['translated_slug']) ? (string) $row['translated_slug'] : '';
+                    if ($stored === '') continue;
+                    $stored_decoded = rawurldecode($stored);
+                    if ($stored_decoded === $slug_norm || $stored_decoded === $translated_slug) {
+                        $post_id = (int) $row['post_id'];
+                        self::fix_encoded_slug_in_db($post_id, $lang, $stored);
+                        $rows = [ $row ];
+                        break;
+                    }
+                }
+            }
+        }
+
         if (empty($rows)) {
             return null;
         }
-        
+
         // First try: find post with matching post_type
         foreach ($rows as $row) {
             $post_id = (int) $row['post_id'];
@@ -415,8 +516,7 @@ final class AI_Slugs
                 return $post_id;
             }
         }
-        
-        // No match found with the expected post_type
+
         return null;
     }
 

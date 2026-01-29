@@ -1513,6 +1513,13 @@ add_action('parse_request', function ($wp) {
     if ($rest === '') {
         return; // handled by previous block (language root)
     }
+    // Decode URL-encoded path (e.g. Hungarian slugs) so slug lookup matches DB
+    if (strpos($rest, '%') !== false) {
+        $rest_decoded = rawurldecode($rest);
+        if (mb_check_encoding($rest_decoded, 'UTF-8')) {
+            $rest = $rest_decoded;
+        }
+    }
     // Let the dedicated pagination handler manage /{lang}/page/{n}
     if (preg_match('#^page/[0-9]+/?$#i', $rest)) {
         return;
