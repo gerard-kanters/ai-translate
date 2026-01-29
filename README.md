@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.2.1
+Stable tag: 2.2.2
 Requires PHP: 8.0.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -187,10 +187,11 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
-### 2.2.1
+### 2.2.2
 
 - Added cache warming for pages to admin.
 - Admin user language preferred over site language for admin page translation.
+- Implement partial caching of extremely large pages timing out on the API limits.
 - Support for Wordpress 6.9
 - Added NAV menu item for language switcher.
 - Issue with language parameter on home page fixed.

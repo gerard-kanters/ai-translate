@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. 
  * Author: Netcare
  * Author URI: https://netcare.nl/
- * Version: 2.2.1
+ * Version: 2.2.2
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0

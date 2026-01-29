@@ -175,14 +175,14 @@ final class AI_Batch
         $translationsPrimary = [];
         $canMulti = false;
         $reqClass = null;
-        if (in_array($provider, ['deepseek','openai','custom'], true)) {
+        if (in_array($provider, ['deepseek','openai','custom','openrouter','groq','deepinfra'], true)) {
             if (class_exists('\\WpOrg\\Requests\\Requests')) { $reqClass = '\\WpOrg\\Requests\\Requests'; $canMulti = true; }
             elseif (class_exists('\\Requests')) { $reqClass = '\\Requests'; $canMulti = true; }
         }
         if ($canMulti) {
-            $concurrency = 2;
+            $concurrency = 3;
             $groups = array_chunk($batches, $concurrency);
-            $timeoutSeconds = ($provider === 'deepseek') ? 90 : 45;
+            $timeoutSeconds = 60;
             foreach ($groups as $gIdx => $group) {
                 $requests = [];
                 $metas = [];
@@ -302,6 +302,27 @@ final class AI_Batch
                                 $translationsPrimary[(string)$k] = $translated;
                             }
                         }
+                        // Partial caching: persist translated primaries after each successful batch
+                        foreach ($parsed['translations'] as $k => $v) {
+                            $pid = (string) $k;
+                            if (!isset($primarySegById[$pid])) {
+                                continue;
+                            }
+                            $tr = trim((string) $v);
+                            if ($tr === '') {
+                                continue;
+                            }
+                            $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
+                            set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
+                            if ($primarySegById[$pid]['type'] === 'attr') {
+                                $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
+                                if (function_exists('ai_translate_set_attr_transient')) {
+                                    ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
+                                } else {
+                                    set_transient($attrKey, (string) $tr, $expiry);
+                                }
+                            }
+                        }
                     } else {
                         $failedIndexes[] = (int)$idx;
                     }
@@ -328,7 +349,33 @@ final class AI_Batch
                                 $parsed = json_decode(trim($candidate), true);
                             }
                             if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations'])) {
-                                foreach ($parsed['translations'] as $k => $v) { $translationsPrimary[(string)$k] = (string)$v; }
+                                foreach ($parsed['translations'] as $k => $v) {
+                                    $translated = trim((string) $v);
+                                    if ($translated !== '') {
+                                        $translationsPrimary[(string)$k] = $translated;
+                                    }
+                                }
+                                // Partial caching: persist translated primaries after retry batch
+                                foreach ($parsed['translations'] as $k => $v) {
+                                    $pid = (string) $k;
+                                    if (!isset($primarySegById[$pid])) {
+                                        continue;
+                                    }
+                                    $tr = trim((string) $v);
+                                    if ($tr === '') {
+                                        continue;
+                                    }
+                                    $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
+                                    set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
+                                    if ($primarySegById[$pid]['type'] === 'attr') {
+                                        $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
+                                        if (function_exists('ai_translate_set_attr_transient')) {
+                                            ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
+                                        } else {
+                                            set_transient($attrKey, (string) $tr, $expiry);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -492,7 +539,7 @@ final class AI_Batch
                 $body['temperature'] = 0;
             }
 
-            $timeoutSeconds = ($provider === 'deepseek') ? 90 : 45;
+        $timeoutSeconds = 60;
             $attempts = 0;
             $maxAttempts = 1;
             $response = null;
@@ -559,6 +606,27 @@ final class AI_Batch
             }
             foreach ($parsed['translations'] as $k => $v) {
                 $translationsPrimary[(string) $k] = (string) $v;
+            }
+            // Partial caching: persist translated primaries after each successful batch
+            foreach ($parsed['translations'] as $k => $v) {
+                $pid = (string) $k;
+                if (!isset($primarySegById[$pid])) {
+                    continue;
+                }
+                $tr = trim((string) $v);
+                if ($tr === '') {
+                    continue;
+                }
+                $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
+                set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
+                if ($primarySegById[$pid]['type'] === 'attr') {
+                    $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
+                    if (function_exists('ai_translate_set_attr_transient')) {
+                        ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
+                    } else {
+                        set_transient($attrKey, (string) $tr, $expiry);
+                    }
+                }
             }
         }
         

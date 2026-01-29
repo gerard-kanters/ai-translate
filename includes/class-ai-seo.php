@@ -187,6 +187,46 @@ final class AI_SEO
         $ogImageMissing = self::isOgMissing($xpath, 'og:image');
         $ogUrlMissing   = self::isOgMissing($xpath, 'og:url');
         
+        $ogLocale = '';
+        $langNorm = strtolower(trim((string) $lang));
+        if ($langNorm !== '') {
+            if (preg_match('/^([a-z]{2})[-_](.+)$/i', $langNorm, $m)) {
+                $langPart = strtolower($m[1]);
+                $regionPart = strtoupper(preg_replace('/[^a-z]/i', '', $m[2]));
+                if ($regionPart !== '') {
+                    $ogLocale = $langPart . '_' . $regionPart;
+                }
+            }
+            if ($ogLocale === '') {
+                $ogLocaleMap = [
+                    'en' => 'en_US',
+                    'nl' => 'nl_NL',
+                    'de' => 'de_DE',
+                    'fr' => 'fr_FR',
+                    'es' => 'es_ES',
+                    'it' => 'it_IT',
+                    'pt' => 'pt_PT',
+                ];
+                $ogLocale = $ogLocaleMap[$langNorm] ?? $langNorm;
+            }
+        }
+        
+        if ($ogLocale !== '') {
+            $existingOgLocale = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:locale"]');
+            if ($existingOgLocale && $existingOgLocale->length > 0) {
+                $ogLocaleElem = $existingOgLocale->item(0);
+                if ($ogLocaleElem instanceof \DOMElement) {
+                    $ogLocaleElem->setAttribute('content', esc_attr($ogLocale));
+                }
+            } else {
+                $meta = $doc->createElement('meta');
+                $meta->setAttribute('property', 'og:locale');
+                $meta->setAttribute('content', esc_attr($ogLocale));
+                $head->appendChild($meta);
+                $head->appendChild($doc->createTextNode("\n"));
+            }
+        }
+        
         // For all languages: synchronize og:description with computed meta description (admin setting)
         // For translated languages: always replace; for default language: replace if admin setting is set
         $shouldReplaceOgDesc = $isTranslatedLang;
