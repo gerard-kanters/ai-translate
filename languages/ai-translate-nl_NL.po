@@ -441,14 +441,10 @@ msgstr "— Selecteer provider —"
 msgid "Note:"
 msgstr "Opmerking:"
 
-#: includes/admin-page.php:1190
+#: includes/admin-page.php:1292
 
-msgid ""
-"GPT-5 is blocked, since reasoning cannot be disabled and not required for "
-"translations and therefore too slow and expensive."
-msgstr ""
-"GPT-5 is geblokkeerd, omdat reasoning niet kan worden uitgeschakeld en niet "
-"nodig is voor vertalingen en daarom te langzaam en duur is."
+msgid "GPT-5 models use minimal reasoning for fast translations. O1 and O3 models are not supported."
+msgstr "GPT-5 modellen gebruiken minimaal redeneren voor snelle vertalingen. O1 en O3 modellen worden niet ondersteund."
 
 #: includes/admin-page.php:1196
 

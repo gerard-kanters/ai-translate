@@ -161,13 +161,18 @@ final class AI_Translate_Core
                     ['role' => 'user', 'content' => 'Test'],
                 ],
             ];
-            // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens instead of max_tokens
-            // DeepSeek v3.2 doesn't require max_tokens or max_completion_tokens (per documentation)
+            // Chat test: one cap for all providers (OpenAI/OpenRouter require minimum 16)
+            $chatTestMaxTokens = 32;
+            // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens; others use max_tokens
+            // DeepSeek v3.2 doesn't require either (per documentation)
             if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
-                $chatBody['max_completion_tokens'] = 5;
+                $chatBody['max_completion_tokens'] = $chatTestMaxTokens;
+                // GPT-5 models: use minimal reasoning for fast validation
+                if (str_starts_with($model, 'gpt-5')) {
+                    $chatBody['reasoning_effort'] = 'minimal';
+                }
             } elseif (!str_starts_with($model, 'deepseek/deepseek-v3')) {
-                // Only add max_tokens for non-DeepSeek v3 models
-                $chatBody['max_tokens'] = 5;
+                $chatBody['max_tokens'] = $chatTestMaxTokens;
                 $chatBody['temperature'] = 0;
             }
             $chatResp = wp_remote_post($chatEndpoint, [

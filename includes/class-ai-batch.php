@@ -9,6 +9,8 @@ final class AI_Batch
 {
     /**
      * Translate a plan's segments using configured provider.
+     * GPT-5 models use reasoning_effort=minimal for fast translations.
+     * Blocked: o1, o3 (no reasoning_effort parameter support).
      *
      * @param array $plan
      * @param string|null $source
@@ -18,6 +20,7 @@ final class AI_Batch
      */
     public static function translate_plan(array $plan, $source, $target, array $context)
     {
+        $debugStart = microtime(true);
         $segments = $plan['segments'] ?? [];
 
         $timeLimit = (int) ini_get('max_execution_time');
@@ -34,8 +37,13 @@ final class AI_Batch
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
 
-        // Block GPT-5 models (gpt-5*, o1-*, o3-*) - they have 3-5x higher latency due to complex reasoning
-        if ($model !== '' && preg_match('/^(gpt-5|o1-|o3-)/i', $model)) {
+        // DEBUG: Log translation start
+        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            error_log(sprintf('[AI-Batch] START translate_plan: %d segments, provider=%s, model=%s', count($segments), $provider, $model));
+        }
+
+        // Block o1/o3 reasoning models: they don't support reasoning_effort parameter
+        if ($model !== '' && preg_match('/^(o1-|o3-)/i', $model)) {
             return ['segments' => [], 'map' => []];
         }
 
@@ -136,14 +144,11 @@ final class AI_Batch
                     
                     if ($cacheInvalid) {
                         $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
-                        $cacheMisses++;
                     } else {
                         $cachedPrimary[$seg['id']] = $cachedText;
-                        $cacheHits++;
                     }
                 } else {
                     $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
-                    $cacheMisses++;
                 }
             } else {
                 $primary = $primaryByKey[$key];
@@ -167,23 +172,35 @@ final class AI_Batch
             return ['segments' => $final, 'map' => []];
         }
 
-        // Use smaller chunk sizes to prevent API response truncation issues
-        $chunkSize = ($provider === 'deepseek') ? 8 : 5;
+        // Optimized chunk sizes: larger batches = fewer API calls = faster translations
+        // Modern models (GPT-4, GPT-5, Gemini, Claude) handle 15-20 segments easily
+        $chunkSize = ($provider === 'deepseek') ? 12 : 15;
         $batches = ($chunkSize < count($workSegments)) ? array_chunk($workSegments, $chunkSize) : [ $workSegments ];
+        
+        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            error_log(sprintf('[AI-Batch] Batching: %d segments → %d batches (size=%d)', count($workSegments), count($batches), $chunkSize));
+        }
 
-        // Concurrency: for DeepSeek, parallel chunks using Requests::request_multiple if available
+        // Parallel processing: use for ALL providers (not just specific ones)
         $translationsPrimary = [];
         $canMulti = false;
         $reqClass = null;
-        if (in_array($provider, ['deepseek','openai','custom','openrouter','groq','deepinfra'], true)) {
-            if (class_exists('\\WpOrg\\Requests\\Requests')) { $reqClass = '\\WpOrg\\Requests\\Requests'; $canMulti = true; }
-            elseif (class_exists('\\Requests')) { $reqClass = '\\Requests'; $canMulti = true; }
-        }
+        // Check if parallel requests library is available
+        if (class_exists('\\WpOrg\\Requests\\Requests')) { $reqClass = '\\WpOrg\\Requests\\Requests'; $canMulti = true; }
+        elseif (class_exists('\\Requests')) { $reqClass = '\\Requests'; $canMulti = true; }
+        
         if ($canMulti) {
-            $concurrency = 3;
+            $apiStart = microtime(true);
+            $concurrency = 6; // Higher concurrency: 6 parallel requests (was 3)
             $groups = array_chunk($batches, $concurrency);
-            $timeoutSeconds = 60;
+            $timeoutSeconds = 45; // Balanced timeout: enough for API response, not excessive (was 60)
+            
+            if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                error_log(sprintf('[AI-Batch] Parallel API: %d groups, concurrency=%d, timeout=%ds', count($groups), $concurrency, $timeoutSeconds));
+            }
+            
             foreach ($groups as $gIdx => $group) {
+                $groupStart = microtime(true);
                 $requests = [];
                 $metas = [];
                 foreach ($group as $batchSegs) {
@@ -199,6 +216,10 @@ final class AI_Batch
                     // These models also don't support temperature != 1, so we omit it
                     if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                         $body['max_completion_tokens'] = 4096;
+                        // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
+                        if (str_starts_with($model, 'gpt-5')) {
+                            $body['reasoning_effort'] = 'minimal';
+                        }
                     } else {
                         $body['max_tokens'] = 4096;
                         $body['temperature'] = 0;
@@ -235,6 +256,10 @@ final class AI_Batch
                             $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
                             if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                                 $body['max_completion_tokens'] = 4096;
+                                // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
+                                if (str_starts_with($model, 'gpt-5')) {
+                                    $body['reasoning_effort'] = 'minimal';
+                                }
                             } else {
                                 $body['max_tokens'] = 4096;
                                 $body['temperature'] = 0;
@@ -446,6 +471,10 @@ final class AI_Batch
                         $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
                         if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                             $body['max_completion_tokens'] = 4096;
+                            // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
+                            if (str_starts_with($model, 'gpt-5')) {
+                                $body['reasoning_effort'] = 'minimal';
+                            }
                         } else {
                             $body['max_tokens'] = 4096;
                             $body['temperature'] = 0;
@@ -487,9 +516,14 @@ final class AI_Batch
                         }
                     }
                 }
+                
+                if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                    error_log(sprintf('[AI-Batch] Group %d completed: %d translations in %.3fs', $gIdx + 1, count($translationsPrimary), microtime(true) - $groupStart));
+                }
             }
 
             // Write cache for primaries and expand to full id map
+            $cacheWriteStart = microtime(true);
             $newlyCached = 0;
             foreach ($translationsPrimary as $pid => $tr) {
                 if (isset($primarySegById[$pid])) {
@@ -517,10 +551,24 @@ final class AI_Batch
                 if ($tr === null) { continue; }
                 foreach ($ids as $oid) { $final[$oid] = $tr; }
             }
+            
+            if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                error_log(sprintf('[AI-Batch] Cache write: %d new entries in %.3fs', $newlyCached, microtime(true) - $cacheWriteStart));
+                error_log(sprintf('[AI-Batch] PARALLEL TOTAL: %.3fs (API calls)', microtime(true) - $apiStart));
+                error_log(sprintf('[AI-Batch] COMPLETE: %d final translations in %.3fs total', count($final), microtime(true) - $debugStart));
+            }
+            
             return ['segments' => $final, 'map' => []];
         }
 
+        // Sequential fallback (when parallel not available)
+        $apiStart = microtime(true);
+        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            error_log(sprintf('[AI-Batch] Sequential API: %d batches', count($batches)));
+        }
+        
         foreach ($batches as $i => $batchSegs) {
+            $batchStart = microtime(true);
             $userPayload = self::buildUserPayload($batchSegs);
             $body = [
                 'model' => $model,
@@ -534,12 +582,16 @@ final class AI_Batch
             // These models also don't support temperature != 1, so we omit it
             if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                 $body['max_completion_tokens'] = 4096;
+                // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
+                if (str_starts_with($model, 'gpt-5')) {
+                    $body['reasoning_effort'] = 'minimal';
+                }
             } else {
                 $body['max_tokens'] = 4096;
                 $body['temperature'] = 0;
             }
 
-        $timeoutSeconds = 60;
+        $timeoutSeconds = 45; // Balanced timeout for sequential fallback (was 60)
             $attempts = 0;
             $maxAttempts = 1;
             $response = null;
@@ -694,6 +746,10 @@ final class AI_Batch
                     $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
                     if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                         $body['max_completion_tokens'] = 4096;
+                        // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
+                        if (str_starts_with($model, 'gpt-5')) {
+                            $body['reasoning_effort'] = 'minimal';
+                        }
                     } else {
                         $body['max_tokens'] = 4096;
                         $body['temperature'] = 0;
@@ -762,6 +818,13 @@ final class AI_Batch
             if ($tr === null) { continue; }
             foreach ($ids as $oid) { $final[$oid] = $tr; }
         }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            error_log(sprintf('[AI-Batch] Cache write: %d new entries', $newlyCached));
+            error_log(sprintf('[AI-Batch] SEQUENTIAL TOTAL: %.3fs (API calls)', microtime(true) - $apiStart));
+            error_log(sprintf('[AI-Batch] COMPLETE: %d final translations in %.3fs total', count($final), microtime(true) - $debugStart));
+        }
+        
         return ['segments' => $final, 'map' => []];
     }
 

@@ -1287,9 +1287,9 @@ add_action('admin_init', function () {
                 echo '<option value="' . esc_attr($key) . '" ' . selected($current_provider_key, $key, false) . '>' . esc_html($provider_details['name']) . '</option>';
             }
             echo '</select>';
-            // GPT-5 warning for OpenAI
-            echo '<div id="openai_gpt5_warning" style="margin-top:10px; display:none;">';
-            echo '<p class="description" style="color: #d63638;"><strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ' . esc_html__('GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive.', 'ai-translate') . '</p>';
+            // Note for OpenAI: GPT-5 uses minimal reasoning for speed; o1/o3 not supported
+            echo '<div id="openai_gpt5_warning" class="ai-translate-provider-note" style="margin-top:10px; display:none;">';
+            echo '<p class="description"><strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ' . esc_html__('GPT-5 models use minimal reasoning for fast translations. O1 and O3 models are not supported.', 'ai-translate') . '</p>';
             echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
@@ -2377,10 +2377,9 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
     }, $data['data']);
     $models = array_filter($models);
-    // Block GPT-5 models as they are designed for complex reasoning tasks and have 3-5x higher latency
-    // GPT-5 is unsuitable for real-time website translations (use gpt-4o-mini or gpt-4.1-mini instead)
+    // Block only o1/o3 (no reasoning_effort support); gpt-5 models allowed
     $models = array_filter($models, function($model) {
-        return !preg_match('/^(gpt-5|o1-|o3-)/i', $model);
+        return !preg_match('/^(o1-|o3-)/i', $model);
     });
     sort($models);
     wp_send_json_success(['models' => $models]);

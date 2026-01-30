@@ -1,3 +1,10 @@
+/* Provider note: informational only, never red */
+.ai-translate-provider-note,
+.ai-translate-provider-note p,
+.ai-translate-provider-note .description {
+    color: #1d2327 !important;
+}
+
 .cache-stats-section {
     margin-top: 20px;
     background: #f9f9f9;

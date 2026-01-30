@@ -363,8 +363,8 @@ msgstr ""
 msgid "Note:"
 msgstr ""
 
-#: includes/admin-page.php:1190
-msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
+#: includes/admin-page.php:1292
+msgid "GPT-5 models use minimal reasoning for fast translations. O1 and O3 models are not supported."
 msgstr ""
 
 #: includes/admin-page.php:1196
