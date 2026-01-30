@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, artificial intelligence, seo, translate, ai translate  
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.2.2
+Stable tag: 2.2.3
 Requires PHP: 8.0.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -187,7 +187,7 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
-### 2.2.2
+### 2.2.3
 
 - Added cache warming for pages to admin.
 - Admin user language preferred over site language for admin page translation.
@@ -203,7 +203,7 @@ AI Translate requires an API key from one of the supported providers:
 - Implemented stop API calls in admin to avoid cost.
 - Improved caching and reduce API calls of UI elements.
   
-### 2.1.2
+### 2.1.7
 
 - Fixed JS issue with speculationrules.
 - Removed debug logging.

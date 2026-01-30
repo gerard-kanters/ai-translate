@@ -127,22 +127,94 @@ final class AI_Slugs
         $colTrans = 'translated_slug';
         $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
         
-        // Exact match first (support both schemas)
+        // Exact match first (support both schemas), but exclude attachments
         $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM {$table} WHERE {$colLang} = %s AND {$colTrans} = %s LIMIT 1", $lang, $slug));
-        if ($post_id) return (int) $post_id;
+        if ($post_id) {
+            // Verify it's not an attachment
+            $post = get_post((int) $post_id);
+            if ($post && $post->post_type !== 'attachment') {
+                return (int) $post_id;
+            }
+        }
+        
+        // Also try exact match with URL-encoded slugs in database
+        $rows_encoded = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, {$colTrans} FROM {$table} WHERE {$colLang} = %s AND {$colTrans} LIKE %s",
+            $lang,
+            '%' . $wpdb->esc_like('%', '\\') . '%'
+        ), ARRAY_A);
+        if (is_array($rows_encoded)) {
+            foreach ($rows_encoded as $row) {
+                $stored = isset($row[$colTrans]) ? (string) $row[$colTrans] : '';
+                if ($stored === '' || strpos($stored, '%') === false) continue;
+                $stored_decoded = rawurldecode($stored);
+                if (mb_check_encoding($stored_decoded, 'UTF-8') && $stored_decoded === $slug) {
+                    $post_id = (int) $row['post_id'];
+                    // Verify it's not an attachment
+                    $post = get_post($post_id);
+                    if ($post && $post->post_type !== 'attachment') {
+                        self::fix_encoded_slug_in_db($post_id, $lang, $stored);
+                        return $post_id;
+                    }
+                }
+            }
+        }
         
         // Fuzzy fallback: handle truncated prefixes (e.g., 'kketten' vs 'pakketten')
-        $like_pattern = '%' . $wpdb->esc_like($slug) . '%';
-        $post_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT post_id FROM {$table}
-            WHERE {$colLang} = %s
-            AND {$colTrans} LIKE %s
-            ORDER BY LENGTH({$colTrans}) ASC
-            LIMIT 1",
-            $lang,
-            $like_pattern
-        ));
-        if ($post_id) return (int) $post_id;
+        // Only match if translated_slug is a prefix of the requested slug (truncated prefix case)
+        // This prevents matching "学生音乐会" when requesting "学生音乐会3"
+        // We need to check all translated slugs and see if any is a prefix of the requested slug
+        // Prefer the longest matching prefix (most specific match)
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, {$colTrans} FROM {$table} WHERE {$colLang} = %s ORDER BY LENGTH({$colTrans}) DESC",
+            $lang
+        ), ARRAY_A);
+        $best_match = null;
+        $best_match_length = 0;
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $translated = isset($row[$colTrans]) ? (string) $row[$colTrans] : '';
+                if ($translated === '') continue;
+                // Decode if URL-encoded
+                if (strpos($translated, '%') !== false) {
+                    $translated_decoded = rawurldecode($translated);
+                    if (mb_check_encoding($translated_decoded, 'UTF-8')) {
+                        $translated = $translated_decoded;
+                    }
+                }
+                // Check if translated slug is a prefix of the requested slug (truncated prefix)
+                // IMPORTANT: Only match if it's actually a truncated prefix, not if the slug is longer
+                // This means the translated slug must be shorter than the requested slug
+                if (str_starts_with($slug, $translated) && mb_strlen($translated) < mb_strlen($slug)) {
+                    $translated_length = mb_strlen($translated);
+                    // Keep the longest matching prefix
+                    if ($translated_length > $best_match_length) {
+                        $best_match = $row;
+                        $best_match_length = $translated_length;
+                    }
+                }
+            }
+        }
+        if ($best_match !== null) {
+            $post_id = (int) $best_match['post_id'];
+            // Verify it's not an attachment
+            $post = get_post($post_id);
+            if ($post && $post->post_type !== 'attachment') {
+                // Fix encoded slug in DB if needed
+                $stored_original = isset($best_match[$colTrans]) ? (string) $best_match[$colTrans] : '';
+                $translated_final = $stored_original;
+                if (strpos($stored_original, '%') !== false) {
+                    $translated_decoded = rawurldecode($stored_original);
+                    if (mb_check_encoding($translated_decoded, 'UTF-8')) {
+                        $translated_final = $translated_decoded;
+                    }
+                }
+                if ($stored_original !== $translated_final && strpos($stored_original, '%') !== false) {
+                    self::fix_encoded_slug_in_db($post_id, $lang, $stored_original);
+                }
+                return $post_id;
+            }
+        }
         
         // Fallback to original slug: if translated slug doesn't match, try matching against source slug
         // This handles cases where the URL still uses the original slug (e.g., /it/blogs/ when translated slug is /it/blog/)
