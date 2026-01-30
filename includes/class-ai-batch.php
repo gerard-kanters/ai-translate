@@ -191,7 +191,11 @@ final class AI_Batch
         
         if ($canMulti) {
             $apiStart = microtime(true);
-            $concurrency = 6; // Higher concurrency: 6 parallel requests (was 3)
+            // Detect cache-warming requests (reduce concurrency to prevent server overload)
+            $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? (string)$_SERVER['HTTP_USER_AGENT'] : '';
+            $isCacheWarming = stripos($userAgent, 'CacheWarmer') !== false;
+            // Normal: 6 parallel requests; Cache-warming: 2 parallel requests (prevents 8×6=48 concurrent API calls)
+            $concurrency = $isCacheWarming ? 2 : 6;
             $groups = array_chunk($batches, $concurrency);
             $timeoutSeconds = 45; // Balanced timeout: enough for API response, not excessive (was 60)
             
