@@ -93,7 +93,7 @@ final class AI_Translate_Core
 
         // Custom API: reject Google API URL (not OpenAI-compatible)
         if ($provider_key === 'custom' && strpos($custom_api_url, 'googleapis.com') !== false) {
-            throw new \Exception('Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini.');
+            throw new \Exception(__('Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini.', 'ai-translate'));
         }
 
         $endpoint = rtrim($base, '/') . '/models';

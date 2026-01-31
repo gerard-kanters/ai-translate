@@ -425,6 +425,11 @@ msgstr "اسم النموذج المخصص مطلوب عند اختيار نمو
 msgid "API key is required for the selected provider."
 msgstr "مفتاح API مطلوب للمزود المحدد."
 
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr "واجهة Google API غير متوافقة مع OpenAI. استخدم Openrouter أو Deepinfra لـ Gemini."
+
 #: includes/admin-page.php:1170
 
 msgid "API Settings"

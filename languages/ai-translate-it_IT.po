@@ -427,6 +427,11 @@ msgstr "Il nome del modello personalizzato è richiesto quando si seleziona un m
 msgid "API key is required for the selected provider."
 msgstr "La chiave API è richiesta per il fornitore selezionato."
 
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr "L'API Google non è compatibile con OpenAI. Usare Openrouter o Deepinfra per Gemini."
+
 #: includes/admin-page.php:1170
 
 msgid "API Settings"

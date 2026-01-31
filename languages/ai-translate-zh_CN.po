@@ -220,6 +220,26 @@ msgstr "模型加载成功。"
 msgid "Cache file not generated"
 msgstr "缓存文件未生成"
 
+#: includes/admin-page.php:458
+msgid "lang directory missing"
+msgstr "语言目录缺失"
+
+#: includes/admin-page.php:461
+msgid "no write occurred"
+msgstr "未发生写入"
+
+#: includes/admin-page.php:463
+msgid "not writable"
+msgstr "不可写"
+
+#: includes/admin-page.php:465
+msgid "check logs"
+msgstr "查看日志"
+
+#: includes/admin-page.php:473
+msgid "Error page (404/500)"
+msgstr "错误页面 (404/500)"
+
 #: includes/admin-page.php:399
 
 msgid "HTTP %d (redirect)"
@@ -419,6 +439,11 @@ msgstr "选择自定义模型时，必须提供自定义模型名称。"
 
 msgid "API key is required for the selected provider."
 msgstr "所选提供商需要 API 密钥。"
+
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr "Google API 与 OpenAI 不兼容。请使用 Openrouter 或 Deepinfra 获取 Gemini。"
 
 #: includes/admin-page.php:1170
 

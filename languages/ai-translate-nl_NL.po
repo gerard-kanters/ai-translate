@@ -216,7 +216,27 @@ msgstr "Cachebestand succesvol verwijderd"
 #: includes/admin-page.php:385
 
 msgid "Cache file not generated"
-msgstr "Cachebestand"
+msgstr "Cachebestand niet gegenereerd"
+
+#: includes/admin-page.php:458
+msgid "lang directory missing"
+msgstr "taalmap ontbreekt"
+
+#: includes/admin-page.php:461
+msgid "no write occurred"
+msgstr "geen schrijfactie uitgevoerd"
+
+#: includes/admin-page.php:463
+msgid "not writable"
+msgstr "niet beschrijfbaar"
+
+#: includes/admin-page.php:465
+msgid "check logs"
+msgstr "controleer logbestanden"
+
+#: includes/admin-page.php:473
+msgid "Error page (404/500)"
+msgstr "Foutpagina (404/500)"
 
 #: includes/admin-page.php:399
 
@@ -419,6 +439,11 @@ msgstr "Aangepaste modelnaam is vereist bij het selecteren van een aangepast mod
 
 msgid "API key is required for the selected provider."
 msgstr "API-sleutel is vereist voor de geselecteerde provider."
+
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr "Google API is niet OpenAI-compatibel. Gebruik Openrouter of Deepinfra voor Gemini."
 
 #: includes/admin-page.php:1170
 

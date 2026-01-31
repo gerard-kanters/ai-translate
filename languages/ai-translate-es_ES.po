@@ -359,6 +359,26 @@ msgstr "HTTP %d (redirección)"
 msgid "Cache file not generated"
 msgstr "Archivo de caché no generado"
 
+#: includes/admin-page.php:458
+msgid "lang directory missing"
+msgstr "falta directorio de idioma"
+
+#: includes/admin-page.php:461
+msgid "no write occurred"
+msgstr "no se escribió"
+
+#: includes/admin-page.php:463
+msgid "not writable"
+msgstr "no escribible"
+
+#: includes/admin-page.php:465
+msgid "check logs"
+msgstr "revisar registros"
+
+#: includes/admin-page.php:473
+msgid "Error page (404/500)"
+msgstr "Página de error (404/500)"
+
 #: includes/admin-page.php:164 includes/admin-page.php:672
 msgid "Warnings:"
 msgstr "Advertencias:"
@@ -808,6 +828,11 @@ msgstr "Borrar automáticamente todas las cachés de las páginas cuando se actu
 #: includes/admin-page.php:1047
 msgid "API key is required for the selected provider."
 msgstr "Se requiere la clave de API para el proveedor seleccionado."
+
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr "La API de Google no es compatible con OpenAI. Use Openrouter o Deepinfra para Gemini."
 
 #: includes/admin-page.php:1024
 msgid "Custom model name is required when selecting a custom model."

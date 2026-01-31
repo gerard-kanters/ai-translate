@@ -273,7 +273,7 @@ msgstr "Metadados de cache rescaneados: %d registros de cache adicionados ou atu
 
 #: includes/admin-page.php:1965
 msgid "Manage cache per page or blog. Delete cache to retranslate, or warm cache to proactively generate translations."
-msgstr ""
+msgstr "Gerir cache por página ou blog. Eliminar cache para retraduzir ou aquecer cache para gerar traduções proativamente."
 
 #: includes/admin-page.php:1964
 msgid "Translated Pages Overview"
@@ -808,6 +808,11 @@ msgstr "Limpar automaticamente todos os caches de página quando os itens do men
 #: includes/admin-page.php:1047
 msgid "API key is required for the selected provider."
 msgstr "A chave de API é obrigatória para o fornecedor selecionado."
+
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr "A API do Google não é compatível com OpenAI. Use Openrouter ou Deepinfra para Gemini."
 
 #: includes/admin-page.php:1024
 msgid "Custom model name is required when selecting a custom model."

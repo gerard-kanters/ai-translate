@@ -345,6 +345,11 @@ msgstr ""
 msgid "API key is required for the selected provider."
 msgstr ""
 
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr ""
+
 #: includes/admin-page.php:1170
 msgid "API Settings"
 msgstr ""

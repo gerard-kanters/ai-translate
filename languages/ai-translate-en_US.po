@@ -176,10 +176,7 @@ msgstr "Cache file deleted successfully"
 
 #: includes/admin-page.php:385
 msgid "Cache file not generated"
-msgstr ""
-
-msgid "directory missing"
-msgstr ""
+msgstr "Cache file not generated"
 
 msgid "lang directory missing"
 msgstr ""
@@ -1026,4 +1023,4 @@ msgstr "... and %d more files not in database (use rescan to add them)"
 
 #: includes/admin-page.php:899
 msgid "Request Key"
-msgstr "Solicitar clave"
+msgstr "Request Key"

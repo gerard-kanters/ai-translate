@@ -427,6 +427,11 @@ msgstr "カスタムモデルを選択する場合は、カスタムモデル名
 msgid "API key is required for the selected provider."
 msgstr "選択したプロバイダーにはAPIキーが必要です。"
 
+#: includes/admin-page.php:1052
+#: includes/class-ai-translate-core.php:96
+msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr "Google APIはOpenAI互換ではありません。GeminiにはOpenrouterまたはDeepinfraをご利用ください。"
+
 #: includes/admin-page.php:1170
 
 msgid "API Settings"
