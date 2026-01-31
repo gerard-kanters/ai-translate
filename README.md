@@ -12,7 +12,7 @@ Plugin homepage: https://wordpress.org/plugins/ai-translate
 
 ## Short Description
 
-AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work.
+AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective.
 
 ## Description
 

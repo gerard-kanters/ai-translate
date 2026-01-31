@@ -2,8 +2,8 @@
 
 /**
  * Plugin Name: AI Translate
- * Description: AI based translation plugin. Adding 35 languages in a few clicks. 
- * Author: Netcare
+ * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
+ * Author: NetCare
  * Author URI: https://netcare.nl/
  * Version: 2.2.3
  * Requires at least: 5.0
