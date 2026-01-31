@@ -37,11 +37,6 @@ final class AI_Batch
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
 
-        // DEBUG: Log translation start
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            error_log(sprintf('[AI-Batch] START translate_plan: %d segments, provider=%s, model=%s', count($segments), $provider, $model));
-        }
-
         // Block o1/o3 reasoning models: they don't support reasoning_effort parameter
         if ($model !== '' && preg_match('/^(o1-|o3-)/i', $model)) {
             return ['segments' => [], 'map' => []];
@@ -176,10 +171,6 @@ final class AI_Batch
         // Modern models (GPT-4, GPT-5, Gemini, Claude) handle 15-20 segments easily
         $chunkSize = ($provider === 'deepseek') ? 12 : 15;
         $batches = ($chunkSize < count($workSegments)) ? array_chunk($workSegments, $chunkSize) : [ $workSegments ];
-        
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            error_log(sprintf('[AI-Batch] Batching: %d segments → %d batches (size=%d)', count($workSegments), count($batches), $chunkSize));
-        }
 
         // Parallel processing: use for ALL providers (not just specific ones)
         $translationsPrimary = [];
@@ -198,11 +189,7 @@ final class AI_Batch
             $concurrency = $isCacheWarming ? 2 : 6;
             $groups = array_chunk($batches, $concurrency);
             $timeoutSeconds = 45; // Balanced timeout: enough for API response, not excessive (was 60)
-            
-            if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                error_log(sprintf('[AI-Batch] Parallel API: %d groups, concurrency=%d, timeout=%ds', count($groups), $concurrency, $timeoutSeconds));
-            }
-            
+
             foreach ($groups as $gIdx => $group) {
                 $groupStart = microtime(true);
                 $requests = [];
@@ -520,10 +507,6 @@ final class AI_Batch
                         }
                     }
                 }
-                
-                if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                    error_log(sprintf('[AI-Batch] Group %d completed: %d translations in %.3fs', $gIdx + 1, count($translationsPrimary), microtime(true) - $groupStart));
-                }
             }
 
             // Write cache for primaries and expand to full id map
@@ -555,22 +538,13 @@ final class AI_Batch
                 if ($tr === null) { continue; }
                 foreach ($ids as $oid) { $final[$oid] = $tr; }
             }
-            
-            if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                error_log(sprintf('[AI-Batch] Cache write: %d new entries in %.3fs', $newlyCached, microtime(true) - $cacheWriteStart));
-                error_log(sprintf('[AI-Batch] PARALLEL TOTAL: %.3fs (API calls)', microtime(true) - $apiStart));
-                error_log(sprintf('[AI-Batch] COMPLETE: %d final translations in %.3fs total', count($final), microtime(true) - $debugStart));
-            }
-            
+
             return ['segments' => $final, 'map' => []];
         }
 
         // Sequential fallback (when parallel not available)
         $apiStart = microtime(true);
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            error_log(sprintf('[AI-Batch] Sequential API: %d batches', count($batches)));
-        }
-        
+
         foreach ($batches as $i => $batchSegs) {
             $batchStart = microtime(true);
             $userPayload = self::buildUserPayload($batchSegs);
@@ -822,13 +796,7 @@ final class AI_Batch
             if ($tr === null) { continue; }
             foreach ($ids as $oid) { $final[$oid] = $tr; }
         }
-        
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            error_log(sprintf('[AI-Batch] Cache write: %d new entries', $newlyCached));
-            error_log(sprintf('[AI-Batch] SEQUENTIAL TOTAL: %.3fs (API calls)', microtime(true) - $apiStart));
-            error_log(sprintf('[AI-Batch] COMPLETE: %d final translations in %.3fs total', count($final), microtime(true) - $debugStart));
-        }
-        
+
         return ['segments' => $final, 'map' => []];
     }
 
