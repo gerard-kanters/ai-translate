@@ -360,9 +360,10 @@ final class AI_Slugs
      *
      * @param int $post_id
      * @param string $lang target language
+     * @param bool $allow_translate When false, only return existing slug (no API/segment cache write). Use when serving from page cache.
      * @return string|null translated slug
      */
-    public static function get_or_generate($post_id, $lang)
+    public static function get_or_generate($post_id, $lang, $allow_translate = true)
     {
         $post_id = (int) $post_id;
         if ($post_id <= 0) return null;
@@ -371,6 +372,10 @@ final class AI_Slugs
         // Homepage should always be '/{lang}/'
         $front_id = (int) get_option('page_on_front');
         if ($front_id > 0 && $post_id === $front_id) {
+            if (!$allow_translate) {
+                $row = self::get_row($post_id, $lang);
+                return ($row && isset($row['translated_slug'])) ? (string) $row['translated_slug'] : '';
+            }
             // Store empty translated slug for consistency
             $source_slug_hp = self::get_source_slug($post_id);
             $version_hp = md5($source_slug_hp);
@@ -391,11 +396,19 @@ final class AI_Slugs
         if ($row && isset($row['translated_slug']) && $row['translated_slug'] !== '' && (!isset($row['source_version']) || $row['source_version'] === $version)) {
             $existing = (string) $row['translated_slug'];
             // Validate existing stored slug: if it looks truncated (suffix of source with >=2 lost chars), fallback to source
+            if (!$allow_translate) {
+                return $existing;
+            }
             if (str_ends_with($source_slug, $existing) && (strlen($source_slug) - strlen($existing)) >= 2) {
                 self::upsert_row($post_id, $lang, $source_slug, $source_slug, $version);
                 return $source_slug;
             }
             return $existing;
+        }
+
+        // When serving from page cache we must not trigger translation (no segment cache write)
+        if (!$allow_translate) {
+            return null;
         }
 
         // Translate once via provider (batch-providers), using AI_Batch::translate_plan

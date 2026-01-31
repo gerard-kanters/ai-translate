@@ -97,9 +97,9 @@ final class AI_OB
             }
             
             if ($post_id) {
-                // Get the current correct translated slug
-                $correct_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
-                if ($correct_slug && $correct_slug !== $old_slug) {
+                // Only use existing slug (no translation): we are serving from page cache and must not trigger segment cache writes
+                $correct_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang, false);
+                if ($correct_slug !== null && $correct_slug !== '' && $correct_slug !== $old_slug) {
                     // Replace with correct slug
                     $new_href = '/' . $lang . '/service/' . trim($correct_slug, '/') . '/';
                     return 'href="' . $new_href . '"';
