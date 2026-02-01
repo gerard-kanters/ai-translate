@@ -333,7 +333,7 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
     }
     
     // Parse URL to get host
-    $parsed = parse_url('https://github.com/gerard-kanters/ai-translate');
+    $parsed = parse_url(home_url());
     $host = isset($parsed['host']) ? $parsed['host'] : '';
     if (isset($parsed['port'])) {
         $host .= ':' . $parsed['port'];
@@ -676,7 +676,7 @@ function ajax_warm_post_cache()
     
     // Security: Validate URL is from same site (prevent SSRF)
     $parsed_url = parse_url($post_url);
-    $site_url = parse_url('https://github.com/gerard-kanters/ai-translate');
+    $site_url = parse_url(home_url());
     if (!isset($parsed_url['host']) || !isset($site_url['host']) || $parsed_url['host'] !== $site_url['host']) {
         wp_send_json_error(['message' => __('Invalid post URL.', 'ai-translate')]);
         return;
@@ -2006,7 +2006,7 @@ function render_admin_page()
                             $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                         }
                         
-                        // Final fallback to 'https://github.com/gerard-kanters/ai-translate' host (should rarely be needed)
+                        // Final fallback to home_url() host (should rarely be needed)
                         if (empty($active_domain)) {
                             $active_domain = parse_url(home_url(), PHP_URL_HOST);
                             if (empty($active_domain)) {
