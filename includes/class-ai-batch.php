@@ -18,7 +18,7 @@ final class AI_Batch
      * @param array $context
      * @return array
      */
-    public static function translate_plan(array $plan, $source, $target, array $context)
+    public static function translate_plan(array $plan, $source, $target, array $context, $domain = '')
     {
         $debugStart = microtime(true);
         $segments = $plan['segments'] ?? [];
@@ -36,6 +36,22 @@ final class AI_Batch
         $model = $provider !== '' ? ($models[$provider] ?? '') : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
+
+        // Determine active domain for user tracking
+        if (empty($domain)) {
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($domain, ':') !== false) {
+                    $domain = strtok($domain, ':');
+                }
+            }
+            if (empty($domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($domain)) {
+                $domain = parse_url(home_url(), PHP_URL_HOST);
+            }
+        }
 
         // Block o1/o3 reasoning models: they don't support reasoning_effort parameter
         if ($model !== '' && preg_match('/^(o1-|o3-)/i', $model)) {
@@ -204,7 +220,7 @@ final class AI_Batch
                         ],
                     ];
                     if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                        $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                        $body['user'] = $domain;
                     }
                     // Newer models (gpt-5.x, o1-series, o3-series) and DeepSeek v3.2 use max_completion_tokens instead of max_tokens
                     // These models also don't support temperature != 1, so we omit it
@@ -249,7 +265,7 @@ final class AI_Batch
                             $userPayload = self::buildUserPayload($batchSegs2);
                             $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
                             if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                                $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                                $body['user'] = $domain;
                             }
                             if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                                 $body['max_completion_tokens'] = 4096;
@@ -467,10 +483,10 @@ final class AI_Batch
                         $userPayload = self::buildUserPayload($rc);
                     $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
                     if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                        $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                        $body['user'] = $domain;
                     }
                         if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                            $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                            $body['user'] = $domain;
                         }
                         if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                             $body['max_completion_tokens'] = 4096;
@@ -568,7 +584,7 @@ final class AI_Batch
                 ],
             ];
             if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                $body['user'] = $domain;
             }
             // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens instead of max_tokens
             // DeepSeek v3.2 also uses max_completion_tokens
