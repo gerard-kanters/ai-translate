@@ -1184,8 +1184,10 @@ final class AI_Translate_Core
                 ];
 
                 // Model specific params
+                // Reasoning models (gpt-5, o1, o3) need more tokens because reasoning_tokens are included in max_completion_tokens
+                // A meta description is ~160 chars but the model might use 500+ tokens for reasoning
                 if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                     $body['max_completion_tokens'] = 300;
+                     $body['max_completion_tokens'] = 12000; // Reasoning models need more tokens for internal reasoning + output
                 } else {
                      $body['max_tokens'] = 300;
                      $body['temperature'] = 0.7;
@@ -1217,24 +1219,62 @@ final class AI_Translate_Core
                     'body' => wp_json_encode($body),
                 ]);
 
-                if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
-                    $data = json_decode(wp_remote_retrieve_body($response), true);
-                    if (isset($data['choices'][0]['message']['content'])) {
-                        $meta = trim($data['choices'][0]['message']['content']);
-                        $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
-                        $meta = strip_tags($meta);
-                        $meta = trim($meta);
-                        if (!empty($meta)) {
-                            return $meta;
-                        }
-                    }
+                if (is_wp_error($response)) {
+                    throw new \Exception('API request failed: ' . $response->get_error_message());
                 }
+                
+                $response_code = wp_remote_retrieve_response_code($response);
+                if ($response_code !== 200) {
+                    $response_body = wp_remote_retrieve_body($response);
+                    throw new \Exception('API returned error code ' . $response_code . ': ' . $response_body);
+                }
+                
+                $response_body = wp_remote_retrieve_body($response);
+                $data = json_decode($response_body, true);
+                
+                // Debug logging - full response for debugging (replace newlines to prevent log splitting)
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('AI Translate Meta: Full API response: ' . str_replace(["\r\n", "\n", "\r"], ' ', $response_body));
+                }
+                
+                if (!isset($data['choices'][0]['message']['content'])) {
+                    throw new \Exception('Invalid API response: missing content in choices. Response: ' . mb_substr($response_body, 0, 300));
+                }
+                
+                $raw_content = $data['choices'][0]['message']['content'];
+                
+                // Debug logging
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('AI Translate Meta: Raw content from API: ' . $raw_content);
+                }
+                
+                $meta = trim($raw_content);
+                $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
+                $meta = strip_tags($meta);
+                $meta = trim($meta);
+                
+                // Debug logging
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('AI Translate Meta: After processing: ' . $meta);
+                }
+                
+                if (empty($meta)) {
+                    throw new \Exception('API returned empty meta description. Raw content was: ' . mb_substr($raw_content, 0, 200));
+                }
+                
+                return $meta;
             } catch (\Exception $e) {
-                // Fall through
+                // Re-throw exception so AJAX handler can show proper error message
+                throw $e;
             }
         }
 
-        // 4. Fallback
-        return mb_substr($content, 0, 160);
+        // 4. Fallback only if AI is not configured
+        if ($provider === '' || $model === '' || $apiKey === '' || $baseUrl === '') {
+            return mb_substr($content, 0, 160);
+        }
+        
+        // If AI is configured but failed, throw exception instead of using fallback
+        throw new \Exception('AI generation failed but no error was caught');
     }
 }

@@ -963,7 +963,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-admin-js',
         plugin_dir_url(__DIR__) . 'assets/admin-page.js',
         array('jquery'),
-        '1.0.2',
+        '1.0.3',
         true
     );
 
