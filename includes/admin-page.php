@@ -2419,6 +2419,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
     }, $data['data']);
     $models = array_filter($models);
+    // o1/o3 reasoning models don't support temperature; block from selection to avoid API errors
+    $models = array_filter($models, function ($model) {
+        return !preg_match('/^(o1-|o3-)/i', $model);
+    });
     sort($models);
     wp_send_json_success(['models' => $models]);
 });

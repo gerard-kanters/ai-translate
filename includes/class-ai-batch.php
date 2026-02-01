@@ -672,8 +672,10 @@ final class AI_Batch
                 $retryChunks = array_chunk($retrySegs, 5);
                 foreach ($retryChunks as $rc) {
                     $userPayload = self::buildUserPayload($rc);
-                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];                    
-                    $body['temperature'] = 0;
+                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                    if (!preg_match('/^(o1-|o3-)/i', $model)) {
+                        $body['temperature'] = 0;
+                    }
                     $seqRetryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
                         $seqRetryHeaders['Referer'] = home_url();
