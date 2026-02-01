@@ -853,9 +853,6 @@ final class AI_Translate_Core
                         $content = mb_substr($content, 0, 4000);
                         
                         if (!empty($content)) {
-                            if (defined('WP_DEBUG') && WP_DEBUG) {
-                                error_log('AI Translate: Fetched content from domain ' . $domain . ' (length: ' . mb_strlen($content) . ')');
-                            }
                             return $content;
                         }
                     }
@@ -1121,10 +1118,6 @@ final class AI_Translate_Core
             } else {
                 // Fallback to domain name (remove port if present)
                 $site_name = strtok($domain, ':');
-            }
-            
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('AI Translate: Using domain-specific site name for ' . $domain . ': ' . $site_name);
             }
         } else {
             $site_name = (string) 'AI Translate';
