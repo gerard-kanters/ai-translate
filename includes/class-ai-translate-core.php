@@ -162,7 +162,7 @@ final class AI_Translate_Core
                 ],
             ];
             if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
-                $chatBody['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                $chatBody['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
             }
             // Chat test: one cap for all providers (OpenAI/OpenRouter require minimum 16)
             $chatTestMaxTokens = 32;
@@ -418,7 +418,7 @@ final class AI_Translate_Core
             return '';
         }
 
-        $host = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+        $host = parse_url(home_url(), PHP_URL_HOST);
         if (empty($host)) {
             return 'default';
         }
@@ -678,9 +678,9 @@ final class AI_Translate_Core
             $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
         }
         
-        // Final fallback to 'https://github.com/gerard-kanters/ai-translate' host (should rarely be needed)
+        // Final fallback to home_url() host (should rarely be needed)
         if (empty($active_domain)) {
-            $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+            $active_domain = parse_url(home_url(), PHP_URL_HOST);
             if (empty($active_domain)) {
                 $active_domain = 'default';
             }
@@ -813,7 +813,7 @@ final class AI_Translate_Core
             $response = wp_remote_get($domain_url, [
                 'timeout' => 15,
                 'sslverify' => true,
-                'user-agent' => 'WordPress/' . get_bloginfo('version') . '; ' . 'https://github.com/gerard-kanters/ai-translate',
+                'user-agent' => 'WordPress/' . get_bloginfo('version') . '; ' . home_url(),
                 'redirection' => 5,
             ]);
             
@@ -940,7 +940,7 @@ final class AI_Translate_Core
                     $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                 }
                 if (empty($active_domain)) {
-                    $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                    $active_domain = parse_url(home_url(), PHP_URL_HOST);
                     if (empty($active_domain)) {
                         $active_domain = 'default';
                     }
