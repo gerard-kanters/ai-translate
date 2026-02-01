@@ -197,7 +197,15 @@ final class AI_Batch
                             ['role' => 'user', 'content' => $userPayload],
                         ],
                     ];
-                    $body['temperature'] = 0;
+                    // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
+                    if (stripos($model, 'gpt-5') !== false) {
+                        if ($provider === 'openai') {
+                            $body['reasoning_effort'] = 'minimal';
+                        } else {
+                            // OpenRouter, DeepInfra, etc. use nested reasoning.effort
+                            $body['reasoning'] = ['effort' => 'minimal'];
+                        }
+                    }
                     $headers = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     // OpenRouter requires Referer header (WordPress adds HTTP- prefix automatically)
                     if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
@@ -227,7 +235,18 @@ final class AI_Batch
                         $batchesSingle = [$batchSegs];
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             $userPayload = self::buildUserPayload($batchSegs2);
-                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];                            $body['temperature'] = 0;
+                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
+                            if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
+                                $body['temperature'] = 0;
+                            }
+                            // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
+                            if (stripos($model, 'gpt-5') !== false) {
+                                if ($provider === 'openai') {
+                                    $body['reasoning_effort'] = 'minimal';
+                                } else {
+                                    $body['reasoning'] = ['effort' => 'minimal'];
+                                }
+                            }
                             $fallbackHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                             if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
                                 $fallbackHeaders['Referer'] = home_url();
@@ -269,11 +288,14 @@ final class AI_Batch
                     $data = json_decode($content, true);
                     $choices = is_array($data) ? ($data['choices'] ?? []) : [];
                     if (!$choices || !isset($choices[0]['message']['content'])) { 
+                        error_log('[AI-Batch] Response ' . $idx . ' FAILED: no choices/content. Raw: ' . substr($content, 0, 500));
                         $failedIndexes[] = (int)$idx; 
                         continue; 
                     }
                     $msg = (string)$choices[0]['message']['content'];
+                    error_log('[AI-Batch] Response ' . $idx . ' message: ' . substr($msg, 0, 300));
                     if (trim($msg) === '') {
+                        error_log('[AI-Batch] Response ' . $idx . ' FAILED: empty message');
                         $failedIndexes[] = (int)$idx;
                         continue;
                     }
@@ -432,8 +454,18 @@ final class AI_Batch
                     $retryChunks = array_chunk($retrySegs, 5);
                     foreach ($retryChunks as $rc) {
                         $userPayload = self::buildUserPayload($rc);
-                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];                       
-                        $body['temperature'] = 0;
+                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                        if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
+                            $body['temperature'] = 0;
+                        }
+                        // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
+                        if (stripos($model, 'gpt-5') !== false) {
+                            if ($provider === 'openai') {
+                                $body['reasoning_effort'] = 'minimal';
+                            } else {
+                                $body['reasoning'] = ['effort' => 'minimal'];
+                            }
+                        }
                         $retryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                         if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
                             $retryHeaders['Referer'] = home_url();
@@ -519,8 +551,16 @@ final class AI_Batch
                     ['role' => 'user', 'content' => $userPayload],
                 ],
             ];
-            if (!preg_match('/^(o1-|o3-)/i', $model)) {
+            if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
                 $body['temperature'] = 0;
+            }
+            // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
+            if (stripos($model, 'gpt-5') !== false) {
+                if ($provider === 'openai') {
+                    $body['reasoning_effort'] = 'minimal';
+                } else {
+                    $body['reasoning'] = ['effort' => 'minimal'];
+                }
             }
 
         $timeoutSeconds = 45; // Balanced timeout for sequential fallback (was 60)
@@ -677,8 +717,16 @@ final class AI_Batch
                 foreach ($retryChunks as $rc) {
                     $userPayload = self::buildUserPayload($rc);
                     $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
-                    if (!preg_match('/^(o1-|o3-)/i', $model)) {
+                    if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
                         $body['temperature'] = 0;
+                    }
+                    // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
+                    if (stripos($model, 'gpt-5') !== false) {
+                        if ($provider === 'openai') {
+                            $body['reasoning_effort'] = 'minimal';
+                        } else {
+                            $body['reasoning'] = ['effort' => 'minimal'];
+                        }
                     }
                     $seqRetryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
