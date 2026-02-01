@@ -869,6 +869,30 @@ function ajax_generate_homepage_meta()
     // Get domain from request (for multi-domain caching support)
     $requested_domain = isset($_POST['domain']) ? sanitize_text_field(wp_unslash($_POST['domain'])) : '';
     
+    // Als domain niet is meegestuurd maar multi-domain caching aan staat, bepaal actieve domain
+    if (empty($requested_domain)) {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        if ($multi_domain) {
+            // Bepaal actieve domain op dezelfde manier als in de UI
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $requested_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($requested_domain, ':') !== false) {
+                    $requested_domain = strtok($requested_domain, ':');
+                }
+            }
+            if (empty($requested_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $requested_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($requested_domain)) {
+                $requested_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($requested_domain)) {
+                    $requested_domain = 'default';
+                }
+            }
+        }
+    }
+    
     // Generate meta description
     $translator = AI_Translate_Core::get_instance();
     try {

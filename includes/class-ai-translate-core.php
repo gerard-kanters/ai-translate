@@ -1223,7 +1223,10 @@ final class AI_Translate_Core
                         $meta = trim($data['choices'][0]['message']['content']);
                         $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
                         $meta = strip_tags($meta);
-                        return $meta;
+                        $meta = trim($meta);
+                        if (!empty($meta)) {
+                            return $meta;
+                        }
                     }
                 }
             } catch (\Exception $e) {
