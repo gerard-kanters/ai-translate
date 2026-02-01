@@ -203,6 +203,9 @@ final class AI_Batch
                             ['role' => 'user', 'content' => $userPayload],
                         ],
                     ];
+                    if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
+                        $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                    }
                     // Newer models (gpt-5.x, o1-series, o3-series) and DeepSeek v3.2 use max_completion_tokens instead of max_tokens
                     // These models also don't support temperature != 1, so we omit it
                     if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
@@ -218,8 +221,8 @@ final class AI_Batch
                     $headers = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     // OpenRouter requires Referer header (WordPress adds HTTP- prefix automatically)
                     if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                        $headers['Referer'] = home_url();
-                        $headers['X-Title'] = get_bloginfo('name');
+                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+                        $headers['X-Title'] = 'AI Translate';
                     }
                     $requests[] = [
                         'url' => $endpoint,
@@ -245,6 +248,9 @@ final class AI_Batch
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             $userPayload = self::buildUserPayload($batchSegs2);
                             $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
+                            if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
+                                $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                            }
                             if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                                 $body['max_completion_tokens'] = 4096;
                                 // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
@@ -257,8 +263,8 @@ final class AI_Batch
                             }
                             $fallbackHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                             if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
-                                $fallbackHeaders['Referer'] = home_url();
-                                $fallbackHeaders['X-Title'] = get_bloginfo('name');
+                                $fallbackHeaders['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+                                $fallbackHeaders['X-Title'] = 'AI Translate';
                             }
                             $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                             if (is_wp_error($resp)) { continue; }
@@ -459,7 +465,13 @@ final class AI_Batch
                     $retryChunks = array_chunk($retrySegs, 5);
                     foreach ($retryChunks as $rc) {
                         $userPayload = self::buildUserPayload($rc);
-                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                    if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
+                        $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                    }
+                        if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
+                            $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+                        }
                         if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
                             $body['max_completion_tokens'] = 4096;
                             // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
@@ -472,8 +484,8 @@ final class AI_Batch
                         }
                         $retryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                         if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
-                            $retryHeaders['Referer'] = home_url();
-                            $retryHeaders['X-Title'] = get_bloginfo('name');
+                            $retryHeaders['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+                            $retryHeaders['X-Title'] = 'AI Translate';
                         }
                         $resp = wp_remote_post($endpoint, [ 'headers' => $retryHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                         if (is_wp_error($resp)) { 
@@ -555,6 +567,9 @@ final class AI_Batch
                     ['role' => 'user', 'content' => $userPayload],
                 ],
             ];
+            if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
+                $body['user'] = 'https://github.com/gerard-kanters/ai-translate';
+            }
             // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens instead of max_tokens
             // DeepSeek v3.2 also uses max_completion_tokens
             // These models also don't support temperature != 1, so we omit it
@@ -584,8 +599,8 @@ final class AI_Batch
                 ];
                 // OpenRouter requires Referer header
                 if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                    $headers['Referer'] = home_url();
-                    $headers['X-Title'] = get_bloginfo('name');
+                    $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+                    $headers['X-Title'] = 'AI Translate';
                 }
                 $response = wp_remote_post($endpoint, [
                     'headers' => $headers,
@@ -734,8 +749,8 @@ final class AI_Batch
                     }
                     $seqRetryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
-                        $seqRetryHeaders['Referer'] = home_url();
-                        $seqRetryHeaders['X-Title'] = get_bloginfo('name');
+                        $seqRetryHeaders['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+                        $seqRetryHeaders['X-Title'] = 'AI Translate';
                     }
                     $resp = wp_remote_post($endpoint, [ 'headers' => $seqRetryHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                         if (is_wp_error($resp)) {
