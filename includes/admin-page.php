@@ -2388,8 +2388,8 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     ];
     // OpenRouter requires Referer header
     if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($api_url, 'openrouter.ai') !== false)) {
-        $headers['Referer'] = home_url();
-        $headers['X-Title'] = get_bloginfo('name');
+        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+        $headers['X-Title'] = 'AI Translate';
     }
     $response = wp_remote_get($endpoint, [
         'headers' => $headers,
