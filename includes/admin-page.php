@@ -1477,11 +1477,6 @@ add_action('admin_init', function () {
             // Retrieve ALL available languages from the core class
             $languages = $core->get_available_languages();
 
-            // If no detectable languages are set, default to all available languages
-            if (empty($detected_enabled)) {
-                $detected_enabled = array_keys($languages);
-            }
-
             // Flags base URL
             $flags_url = plugin_dir_url(__DIR__) . 'assets/flags/';
 
