@@ -1028,7 +1028,7 @@ final class AI_Translate_Core
                     ],
                 ];
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
-                    $body['user'] = !empty($domain) ? ($protocol . '://' . $domain . '/') : 'https://github.com/gerard-kanters/ai-translate';
+                    $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
                 }
 
                 // Model specific params (consistent with Batch class)
@@ -1189,7 +1189,7 @@ final class AI_Translate_Core
                     ],
                 ];
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
-                    $body['user'] = !empty($domain) ? ($protocol . '://' . $domain . '/') : 'https://github.com/gerard-kanters/ai-translate';
+                    $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
                 }
 
                 // Model specific params
