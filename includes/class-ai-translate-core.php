@@ -103,8 +103,8 @@ final class AI_Translate_Core
         ];
         // OpenRouter requires Referer header
         if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
-            $headers['Referer'] = home_url();
-            $headers['X-Title'] = get_bloginfo('name');
+            $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+            $headers['X-Title'] = 'AI Translate';
         }
         $resp = wp_remote_get($endpoint, [
             'headers' => $headers,
@@ -152,8 +152,8 @@ final class AI_Translate_Core
             ];
             // OpenRouter requires Referer header
             if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
-                $chatHeaders['Referer'] = home_url();
-                $chatHeaders['X-Title'] = get_bloginfo('name');
+                $chatHeaders['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+                $chatHeaders['X-Title'] = 'AI Translate';
             }
             $chatBody = [
                 'model' => $model,
@@ -876,7 +876,7 @@ final class AI_Translate_Core
         // Fallback to standard WordPress content fetching
         $content = '';
         $home_id = (int) get_option('page_on_front');
-        $site_name = (string) get_bloginfo('name');
+        $site_name = (string) 'AI Translate';
         
         if ($home_id > 0) {
             $post = get_post($home_id);
@@ -988,7 +988,7 @@ final class AI_Translate_Core
                 $site_name = strtok($domain, ':');
             }
         } else {
-            $site_name = (string) get_bloginfo('name');
+            $site_name = (string) 'AI Translate';
         }
 
         // 3. Try AI generation if configured
@@ -1012,6 +1012,9 @@ final class AI_Translate_Core
                         ['role' => 'user', 'content' => $prompt],
                     ],
                 ];
+                if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
+                    $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
+                }
 
                 // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
                 $body['max_completion_tokens'] = 16000;
@@ -1028,11 +1031,11 @@ final class AI_Translate_Core
                         if (isset($_SERVER['REQUEST_SCHEME'])) {
                             $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
                         }
-                        $headers['Referer'] = $protocol . '://' . $domain . '/';
+                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
                     } else {
-                        $headers['Referer'] = home_url();
+                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
                     }
-                    $headers['X-Title'] = $site_name;
+                    $headers['X-Title'] = 'AI Translate';
                 }
 
                 $response = wp_remote_post($endpoint, [
@@ -1129,7 +1132,7 @@ final class AI_Translate_Core
                 error_log('AI Translate: Using domain-specific site name for ' . $domain . ': ' . $site_name);
             }
         } else {
-            $site_name = (string) get_bloginfo('name');
+            $site_name = (string) 'AI Translate';
         }
         
         // Get website context (per-domain if multi-domain caching is enabled)
@@ -1165,6 +1168,9 @@ final class AI_Translate_Core
                         ['role' => 'user', 'content' => $prompt],
                     ],
                 ];
+                if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
+                    $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
+                }
 
                 // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
                 $body['max_completion_tokens'] = 16000;
@@ -1181,11 +1187,11 @@ final class AI_Translate_Core
                         if (isset($_SERVER['REQUEST_SCHEME'])) {
                             $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
                         }
-                        $headers['Referer'] = $protocol . '://' . $domain . '/';
+                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
                     } else {
-                        $headers['Referer'] = home_url();
+                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
                     }
-                    $headers['X-Title'] = $site_name;
+                    $headers['X-Title'] = 'AI Translate';
                 }
 
                 $response = wp_remote_post($endpoint, [
