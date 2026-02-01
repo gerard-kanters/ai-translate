@@ -25,10 +25,6 @@ msgstr "短い説明"
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "35言語で自動ウェブサイト翻訳を可能にするAI搭載プラグイン。トラフィックを増やし、SEOを改善します。"
 
-#. Short Description
-msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
-msgstr "WordPress & WooCommerce向けのAI翻訳。35以上の言語でサイトを自動翻訳し、ブランドの独自のトーンで表現。高速キャッシュ、SEO対応、コスト効率に優れています。"
-
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
 msgstr "AI Translateは、WordPressウェブサイトを自動的に35以上の言語で利用可能にします。手作業なしでリーチを拡大し、SEOを改善します。"

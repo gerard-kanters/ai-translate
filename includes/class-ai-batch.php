@@ -9,8 +9,6 @@ final class AI_Batch
 {
     /**
      * Translate a plan's segments using configured provider.
-     * GPT-5 models use reasoning_effort=minimal for fast translations.
-     * Blocked: o1, o3 (no reasoning_effort parameter support).
      *
      * @param array $plan
      * @param string|null $source
@@ -36,11 +34,6 @@ final class AI_Batch
         $model = $provider !== '' ? ($models[$provider] ?? '') : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
-
-        // Block o1/o3 reasoning models: they don't support reasoning_effort parameter
-        if ($model !== '' && preg_match('/^(o1-|o3-)/i', $model)) {
-            return ['segments' => [], 'map' => []];
-        }
 
         if (empty($segments)) {
             return ['segments' => [], 'map' => []];
@@ -203,18 +196,7 @@ final class AI_Batch
                             ['role' => 'user', 'content' => $userPayload],
                         ],
                     ];
-                    // Newer models (gpt-5.x, o1-series, o3-series) and DeepSeek v3.2 use max_completion_tokens instead of max_tokens
-                    // These models also don't support temperature != 1, so we omit it
-                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                        $body['max_completion_tokens'] = 4096;
-                        // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
-                        if (str_starts_with($model, 'gpt-5')) {
-                            $body['reasoning_effort'] = 'minimal';
-                        }
-                    } else {
-                        $body['max_tokens'] = 4096;
-                        $body['temperature'] = 0;
-                    }
+                    $body['temperature'] = 0;
                     $headers = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     // OpenRouter requires Referer header (WordPress adds HTTP- prefix automatically)
                     if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
@@ -244,17 +226,7 @@ final class AI_Batch
                         $batchesSingle = [$batchSegs];
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             $userPayload = self::buildUserPayload($batchSegs2);
-                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
-                            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                                $body['max_completion_tokens'] = 4096;
-                                // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
-                                if (str_starts_with($model, 'gpt-5')) {
-                                    $body['reasoning_effort'] = 'minimal';
-                                }
-                            } else {
-                                $body['max_tokens'] = 4096;
-                                $body['temperature'] = 0;
-                            }
+                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];                            $body['temperature'] = 0;
                             $fallbackHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                             if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
                                 $fallbackHeaders['Referer'] = home_url();
@@ -459,17 +431,8 @@ final class AI_Batch
                     $retryChunks = array_chunk($retrySegs, 5);
                     foreach ($retryChunks as $rc) {
                         $userPayload = self::buildUserPayload($rc);
-                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
-                        if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                            $body['max_completion_tokens'] = 4096;
-                            // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
-                            if (str_starts_with($model, 'gpt-5')) {
-                                $body['reasoning_effort'] = 'minimal';
-                            }
-                        } else {
-                            $body['max_tokens'] = 4096;
-                            $body['temperature'] = 0;
-                        }
+                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];                       
+                        $body['temperature'] = 0;
                         $retryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                         if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
                             $retryHeaders['Referer'] = home_url();
@@ -555,19 +518,7 @@ final class AI_Batch
                     ['role' => 'user', 'content' => $userPayload],
                 ],
             ];
-            // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens instead of max_tokens
-            // DeepSeek v3.2 also uses max_completion_tokens
-            // These models also don't support temperature != 1, so we omit it
-            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                $body['max_completion_tokens'] = 4096;
-                // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
-                if (str_starts_with($model, 'gpt-5')) {
-                    $body['reasoning_effort'] = 'minimal';
-                }
-            } else {
-                $body['max_tokens'] = 4096;
-                $body['temperature'] = 0;
-            }
+            $body['temperature'] = 0;
 
         $timeoutSeconds = 45; // Balanced timeout for sequential fallback (was 60)
             $attempts = 0;
@@ -722,14 +673,7 @@ final class AI_Batch
                 foreach ($retryChunks as $rc) {
                     $userPayload = self::buildUserPayload($rc);
                     $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
-                    if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                        $body['max_completion_tokens'] = 4096;
-                        // GPT-5 models: use minimal reasoning for translations (fast, no extended thinking)
-                        if (str_starts_with($model, 'gpt-5')) {
-                            $body['reasoning_effort'] = 'minimal';
-                        }
-                    } else {
-                        $body['max_tokens'] = 4096;
+                    if (!preg_match('/^(o1-|o3-)/i', $model)) {
                         $body['temperature'] = 0;
                     }
                     $seqRetryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];

@@ -1,6 +1,6 @@
 === AI Translate ===
 Contributors: gkanters  
-Tags: translation, multilingual, woocommerce, seo, artificial intelligence, ai
+Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 5.0  
 Tested up to: 6.9  
 Stable tag: 2.2.3
