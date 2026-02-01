@@ -183,7 +183,7 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
-### 2.2.3
+### 2.2.4
 
 - Added cache warming for pages to admin.
 - Admin user language preferred over site language for admin page translation.

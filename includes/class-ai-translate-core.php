@@ -1156,13 +1156,22 @@ final class AI_Translate_Core
                           "9. Output ONLY the meta description text. No quotes, no HTML tags, no explanations.\n\n" .
                           "Website Content:\n" . $content . $context_section;
 
+                $metaModel = (stripos($model, 'gpt-5') !== false) ? 'gpt-4.1-mini' : $model;
                 $body = [
-                    'model' => $model,
+                    'model' => $metaModel,
                     'messages' => [
                         ['role' => 'system', 'content' => 'You are an expert SEO copywriter specializing in writing compelling, keyword-rich meta descriptions that drive click-through rates. You understand that generic descriptions hurt SEO performance.'],
                         ['role' => 'user', 'content' => $prompt],
                     ],
                 ];
+                $m = strtolower((string) $model);
+                if ($m !== '' && strpos($m, 'gpt-5') === false) {
+                    if (strpos($m, 'o1-') === 0 || strpos($m, 'o3-') === 0) {
+                        $body['thinking'] = false;
+                    } elseif (strpos($m, 'deepseek-r1') !== false || strpos($m, 'deepseek-reasoner') !== false) {
+                        $body['thinking'] = array('type' => 'disabled');
+                    }
+                }
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
                     $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
                 }
@@ -1186,9 +1195,10 @@ final class AI_Translate_Core
                     $headers['X-Title'] = 'AI Translate';
                 }
 
+                // Shorter timeout for meta descriptions (simple task; reasoning minimized above).
                 $response = wp_remote_post($endpoint, [
                     'headers' => $headers,
-                    'timeout' => 45,
+                    'timeout' => 60,
                     'sslverify' => true,
                     'body' => wp_json_encode($body),
                 ]);
