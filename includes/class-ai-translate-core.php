@@ -161,20 +161,9 @@ final class AI_Translate_Core
                     ['role' => 'user', 'content' => 'Test'],
                 ],
             ];
-            // Chat test: one cap for all providers (OpenAI/OpenRouter require minimum 16)
-            $chatTestMaxTokens = 32;
-            // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens; others use max_tokens
-            // DeepSeek v3.2 doesn't require either (per documentation)
-            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
-                $chatBody['max_completion_tokens'] = $chatTestMaxTokens;
-                // GPT-5 models: use minimal reasoning for fast validation
-                if (str_starts_with($model, 'gpt-5')) {
-                    $chatBody['reasoning_effort'] = 'minimal';
-                }
-            } elseif (!str_starts_with($model, 'deepseek/deepseek-v3')) {
-                $chatBody['max_tokens'] = $chatTestMaxTokens;
-                $chatBody['temperature'] = 0;
-            }
+            // Chat test: ruime limiet voor alle models inclusief reasoning models
+            $chatBody['max_completion_tokens'] = 10000;
+            $chatBody['temperature'] = 0;
             $chatResp = wp_remote_post($chatEndpoint, [
                 'headers' => $chatHeaders,
                 'timeout' => 20,
@@ -1025,13 +1014,9 @@ final class AI_Translate_Core
                     ],
                 ];
 
-                // Model specific params (consistent with Batch class)
-                if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                     $body['max_completion_tokens'] = 500;
-                } else {
-                     $body['max_tokens'] = 500;
-                     $body['temperature'] = 0.3;
-                }
+                // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
+                $body['max_completion_tokens'] = 16000;
+                $body['temperature'] = 0.3;
 
                 $headers = [
                     'Authorization' => 'Bearer ' . $apiKey,
@@ -1183,15 +1168,9 @@ final class AI_Translate_Core
                     ],
                 ];
 
-                // Model specific params
-                // Reasoning models (gpt-5, o1, o3) need more tokens because reasoning_tokens are included in max_completion_tokens
-                // A meta description is ~160 chars but the model might use 500+ tokens for reasoning
-                if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                     $body['max_completion_tokens'] = 12000; // Reasoning models need more tokens for internal reasoning + output
-                } else {
-                     $body['max_tokens'] = 300;
-                     $body['temperature'] = 0.7;
-                }
+                // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
+                $body['max_completion_tokens'] = 16000;
+                $body['temperature'] = 0.7;
 
                 $headers = [
                     'Authorization' => 'Bearer ' . $apiKey,
@@ -1232,34 +1211,17 @@ final class AI_Translate_Core
                 $response_body = wp_remote_retrieve_body($response);
                 $data = json_decode($response_body, true);
                 
-                // Debug logging - full response for debugging (replace newlines to prevent log splitting)
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('AI Translate Meta: Full API response: ' . str_replace(["\r\n", "\n", "\r"], ' ', $response_body));
-                }
-                
                 if (!isset($data['choices'][0]['message']['content'])) {
-                    throw new \Exception('Invalid API response: missing content in choices. Response: ' . mb_substr($response_body, 0, 300));
+                    throw new \Exception('Invalid API response: missing content in choices');
                 }
                 
-                $raw_content = $data['choices'][0]['message']['content'];
-                
-                // Debug logging
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('AI Translate Meta: Raw content from API: ' . $raw_content);
-                }
-                
-                $meta = trim($raw_content);
+                $meta = trim($data['choices'][0]['message']['content']);
                 $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
                 $meta = strip_tags($meta);
                 $meta = trim($meta);
                 
-                // Debug logging
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('AI Translate Meta: After processing: ' . $meta);
-                }
-                
                 if (empty($meta)) {
-                    throw new \Exception('API returned empty meta description. Raw content was: ' . mb_substr($raw_content, 0, 200));
+                    throw new \Exception('API returned empty meta description');
                 }
                 
                 return $meta;
