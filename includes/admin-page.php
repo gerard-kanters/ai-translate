@@ -819,7 +819,7 @@ function ajax_generate_website_context()
                 $requested_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
             }
             if (empty($requested_domain)) {
-                $requested_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                $requested_domain = parse_url(home_url(), PHP_URL_HOST);
                 if (empty($requested_domain)) {
                     $requested_domain = 'default';
                 }
@@ -1193,7 +1193,7 @@ add_action('admin_init', function () {
                         $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                     }
                     if (empty($active_domain)) {
-                        $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
                         if (empty($active_domain)) {
                             $active_domain = 'default';
                         }
@@ -1238,7 +1238,7 @@ add_action('admin_init', function () {
                         $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                     }
                     if (empty($active_domain)) {
-                        $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
                         if (empty($active_domain)) {
                             $active_domain = 'default';
                         }
@@ -1647,7 +1647,7 @@ add_action('admin_init', function () {
                 $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
             }
             if (empty($active_domain)) {
-                $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                $active_domain = parse_url(home_url(), PHP_URL_HOST);
                 if (empty($active_domain)) {
                     $active_domain = 'default';
                 }
@@ -1698,7 +1698,7 @@ add_action('admin_init', function () {
                 $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
             }
             if (empty($active_domain)) {
-                $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                $active_domain = parse_url(home_url(), PHP_URL_HOST);
                 if (empty($active_domain)) {
                     $active_domain = 'default';
                 }
@@ -2008,7 +2008,7 @@ function render_admin_page()
                         
                         // Final fallback to 'https://github.com/gerard-kanters/ai-translate' host (should rarely be needed)
                         if (empty($active_domain)) {
-                            $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                            $active_domain = parse_url(home_url(), PHP_URL_HOST);
                             if (empty($active_domain)) {
                                 $active_domain = 'default';
                             }
@@ -2530,7 +2530,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                         $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                     }
                     if (empty($active_domain)) {
-                        $active_domain = parse_url('https://github.com/gerard-kanters/ai-translate', PHP_URL_HOST);
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
                         if (empty($active_domain)) {
                             $active_domain = 'default';
                         }
