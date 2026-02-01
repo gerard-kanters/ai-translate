@@ -1190,7 +1190,7 @@ final class AI_Translate_Core
 
                 $response = wp_remote_post($endpoint, [
                     'headers' => $headers,
-                    'timeout' => 30,
+                    'timeout' => 45,
                     'sslverify' => true,
                     'body' => wp_json_encode($body),
                 ]);

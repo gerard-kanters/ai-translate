@@ -584,6 +584,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 data.append('website_context', websiteContextField.value);
             }
 
+            var homepageMetaField = document.getElementById('homepage_meta_description_field');
+            if (homepageMetaField) {
+                data.append('homepage_meta_description', homepageMetaField.value);
+            }
+
             // Stuur multi_domain_caching mee zodat validate handler weet welke setting te gebruiken
             var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
             if (multiDomainCheckbox) {

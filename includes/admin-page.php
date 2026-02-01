@@ -2576,6 +2576,51 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                 }
             }
 
+            // Homepage meta description opslaan tijdens validate (per domain bij multi-domain caching)
+            if (isset($_POST['homepage_meta_description'])) {
+                $homepage_meta_description = sanitize_textarea_field(wp_unslash($_POST['homepage_meta_description']));
+                // Gebruik de waarde uit POST (formulier) in plaats van database, zodat we de meest actuele waarde hebben
+                $multi_domain = false;
+                if (isset($_POST['multi_domain_caching'])) {
+                    $multi_domain = $_POST['multi_domain_caching'] === '1';
+                } elseif (isset($updated_settings['multi_domain_caching'])) {
+                    // Fallback naar database waarde als niet in POST
+                    $multi_domain = (bool) $updated_settings['multi_domain_caching'];
+                }
+                if ($multi_domain) {
+                    $active_domain = '';
+                    if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                        if (strpos($active_domain, ':') !== false) {
+                            $active_domain = strtok($active_domain, ':');
+                        }
+                    }
+                    if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                    }
+                    if (empty($active_domain)) {
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        if (empty($active_domain)) {
+                            $active_domain = 'default';
+                        }
+                    }
+                    // Kopieer bestaande homepage_meta_description_per_domain van current_settings als die niet bestaat in updated_settings
+                    if (!isset($updated_settings['homepage_meta_description_per_domain']) || !is_array($updated_settings['homepage_meta_description_per_domain'])) {
+                        $updated_settings['homepage_meta_description_per_domain'] = isset($current_settings['homepage_meta_description_per_domain']) && is_array($current_settings['homepage_meta_description_per_domain']) 
+                            ? $current_settings['homepage_meta_description_per_domain'] 
+                            : [];
+                    }
+                    $updated_settings['homepage_meta_description_per_domain'][$active_domain] = $homepage_meta_description;
+                    // BELANGRIJK: Verwijder de oude homepage_meta_description key zodat de sanitize_callback 
+                    // de nieuwe per-domain waarde niet overschrijft met de oude single-domain waarde
+                    unset($updated_settings['homepage_meta_description']);
+                } else {
+                    $updated_settings['homepage_meta_description'] = $homepage_meta_description;
+                    // Verwijder per-domain array als we terug naar single-domain gaan
+                    unset($updated_settings['homepage_meta_description_per_domain']);
+                }
+            }
+
             // Sla de instellingen op via update_option
             update_option('ai_translate_settings', $updated_settings);
         }
