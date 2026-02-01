@@ -869,6 +869,30 @@ function ajax_generate_homepage_meta()
     // Get domain from request (for multi-domain caching support)
     $requested_domain = isset($_POST['domain']) ? sanitize_text_field(wp_unslash($_POST['domain'])) : '';
     
+    // Als domain niet is meegestuurd maar multi-domain caching aan staat, bepaal actieve domain
+    if (empty($requested_domain)) {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        if ($multi_domain) {
+            // Bepaal actieve domain op dezelfde manier als in de UI
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $requested_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($requested_domain, ':') !== false) {
+                    $requested_domain = strtok($requested_domain, ':');
+                }
+            }
+            if (empty($requested_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $requested_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($requested_domain)) {
+                $requested_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($requested_domain)) {
+                    $requested_domain = 'default';
+                }
+            }
+        }
+    }
+    
     // Generate meta description
     $translator = AI_Translate_Core::get_instance();
     try {
@@ -939,7 +963,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-admin-js',
         plugin_dir_url(__DIR__) . 'assets/admin-page.js',
         array('jquery'),
-        '1.0.2',
+        '1.0.3',
         true
     );
 
@@ -1452,11 +1476,6 @@ add_action('admin_init', function () {
             $core = AI_Translate_Core::get_instance();
             // Retrieve ALL available languages from the core class
             $languages = $core->get_available_languages();
-
-            // If no detectable languages are set, default to all available languages
-            if (empty($detected_enabled)) {
-                $detected_enabled = array_keys($languages);
-            }
 
             // Flags base URL
             $flags_url = plugin_dir_url(__DIR__) . 'assets/flags/';
@@ -2549,6 +2568,51 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                     $updated_settings['website_context'] = $website_context;
                     // Verwijder per-domain array als we terug naar single-domain gaan
                     unset($updated_settings['website_context_per_domain']);
+                }
+            }
+
+            // Homepage meta description opslaan tijdens validate (per domain bij multi-domain caching)
+            if (isset($_POST['homepage_meta_description'])) {
+                $homepage_meta_description = sanitize_textarea_field(wp_unslash($_POST['homepage_meta_description']));
+                // Gebruik de waarde uit POST (formulier) in plaats van database, zodat we de meest actuele waarde hebben
+                $multi_domain = false;
+                if (isset($_POST['multi_domain_caching'])) {
+                    $multi_domain = $_POST['multi_domain_caching'] === '1';
+                } elseif (isset($updated_settings['multi_domain_caching'])) {
+                    // Fallback naar database waarde als niet in POST
+                    $multi_domain = (bool) $updated_settings['multi_domain_caching'];
+                }
+                if ($multi_domain) {
+                    $active_domain = '';
+                    if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                        if (strpos($active_domain, ':') !== false) {
+                            $active_domain = strtok($active_domain, ':');
+                        }
+                    }
+                    if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                    }
+                    if (empty($active_domain)) {
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        if (empty($active_domain)) {
+                            $active_domain = 'default';
+                        }
+                    }
+                    // Kopieer bestaande homepage_meta_description_per_domain van current_settings als die niet bestaat in updated_settings
+                    if (!isset($updated_settings['homepage_meta_description_per_domain']) || !is_array($updated_settings['homepage_meta_description_per_domain'])) {
+                        $updated_settings['homepage_meta_description_per_domain'] = isset($current_settings['homepage_meta_description_per_domain']) && is_array($current_settings['homepage_meta_description_per_domain']) 
+                            ? $current_settings['homepage_meta_description_per_domain'] 
+                            : [];
+                    }
+                    $updated_settings['homepage_meta_description_per_domain'][$active_domain] = $homepage_meta_description;
+                    // BELANGRIJK: Verwijder de oude homepage_meta_description key zodat de sanitize_callback 
+                    // de nieuwe per-domain waarde niet overschrijft met de oude single-domain waarde
+                    unset($updated_settings['homepage_meta_description']);
+                } else {
+                    $updated_settings['homepage_meta_description'] = $homepage_meta_description;
+                    // Verwijder per-domain array als we terug naar single-domain gaan
+                    unset($updated_settings['homepage_meta_description_per_domain']);
                 }
             }
 

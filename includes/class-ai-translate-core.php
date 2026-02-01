@@ -161,23 +161,8 @@ final class AI_Translate_Core
                     ['role' => 'user', 'content' => 'Test'],
                 ],
             ];
-            if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
-                $chatBody['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
-            }
-            // Chat test: one cap for all providers (OpenAI/OpenRouter require minimum 16)
-            $chatTestMaxTokens = 32;
-            // Newer models (gpt-5.x, o1-series, o3-series) use max_completion_tokens; others use max_tokens
-            // DeepSeek v3.2 doesn't require either (per documentation)
-            if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-')) {
-                $chatBody['max_completion_tokens'] = $chatTestMaxTokens;
-                // GPT-5 models: use minimal reasoning for fast validation
-                if (str_starts_with($model, 'gpt-5')) {
-                    $chatBody['reasoning_effort'] = 'minimal';
-                }
-            } elseif (!str_starts_with($model, 'deepseek/deepseek-v3')) {
-                $chatBody['max_tokens'] = $chatTestMaxTokens;
-                $chatBody['temperature'] = 0;
-            }
+            // Chat test: ruime limiet voor alle models inclusief reasoning models
+            $chatBody['max_completion_tokens'] = 10000;
             $chatResp = wp_remote_post($chatEndpoint, [
                 'headers' => $chatHeaders,
                 'timeout' => 20,
@@ -1031,13 +1016,8 @@ final class AI_Translate_Core
                     $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
                 }
 
-                // Model specific params (consistent with Batch class)
-                if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                     $body['max_completion_tokens'] = 500;
-                } else {
-                     $body['max_tokens'] = 500;
-                     $body['temperature'] = 0.3;
-                }
+                // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
+                $body['max_completion_tokens'] = 16000;
 
                 $headers = [
                     'Authorization' => 'Bearer ' . $apiKey,
@@ -1192,13 +1172,8 @@ final class AI_Translate_Core
                     $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
                 }
 
-                // Model specific params
-                if (str_starts_with($model, 'gpt-5') || str_starts_with($model, 'o1-') || str_starts_with($model, 'o3-') || str_starts_with($model, 'deepseek/deepseek-v3')) {
-                     $body['max_completion_tokens'] = 300;
-                } else {
-                     $body['max_tokens'] = 300;
-                     $body['temperature'] = 0.7;
-                }
+                // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
+                $body['max_completion_tokens'] = 16000;
 
                 $headers = [
                     'Authorization' => 'Bearer ' . $apiKey,
@@ -1221,26 +1196,50 @@ final class AI_Translate_Core
 
                 $response = wp_remote_post($endpoint, [
                     'headers' => $headers,
-                    'timeout' => 30,
+                    'timeout' => 45,
                     'sslverify' => true,
                     'body' => wp_json_encode($body),
                 ]);
 
-                if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
-                    $data = json_decode(wp_remote_retrieve_body($response), true);
-                    if (isset($data['choices'][0]['message']['content'])) {
-                        $meta = trim($data['choices'][0]['message']['content']);
-                        $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
-                        $meta = strip_tags($meta);
-                        return $meta;
-                    }
+                if (is_wp_error($response)) {
+                    throw new \Exception('API request failed: ' . $response->get_error_message());
                 }
+                
+                $response_code = wp_remote_retrieve_response_code($response);
+                if ($response_code !== 200) {
+                    $response_body = wp_remote_retrieve_body($response);
+                    throw new \Exception('API returned error code ' . $response_code . ': ' . $response_body);
+                }
+                
+                $response_body = wp_remote_retrieve_body($response);
+                $data = json_decode($response_body, true);
+                
+                if (!isset($data['choices'][0]['message']['content'])) {
+                    throw new \Exception('Invalid API response: missing content in choices');
+                }
+                
+                $meta = trim($data['choices'][0]['message']['content']);
+                $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
+                $meta = strip_tags($meta);
+                $meta = trim($meta);
+                
+                if (empty($meta)) {
+                    throw new \Exception('API returned empty meta description');
+                }
+                
+                return $meta;
             } catch (\Exception $e) {
-                // Fall through
+                // Re-throw exception so AJAX handler can show proper error message
+                throw $e;
             }
         }
 
-        // 4. Fallback
-        return mb_substr($content, 0, 160);
+        // 4. Fallback only if AI is not configured
+        if ($provider === '' || $model === '' || $apiKey === '' || $baseUrl === '') {
+            return mb_substr($content, 0, 160);
+        }
+        
+        // If AI is configured but failed, throw exception instead of using fallback
+        throw new \Exception('AI generation failed but no error was caught');
     }
 }

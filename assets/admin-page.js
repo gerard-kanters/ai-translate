@@ -584,6 +584,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 data.append('website_context', websiteContextField.value);
             }
 
+            var homepageMetaField = document.getElementById('homepage_meta_description_field');
+            if (homepageMetaField) {
+                data.append('homepage_meta_description', homepageMetaField.value);
+            }
+
             // Stuur multi_domain_caching mee zodat validate handler weet welke setting te gebruiken
             var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
             if (multiDomainCheckbox) {
@@ -945,13 +950,15 @@ document.addEventListener('DOMContentLoaded', function () {
             // Stuur actieve domain mee bij multi-domain caching
             var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
             if (multiDomainCheckbox && multiDomainCheckbox.checked) {
-                // Zoek de actieve domain uit de UI (wordt getoond bij het website context veld)
-                var activeDomainElement = document.querySelector('p.description code');
-                if (activeDomainElement) {
-                    var activeDomain = activeDomainElement.textContent.trim();
-                    if (activeDomain) {
-                        formData.append('domain', activeDomain);
-                    }
+                // Bepaal actieve domain - gebruik altijd window.location.hostname
+                // Dit voorkomt dat per ongeluk een cache directory pad wordt gepakt
+                var activeDomain = window.location.hostname;
+                // Verwijder poort als aanwezig
+                if (activeDomain && activeDomain.indexOf(':') !== -1) {
+                    activeDomain = activeDomain.split(':')[0];
+                }
+                if (activeDomain) {
+                    formData.append('domain', activeDomain);
                 }
             }
 
@@ -1040,17 +1047,12 @@ document.addEventListener('DOMContentLoaded', function () {
             // Stuur actieve domain mee bij multi-domain caching
             var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
             if (multiDomainCheckbox && multiDomainCheckbox.checked) {
-                // Bepaal actieve domain - probeer eerst uit UI, anders uit window.location
-                var activeDomain = '';
-                // Zoek naar het code element dat de actieve domain toont (kan bij website context of meta description staan)
-                var activeDomainElements = document.querySelectorAll('p.description code');
-                if (activeDomainElements.length > 0) {
-                    // Neem de eerste (of de laatste als er meerdere zijn - meestal is de laatste de meta description)
-                    activeDomain = activeDomainElements[activeDomainElements.length - 1].textContent.trim();
-                }
-                // Fallback naar window.location.hostname (zonder port)
-                if (!activeDomain && window.location.hostname) {
-                    activeDomain = window.location.hostname;
+                // Bepaal actieve domain - gebruik altijd window.location.hostname
+                // Dit voorkomt dat per ongeluk een cache directory pad wordt gepakt
+                var activeDomain = window.location.hostname;
+                // Verwijder poort als aanwezig
+                if (activeDomain && activeDomain.indexOf(':') !== -1) {
+                    activeDomain = activeDomain.split(':')[0];
                 }
                 if (activeDomain) {
                     formData.append('domain', activeDomain);
