@@ -196,7 +196,10 @@ final class AI_Batch
                             ['role' => 'user', 'content' => $userPayload],
                         ],
                     ];
-                    $body['temperature'] = 0;
+                    // o1/o3 reasoning models don't support temperature parameter
+                    if (!preg_match("/^(o1-|o3-)/i", $model)) {
+                        $body["temperature"] = 0;
+                    }
                     $headers = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                     // OpenRouter requires Referer header (WordPress adds HTTP- prefix automatically)
                     if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
@@ -223,7 +226,10 @@ final class AI_Batch
                     // Fallback to sequential handling for this group
                     foreach ($group as $idx => $batchSegs) {
                         // Reuse sequential path below by emulating one-batch run
-                        $batchesSingle = [$batchSegs];
+                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
+                            if (!preg_match("/^(o1-|o3-)/i", $model)) {
+                                $body["temperature"] = 0;
+                            }
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             $userPayload = self::buildUserPayload($batchSegs2);
                             $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];                            $body['temperature'] = 0;
@@ -425,14 +431,22 @@ final class AI_Batch
                 foreach ($needsRetry as $pid) { 
                     if (isset($primarySegById[$pid])) {
                         $retrySegs[] = $primarySegById[$pid]; 
-                    }
-                }
+                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                        if (!preg_match("/^(o1-|o3-)/i", $model)) {
+                            $body["temperature"] = 0;
+                        }
+                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
+                        if (!preg_match("/^(o1-|o3-)/i", $model)) {
+                            $body["temperature"] = 0;
+                        }
                 if (!empty($retrySegs)) {
                     $retryChunks = array_chunk($retrySegs, 5);
                     foreach ($retryChunks as $rc) {
                         $userPayload = self::buildUserPayload($rc);
                         $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];                       
-                        $body['temperature'] = 0;
+                        if (!preg_match('/^(o1-|o3-)/i', $model)) {
+                                                    $body['temperature'] = 0;
+                        }
                         $retryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
                         if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
                             $retryHeaders['Referer'] = home_url();
@@ -512,13 +526,17 @@ final class AI_Batch
             $batchStart = microtime(true);
             $userPayload = self::buildUserPayload($batchSegs);
             $body = [
-                'model' => $model,
+            if (!preg_match("/^(o1-|o3-)/i", $model)) {
+                $body["temperature"] = 0;
+            }
                 'messages' => [
                     ['role' => 'system', 'content' => $system],
                     ['role' => 'user', 'content' => $userPayload],
                 ],
             ];
-            $body['temperature'] = 0;
+            if (!preg_match('/^(o1-|o3-)/i', $model)) {
+                            $body['temperature'] = 0;
+            }
 
         $timeoutSeconds = 45; // Balanced timeout for sequential fallback (was 60)
             $attempts = 0;
