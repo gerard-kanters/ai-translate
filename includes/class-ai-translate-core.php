@@ -161,8 +161,6 @@ final class AI_Translate_Core
                     ['role' => 'user', 'content' => 'Test'],
                 ],
             ];
-            // Chat test: ruime limiet voor alle models inclusief reasoning models
-            $chatBody['max_completion_tokens'] = 10000;
             $chatResp = wp_remote_post($chatEndpoint, [
                 'headers' => $chatHeaders,
                 'timeout' => 20,
@@ -1013,9 +1011,6 @@ final class AI_Translate_Core
                     ],
                 ];
 
-                // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
-                $body['max_completion_tokens'] = 16000;
-
                 $headers = [
                     'Authorization' => 'Bearer ' . $apiKey,
                     'Content-Type'  => 'application/json',
@@ -1165,9 +1160,6 @@ final class AI_Translate_Core
                         ['role' => 'user', 'content' => $prompt],
                     ],
                 ];
-
-                // Token limits - ruime limiet voor alle models (je betaalt alleen wat je gebruikt)
-                $body['max_completion_tokens'] = 16000;
 
                 $headers = [
                     'Authorization' => 'Bearer ' . $apiKey,
