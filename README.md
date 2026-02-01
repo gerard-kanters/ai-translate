@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence, ai, ai translate
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.2.3
+Stable tag: 2.2.4
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
