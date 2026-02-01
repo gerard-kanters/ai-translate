@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -24,6 +24,10 @@ msgstr "وصف قصير"
 #. Short Description
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "إضافة مدعومة بالذكاء الاصطناعي للترجمة التلقائية للمواقع الإلكترونية بـ 35 لغة. تزيد من حركة المرور وتحسن محركات البحث لديك."
+
+#. Short Description
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "ترجمة مدعومة بالذكاء الاصطناعي لـ WordPress و WooCommerce. ترجم موقعك تلقائيًا بأكثر من 35 لغة بنبرة صوت علامتك التجارية الفريدة. تخزين مؤقت سريع وملائم لمحركات البحث وفعال من حيث التكلفة."
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -382,6 +386,9 @@ msgstr "2.2.0"
 msgid "Added cache warming for pages to admin."
 msgstr "تمت إضافة تسخين ذاكرة التخزين المؤقت للصفحات إلى الإدارة."
 
+msgid "Implement partial caching of extremely large pages timing out on the API limits."
+msgstr "تنفيذ التخزين المؤقت الجزئي للصفحات الكبيرة جدًا التي تنتهي مهلة الاتصال بحدود API."
+
 msgid "Admin user language preferred over site language for admin page translation."
 msgstr "يُفضل لغة مستخدم الإدارة على لغة الموقع لترجمة صفحة الإدارة."
 
@@ -447,9 +454,6 @@ msgstr "تم تنفيذ إيقاف استدعاءات API في الإدارة."
 
 msgid "Improved caching and reduce API calls of UI elements"
 msgstr "تحسين التخزين المؤقت وتقليل استدعاءات API لعناصر واجهة المستخدم"
-
-msgid "2.1.2"
-msgstr "2.1.2"
 
 msgid "Fixed JS issue with speculationrules"
 msgstr "تم إصلاح مشكلة JS مع speculationrules"

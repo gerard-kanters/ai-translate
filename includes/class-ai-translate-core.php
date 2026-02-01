@@ -364,8 +364,10 @@ final class AI_Translate_Core
     }
 
     /**
-     * Clear only disk-based language caches (HTML artifacts) and preserve menu and slug caches.
+     * Clear only disk-based language caches (HTML artifacts) for this site and preserve menu and slug caches.
      * Does not touch transients or object cache.
+     * Clears only the site-specific cache dir (e.g. cache/netcare.nl) using this WordPress site's home host,
+     * so the correct dir is cleared regardless of whether admin is opened via www or non-www.
      *
      * @return void
      */
@@ -373,13 +375,12 @@ final class AI_Translate_Core
     {
         $uploads = wp_upload_dir();
         $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
-        
-        // Add site-specific directory if multi-domain caching is enabled
-        $site_dir = $this->get_site_cache_dir();
+
+        $site_dir = $this->get_site_cache_dir_for_clearing();
         if (!empty($site_dir)) {
             $root = trailingslashit($root) . $site_dir . '/';
         }
-        
+
         if (!is_dir($root)) {
             \AITranslate\AI_Cache_Meta::delete_by_path_prefix($root);
             return;
@@ -397,6 +398,29 @@ final class AI_Translate_Core
             }
         }
         \AITranslate\AI_Cache_Meta::delete_by_path_prefix($root);
+    }
+
+    /**
+     * Site cache subdir name for clearing: based on this WordPress site's home URL host.
+     * Ensures we clear the correct dir (e.g. netcare.nl) even when admin is opened via www.netcare.nl.
+     *
+     * @return string
+     */
+    private function get_site_cache_dir_for_clearing()
+    {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+
+        if (!$multi_domain) {
+            return '';
+        }
+
+        $host = parse_url(home_url(), PHP_URL_HOST);
+        if (empty($host)) {
+            return 'default';
+        }
+        $sanitized = sanitize_file_name($host);
+        return empty($sanitized) ? 'default' : $sanitized;
     }
 
     /**

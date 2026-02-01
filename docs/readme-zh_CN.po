@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -24,6 +24,10 @@ msgstr "简短描述"
 #. Short Description
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "支持35种语言的自动网站翻译AI插件。增加流量并改善您的SEO。"
+
+#. Short Description
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "面向WordPress和WooCommerce的AI翻译。以您品牌的独特语气自动将您的网站翻译成35种以上语言。快速缓存、SEO友好且经济高效。"
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -382,6 +386,9 @@ msgstr "2.2.0"
 msgid "Added cache warming for pages to admin."
 msgstr "为页面添加了缓存预热到管理界面。"
 
+msgid "Implement partial caching of extremely large pages timing out on the API limits."
+msgstr "对因超出 API 限制而超时的极大页面实施部分缓存。"
+
 msgid "Admin user language preferred over site language for admin page translation."
 msgstr "在管理页面翻译中，管理员用户语言优先于网站语言。"
 
@@ -447,9 +454,6 @@ msgstr "在管理后台实现了停止API调用。"
 
 msgid "Improved caching and reduce API calls of UI elements"
 msgstr "改进了缓存并减少了UI元素的API调用"
-
-msgid "2.1.2"
-msgstr "2.1.2"
 
 msgid "Fixed JS issue with speculationrules"
 msgstr "修复了speculationrules的JS问题"

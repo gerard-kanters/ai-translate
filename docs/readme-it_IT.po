@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -24,6 +24,10 @@ msgstr "Descrizione breve"
 #. Short Description
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "Plugin alimentato da IA per la traduzione automatica di siti web in 35 lingue. Aumenta il traffico e migliora il tuo SEO."
+
+#. Short Description
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "Traduzione con IA per WordPress e WooCommerce. Traduci automaticamente il tuo sito in oltre 35 lingue con il tono di voce unico del tuo brand. Caching veloce, ottimizzato per SEO e conveniente."
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -379,8 +383,8 @@ msgstr "wget --spider --no-directories --delete-after --recursive --level=10 \\\
 msgid "Changelog"
 msgstr "Registro delle modifiche"
 
-msgid "2.2.0"
-msgstr "2.2.0"
+msgid "2.2.3"
+msgstr "2.2.3"
 
 msgid "Added cache warming for pages to admin."
 msgstr "Aggiunto il riscaldamento della cache per le pagine all'admin."
@@ -450,9 +454,6 @@ msgstr "Implementate chiamate API di stop nell'admin."
 
 msgid "Improved caching and reduce API calls of UI elements"
 msgstr "Migliorata la cache e ridotte le chiamate API degli elementi UI"
-
-msgid "2.1.2"
-msgstr "2.1.2"
 
 msgid "Fixed JS issue with speculationrules"
 msgstr "Risolto problema JS con speculationrules"

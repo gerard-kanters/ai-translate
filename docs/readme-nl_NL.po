@@ -1,7 +1,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2026-01-10 16:14\n"
@@ -15,6 +15,9 @@ msgstr ""
 
 msgid "Short Description"
 msgstr "Korte beschrijving"
+
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "AI-vertaling voor WordPress & WooCommerce. Vertaal uw site automatisch in 35+ talen met de unieke toon van uw merk. Snelle caching, SEO-vriendelijk en kosteneffectief."
 
 msgid "Description"
 msgstr "Beschrijving"
@@ -73,12 +76,8 @@ msgstr "Wat moet ik doen als een taal niet wordt vertaald?"
 msgid "Can I customize the AI prompts?"
 msgstr "Kan ik de AI-prompts aanpassen?"
 
-msgid ""
-"What's the difference between \"Enabled Languages\" and \"Detectable "
-"Languages\"?"
-msgstr ""
-"Wat is het verschil tussen \"Ingeschakelde talen\" en \"Detecteerbare "
-"talen\"?"
+msgid "What's the difference between \"Enabled Languages\" and \"Detectable Languages\"?"
+msgstr "Wat is het verschil tussen \"Ingeschakelde talen\" en \"Detecteerbare talen\"?"
 
 msgid "Configuration"
 msgstr "Configuratie"
@@ -119,20 +118,10 @@ msgstr "Vereisten"
 msgid "Changelog"
 msgstr "Changelog"
 
-msgid "2.2.0"
-msgstr "2.2.0"
+msgid "2.2.3"
+msgstr "2.2.3"
 
-msgid "2.2.1"
-msgstr "2.2.1"
 
-msgid "2.1.2"
-msgstr "2.1.2"
-
-msgid "2.0.4"
-msgstr "2.0.4"
-
-msgid "2.0.1"
-msgstr "2.0.1"
 
 msgid "1.34"
 msgstr "1.34"
@@ -152,59 +141,35 @@ msgstr "1.0"
 msgid "Provided by"
 msgstr "Verzorgd door"
 
-msgid ""
-"**🌐 Automatic Translation** - Pages, posts, and custom post types are "
-"automatically translated"
-msgstr ""
-"**🌐 Automatische Vertaling** - Pagina's, berichten en aangepaste "
-"berichttypen worden automatisch vertaald"
+msgid "**🌐 Automatic Translation** - Pages, posts, and custom post types are automatically translated"
+msgstr "**🌐 Automatische Vertaling** - Pagina's, berichten en aangepaste berichttypen worden automatisch vertaald"
 
-msgid ""
-"**✨ Smart AI** - Generates a summary of your site for context-aware "
-"translations."
-msgstr ""
-"**✨ Slimme AI** - Genereert een samenvatting van uw site voor "
-"contextbewuste vertalingen."
+msgid "**✨ Smart AI** - Generates a summary of your site for context-aware translations."
+msgstr "**✨ Slimme AI** - Genereert een samenvatting van uw site voor contextbewuste vertalingen."
 
-msgid ""
-"**🌍 35+ Languages** - Support for all major world languages and much more."
-msgstr ""
-"**🌍 35+ Talen** - Ondersteuning voor alle belangrijke wereldtalen en nog veel meer."
+msgid "**🌍 35+ Languages** - Support for all major world languages and much more."
+msgstr "**🌍 35+ Talen** - Ondersteuning voor alle belangrijke wereldtalen en nog veel meer."
 
-msgid ""
-"**⚡ Fast Caching** - Intelligent cache for better performance and lower "
-"costs."
-msgstr ""
-"**⚡ Snelle Caching** - Intelligente cache voor betere prestaties en lagere "
-"kosten."
+msgid "**⚡ Fast Caching** - Intelligent cache for better performance and lower costs."
+msgstr "**⚡ Snelle Caching** - Intelligente cache voor betere prestaties en lagere kosten."
 
-msgid ""
-"**🔄 Automatic Updates** - Translations are automatically updated when "
-"content changes."
-msgstr ""
+msgid "**🔄 Automatic Updates** - Translations are automatically updated when content changes."
+msgstr "**🔄 Automatische Updates** - Vertalingen worden automatisch bijgewerkt wanneer inhoud verandert."
 
-msgid ""
-"**🍪 Remembers Preferences** - Saves each visitor's language preference (via "
-"cookies)."
-msgstr ""
+msgid "**🍪 Remembers Preferences** - Saves each visitor's language preference (via cookies)."
+msgstr "**🍪 Onthoudt voorkeuren** - Slaat de taalvoorkeur van elke bezoeker op (via cookies)."
 
-msgid ""
-"**🎨 Easy to Use** - Simple language switcher in the left corner of your "
-"website."
-msgstr ""
+msgid "**🎨 Easy to Use** - Simple language switcher in the left corner of your website."
+msgstr "**🎨 Gebruiksvriendelijk** - Eenvoudige taalwisselaar in de linkerbenedenhoek van uw website."
 
-msgid ""
-"**🔧 Flexible** - Choose your own AI model (OpenAI, Deepseek, or other APIs)."
-msgstr ""
+msgid "**🔧 Flexible** - Choose your own AI model (OpenAI, Deepseek, or other APIs)."
+msgstr "**🔧 Flexibel** - Kies uw eigen AI-model (OpenAI, Deepseek of andere API's)."
 
-msgid ""
-"**🔗 SEO-Friendly** - Also translates URLs for better search engine "
-"optimization."
-msgstr ""
+msgid "**🔗 SEO-Friendly** - Also translates URLs for better search engine optimization."
+msgstr "**🔗 SEO-vriendelijk** - Vertaalt ook URL's voor betere zoekmachine-optimalisatie."
 
 msgid "Using a caching plugin like Jetpack, WP Rocket, or W3 Total Cache"
-msgstr ""
-"Een caching-plugin gebruiken zoals Jetpack, WP Rocket of W3 Total Cache"
+msgstr "Een caching-plugin gebruiken zoals Jetpack, WP Rocket of W3 Total Cache"
 
 msgid "Configuring Memcached or Redis for database caching"
 msgstr "Memcached of Redis configureren voor databasecaching"
@@ -212,12 +177,8 @@ msgstr "Memcached of Redis configureren voor databasecaching"
 msgid "Adjusting cache duration based on how often you update content"
 msgstr "Cacheduur aanpassen op basis van hoe vaak u inhoud bijwerkt"
 
-msgid ""
-"**🔑 API Provider** - Select a provider of your AI translation API (e.g. "
-"OpenAI)"
-msgstr ""
-"**🔑 API Provider** - Selecteer een provider van uw AI vertaal API (bijv. "
-"OpenAI)"
+msgid "**🔑 API Provider** - Select a provider of your AI translation API (e.g. OpenAI)"
+msgstr "**🔑 API Provider** - Selecteer een provider van uw AI-vertaal-API (bijv. OpenAI)"
 
 msgid "**🔐 API Key** - Your API authentication key"
 msgstr "**🔐 API Key** - Uw API authenticatiesleutel"
@@ -231,91 +192,56 @@ msgstr "**🌍 Standaardtaal** - De hoofdtalen van uw website"
 msgid "**🎯 Enabled Languages** - Languages visible in the language switcher"
 msgstr "**🎯 Ingeschakelde Talen** - Talen zichtbaar in de taalwisselaar"
 
-msgid ""
-"**🔍 Detectable Languages** - Automatic translation on browser match, but not"
-" in switcher"
-msgstr ""
-"**🔍 Detecteerbare Talen** - Automatische vertaling bij browser overeenkomst,"
-" maar niet in wisselaar"
+msgid "**🔍 Detectable Languages** - Automatic translation on browser match, but not in switcher"
+msgstr "**🔍 Detecteerbare Talen** - Automatische vertaling bij browserovereenkomst, maar niet in wisselaar"
 
-msgid ""
-"**⏱️ Cache Duration (days)** - How long translated content stays cached"
-msgstr ""
-"**⏱️ Cache Duur (dagen)** - Hoe lang vertaalde inhoud gecached blijft"
+msgid "**⏱️ Cache Duration (days)** - How long translated content stays cached"
+msgstr "**⏱️ Cacheduur (dagen)** - Hoe lang vertaalde inhoud gecached blijft"
 
-msgid ""
-"**🗑️ Cache Management** - Clear all cache, only transient cache, or cache "
-"per language"
-msgstr ""
-"**🗑️ Cache Beheer** - Wis alle cache, alleen tijdelijke cache, of cache "
-"per taal"
+msgid "**🗑️ Cache Management** - Clear all cache, only transient cache, or cache per language"
+msgstr "**🗑️ Cachebeheer** - Wis alle cache, alleen tijdelijke cache, of cache per taal"
 
-msgid ""
-"**🔄 Automatic cache invalidation** - Cache is only refreshed on content "
-"changes"
-msgstr ""
-"**🔄 Automatische cache invalidatie** - Cache wordt alleen vernieuwd bij "
-"inhoudswijzigingen"
+msgid "**🔄 Automatic cache invalidation** - Cache is only refreshed on content changes"
+msgstr "**🔄 Automatische cache-invalidatie** - Cache wordt alleen vernieuwd bij inhoudswijzigingen"
 
-msgid ""
-"**📄 Homepage Meta Description** - Set a custom meta description that will be"
-" automatically translated."
-msgstr ""
+msgid "**📄 Homepage Meta Description** - Set a custom meta description that will be automatically translated."
+msgstr "**📄 Homepage meta-beschrijving** - Stel een aangepaste meta-beschrijving in die automatisch wordt vertaald."
 
-msgid ""
-"**✨ Auto-generate site context** - Let the AI automatically analyze your "
-"site for better translations"
-msgstr ""
+msgid "**✨ Auto-generate site context** - Let the AI automatically analyze your site for better translations"
+msgstr "**✨ Sitecontext automatisch genereren** - Laat de AI uw site automatisch analyseren voor betere vertalingen"
 
-msgid ""
-"**📁 Location** - Translations are cached in `/wp-content/uploads/ai-"
-"translate/cache/`"
-msgstr ""
+msgid "**📁 Location** - Translations are cached in `/wp-content/uploads/ai-translate/cache/`"
+msgstr "**📁 Locatie** - Vertalingen worden gecached in `/wp-content/uploads/ai-translate/cache/`"
 
 msgid "**🧹 Auto-cleanup** - Expired cache is automatically cleaned up"
-msgstr ""
+msgstr "**🧹 Automatisch opruimen** - Verlopen cache wordt automatisch opgeruimd"
 
 msgid "**🔧 Manual clearing** - Clear cache manually via plugin settings"
-msgstr ""
+msgstr "**🔧 Handmatig wissen** - Wis cache handmatig via plugininstellingen"
 
 msgid "**💡 OpenAI**: `gpt-4.1-mini`"
 msgstr "**💡 OpenAI**: `gpt-4.1-mini`"
 
 msgid "**💰 Deepseek**: `deepseek-chat` - Langzamer, maar kosteneffectiever"
+msgstr "**💰 Deepseek**: `deepseek-chat` - Langzamer, maar kosteneffectiever"
 
-msgid ""
-"**🔧 OpenRouter**: Select google/gemini-2.5-flash-lite which has the best "
-"price/performance"
-msgstr ""
-"**🔧 OpenRouter**: Selecteer google/gemini-2.5-flash-lite die de beste "
-"prijs/prestatie heeft"
+msgid "**🔧 OpenRouter**: Select google/gemini-2.5-flash-lite which has the best price/performance"
+msgstr "**🔧 OpenRouter**: Selecteer google/gemini-2.5-flash-lite voor de beste prijs/prestatie"
 
-msgid ""
-"**💡 Groq**: Select LLama 3.1/8b which is fast and the cheapest option. It "
-"does not support all languages."
-msgstr ""
-"**💡 Groq**: Selecteer LLama 3.1/8b die snel is en de goedkoopste optie. Het "
-"ondersteunt niet alle talen."
+msgid "**💡 Groq**: Select LLama 3.1/8b which is fast and the cheapest option. It does not support all languages."
+msgstr "**💡 Groq**: Selecteer LLama 3.1/8b die snel is en de goedkoopste optie. Ondersteunt niet alle talen."
 
 msgid "🔗 Path-based language URLs for SEO"
 msgstr "🔗 Pad-gebaseerde taal-URL's voor SEO"
 
-msgid ""
-"🚀 Support for more content types and translation improvements are in "
-"development"
-msgstr ""
-"🚀 Ondersteuning voor meer contenttypes en vertaalverbeteringen zijn in "
-"ontwikkeling"
+msgid "🚀 Support for more content types and translation improvements are in development"
+msgstr "🚀 Ondersteuning voor meer contenttypes en vertaalverbeteringen zijn in ontwikkeling"
 
 msgid "⚡ Caching and API optimization are continuously improved"
 msgstr "⚡ Caching en API-optimalisatie worden continu verbeterd"
 
-msgid ""
-"🔒 Only website content for translation is sent—no visitor IP or personal "
-"data"
-msgstr ""
-"🔒 Alleen website-inhoud voor vertaling wordt verzonden—geen bezoeker-IP of "
-"persoonlijke gegevens"
+msgid "🔒 Only website content for translation is sent—no visitor IP or personal data"
+msgstr "🔒 Alleen website-inhoud voor vertaling wordt verzonden—geen bezoeker-IP of persoonlijke gegevens"
 
 msgid "💾 All translations are cached locally; nothing is shared externally"
 msgstr "💾 Alle vertalingen worden lokaal gecached; niets wordt extern gedeeld"
@@ -332,6 +258,9 @@ msgstr "🔑 API-sleutel voor OpenAI, Deepseek of compatibele service"
 msgid "Added cache warming for pages to admin."
 msgstr "Cache warming voor pagina's toegevoegd aan admin."
 
+msgid "Implement partial caching of extremely large pages timing out on the API limits."
+msgstr "Partiële caching geïmplementeerd voor extreem grote pagina's die door API-limieten time-outen."
+
 msgid "Admin user language preferred over site language for admin page translation."
 msgstr "Voorkeur voor de taal van de beheerder in plaats van de taal van de site voor het vertalen van de admin pagina."
 
@@ -344,15 +273,11 @@ msgstr "Probleem met taalparameter op startpagina opgelost."
 msgid "Issue with search not keeping language code fixed."
 msgstr "Probleem met zoeken dat taalcode niet behoudt opgelost."
 
-msgid ""
-"Improved validation of models, checking account and provider information."
-msgstr ""
-"Verbeterde validatie van modellen, controle van account- en "
-"providerinformatie."
+msgid "Improved validation of models, checking account and provider information."
+msgstr "Verbeterde validatie van modellen, controle van account- en providerinformatie."
 
 msgid "Dual caching strategy for object oriented caching implemented."
-msgstr ""
-"Dubbele cachingstrategie voor objectgeoriënteerde caching geïmplementeerd."
+msgstr "Dubbele cachingstrategie voor objectgeoriënteerde caching geïmplementeerd."
 
 msgid "Support for multi domain caching."
 msgstr "Ondersteuning voor multidomein-caching."
@@ -394,20 +319,16 @@ msgid "Fix switching back and forth with default language"
 msgstr "Wisselen heen en weer met standaardtaal opgelost"
 
 msgid "Fix race condition causing white pages for spiders/crawlers"
-msgstr ""
-"Race condition die witte pagina's veroorzaakt voor spiders/crawlers opgelost"
+msgstr "Race condition die witte pagina's veroorzaakt voor spiders/crawlers opgelost"
 
 msgid "Fixed hreflang tags for default language"
 msgstr "Hreflang-tags voor standaardtaal opgelost"
 
 msgid "Fix issue SEO engine inject that might mess up already troubled HTML"
-msgstr ""
-"Probleem met SEO-engine injectie opgelost dat mogelijk al problematische "
-"HTML verstoort"
+msgstr "Probleem met SEO-engine-injectie opgelost dat mogelijk al problematische HTML verstoort"
 
 msgid "More efficient merge of translated output resulting in faster load"
-msgstr ""
-"Efficiëntere merge van vertaalde output resulterend in snellere laadtijd"
+msgstr "Efficiëntere merge van vertaalde output resulterend in snellere laadtijd"
 
 msgid "Detect untranslated text in cached pages and translated them"
 msgstr "Onvertaalde tekst in gecachte pagina's gedetecteerd en vertaald"
@@ -455,8 +376,7 @@ msgid "Improved caching and translation performance"
 msgstr "Verbeterde caching en vertaalprestaties"
 
 msgid "Stable translated URLs: slugs only change if original changes"
-msgstr ""
-"Stabiele vertaalde URL's: slugs veranderen alleen als origineel verandert"
+msgstr "Stabiele vertaalde URL's: slugs veranderen alleen als origineel verandert"
 
 msgid "Added Greek and Romanian"
 msgstr "Grieks en Roemeens toegevoegd"
@@ -534,40 +454,40 @@ msgid "Initial release with basic AI translation"
 msgstr "Eerste release met basis AI-vertaling"
 
 msgid "🎯 Smart AI Analysis"
-msgstr ""
+msgstr "🎯 Slimme AI-analyse"
 
 msgid "⚡ Intelligent Caching"
-msgstr ""
+msgstr "⚡ Intelligente caching"
 
 msgid "🌍 SEO-Friendly"
-msgstr ""
+msgstr "🌍 SEO-vriendelijk"
 
 msgid "🌐 Automatic Translation"
-msgstr ""
+msgstr "🌐 Automatische vertaling"
 
 msgid "✨ Smart AI"
-msgstr ""
+msgstr "✨ Slimme AI"
 
 msgid "🌍 35+ Languages"
-msgstr ""
+msgstr "🌍 35+ talen"
 
 msgid "⚡ Fast Caching"
 msgstr "⚡ Snelle Caching"
 
 msgid "🔄 Automatic Updates"
-msgstr ""
+msgstr "🔄 Automatische updates"
 
 msgid "🍪 Remembers Preferences"
-msgstr ""
+msgstr "🍪 Onthoudt voorkeuren"
 
 msgid "🎨 Easy to Use"
-msgstr ""
+msgstr "🎨 Gebruiksvriendelijk"
 
 msgid "🔧 Flexible"
-msgstr ""
+msgstr "🔧 Flexibel"
 
 msgid "🔗 SEO-Friendly"
-msgstr ""
+msgstr "🔗 SEO-vriendelijk"
 
 msgid "Install the plugin"
 msgstr "Installeer de plugin"
@@ -576,91 +496,92 @@ msgid "Activate"
 msgstr "Activeer"
 
 msgid "Configure"
-msgstr ""
+msgstr "Configureren"
 
 msgid "Add API key"
-msgstr ""
+msgstr "API-sleutel toevoegen"
 
 msgid "Tip for best performance"
-msgstr ""
+msgstr "Tip voor beste prestaties"
 
 msgid "friendly permalinks"
-msgstr ""
+msgstr "vriendelijke permalinks"
 
 msgid "Enabled Languages"
-msgstr ""
+msgstr "Ingeschakelde talen"
 
 msgid "Detectable Languages"
-msgstr ""
+msgstr "Detecteerbare talen"
 
 msgid "🔑 API Provider"
 msgstr "🔑 API Provider"
 
 msgid "🔐 API Key"
-msgstr ""
+msgstr "🔐 API-sleutel"
 
 msgid "🤖 Translation Model"
-msgstr ""
+msgstr "🤖 Vertaalmodel"
 
 msgid "🌍 Default Language"
-msgstr ""
+msgstr "🌍 Standaardtaal"
 
 msgid "🎯 Enabled Languages"
-msgstr ""
+msgstr "🎯 Ingeschakelde talen"
 
 msgid "🔍 Detectable Languages"
-msgstr ""
+msgstr "🔍 Detecteerbare talen"
 
 msgid "⏱️ Cache Duration (days)"
-msgstr ""
+msgstr "⏱️ Cacheduur (dagen)"
 
 msgid "🗑️ Cache Management"
-msgstr ""
+msgstr "🗑️ Cachebeheer"
 
 msgid "🔄 Automatic cache invalidation"
-msgstr ""
+msgstr "🔄 Automatische cache-invalidatie"
 
 msgid "📄 Homepage Meta Description"
-msgstr ""
+msgstr "📄 Homepage meta-beschrijving"
 
 msgid "✨ Auto-generate site context"
-msgstr ""
+msgstr "✨ Sitecontext automatisch genereren"
 
 msgid "📁 Location"
-msgstr ""
+msgstr "📁 Locatie"
 
 msgid "🧹 Auto-cleanup"
-msgstr ""
+msgstr "🧹 Automatisch opruimen"
 
 msgid "🔧 Manual clearing"
-msgstr ""
+msgstr "🔧 Handmatig wissen"
 
 msgid "💡 OpenAI"
-msgstr ""
+msgstr "💡 OpenAI"
 
 msgid "💰 Deepseek"
-msgstr ""
+msgstr "💰 Deepseek"
 
 msgid "🔧 OpenRouter"
-msgstr ""
+msgstr "🔧 OpenRouter"
 
 msgid "💡 Groq"
-msgstr ""
+msgstr "💡 Groq"
 
 msgid "NetCare"
-msgstr ""
+msgstr "NetCare"
 
 msgid "bash"
-msgstr ""
+msgstr "bash"
 
 msgid "# Good: Sequential crawling with adequate delays"
-msgstr ""
+msgstr "# Goed: sequentieel crawlen met voldoende pauzes"
 
 msgid "wget --spider --no-directories --delete-after --recursive --level=10 \\"
-msgstr ""
+msgstr "wget --spider --no-directories --delete-after --recursive --level=10 \\"
 
 msgid "--wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \\"
-msgstr ""
+msgstr "--wait=3 --random-wait --no-verbose --domains=$SITE --no-parent \\"
 
 msgid "https://yoursite.com"
-msgstr ""
+msgstr "https://yoursite.com"
+

@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -24,6 +24,10 @@ msgstr "Descrição curta"
 #. Short Description
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "Plugin alimentado por IA para tradução automática de sites em 35 idiomas. Aumenta o tráfego e melhora o seu SEO."
+
+#. Short Description
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "Tradução com IA para WordPress e WooCommerce. Traduza automaticamente o seu site em mais de 35 idiomas com o tom de voz único da sua marca. Cache rápido, otimizado para SEO e económico."
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -382,6 +386,9 @@ msgstr "2.2.0"
 msgid "Added cache warming for pages to admin."
 msgstr "Adicionado aquecimento de cache para páginas ao admin."
 
+msgid "Implement partial caching of extremely large pages timing out on the API limits."
+msgstr "Implementado cache parcial para páginas extremamente grandes que excedem os limites da API."
+
 msgid "Admin user language preferred over site language for admin page translation."
 msgstr "Idioma do usuário administrador preferido sobre o idioma do site para tradução de página de administração."
 
@@ -447,9 +454,6 @@ msgstr "Chamadas de API de paragem implementadas no administrador."
 
 msgid "Improved caching and reduce API calls of UI elements"
 msgstr "Cache melhorado e redução de chamadas de API de elementos de UI"
-
-msgid "2.1.2"
-msgstr "2.1.2"
 
 msgid "Fixed JS issue with speculationrules"
 msgstr "Problema JS com speculationrules corrigido"

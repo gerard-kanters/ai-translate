@@ -803,6 +803,30 @@ function ajax_generate_website_context()
     // Get domain from request (for multi-domain caching support)
     $requested_domain = isset($_POST['domain']) ? sanitize_text_field(wp_unslash($_POST['domain'])) : '';
     
+    // Als domain niet is meegestuurd maar multi-domain caching aan staat, bepaal actieve domain
+    if (empty($requested_domain)) {
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
+        if ($multi_domain) {
+            // Bepaal actieve domain op dezelfde manier als in de UI
+            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                $requested_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                if (strpos($requested_domain, ':') !== false) {
+                    $requested_domain = strtok($requested_domain, ':');
+                }
+            }
+            if (empty($requested_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                $requested_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+            }
+            if (empty($requested_domain)) {
+                $requested_domain = parse_url(home_url(), PHP_URL_HOST);
+                if (empty($requested_domain)) {
+                    $requested_domain = 'default';
+                }
+            }
+        }
+    }
+    
     // Generate website context suggestion
     $translator = AI_Translate_Core::get_instance();
     try {
@@ -915,7 +939,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-admin-js',
         plugin_dir_url(__DIR__) . 'assets/admin-page.js',
         array('jquery'),
-        '1.0.0',
+        '1.0.2',
         true
     );
 
@@ -1188,7 +1212,18 @@ add_action('admin_init', function () {
                 }
             }
 
+            // Website context per-domain array: direct overname van $input als deze is gezet
+            // Dit is voor AJAX calls die direct de per-domain array updaten
+            if (isset($input['website_context_per_domain']) && is_array($input['website_context_per_domain'])) {
+                // AJAX/direct call: overschrijf per-domain array volledig
+                $sanitized['website_context_per_domain'] = [];
+                foreach ($input['website_context_per_domain'] as $domain => $context) {
+                    $sanitized['website_context_per_domain'][sanitize_text_field($domain)] = sanitize_textarea_field($context);
+                }
+            }
+            
             // Website context (per-domain when multi-domain caching is enabled)
+            // Dit is voor form submissions met een enkele website_context value
             if (isset($input['website_context'])) {
                 if ($multi_domain) {
                     // Multi-domain caching: store per-domain website context
@@ -1248,18 +1283,6 @@ add_action('admin_init', function () {
                 }
             } elseif (!isset($sanitized['switcher_position'])) {
                 $sanitized['switcher_position'] = 'bottom-left';
-            }
-
-            // Multi-domain caching toggle
-            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
-            // Bij AJAX/partial update: alleen updaten als expliciet in input
-            if ($is_form_submit) {
-                $sanitized['multi_domain_caching'] = isset($input['multi_domain_caching']);
-            } elseif (array_key_exists('multi_domain_caching', $input)) {
-                $sanitized['multi_domain_caching'] = (bool) $input['multi_domain_caching'];
-            } elseif (!isset($sanitized['multi_domain_caching'])) {
-                // Initialiseer als nog niet gezet
-                $sanitized['multi_domain_caching'] = false;
             }
 
             return $sanitized;
@@ -2441,7 +2464,13 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
 
         // Als validatie succesvol is, sla settings op
         if (isset($_POST['save_settings']) && $_POST['save_settings'] === '1') {
+            // Zorg dat we de meest recente settings uit de database lezen
+            wp_cache_delete('ai_translate_settings', 'options');
+            wp_cache_delete('alloptions', 'options');
             $current_settings = get_option('ai_translate_settings', []);
+            if (!is_array($current_settings)) {
+                $current_settings = [];
+            }
             
             // Behoud alle bestaande instellingen - alleen API-gerelateerde velden worden geüpdatet
             // Dit voorkomt dat andere instellingen (zoals checkboxes) worden gewijzigd
@@ -2476,21 +2505,54 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                 $updated_settings['custom_api_url'] = $custom_api_url_value;
             }
 
-            // Update checkbox waarden uit POST (indien meegegeven door JS)
-            // Dit zorgt ervoor dat als de gebruiker het vinkje verandert en dan valideert, de nieuwe waarde wordt opgeslagen
-            if (isset($_POST['stop_translations_except_cache_invalidation'])) {
-                $updated_settings['stop_translations_except_cache_invalidation'] = $_POST['stop_translations_except_cache_invalidation'] === '1';
-            }
-            if (isset($_POST['auto_clear_pages_on_menu_update'])) {
-                $updated_settings['auto_clear_pages_on_menu_update'] = $_POST['auto_clear_pages_on_menu_update'] === '1';
-            }
-            if (isset($_POST['multi_domain_caching'])) {
-                $updated_settings['multi_domain_caching'] = $_POST['multi_domain_caching'] === '1';
+            // Website context opslaan tijdens validate (per domain bij multi-domain caching)
+            if (isset($_POST['website_context'])) {
+                $website_context = sanitize_textarea_field(wp_unslash($_POST['website_context']));
+                // Gebruik de waarde uit POST (formulier) in plaats van database, zodat we de meest actuele waarde hebben
+                $multi_domain = false;
+                if (isset($_POST['multi_domain_caching'])) {
+                    $multi_domain = $_POST['multi_domain_caching'] === '1';
+                    // Update ook de setting in $updated_settings voor consistentie
+                    $updated_settings['multi_domain_caching'] = $multi_domain;
+                } elseif (isset($updated_settings['multi_domain_caching'])) {
+                    // Fallback naar database waarde als niet in POST
+                    $multi_domain = (bool) $updated_settings['multi_domain_caching'];
+                }
+                if ($multi_domain) {
+                    $active_domain = '';
+                    if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+                        if (strpos($active_domain, ':') !== false) {
+                            $active_domain = strtok($active_domain, ':');
+                        }
+                    }
+                    if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+                    }
+                    if (empty($active_domain)) {
+                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        if (empty($active_domain)) {
+                            $active_domain = 'default';
+                        }
+                    }
+                    // Kopieer bestaande website_context_per_domain van current_settings als die niet bestaat in updated_settings
+                    if (!isset($updated_settings['website_context_per_domain']) || !is_array($updated_settings['website_context_per_domain'])) {
+                        $updated_settings['website_context_per_domain'] = isset($current_settings['website_context_per_domain']) && is_array($current_settings['website_context_per_domain']) 
+                            ? $current_settings['website_context_per_domain'] 
+                            : [];
+                    }
+                    $updated_settings['website_context_per_domain'][$active_domain] = $website_context;
+                    // BELANGRIJK: Verwijder de oude website_context key zodat de sanitize_callback 
+                    // de nieuwe per-domain waarde niet overschrijft met de oude single-domain waarde
+                    unset($updated_settings['website_context']);
+                } else {
+                    $updated_settings['website_context'] = $website_context;
+                    // Verwijder per-domain array als we terug naar single-domain gaan
+                    unset($updated_settings['website_context_per_domain']);
+                }
             }
 
             // Sla de instellingen op via update_option
-            // De sanitize_callback behoudt automatisch alle checkbox-waarden en andere instellingen
-            // die niet in $updated_settings staan
             update_option('ai_translate_settings', $updated_settings);
         }
         wp_send_json_success(['message' => __('API and model are working. API settings have been saved.', 'ai-translate')]);

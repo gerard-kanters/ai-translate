@@ -579,18 +579,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             data.append('save_settings', '1');
 
-            // Add checkbox values to save them during validation
-            var stopTranslations = document.querySelector('input[name="ai_translate_settings[stop_translations_except_cache_invalidation]"]');
-            if (stopTranslations) {
-                data.append('stop_translations_except_cache_invalidation', stopTranslations.checked ? '1' : '0');
+            var websiteContextField = document.getElementById('website_context_field');
+            if (websiteContextField) {
+                data.append('website_context', websiteContextField.value);
             }
-            var autoClear = document.querySelector('input[name="ai_translate_settings[auto_clear_pages_on_menu_update]"]');
-            if (autoClear) {
-                data.append('auto_clear_pages_on_menu_update', autoClear.checked ? '1' : '0');
-            }
-            var multiDomain = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
-            if (multiDomain) {
-                data.append('multi_domain_caching', multiDomain.checked ? '1' : '0');
+
+            // Stuur multi_domain_caching mee zodat validate handler weet welke setting te gebruiken
+            var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
+            if (multiDomainCheckbox) {
+                data.append('multi_domain_caching', multiDomainCheckbox.checked ? '1' : '0');
             }
 
             if (modelId === 'custom' && customModelInput) {
@@ -892,7 +889,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var generalForm = document.querySelector('#general form');
     if (generalForm) {
         generalForm.addEventListener('submit', function (e) {
-            var apiUrl = document.querySelector('input[name="ai_translate_settings[api_url]"]');
             var apiKey = document.querySelector('input[name="ai_translate_settings[api_key]"]');
 
             var existingErrors = document.querySelectorAll('.aitranslate-error');
@@ -900,11 +896,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 error.remove();
             });
 
-            if (!apiUrl.value.trim() || !apiKey.value.trim()) {
+            if (apiKey && !apiKey.value.trim()) {
                 var errorMsg = document.createElement('div');
                 errorMsg.className = 'error notice aitranslate-error';
-                errorMsg.innerHTML = '<p>Note: Enter both API URL and API Key to use translation functionality.</p>';
-                document.querySelector('#general').insertBefore(errorMsg, document.querySelector('#general form'));
+                errorMsg.innerHTML = '<p>Note: Enter API Key to use translation functionality.</p>';
+                var generalSection = document.querySelector('#general');
+                if (generalSection) {
+                    var formElement = generalSection.querySelector('form');
+                    if (formElement) {
+                        generalSection.insertBefore(errorMsg, formElement);
+                    }
+                }
             }
         });
     }
@@ -939,6 +941,19 @@ document.addEventListener('DOMContentLoaded', function () {
             var formData = new FormData();
             formData.append('action', 'ai_translate_generate_website_context');
             formData.append('nonce', aiTranslateAdmin.generateContextNonce);
+            
+            // Stuur actieve domain mee bij multi-domain caching
+            var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
+            if (multiDomainCheckbox && multiDomainCheckbox.checked) {
+                // Zoek de actieve domain uit de UI (wordt getoond bij het website context veld)
+                var activeDomainElement = document.querySelector('p.description code');
+                if (activeDomainElement) {
+                    var activeDomain = activeDomainElement.textContent.trim();
+                    if (activeDomain) {
+                        formData.append('domain', activeDomain);
+                    }
+                }
+            }
 
             fetch(ajaxurl, {
                 method: 'POST',
@@ -985,6 +1000,108 @@ document.addEventListener('DOMContentLoaded', function () {
                 setTimeout(function () {
                     if (generateContextStatus.innerHTML.includes('✓')) {
                         generateContextStatus.innerHTML = '';
+                    }
+                }, 5000);
+            });
+        });
+    }
+
+    /**
+     * Homepage Meta Description Generation Section
+     * Automatically generates homepage meta description from homepage content
+     */
+    var generateMetaBtn = document.getElementById('generate-meta-btn');
+    var generateMetaStatus = document.getElementById('generate-meta-status');
+    var homepageMetaField = document.getElementById('homepage_meta_description_field');
+
+    if (generateMetaBtn && generateMetaStatus && homepageMetaField) {
+        generateMetaBtn.addEventListener('click', function () {
+            // Check if API is configured
+            var apiKey = apiKeyInput ? apiKeyInput.value : '';
+            if (!apiKey) {
+                generateMetaStatus.innerHTML = '<span style="color:red;">Please configure API key first</span>';
+                return;
+            }
+
+            // Check if meta field is empty
+            if (homepageMetaField.value.trim()) {
+                if (!confirm('The meta description field already has content. Do you want to replace it with a generated suggestion?')) {
+                    return;
+                }
+            }
+
+            generateMetaBtn.disabled = true;
+            generateMetaStatus.innerHTML = '<span style="color:blue;">Generating meta description from homepage...</span>';
+
+            var formData = new FormData();
+            formData.append('action', 'ai_translate_generate_homepage_meta');
+            formData.append('nonce', aiTranslateAdmin.generateMetaNonce);
+            
+            // Stuur actieve domain mee bij multi-domain caching
+            var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
+            if (multiDomainCheckbox && multiDomainCheckbox.checked) {
+                // Bepaal actieve domain - probeer eerst uit UI, anders uit window.location
+                var activeDomain = '';
+                // Zoek naar het code element dat de actieve domain toont (kan bij website context of meta description staan)
+                var activeDomainElements = document.querySelectorAll('p.description code');
+                if (activeDomainElements.length > 0) {
+                    // Neem de eerste (of de laatste als er meerdere zijn - meestal is de laatste de meta description)
+                    activeDomain = activeDomainElements[activeDomainElements.length - 1].textContent.trim();
+                }
+                // Fallback naar window.location.hostname (zonder port)
+                if (!activeDomain && window.location.hostname) {
+                    activeDomain = window.location.hostname;
+                }
+                if (activeDomain) {
+                    formData.append('domain', activeDomain);
+                }
+            }
+
+            fetch(ajaxurl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Server response was not ok: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                if (data.success && data.data && data.data.meta) {
+                    homepageMetaField.value = data.data.meta;
+                    generateMetaStatus.innerHTML = '<span style="color:green;">✓ Meta description generated successfully!</span>';
+                    
+                    // Auto-save the form
+                    var form = homepageMetaField.closest('form');
+                    if (form) {
+                        var submitBtn = form.querySelector('input[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.click();
+                        }
+                    }
+                } else {
+                    var errorMsg = 'Failed to generate meta description';
+                    if (data.data && data.data.message) {
+                        errorMsg += ': ' + data.data.message;
+                    } else if (data.message) {
+                        errorMsg += ': ' + data.message;
+                    }
+                    generateMetaStatus.innerHTML = '<span style="color:red;">✗ ' + errorMsg + '</span>';
+                }
+            })
+            .catch(function (error) {
+                console.error('AJAX Error:', error);
+                generateMetaStatus.innerHTML = '<span style="color:red;">✗ Error generating meta description: ' + error.message + '</span>';
+            })
+            .finally(function () {
+                generateMetaBtn.disabled = false;
+                
+                // Clear status message after 5 seconds
+                setTimeout(function () {
+                    if (generateMetaStatus.innerHTML.includes('✓')) {
+                        generateMetaStatus.innerHTML = '';
                     }
                 }, 5000);
             });

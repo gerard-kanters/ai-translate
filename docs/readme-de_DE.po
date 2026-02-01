@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -24,6 +24,10 @@ msgstr "Kurzbeschreibung"
 #. Short Description
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "KI-gestütztes Plugin für automatische Website-Übersetzung in 35 Sprachen. Steigert den Traffic und verbessert Ihre SEO."
+
+#. Short Description
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "KI-gestützte Übersetzung für WordPress & WooCommerce. Übersetzen Sie Ihre Website automatisch in 35+ Sprachen mit dem einzigartigen Ton Ihrer Marke. Schnelles Caching, SEO-freundlich und kosteneffektiv."
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -379,11 +383,14 @@ msgstr "wget --spider --no-directories --delete-after --recursive --level=10 \\\
 msgid "Changelog"
 msgstr "Changelog"
 
-msgid "2.2.0"
-msgstr "2.2.0"
+msgid "2.2.3"
+msgstr "2.2.3"
 
 msgid "Added cache warming for pages to admin."
 msgstr "Cache-Warming für Seiten zum Admin hinzugefügt."
+
+msgid "Implement partial caching of extremely large pages timing out on the API limits."
+msgstr "Partielles Caching für extrem große Seiten implementiert, die an API-Limits zeitüberschreiten."
 
 msgid "Admin user language preferred over site language for admin page translation."
 msgstr "Admin-Benutzersprache wird gegenüber der Seitensprache für die Admin-Seiten-Übersetzung bevorzugt."
@@ -450,9 +457,6 @@ msgstr "Stopp API-Aufrufe im Admin implementiert."
 
 msgid "Improved caching and reduce API calls of UI elements"
 msgstr "Verbessertes Caching und Reduzierung von API-Aufrufen von UI-Elementen"
-
-msgid "2.1.2"
-msgstr "2.1.2"
 
 msgid "Fixed JS issue with speculationrules"
 msgstr "JS-Problem mit speculationrules behoben"

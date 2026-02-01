@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -24,6 +24,10 @@ msgstr "Description courte"
 #. Short Description
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "Plugin alimenté par l'IA pour la traduction automatique de sites web en 35 langues. Augmente le trafic et améliore votre référencement."
+
+#. Short Description
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "Traduction par IA pour WordPress et WooCommerce. Traduisez automatiquement votre site en 35+ langues avec le ton unique de votre marque. Cache rapide, optimisé SEO et économique."
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -385,6 +389,9 @@ msgstr "2.2.0"
 msgid "Added cache warming for pages to admin."
 msgstr "Ajout du préchargement du cache pour les pages dans l'admin."
 
+msgid "Implement partial caching of extremely large pages timing out on the API limits."
+msgstr "Mise en œuvre du cache partiel pour les pages extrêmement volumineuses qui dépassent les limites de l'API."
+
 msgid "Admin user language preferred over site language for admin page translation."
 msgstr "Langue de l'utilisateur administrateur privilégiée par rapport à la langue du site pour la traduction des pages d'administration."
 
@@ -450,9 +457,6 @@ msgstr "Appels API d'arrêt implémentés dans l'administration."
 
 msgid "Improved caching and reduce API calls of UI elements"
 msgstr "Cache amélioré et réduction des appels API des éléments UI"
-
-msgid "2.1.2"
-msgstr "2.1.2"
 
 msgid "Fixed JS issue with speculationrules"
 msgstr "Problème JS avec speculationrules corrigé"

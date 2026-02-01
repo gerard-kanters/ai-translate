@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
+"Project-Id-Version: AI Translate 2.2.3\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -24,6 +24,10 @@ msgstr "संक्षिप्त विवरण"
 #. Short Description
 msgid "AI-powered plugin for automatic website translation in 35 languages. Boosts traffic and improves your SEO."
 msgstr "35 भाषाओं में स्वचालित वेबसाइट अनुवाद के लिए AI-संचालित प्लगइन। ट्रैफ़िक बढ़ाता है और आपके SEO में सुधार करता है।"
+
+#. Short Description
+msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
+msgstr "WordPress और WooCommerce के लिए AI-संचालित अनुवाद। 35+ भाषाओं में अपनी साइट को अपने ब्रांड की अनोखी आवाज़ में स्वचालित रूप से अनुवादित करें। तेज़ कैशिंग, SEO-अनुकूल और लागत-प्रभावी।"
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -376,11 +380,14 @@ msgstr "wget --spider --no-directories --delete-after --recursive --level=10 \\\
 msgid "Changelog"
 msgstr "परिवर्तन लॉग"
 
-msgid "2.2.0"
-msgstr "2.2.0"
+msgid "2.2.3"
+msgstr "2.2.3"
 
 msgid "Added cache warming for pages to admin."
 msgstr "पृष्ठों के लिए कैश वार्मिंग को व्यवस्थापक में जोड़ा गया।"
+
+msgid "Implement partial caching of extremely large pages timing out on the API limits."
+msgstr "API सीमा पर टाइमआउट होने वाले अत्यधिक बड़े पृष्ठों के लिए आंशिक कैशिंग लागू की गई।"
 
 msgid "Admin user language preferred over site language for admin page translation."
 msgstr "व्यवस्थापक पृष्ठ अनुवाद के लिए व्यवस्थापक उपयोगकर्ता भाषा साइट भाषा से प्राथमिकता प्राप्त करती है।"
@@ -444,9 +451,6 @@ msgstr "एडमिन में स्टॉप API कॉल लागू क
 
 msgid "Improved caching and reduce API calls of UI elements"
 msgstr "बेहतर कैशिंग और UI तत्वों के API कॉल कम किए"
-
-msgid "2.1.2"
-msgstr "2.1.2"
 
 msgid "Fixed JS issue with speculationrules"
 msgstr "speculationrules के साथ JS समस्या ठीक की गई"
