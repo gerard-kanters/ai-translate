@@ -559,6 +559,47 @@ function ai_translate_is_xml_request()
  * Start output buffering for front-end (skip admin, AJAX, REST, feeds and XML files).
  * Handles language detection and redirection according to the 4 language switcher rules.
  */
+// Check for _wp_old_slug redirects before other plugin logic (priority 1).
+// Request path is checked first: if it matches an old slug in DB, redirect. Do not rely on is_404
+// because themes/plugins may serve the homepage instead of 404 for unknown slugs.
+add_action('template_redirect', function () {
+    if (!isset($_SERVER['REQUEST_URI'])) {
+        return;
+    }
+    $request_uri = (string) $_SERVER['REQUEST_URI'];
+    $request_path = parse_url($request_uri, PHP_URL_PATH);
+    if (!is_string($request_path) || $request_path === '' || $request_path === '/') {
+        return;
+    }
+    // Skip if URL has language prefix (let AI Translate handle those)
+    if (preg_match('#^/([a-z]{2})(?:/|$)#i', $request_path)) {
+        return;
+    }
+    // Single-segment path (e.g. /programmeren-met-een-ai-agen/) – might be an old slug
+    $path_parts = array_filter(explode('/', trim($request_path, '/')));
+    if (empty($path_parts)) {
+        return;
+    }
+    $slug = end($path_parts);
+    global $wpdb;
+    $post_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wp_old_slug' AND meta_value = %s LIMIT 1",
+        $slug
+    ));
+    if (!$post_id) {
+        return;
+    }
+    $post = get_post($post_id);
+    if (!$post || $post->post_status !== 'publish') {
+        return;
+    }
+    $permalink = get_permalink($post);
+    if ($permalink) {
+        wp_safe_redirect($permalink, 301);
+        exit;
+    }
+}, 1);
+
 add_action('template_redirect', function () {
     // Handle ai_translate_path query var for custom URL resolution
     if (isset($_GET['ai_translate_path'])) {
@@ -1388,6 +1429,49 @@ add_action('rest_api_init', function () {
         }
     ]);
 });
+
+/**
+ * Resolve _wp_old_slug in parse_request and redirect to canonical URL before 404 is set.
+ * Priority 0 so this runs before any 404 redirect plugin (which would send 404s to homepage).
+ */
+add_action('parse_request', function ($wp) {
+    if (is_admin() || wp_doing_ajax() || ai_translate_is_xml_request()) {
+        return;
+    }
+    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    if (strpos($reqUriRaw, '%25') !== false) {
+        $reqUriRaw = urldecode($reqUriRaw);
+    }
+    $request_path = wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/';
+    if (!is_string($request_path) || $request_path === '' || $request_path === '/') {
+        return;
+    }
+    if (preg_match('#^/([a-z]{2})(?:/|$)#i', $request_path)) {
+        return;
+    }
+    $path_parts = array_filter(explode('/', trim($request_path, '/')));
+    if (empty($path_parts)) {
+        return;
+    }
+    $slug = end($path_parts);
+    global $wpdb;
+    $post_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wp_old_slug' AND meta_value = %s LIMIT 1",
+        $slug
+    ));
+    if (!$post_id) {
+        return;
+    }
+    $post = get_post($post_id);
+    if (!$post || $post->post_status !== 'publish') {
+        return;
+    }
+    $permalink = get_permalink($post);
+    if ($permalink) {
+        wp_safe_redirect($permalink, 301);
+        exit;
+    }
+}, 0);
 
 /**
  * Ensure language-only URLs (e.g., /en/, /de/) route to the site's front page.
