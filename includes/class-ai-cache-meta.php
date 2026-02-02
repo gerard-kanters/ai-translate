@@ -147,6 +147,10 @@ class AI_Cache_Meta
     {
         global $wpdb;
 
+        if (get_option('ai_translate_cache_meta_indexes_applied', false)) {
+            return;
+        }
+
         $table_name = self::get_table_name();
 
         // Check if table exists first
@@ -171,16 +175,35 @@ class AI_Cache_Meta
         ];
 
         foreach ($indexes_to_check as $index_name => $index_definition) {
-            if (!in_array($index_name, $existing_indexes, true)) {
-                // Index doesn't exist, create it
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
-                $wpdb->query($wpdb->prepare(
-                    "ALTER TABLE %i ADD %1s",
-                    $table_name,
-                    $index_definition
-                ));
+            if (in_array($index_name, $existing_indexes, true)) {
+                continue;
+            }
+
+            // Guard against race conditions / duplicate key errors by double-checking the schema.
+            $schema_index_exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(1) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = %s AND table_name = %s AND index_name = %s",
+                $wpdb->dbname,
+                str_replace($wpdb->prefix, '', $table_name),
+                $index_name
+            ));
+            if ((int) $schema_index_exists > 0) {
+                continue;
+            }
+
+            // Index doesn't exist, create it
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
+            $result = $wpdb->query($wpdb->prepare(
+                "ALTER TABLE %i ADD %1s",
+                $table_name,
+                $index_definition
+            ));
+
+            if ($result === false && stripos($wpdb->last_error, 'Duplicate key name') !== false) {
+                $wpdb->flush();
             }
         }
+
+        update_option('ai_translate_cache_meta_indexes_applied', true);
     }
 
     /**
