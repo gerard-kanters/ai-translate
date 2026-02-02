@@ -232,6 +232,46 @@ function ai_translate_delete_attr_transient($key)
     return $memcached_result;
 }
 
+// Add original-style language-prefixed rewrite rules using 'lang' query var to ensure WP resolves pages via pagename
+// Priority 999: runs AFTER custom post types are registered (default priority 10)
+function ai_translate_register_rewrite_rules()
+{
+    $settings = get_option('ai_translate_settings', array());
+    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
+    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
+    $default = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
+    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
+    if ($default !== '') {
+        $langs = array_diff($langs, array($default));
+    }
+    $langs = array_filter(array_map('sanitize_key', $langs));
+    if (empty($langs)) {
+        return;
+    }
+    $regex = '(' . implode('|', array_map(function ($l) {
+        return preg_quote($l, '/');
+    }, $langs)) . ')';
+    add_rewrite_rule('^' . $regex . '/?$', 'index.php?lang=$matches[1]', 'top');
+    
+    $public_post_types = get_post_types(array('public' => true, '_builtin' => false), 'objects');
+    foreach ($public_post_types as $post_type) {
+        if (!empty($post_type->rewrite) && isset($post_type->rewrite['slug'])) {
+            $slug = $post_type->rewrite['slug'];
+            $type_name = $post_type->name;
+            add_rewrite_rule(
+                '^' . $regex . '/(?!wp-admin|wp-login\.php)(' . preg_quote($slug, '/') . ')/([^/]+)/?$',
+                'index.php?lang=$matches[1]&post_type=' . $type_name . '&name=$matches[3]',
+                'top'
+            );
+        }
+    }
+    
+    add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(.+)$', 'index.php?ai_translate_path=$matches[2]&lang=$matches[1]', 'top');
+    add_rewrite_rule('^' . $regex . '/page/([0-9]+)/?$', 'index.php?lang=$matches[1]&paged=$matches[2]', 'top');
+}
+
+add_action('init', 'ai_translate_register_rewrite_rules', 999); // Priority 999: runs AFTER custom post types are registered (default priority 10)
+
 // Ensure slug map table exists early in init
 add_action('init', function () {
     \AITranslate\AI_Slugs::install_table();
@@ -248,44 +288,19 @@ if (!wp_next_scheduled('ai_translate_sync_cache_metadata')) {
 
 
 
-// Add original-style language-prefixed rewrite rules using 'lang' query var to ensure WP resolves pages via pagename
-// Priority 999: runs AFTER custom post types are registered (default priority 10)
+// Ensure slug map table exists early in init
 add_action('init', function () {
-    $settings = get_option('ai_translate_settings', array());
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
-    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
-    $default = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
-    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
-    if ($default !== '') {
-        $langs = array_diff($langs, array($default));
-    }
-    $langs = array_filter(array_map('sanitize_key', $langs));
-    if (empty($langs)) return;
-    $regex = '(' . implode('|', array_map(function ($l) {
-        return preg_quote($l, '/');
-    }, $langs)) . ')';
-    add_rewrite_rule('^' . $regex . '/?$', 'index.php?lang=$matches[1]', 'top');
-    
-    // Add rewrite rules for all public custom post types (generiek)
-    $public_post_types = get_post_types(array('public' => true, '_builtin' => false), 'objects');
-    foreach ($public_post_types as $post_type) {
-        if (!empty($post_type->rewrite) && isset($post_type->rewrite['slug'])) {
-            $slug = $post_type->rewrite['slug'];
-            $type_name = $post_type->name;
-            // Add explicit rule for this CPT: /{lang}/{cpt-slug}/{post-name}
-            add_rewrite_rule(
-                '^' . $regex . '/(?!wp-admin|wp-login\.php)(' . preg_quote($slug, '/') . ')/([^/]+)/?$',
-                'index.php?lang=$matches[1]&post_type=' . $type_name . '&name=$matches[3]',
-                'top'
-            );
-        }
-    }
-    
-    // Generic rule for hierarchical paths - try to resolve without language prefix first
-    add_rewrite_rule('^' . $regex . '/(?!wp-admin|wp-login\.php)(.+)$', 'index.php?ai_translate_path=$matches[2]&lang=$matches[1]', 'top');
-    // Pagination for posts index: /{lang}/page/{n}/ (added last so it sits on top due to 'top')
-    add_rewrite_rule('^' . $regex . '/page/([0-9]+)/?$', 'index.php?lang=$matches[1]&paged=$matches[2]', 'top');
-}, 999); // Priority 999: runs AFTER custom post types are registered (default priority 10)
+    \AITranslate\AI_Slugs::install_table();
+}, 1);
+
+// Schedule cache metadata sync cron job
+add_action('ai_translate_sync_cache_metadata', function () {
+    \AITranslate\AI_Cache_Meta::sync_from_filesystem();
+});
+
+if (!wp_next_scheduled('ai_translate_sync_cache_metadata')) {
+    wp_schedule_event(time(), 'hourly', 'ai_translate_sync_cache_metadata');
+}
 
 add_filter('query_vars', function ($vars) {
     if (!in_array('lang', $vars, true)) {
@@ -420,7 +435,7 @@ add_filter('plugin_row_meta', function (array $links, $file) {
  */
 register_activation_hook(__FILE__, function () {
     // Ensure rules are registered before flushing
-    do_action('init');
+    ai_translate_register_rewrite_rules();
 
     // Automatically set permalinks to 'post-name' if they're currently 'plain'
     // since the plugin requires rewrite rules to function

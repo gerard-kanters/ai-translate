@@ -288,14 +288,11 @@ final class AI_Batch
                     $data = json_decode($content, true);
                     $choices = is_array($data) ? ($data['choices'] ?? []) : [];
                     if (!$choices || !isset($choices[0]['message']['content'])) { 
-                        error_log('[AI-Batch] Response ' . $idx . ' FAILED: no choices/content. Raw: ' . substr($content, 0, 500));
                         $failedIndexes[] = (int)$idx; 
                         continue; 
                     }
                     $msg = (string)$choices[0]['message']['content'];
-                    error_log('[AI-Batch] Response ' . $idx . ' message: ' . substr($msg, 0, 300));
                     if (trim($msg) === '') {
-                        error_log('[AI-Batch] Response ' . $idx . ' FAILED: empty message');
                         $failedIndexes[] = (int)$idx;
                         continue;
                     }

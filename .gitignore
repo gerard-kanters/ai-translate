@@ -2,6 +2,7 @@
 /scripts
 .cursor/
 .claude/
+.vscode/
 .git_disabled/
 agent.md
 ai-translate.code-workspace
