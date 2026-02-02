@@ -839,6 +839,14 @@ final class AI_SEO
             return '';
         }
 
+        $front_page_id = (int) get_option('page_on_front');
+        if ($front_page_id > 0 && (int) $post_id === $front_page_id) {
+            if (strtolower($lang) === strtolower($default)) {
+                return home_url('/');
+            }
+            return home_url('/' . $lang . '/');
+        }
+
         if ((int) $post_id === 0) {
             if (strtolower($lang) === strtolower($default)) {
                 return home_url('/');

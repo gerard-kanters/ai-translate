@@ -77,10 +77,10 @@ final class AI_Translate_Core
         $model = (string) $model;
 
         if ($provider_key === '') {
-            throw new \Exception('Provider ontbreekt');
+            throw new \Exception('Provider missing');
         }
         if ($api_key === '') {
-            throw new \Exception('API key ontbreekt');
+            throw new \Exception('API key missing');
         }
 
         $base = self::get_api_url_for_provider($provider_key);
@@ -88,7 +88,7 @@ final class AI_Translate_Core
             $base = $custom_api_url;
         }
         if ($base === '') {
-            throw new \Exception('API URL ontbreekt');
+            throw new \Exception('API URL missing');
         }
 
         // Custom API: reject Google API URL (not OpenAI-compatible)
@@ -122,7 +122,7 @@ final class AI_Translate_Core
         $body = (string) wp_remote_retrieve_body($resp);
         $data = json_decode($body, true);
         if (!is_array($data)) {
-            throw new \Exception('Ongeldig antwoord van API');
+            throw new \Exception('Unknown response from API');
         }
 
         // If model is provided, check if it exists in the models list first

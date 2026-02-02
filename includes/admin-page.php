@@ -4,7 +4,7 @@ namespace AITranslate;
 
 // Load the core class if it doesn't exist yet.
 // Since this file is in the "includes" folder, the core class is at the same level.
-if (! class_exists('AI_Translate_Core')) {
+if (! \class_exists('AI_Translate_Core')) {
     $core_class_file = plugin_dir_path(__FILE__) . 'class-ai-translate-core.php';
     if (file_exists($core_class_file)) {
         require_once $core_class_file;
@@ -307,6 +307,21 @@ function ajax_delete_cache_file()
 add_action('wp_ajax_ai_translate_delete_cache_file', __NAMESPACE__ . '\\ajax_delete_cache_file');
 
 /**
+ * Return route_id used for cache key when warming cache. Must match class-ai-ob current_route_id() for the same URL.
+ *
+ * @param int $post_id Post ID (0 = homepage)
+ * @return string route_id e.g. 'post:123' or 'path:' . md5('/')
+ */
+function warm_cache_route_id($post_id)
+{
+    if ($post_id === 0) {
+        $front_page_id = (int) get_option('page_on_front');
+        return ($front_page_id > 0) ? ('post:' . $front_page_id) : ('path:' . md5('/'));
+    }
+    return 'post:' . $post_id;
+}
+
+/**
  * Warm cache for multiple languages in parallel using curl_multi.
  *
  * @param int $post_id Post ID to warm cache for
@@ -416,12 +431,7 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             // Wait a moment for async cache writes to complete
             usleep(500000); // 0.5 second
             
-            // Use correct route_id format (post:ID for posts, path:md5(/) for homepage)
-            if ($post_id === 0) {
-                $route_id = 'path:' . md5('/');
-            } else {
-                $route_id = 'post:' . $post_id;
-            }
+            $route_id = warm_cache_route_id($post_id);
             $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
             $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
             
@@ -473,7 +483,7 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             $results[$lang_code] = array('success' => false, 'error' => __('Error page (404/500)', 'ai-translate'));
         } elseif ($http_code === 301 || $http_code === 302) {
             // Redirect - might be normal, but we'll mark as success if cache exists
-            $route_id = 'post:' . $post_id;
+            $route_id = warm_cache_route_id($post_id);
             $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
             $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
             
@@ -736,12 +746,7 @@ function ajax_warm_post_cache()
     // Force refresh of cache metadata by ensuring all generated cache files have metadata
     // This ensures the database is in sync with the filesystem
     if ($warmed > 0) {
-        // Use correct route_id format (post:ID for posts, path:md5(/) for homepage)
-        if ($post_id === 0) {
-            $route_id = 'path:' . md5('/');
-        } else {
-            $route_id = 'post:' . $post_id;
-        }
+        $route_id = warm_cache_route_id($post_id);
         $enabled = \AITranslate\AI_Lang::enabled();
         $detectable = \AITranslate\AI_Lang::detectable();
         $all_langs = array_unique(array_merge($enabled, $detectable));
