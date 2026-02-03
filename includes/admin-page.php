@@ -1165,6 +1165,17 @@ add_action('admin_init', function () {
                 $sanitized['stop_translations_except_cache_invalidation'] = false;
             }
 
+            // Multi-domain caching (checkbox)
+            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
+            // Bij AJAX/partial update: alleen updaten als expliciet in input
+            if ($is_form_submit) {
+                $sanitized['multi_domain_caching'] = isset($input['multi_domain_caching']);
+            } elseif (array_key_exists('multi_domain_caching', $input)) {
+                $sanitized['multi_domain_caching'] = (bool) $input['multi_domain_caching'];
+            } elseif (!isset($sanitized['multi_domain_caching'])) {
+                $sanitized['multi_domain_caching'] = false;
+            }
+
             // Model selection (per provider)
             if (isset($input['selected_model'])) {
                 $selected_provider = $sanitized['api_provider'] ?? ($current_settings['api_provider'] ?? null);

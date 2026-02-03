@@ -31,11 +31,12 @@ Automatic hreflang tags, translated URL slugs, and proper indexing ensure search
 - **✨ Smart AI** - Generates a summary of your site for context-aware translations.
 - **🌍 35+ Languages** - Support for all major world languages and much more.
 - **⚡ Fast Caching** - Intelligent cache for better performance and lower costs.
-- **🔄 Automatic Updates** - Translations are automatically updated when content changes.
+- **🔄 Automatic Updates** - Cache expires immediately of content when the original page changes .
 - **🍪 Remembers Preferences** - Saves each visitor's language preference (via cookies).
 - **🎨 Easy to Use** - Simple language switcher in the left corner of your website.
 - **🔧 Flexible** - Choose your own AI model (OpenAI, Deepseek, or other APIs).
 - **🔗 SEO-Friendly** - Also translates URLs for better search engine optimization.
+- **🔥 Cache-Warming** - Have all pages pre-translated so they are immediately available to visitors.
 
 ## Installation
 
