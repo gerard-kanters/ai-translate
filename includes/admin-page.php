@@ -2379,7 +2379,7 @@ function render_admin_page()
                     <?php wp_nonce_field('rescan_cache_meta_action', 'rescan_cache_meta_nonce'); ?>
                     <button type="submit" name="rescan_cache_meta" class="button button-secondary">
                         <span class="dashicons dashicons-update" style="vertical-align: middle;"></span>
-                        <?php echo esc_html__('Scan Cache Files', 'ai-translate'); ?>
+                        <?php echo esc_html__('Scan cache files', 'ai-translate'); ?>
                     </button>
                     <p class="description" style="margin-top: 5px;">
                         <?php echo esc_html__('Scan the filesystem for cache files and add metadata to the database.', 'ai-translate'); ?>

@@ -413,18 +413,29 @@ class AI_Cache_Meta
         
         $enabled = \AITranslate\AI_Lang::enabled();
         $detectable = \AITranslate\AI_Lang::detectable();
-        $all_langs = array_unique(array_merge($enabled, $detectable));
+        // Normalize to lowercase before merging to avoid case-sensitivity issues (e.g., "IT" vs "it")
+        $enabled_normalized = array_map('strtolower', $enabled);
+        $detectable_normalized = array_map('strtolower', $detectable);
+        $all_langs = array_unique(array_merge($enabled_normalized, $detectable_normalized));
+        
+        $table_name = self::get_table_name();
+        
+        // Also get all unique languages from cache metadata table to ensure we count all active languages
+        // This catches any languages that might be cached but not in enabled/detectable arrays
+        $cached_langs_in_db = $wpdb->get_col("SELECT DISTINCT LOWER(language_code) FROM " . $table_name);
+        if (is_array($cached_langs_in_db) && !empty($cached_langs_in_db)) {
+            $all_langs = array_unique(array_merge($all_langs, $cached_langs_in_db));
+        }
         
         // Exclude default language from total count (default language is not translated)
         $default_lang = \AITranslate\AI_Lang::default();
         if ($default_lang) {
-            $all_langs = array_filter($all_langs, function($lang) use ($default_lang) {
-                return strtolower($lang) !== strtolower($default_lang);
+            $default_lang_normalized = strtolower($default_lang);
+            $all_langs = array_filter($all_langs, function($lang) use ($default_lang_normalized) {
+                return $lang !== $default_lang_normalized;
             });
         }
         $total_languages = count($all_langs);
-        
-        $table_name = self::get_table_name();
         
         // Get all public post types (including custom post types)
         $public_post_types = get_post_types(array('public' => true), 'names');
@@ -967,8 +978,12 @@ class AI_Cache_Meta
         
         $enabled = \AITranslate\AI_Lang::enabled();
         $detectable = \AITranslate\AI_Lang::detectable();
-        $all_langs = array_unique(array_merge($enabled, $detectable));
+        // Normalize to lowercase before merging to avoid case-sensitivity issues (e.g., "IT" vs "it")
+        $enabled_normalized = array_map('strtolower', $enabled);
+        $detectable_normalized = array_map('strtolower', $detectable);
+        $all_langs = array_unique(array_merge($enabled_normalized, $detectable_normalized));
         $default_lang = \AITranslate\AI_Lang::default();
+        $default_lang_normalized = $default_lang ? strtolower($default_lang) : null;
         
         foreach ($posts as $post_id) {
             // Handle homepage (post_id = 0)
@@ -984,7 +999,7 @@ class AI_Cache_Meta
             
             foreach ($all_langs as $lang) {
                 // Skip default language
-                if ($default_lang && strtolower($lang) === strtolower($default_lang)) {
+                if ($default_lang_normalized && $lang === $default_lang_normalized) {
                     continue;
                 }
                 
@@ -1088,8 +1103,12 @@ class AI_Cache_Meta
         
         $enabled = \AITranslate\AI_Lang::enabled();
         $detectable = \AITranslate\AI_Lang::detectable();
-        $all_langs = array_unique(array_merge($enabled, $detectable));
+        // Normalize to lowercase before merging to avoid case-sensitivity issues (e.g., "IT" vs "it")
+        $enabled_normalized = array_map('strtolower', $enabled);
+        $detectable_normalized = array_map('strtolower', $detectable);
+        $all_langs = array_unique(array_merge($enabled_normalized, $detectable_normalized));
         $default_lang = \AITranslate\AI_Lang::default();
+        $default_lang_normalized = $default_lang ? strtolower($default_lang) : null;
         
         // Scan language directories - try both with and without 'pages' subdirectory
         $lang_dirs = glob($cache_dir . '*/pages/', GLOB_ONLYDIR);
@@ -1118,13 +1137,13 @@ class AI_Cache_Meta
             
             // Skip if language is not in enabled/detectable list
             $lang_lower = strtolower($lang);
-            $is_enabled = in_array($lang_lower, array_map('strtolower', $all_langs), true);
+            $is_enabled = in_array($lang_lower, $all_langs, true);
             if (!$is_enabled) {
                 continue;
             }
             
             // Skip default language
-            if ($default_lang && strtolower($lang) === strtolower($default_lang)) {
+            if ($default_lang_normalized && $lang_lower === $default_lang_normalized) {
                 continue;
             }
             
