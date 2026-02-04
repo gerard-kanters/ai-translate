@@ -307,6 +307,26 @@ function ajax_delete_cache_file()
 add_action('wp_ajax_ai_translate_delete_cache_file', __NAMESPACE__ . '\\ajax_delete_cache_file');
 
 /**
+ * Log warm cache debugging information to a dedicated log file.
+ *
+ * @param string $message Log message
+ * @param array $context Additional context data
+ */
+function warm_cache_log($message, $context = [])
+{
+    $uploads = wp_upload_dir();
+    $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
+    if (!is_dir($log_dir)) {
+        wp_mkdir_p($log_dir);
+    }
+    $log_file = $log_dir . 'warm-cache-debug.log';
+    $timestamp = date('Y-m-d H:i:s');
+    $context_str = !empty($context) ? ' | Context: ' . json_encode($context, JSON_UNESCAPED_SLASHES) : '';
+    $log_entry = "[{$timestamp}] {$message}{$context_str}\n";
+    @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+}
+
+/**
  * Return route_id used for cache key when warming cache. Must match class-ai-ob current_route_id() for the same URL.
  *
  * @param int $post_id Post ID (0 = homepage)
@@ -361,12 +381,17 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
     // Use same URL as hreflang/crawlers: AI_SEO::get_translated_url.
     foreach ($lang_codes as $lang_code) {
         try {
+            warm_cache_log("WARM_CACHE_BATCH: Generating URL", ['post_id' => $post_id, 'lang_code' => $lang_code]);
             $translated_url = \AITranslate\AI_SEO::get_translated_url($post_id, $lang_code);
+            warm_cache_log("WARM_CACHE_BATCH: Generated URL", ['post_id' => $post_id, 'lang_code' => $lang_code, 'url' => $translated_url]);
+            
             if ($translated_url === '') {
                 $results[$lang_code] = array('success' => false, 'error' => __('Could not generate post URL.', 'ai-translate'));
+                warm_cache_log("WARM_CACHE_BATCH: Could not generate URL", ['post_id' => $post_id, 'lang_code' => $lang_code]);
                 continue;
             }
 
+            warm_cache_log("WARM_CACHE_BATCH: Starting curl request", ['post_id' => $post_id, 'lang_code' => $lang_code, 'url' => $translated_url]);
             $ch = curl_init($translated_url);
             curl_setopt_array($ch, array(
                 CURLOPT_RETURNTRANSFER => true,
@@ -428,6 +453,9 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
         
         // Accept 200 as success (unless it's an error page)
         if ($http_code === 200 && !$is_error_page) {
+            $effective_url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL); // Get actual URL after redirects
+            warm_cache_log("WARM_CACHE_BATCH: HTTP 200 received", ['post_id' => $post_id, 'lang_code' => $lang_code, 'requested_url' => $translated_url, 'effective_url' => $effective_url, 'response_size' => strlen($response_body)]);
+            
             // Wait a moment for async cache writes to complete
             usleep(500000); // 0.5 second
             
@@ -435,11 +463,14 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
             $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
             
+            warm_cache_log("WARM_CACHE_BATCH: Checking cache file", ['post_id' => $post_id, 'lang_code' => $lang_code, 'route_id' => $route_id, 'cache_key' => $cache_key, 'cache_file' => $cache_file]);
+            
             if ($cache_file && file_exists($cache_file)) {
                 // Ensure metadata is inserted/updated in database
                 $cache_hash = md5($cache_key);
                 AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
                 
+                warm_cache_log("WARM_CACHE_BATCH: Cache file found immediately", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
                 $results[$lang_code] = array('success' => true, 'error' => '');
             } else {
                 // Check again after longer delays (up to 3 seconds total)
@@ -450,6 +481,7 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                     if ($cache_file && file_exists($cache_file)) {
                         $cache_hash = md5($cache_key);
                         AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+                        warm_cache_log("WARM_CACHE_BATCH: Cache file found after delay", ['post_id' => $post_id, 'lang_code' => $lang_code, 'attempt' => $attempt, 'cache_file' => $cache_file]);
                         $results[$lang_code] = array('success' => true, 'error' => '');
                         $found = true;
                         break;
@@ -459,6 +491,8 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                 if (!$found) {
                     // Provide more detailed error message
                     $error_detail = __('Cache file not generated', 'ai-translate');
+                    $debug_info = ['post_id' => $post_id, 'lang_code' => $lang_code, 'route_id' => $route_id, 'cache_key' => $cache_key, 'cache_file' => $cache_file];
+                    
                     if ($cache_file) {
                         // Check parent directories existence
                         $cache_dir = dirname($cache_file);
@@ -466,16 +500,35 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                         
                         if (!is_dir($parent_dir)) {
                             $error_detail .= ' (' . __('lang directory missing', 'ai-translate') . ')';
+                            $debug_info['parent_dir_exists'] = false;
                         } elseif (!is_dir($cache_dir)) {
                             // Hash subdirectory missing is normal - it gets created during write
                             // This means the write never happened
                             $error_detail .= ' (' . __('no write occurred', 'ai-translate') . ')';
+                            $debug_info['cache_dir_exists'] = false;
                         } elseif (!is_writable($cache_dir)) {
                             $error_detail .= ' (' . __('not writable', 'ai-translate') . ')';
+                            $debug_info['cache_dir_writable'] = false;
                         } else {
                             $error_detail .= ' (' . __('check logs', 'ai-translate') . ')';
+                            $debug_info['cache_dir_exists'] = true;
+                            $debug_info['cache_dir_writable'] = is_writable($cache_dir);
                         }
                     }
+
+                    // Fallback: take the HTML response we just fetched and write it to cache directly
+                    if (!empty($response_body)) {
+                        \AITranslate\AI_Cache::set($cache_key, $response_body);
+                        if ($cache_file && file_exists($cache_file)) {
+                            $cache_hash = md5($cache_key);
+                            AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
+                            warm_cache_log("WARM_CACHE_BATCH: Cache file written from response", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
+                            $results[$lang_code] = array('success' => true, 'error' => '');
+                            continue;
+                        }
+                    }
+
+                    warm_cache_log("WARM_CACHE_BATCH: Cache file NOT found after all attempts", $debug_info);
                     $results[$lang_code] = array('success' => false, 'error' => $error_detail);
                 }
             }
@@ -521,8 +574,11 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
     $lang_code     = sanitize_key((string) $lang_code);
     $translated_url = \AITranslate\AI_SEO::get_translated_url($post_id, $lang_code);
     if ($translated_url === '') {
+        warm_cache_log("WARM_CACHE_INTERNAL: Could not generate URL", ['post_id' => $post_id, 'lang_code' => $lang_code, 'request_path' => $request_path]);
         return array('success' => false, 'error' => __('Could not generate post URL.', 'ai-translate'));
     }
+    
+    warm_cache_log("WARM_CACHE_INTERNAL: Starting request", ['post_id' => $post_id, 'lang_code' => $lang_code, 'request_path' => $request_path, 'url' => $translated_url]);
 
     // Parse URL to get host and path
     $parsed = parse_url($translated_url);
@@ -567,6 +623,8 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
     
     // Accept 200 as success (redirects might indicate issues, but we'll check cache anyway)
     if ($response_code === 200) {
+        warm_cache_log("WARM_CACHE_INTERNAL: HTTP 200 received", ['post_id' => $post_id, 'lang_code' => $lang_code, 'url' => $translated_url]);
+        
         // Verify cache was generated by checking if cache file exists
         // Wait a moment for async cache writes to complete
         usleep(500000); // 0.5 second
@@ -575,12 +633,15 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
         $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
         $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
         
+        warm_cache_log("WARM_CACHE_INTERNAL: Checking cache file", ['post_id' => $post_id, 'lang_code' => $lang_code, 'route_id' => $route_id, 'cache_key' => $cache_key, 'cache_file' => $cache_file]);
+        
         if ($cache_file && file_exists($cache_file)) {
             // Ensure metadata is inserted/updated in database
             // The cache file exists, but metadata might not be in database yet
             $cache_hash = md5($cache_key);
             AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
             
+            warm_cache_log("WARM_CACHE_INTERNAL: Cache file found immediately", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
             return array('success' => true, 'error' => '');
         } else {
             // Check again after a longer delay (some systems might be slower)
@@ -590,9 +651,11 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
                 $cache_hash = md5($cache_key);
                 AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
                 
+                warm_cache_log("WARM_CACHE_INTERNAL: Cache file found after delay", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
                 return array('success' => true, 'error' => '');
             }
             // Request was successful but cache not found - might be bypassed or error in generation
+            warm_cache_log("WARM_CACHE_INTERNAL: Cache file NOT found", ['post_id' => $post_id, 'lang_code' => $lang_code, 'route_id' => $route_id, 'cache_key' => $cache_key, 'cache_file' => $cache_file, 'cache_dir_exists' => ($cache_file ? is_dir(dirname($cache_file)) : false), 'cache_dir_writable' => ($cache_file ? is_writable(dirname($cache_file)) : false)]);
             return array('success' => false, 'error' => __('Cache file not generated after successful request', 'ai-translate'));
         }
     }
@@ -994,6 +1057,12 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'apiKeys' => isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [],
         'models' => isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [],
         'customModel' => isset($settings['custom_model']) ? $settings['custom_model'] : '',
+        'languageSettingsNonce' => wp_create_nonce('ai_translate_language_settings_nonce'),
+        'languageSettingsStrings' => array(
+            'saving' => __('Saving language settings...', 'ai-translate'),
+            'saved' => __('Languages saved', 'ai-translate'),
+            'error' => __('Failed to save language settings', 'ai-translate'),
+        ),
         'strings' => array(
             'enterApiKeyFirst' => __('Enter API Key first...', 'ai-translate'),
             'enterApiKeyToLoadModels' => __('Enter API Key first to load models.', 'ai-translate'),
@@ -1006,6 +1075,11 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'unknownError' => __('Unknown error', 'ai-translate'),
             'saveSettingsFirst' => __('Save your settings first before opening the menu editor.', 'ai-translate'),
             'requestKey' => __('Request Key', 'ai-translate'),
+            'validatingApi' => __('Validating API settings...', 'ai-translate'),
+            'validationSaved' => __('Connection and model OK. API settings saved.', 'ai-translate'),
+            'validationError' => __('Validation failed', 'ai-translate'),
+            'validationAjaxError' => __('Validation AJAX Error', 'ai-translate'),
+            'validateApiPrompt' => __('Validate API settings', 'ai-translate'),
         ),
     ));
     
@@ -1134,9 +1208,7 @@ add_action('admin_init', function () {
                      $sanitized['cache_expiration'] = 14 * 24;
                 }
             }
-            
-            // Emergency fix: if value is absurdly high due to previous bug, reset it
-            // 50000 hours is approx 2000 days or 5.7 years, which is way beyond reasonable
+                        
             if (isset($sanitized['cache_expiration']) && $sanitized['cache_expiration'] > 50000) {
                  $sanitized['cache_expiration'] = 14 * 24;
             }
@@ -1415,8 +1487,9 @@ add_action('admin_init', function () {
             echo '<div id="custom_model_div" style="margin-top:10px; display:none;">';
             echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($custom_model) . '" placeholder="' . esc_attr__('E.g.: deepseek-chat, gpt-4o, ...', 'ai-translate') . '" class="regular-text">';
             echo '</div>';
-            echo '<button type="button" class="button" id="ai-translate-validate-api">' . esc_html__('Validate API settings', 'ai-translate') . '</button>';
-            echo '<span id="ai-translate-api-status" style="margin-left:10px;"></span>';
+            echo '<div class="ai-translate-api-status-wrapper">';
+            echo '<span id="ai-translate-api-status"></span>';
+            echo '</div>';
 
         },
         'ai-translate',
@@ -1429,6 +1502,7 @@ add_action('admin_init', function () {
         __('Language Settings', 'ai-translate'),
         function () {
             echo '<p>' . esc_html(__('Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor\'s browser preference matches, but won\'t show in the switcher.', 'ai-translate')) . '</p>';
+            echo '<input type="hidden" id="ai-translate-language-settings-nonce" value="' . esc_attr(wp_create_nonce('ai_translate_language_settings_nonce')) . '">';
         },
         'ai-translate'
     );
@@ -1462,19 +1536,48 @@ add_action('admin_init', function () {
             $enabled = isset($settings['enabled_languages']) ? (array)$settings['enabled_languages'] : [];
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Use all available languages
-            echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
+            $columns = array_chunk($languages, 13, true);
+            if (count($columns) < 3) {
+                while (count($columns) < 3) {
+                    $columns[] = [];
+                }
+            }
+            if (count($columns) > 3) {
+                $extra = array_slice($columns, 3);
+                $columns = array_slice($columns, 0, 3);
+                foreach ($extra as $additional) {
+                    foreach ($additional as $code => $name) {
+                        $columns[2][$code] = $name;
+                    }
+                }
+            }
+            echo '<div class="ai-translate-language-section" data-language-section="enabled">';
+            echo '<div class="ai-translate-language-section__header">';
+            echo '<div class="ai-translate-language-section__header-label">' . esc_html__('Instant save', 'ai-translate') . '</div>';
+            echo '<div class="ai-translate-language-section__header-actions">';
+            echo '<button type="button" class="button button-secondary ai-translate-language-section__toggle" data-action="enable" data-section="enabled">' . esc_html__('Enable all', 'ai-translate') . '</button>';
+            echo '<button type="button" class="button button-secondary ai-translate-language-section__toggle" data-action="disable" data-section="enabled">' . esc_html__('Disable all', 'ai-translate') . '</button>';
+            echo '</div>';
+            echo '<span class="ai-translate-language-section__status" data-section="enabled"></span>';
+            echo '</div>';
+            echo '<div class="ai-translate-language-section__list" data-section="enabled">';
+            echo '<div class="ai-translate-language-section__columns">';
             // Flags base URL
             $flags_url = plugin_dir_url(__DIR__) . 'assets/flags/';
-            foreach ($languages as $code => $name) {
-                // Exclude detectable languages from being selectable here? Optional.
-                // For now, allow overlap but explain via description.
-                echo '<label style="display:block;margin-bottom:5px;">';
-                echo '<input type="checkbox" name="ai_translate_settings[enabled_languages][]" value="' . esc_attr($code) . '" ' .
-                    checked(in_array($code, $enabled), true, false) . '> ' .
-                    '<img src="' . esc_url($flags_url . $code . '.png') . '" alt="' . esc_attr(strtoupper($code)) . '" style="width:16px;height:12px;vertical-align:middle;margin-right:6px;">' .
-                    esc_html($name . ' (' . $code . ')');
-                echo '</label>';
+            foreach ($columns as $column) {
+                echo '<div class="ai-translate-language-column">';
+                foreach ($column as $code => $name) {
+                    echo '<label>';
+                    echo '<input type="checkbox" name="ai_translate_settings[enabled_languages][]" value="' . esc_attr($code) . '" ' .
+                        checked(in_array($code, $enabled), true, false) . '> ' .
+                        '<img src="' . esc_url($flags_url . $code . '.png') . '" alt="' . esc_attr(strtoupper($code)) . '" class="ai-translate-language-flag"> ' .
+                        esc_html($name . ' (' . $code . ')');
+                    echo '</label>';
+                }
+                echo '</div>';
             }
+            echo '</div>';
+            echo '</div>';
             echo '</div>';
             echo '<p class="description">' . esc_html(__('Languages selected here will appear in the language switcher.', 'ai-translate')) . '</p>';
         },
@@ -1496,17 +1599,49 @@ add_action('admin_init', function () {
             // Flags base URL
             $flags_url = plugin_dir_url(__DIR__) . 'assets/flags/';
 
-            echo '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fff;">';
+            $columns = array_chunk($languages, 13, true);
+            if (count($columns) < 3) {
+                while (count($columns) < 3) {
+                    $columns[] = [];
+                }
+            }
+            if (count($columns) > 3) {
+                $extra = array_slice($columns, 3);
+                $columns = array_slice($columns, 0, 3);
+                foreach ($extra as $additional) {
+                    foreach ($additional as $code => $name) {
+                        $columns[2][$code] = $name;
+                    }
+                }
+            }
+
+            echo '<div class="ai-translate-language-section" data-language-section="detectable">';
+            echo '<div class="ai-translate-language-section__header">';
+            echo '<div class="ai-translate-language-section__header-label">' . esc_html__('Instant save', 'ai-translate') . '</div>';
+            echo '<div class="ai-translate-language-section__header-actions">';
+            echo '<button type="button" class="button button-secondary ai-translate-language-section__toggle" data-action="enable" data-section="detectable">' . esc_html__('Enable all', 'ai-translate') . '</button>';
+            echo '<button type="button" class="button button-secondary ai-translate-language-section__toggle" data-action="disable" data-section="detectable">' . esc_html__('Disable all', 'ai-translate') . '</button>';
+            echo '</div>';
+            echo '<span class="ai-translate-language-section__status" data-section="detectable"></span>';
+            echo '</div>';
+            echo '<div class="ai-translate-language-section__list" data-section="detectable">';
+            echo '<div class="ai-translate-language-section__columns">';
 
             // Loop through ALL available languages from the core class
-            foreach ($languages as $code => $name) {
-                echo '<label style="display:block;margin-bottom:5px;">';
-                echo '<input type="checkbox" name="ai_translate_settings[detectable_languages][]" value="' . esc_attr($code) . '" ' .
-                    checked(in_array($code, $detected_enabled), true, false) . '> ' .
-                    '<img src="' . esc_url($flags_url . $code . '.png') . '" alt="' . esc_attr(strtoupper($code)) . '" style="width:16px;height:12px;vertical-align:middle;margin-right:6px;">' .
-                    esc_html($name . ' (' . $code . ')');
-                echo '</label>';
+            foreach ($columns as $column) {
+                echo '<div class="ai-translate-language-column">';
+                foreach ($column as $code => $name) {
+                    echo '<label>';
+                    echo '<input type="checkbox" name="ai_translate_settings[detectable_languages][]" value="' . esc_attr($code) . '" ' .
+                        checked(in_array($code, $detected_enabled), true, false) . '> ' .
+                        '<img src="' . esc_url($flags_url . $code . '.png') . '" alt="' . esc_attr(strtoupper($code)) . '" class="ai-translate-language-flag"> ' .
+                        esc_html($name . ' (' . $code . ')');
+                    echo '</label>';
+                }
+                echo '</div>';
             }
+            echo '</div>';
+            echo '</div>';
             echo '</div>';
             echo '<p class="description">' . esc_html(__('If a visitor\'s browser language matches one of these, the site will be automatically translated (if enabled), but these languages won\'t show in the switcher.', 'ai-translate')) . '</p>';
         },
@@ -2189,14 +2324,9 @@ function render_admin_page()
                         echo safe_sprintf(__('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
                         echo '</p></div>';
                     } else {
-                        echo '<div class="notice notice-warning is-dismissible"><p>';
-                        echo __('No cache records added. Possible causes:', 'ai-translate');
-                        echo '<ul style="margin-left: 20px; margin-top: 10px;">';
-                        echo '<li>' . __('Cache files do not exist at the expected location', 'ai-translate') . '</li>';
-                        echo '<li>' . __('Cache files have a different format than expected', 'ai-translate') . '</li>';
-                        echo '<li>' . __('Multi-domain caching configuration does not match', 'ai-translate') . '</li>';
-                        echo '</ul>';
-                        echo '</p></div>';
+                    echo '<div class="notice notice-warning is-dismissible"><p>';
+                    echo __('No cache records added. There are currently no cache files available.', 'ai-translate');
+                    echo '</p></div>';
                     }
                 }
                 
@@ -2663,3 +2793,38 @@ function maybe_flush_rules_on_settings_update($old, $new)
         }
     }
 }
+
+// --- AJAX handler voor language settings update ---
+add_action('wp_ajax_ai_translate_update_language_settings', function () {
+    // Check nonce manually to return JSON instead of HTML error page
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
+    if (!wp_verify_nonce($nonce, 'ai_translate_language_settings_nonce')) {
+        wp_send_json_error(['message' => __('Security check failed. Please refresh the page.', 'ai-translate')]);
+        return;
+    }
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
+        return;
+    }
+
+    $section = isset($_POST['section']) ? sanitize_text_field(wp_unslash($_POST['section'])) : '';
+    if (empty($section)) {
+        wp_send_json_error(['message' => __('Section parameter missing.', 'ai-translate')]);
+        return;
+    }
+    if (!in_array($section, ['enabled', 'detectable'])) {
+        wp_send_json_error(['message' => __('Invalid section: ' . $section, 'ai-translate')]);
+        return;
+    }
+
+    $field_name = $section === 'enabled' ? 'enabled_languages' : 'detectable_languages';
+    $values = isset($_POST[$field_name]) ? (array)$_POST[$field_name] : [];
+    $values = array_map('sanitize_text_field', $values);
+
+    $settings = get_option('ai_translate_settings', []);
+    $settings[$field_name] = $values;
+    update_option('ai_translate_settings', $settings);
+
+    wp_send_json_success(['message' => __('Language settings saved.', 'ai-translate')]);
+});

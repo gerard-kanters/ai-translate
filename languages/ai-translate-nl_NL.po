@@ -1089,23 +1089,8 @@ msgstr "Cache metadata opnieuw gescand: %d cache records toegevoegd of bijgewerk
 
 #: includes/admin-page.php:1977
 
-msgid "No cache records added. Possible causes:"
-msgstr "Geen cache records toegevoegd. Mogelijke oorzaken:"
-
-#: includes/admin-page.php:1979
-
-msgid "Cache files do not exist at the expected location"
-msgstr "Cache bestanden bestaan niet op de verwachte locatie"
-
-#: includes/admin-page.php:1980
-
-msgid "Cache files have a different format than expected"
-msgstr "Cache bestanden hebben een ander formaat dan verwacht"
-
-#: includes/admin-page.php:1981
-
-msgid "Multi-domain caching configuration does not match"
-msgstr "Multi-domain caching configuratie komt niet overeen"
+msgid "No cache records added. There are currently no cache files available."
+msgstr "Geen cache records toegevoegd; er zijn momenteel geen cachebestanden beschikbaar."
 
 #: includes/admin-page.php:1994
 

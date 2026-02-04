@@ -1089,8 +1089,8 @@ msgstr "Metadati cache riscansionati: %d record cache aggiunti o aggiornati."
 
 #: includes/admin-page.php:1977
 
-msgid "No cache records added. Possible causes:"
-msgstr "Nessun record cache aggiunto. Possibili cause:"
+msgid "No cache records added. There are currently no cache files available."
+msgstr "No cache records added. There are currently no cache files available."
 
 #: includes/admin-page.php:1979
 

@@ -1069,8 +1069,8 @@ msgstr "تم إعادة فحص بيانات الذاكرة المؤقتة: تم�
 
 #: includes/admin-page.php:1977
 
-msgid "No cache records added. Possible causes:"
-msgstr "لم يتم إضافة سجلات ذاكرة مؤقتة. الأسباب المحتملة:"
+msgid "No cache records added. There are currently no cache files available."
+msgstr "No cache records added. There are currently no cache files available."
 
 #: includes/admin-page.php:1979
 

@@ -1076,8 +1076,8 @@ msgstr "キャッシュメタデータを再スキャンしました：%d件の�
 
 #: includes/admin-page.php:1977
 
-msgid "No cache records added. Possible causes:"
-msgstr "キャッシュレコードが追加されませんでした。考えられる原因:"
+msgid "No cache records added. There are currently no cache files available."
+msgstr "No cache records added. There are currently no cache files available."
 
 #: includes/admin-page.php:1979
 

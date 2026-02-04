@@ -789,19 +789,7 @@ msgid "Cache metadata rescanned: %d cache records added or updated."
 msgstr ""
 
 #: includes/admin-page.php:1977
-msgid "No cache records added. Possible causes:"
-msgstr ""
-
-#: includes/admin-page.php:1979
-msgid "Cache files do not exist at the expected location"
-msgstr ""
-
-#: includes/admin-page.php:1980
-msgid "Cache files have a different format than expected"
-msgstr ""
-
-#: includes/admin-page.php:1981
-msgid "Multi-domain caching configuration does not match"
+msgid "No cache records added. There are currently no cache files available."
 msgstr ""
 
 #: includes/admin-page.php:1994

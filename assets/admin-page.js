@@ -35,13 +35,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // API Validation elements
     var apiStatusSpan = document.getElementById('ai-translate-api-status');
-    var validateApiBtn = document.getElementById('ai-translate-validate-api');
     var apiKeyInput = document.querySelector('input[name="ai_translate_settings[api_key]"]');
     var customModelInput = document.querySelector('input[name="ai_translate_settings[custom_model]"]');
     var apiProviderSelect = document.getElementById('api_provider_select');
     var apiKeyRequestLinkSpan = document.getElementById('api-key-request-link-span');
     var customApiUrlDiv = document.getElementById('custom_api_url_div');
     var customApiUrlInput = document.querySelector('input[name="ai_translate_settings[custom_api_url]"]');
+    var websiteContextField = document.getElementById('website_context_field');
+    var homepageMetaField = document.getElementById('homepage_meta_description_field');
+    var languageSettingsNonceElement = document.getElementById('ai-translate-language-settings-nonce');
+    var languageSettingsNonceValue = aiTranslateAdmin.languageSettingsNonce || '';
     
     // Get stored API keys from WordPress admin localization
     var apiKeys = aiTranslateAdmin.apiKeys || {};
@@ -272,7 +275,17 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedModel.appendChild(customOpt);
                         }
                         
-                        if (apiStatusSpan) apiStatusSpan.textContent = strings.modelsLoadedSuccessfully || 'Models loaded successfully.';
+                        // Don't set status here - let auto-validation handle it
+                        // Clear loading status and trigger auto-validation
+                        if (apiStatusSpan && apiStatusSpan.textContent === (strings.loadingModels || 'Loading models...')) {
+                            apiStatusSpan.textContent = '';
+                        }
+                        // Trigger auto-validation after models are loaded
+                        setTimeout(function() {
+                            if (typeof scheduleApiValidation === 'function') {
+                                scheduleApiValidation(true);
+                            }
+                        }, 200);
                     } else {
                         // Check if error is due to invalid API key (401, 403, or unauthorized message)
                         var isInvalidKey = false;
@@ -346,6 +359,9 @@ document.addEventListener('DOMContentLoaded', function () {
         apiProviderSelect.addEventListener('change', toggleGpt5Warning);
         apiProviderSelect.addEventListener('change', updateApiKeyField); // Update API key field when provider changes
         apiProviderSelect.addEventListener('change', updateModelField);
+        apiProviderSelect.addEventListener('change', function () {
+            scheduleApiValidation(true);
+        });
         // Also update when select is clicked/focused (in case change event doesn't fire)
         apiProviderSelect.addEventListener('focus', function() {
             setTimeout(updateApiKeyRequestLink, 50);
@@ -517,6 +533,7 @@ document.addEventListener('DOMContentLoaded', function () {
         selectedModel.addEventListener('focus', loadModels);
         selectedModel.addEventListener('change', function () {
             toggleCustomModelField();
+            scheduleApiValidation();
         });
 
         // Initial state
@@ -534,6 +551,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var apiKeyTimeout;
     if (apiKeyInput) {
         apiKeyInput.addEventListener('input', function() {
+            scheduleApiValidation();
             clearTimeout(apiKeyTimeout);
             apiKeyTimeout = setTimeout(function() {
                 var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
@@ -545,87 +563,328 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    if (validateApiBtn) {
-        validateApiBtn.addEventListener('click', function () {
-            if (apiStatusSpan) apiStatusSpan.innerHTML = 'Validating...';
+    var apiValidationTimer = null;
+    var pendingApiPayload = null;
+    var lastApiPayloadHash = '';
 
-            var apiUrl = getSelectedApiUrl();
-            var apiKey = apiKeyInput ? apiKeyInput.value : '';
-            var modelId = selectedModel ? selectedModel.value : '';
-
-            if (modelId === 'custom') {
-                modelId = customModelInput ? customModelInput.value : '';
+    function getApiPayload() {
+        if (!apiProviderSelect || !apiKeyInput || !selectedModel) {
+            return null;
+        }
+        var provider = apiProviderSelect.value;
+        var apiKey = apiKeyInput.value.trim();
+        var rawModelValue = selectedModel.value;
+        if (!provider || !apiKey || !rawModelValue) {
+            return null;
+        }
+        var modelValue = rawModelValue;
+        var customModelValue = '';
+        if (rawModelValue === 'custom') {
+            if (!customModelInput) {
+                return null;
             }
-
-            if (!apiUrl || !apiKey || !modelId) {
-                if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Select API Provider, enter API Key and select a model.</span>';
-                return;
+            customModelValue = customModelInput.value.trim();
+            if (!customModelValue) {
+                return null;
             }
+            modelValue = customModelValue;
+        }
 
-            validateApiBtn.disabled = true;
+        var apiUrl = getSelectedApiUrl();
+        if (!apiUrl) {
+            return null;
+        }
 
-            var data = new FormData();
-            data.append('action', 'ai_translate_validate_api');
-            data.append('nonce', aiTranslateAdmin.validateApiNonce);
-            data.append('api_url', apiUrl);
-            data.append('api_key', apiKey);
-            data.append('model', modelId);
+        return {
+            provider: provider,
+            apiKey: apiKey,
+            model: modelValue,
+            rawModelValue: rawModelValue,
+            customModelValue: customModelValue,
+            apiUrl: apiUrl
+        };
+    }
 
-            if (apiProviderSelect) {
-                data.append('api_provider', apiProviderSelect.value);
-                if (apiProviderSelect.value === 'custom' && customApiUrlInput) {
-                    data.append('custom_api_url_value', customApiUrlInput.value);
-                }
-            }
-            data.append('save_settings', '1');
+    function getPayloadHash(payload) {
+        return [
+            payload.provider,
+            payload.apiUrl,
+            payload.model,
+            payload.customModelValue
+        ].join('|');
+    }
 
-            var websiteContextField = document.getElementById('website_context_field');
-            if (websiteContextField) {
-                data.append('website_context', websiteContextField.value);
-            }
+    function setApiStatus(message, state) {
+        if (!apiStatusSpan) {
+            return;
+        }
+        apiStatusSpan.textContent = message || '';
+        apiStatusSpan.className = 'ai-translate-api-status';
+        if (state) {
+            apiStatusSpan.classList.add('ai-translate-api-status--' + state);
+        }
+    }
 
-            var homepageMetaField = document.getElementById('homepage_meta_description_field');
-            if (homepageMetaField) {
-                data.append('homepage_meta_description', homepageMetaField.value);
-            }
+    function runApiValidation(payload, payloadHash) {
+        if (!payload) {
+            return;
+        }
+        pendingApiPayload = null;
+        setApiStatus(aiTranslateAdmin.strings.validatingApi || 'Validating API settings...', 'validating');
 
-            // Stuur multi_domain_caching mee zodat validate handler weet welke setting te gebruiken
-            var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
-            if (multiDomainCheckbox) {
-                data.append('multi_domain_caching', multiDomainCheckbox.checked ? '1' : '0');
-            }
+        var data = new FormData();
+        data.append('action', 'ai_translate_validate_api');
+        data.append('nonce', aiTranslateAdmin.validateApiNonce);
+        data.append('api_provider', payload.provider);
+        data.append('api_key', payload.apiKey);
+        data.append('model', payload.model);
+        data.append('api_url', payload.apiUrl);
+        data.append('save_settings', '1');
 
-            if (modelId === 'custom' && customModelInput) {
-                data.append('custom_model_value', customModelInput.value);
-            }
+        if (payload.provider === 'custom' && customApiUrlInput) {
+            data.append('custom_api_url_value', customApiUrlInput.value);
+        }
 
-            fetch(ajaxurl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: data
+        if (payload.rawModelValue === 'custom' && customModelInput) {
+            data.append('custom_model_value', customModelInput.value);
+        }
+
+        if (websiteContextField) {
+            data.append('website_context', websiteContextField.value);
+        }
+
+        if (homepageMetaField) {
+            data.append('homepage_meta_description', homepageMetaField.value);
+        }
+
+        var multiDomainCheckbox = document.querySelector('input[name="ai_translate_settings[multi_domain_caching]"]');
+        if (multiDomainCheckbox) {
+            data.append('multi_domain_caching', multiDomainCheckbox.checked ? '1' : '0');
+        }
+
+        fetch(aiTranslateAdmin.ajaxUrl || ajaxurl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: data
+        })
+            .then(function (response) {
+                return response.json();
             })
-                .then(r => r.json())
-                .then(function (resp) {
-                    if (resp.success) {
-                        // Update locally stored apiKeys object after successful validation
-                        if (apiProviderSelect) {
-                            var selectedProvider = apiProviderSelect.value;
-                            apiKeys[selectedProvider] = apiKey;
-                        }
-                        if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:green;font-weight:bold;">&#10003; Connection and model OK. API settings saved.</span>';
-                    } else {
-                        if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; ' +
-                            (resp.data && resp.data.message ? resp.data.message : 'Error') + '</span>';
-                    }
-                })
-                .catch(function (error) {
-                    if (apiStatusSpan) apiStatusSpan.innerHTML = '<span style="color:red;font-weight:bold;">&#10007; Validation AJAX Error: ' + error.message + '</span>';
-                })
-                .finally(function () {
-                    validateApiBtn.disabled = false;
-                });
+            .then(function (resp) {
+                if (resp.success) {
+                    apiKeys[payload.provider] = payload.apiKey;
+                    lastApiPayloadHash = payloadHash;
+                    setApiStatus(aiTranslateAdmin.strings.validationSaved || 'Connection and model OK. API settings saved.', 'success');
+                } else {
+                    var errorMessage = (resp.data && resp.data.message) ? resp.data.message : (aiTranslateAdmin.strings.validationError || 'Validation failed');
+                    setApiStatus(errorMessage, 'error');
+                }
+            })
+            .catch(function (error) {
+                setApiStatus((aiTranslateAdmin.strings.validationAjaxError || 'Validation AJAX Error') + ': ' + error.message, 'error');
+            })
+            .finally(function () {
+                if (pendingApiPayload) {
+                    scheduleApiValidation(true);
+                }
+            });
+    }
+
+    function scheduleApiValidation(force) {
+        clearTimeout(apiValidationTimer);
+        var payload = getApiPayload();
+        if (!payload) {
+            setApiStatus('', '');
+            lastApiPayloadHash = '';
+            pendingApiPayload = null;
+            return;
+        }
+
+        var payloadHash = getPayloadHash(payload);
+        if (!force && payloadHash === lastApiPayloadHash) {
+            return;
+        }
+
+        setApiStatus(aiTranslateAdmin.strings.validatingApi || 'Validating API settings...', 'validating');
+
+        pendingApiPayload = payload;
+        apiValidationTimer = setTimeout(function () {
+            runApiValidation(payload, payloadHash);
+        }, 600);
+    }
+
+    if (customModelInput) {
+        customModelInput.addEventListener('input', function () {
+            scheduleApiValidation();
         });
     }
+
+    if (customApiUrlInput) {
+        customApiUrlInput.addEventListener('input', function () {
+            scheduleApiValidation();
+        });
+    }
+
+    var languageSectionDefs = {
+        enabled: {
+            fieldName: 'enabled_languages',
+            presenceKey: 'enabled_languages_present'
+        },
+        detectable: {
+            fieldName: 'detectable_languages',
+            presenceKey: 'detectable_languages_present'
+        }
+    };
+    var languageSaveTimers = {};
+    var languageStatusTimeouts = {};
+    var languageStrings = aiTranslateAdmin.languageSettingsStrings || {};
+
+    function getLanguageSection(sectionKey) {
+        return document.querySelector('.ai-translate-language-section[data-language-section="' + sectionKey + '"]');
+    }
+
+    function getLanguageStatusSpan(sectionKey) {
+        var section = getLanguageSection(sectionKey);
+        if (!section) {
+            return null;
+        }
+        return section.querySelector('.ai-translate-language-section__status[data-section="' + sectionKey + '"]');
+    }
+
+    function setLanguageStatus(sectionKey, message, type) {
+        var statusSpan = getLanguageStatusSpan(sectionKey);
+        if (!statusSpan) {
+            return;
+        }
+        statusSpan.textContent = message || '';
+        statusSpan.className = 'ai-translate-language-section__status';
+        if (type) {
+            statusSpan.classList.add('ai-translate-language-section__status--' + type);
+        }
+    }
+
+    function clearLanguageStatusTimeout(sectionKey) {
+        if (languageStatusTimeouts[sectionKey]) {
+            clearTimeout(languageStatusTimeouts[sectionKey]);
+            delete languageStatusTimeouts[sectionKey];
+        }
+    }
+
+    function gatherLanguageValues(sectionKey) {
+        var def = languageSectionDefs[sectionKey];
+        var section = getLanguageSection(sectionKey);
+        if (!def || !section) {
+            return [];
+        }
+        var checkboxes = section.querySelectorAll('input[type="checkbox"][name="ai_translate_settings[' + def.fieldName + '][]"]');
+        return Array.prototype.filter.call(checkboxes, function (checkbox) {
+            return checkbox.checked;
+        }).map(function (checkbox) {
+            return checkbox.value;
+        });
+    }
+
+    function toggleLanguageSection(sectionKey, enable) {
+        var def = languageSectionDefs[sectionKey];
+        var section = getLanguageSection(sectionKey);
+        if (!def || !section) {
+            return;
+        }
+        var checkboxes = section.querySelectorAll('input[type="checkbox"][name="ai_translate_settings[' + def.fieldName + '][]"]');
+        Array.prototype.forEach.call(checkboxes, function (checkbox) {
+            checkbox.checked = enable;
+        });
+    }
+
+    function saveLanguageSection(sectionKey) {
+        var def = languageSectionDefs[sectionKey];
+        if (!def) {
+            return;
+        }
+
+        setLanguageStatus(sectionKey, languageStrings.saving || 'Saving language settings...', 'saving');
+        clearLanguageStatusTimeout(sectionKey);
+
+        var values = gatherLanguageValues(sectionKey);
+        var data = new FormData();
+        data.append('action', 'ai_translate_update_language_settings');
+        var nonceToUse = languageSettingsNonceValue || (languageSettingsNonceElement ? languageSettingsNonceElement.value : '') || (aiTranslateAdmin.languageSettingsNonce || '');
+        if (nonceToUse) {
+            data.append('nonce', nonceToUse);
+        }
+        data.append('section', sectionKey);
+        data.append(def.presenceKey, '1');
+        values.forEach(function (value) {
+            data.append(def.fieldName + '[]', value);
+        });
+
+        fetch(aiTranslateAdmin.ajaxUrl || ajaxurl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: data
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('HTTP error ' + response.status);
+                }
+                var contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(function(text) {
+                        throw new Error('Server returned HTML instead of JSON. Response: ' + text.substring(0, 200));
+                    });
+                }
+                return response.json();
+            })
+            .then(function (resp) {
+                if (resp.success) {
+                    setLanguageStatus(sectionKey, languageStrings.saved || 'Languages saved', 'success');
+                    languageStatusTimeouts[sectionKey] = setTimeout(function () {
+                        setLanguageStatus(sectionKey, '', '');
+                    }, 4000);
+                } else {
+                    var message = (resp.data && resp.data.message) ? resp.data.message : (languageStrings.error || 'Failed to save language settings');
+                    setLanguageStatus(sectionKey, message, 'error');
+                }
+            })
+            .catch(function (error) {
+                var errorMsg = error.message || 'Unknown error';
+                if (errorMsg.indexOf('<!DOCTYPE') !== -1 || errorMsg.indexOf('<html') !== -1) {
+                    errorMsg = 'Server returned HTML error page. Check server logs.';
+                }
+                setLanguageStatus(sectionKey, (languageStrings.error || 'Failed to save language settings') + ': ' + errorMsg, 'error');
+            });
+    }
+
+    function scheduleLanguageSave(sectionKey) {
+        if (!languageSectionDefs[sectionKey]) {
+            return;
+        }
+        clearTimeout(languageSaveTimers[sectionKey]);
+        languageSaveTimers[sectionKey] = setTimeout(function () {
+            saveLanguageSection(sectionKey);
+        }, 400);
+    }
+
+    var languageCheckboxes = document.querySelectorAll('.ai-translate-language-section__list input[type="checkbox"]');
+    Array.prototype.forEach.call(languageCheckboxes, function (checkbox) {
+        checkbox.addEventListener('change', function () {
+            var section = this.closest('.ai-translate-language-section');
+            if (!section) {
+                return;
+            }
+            scheduleLanguageSave(section.getAttribute('data-language-section'));
+        });
+    });
+
+    var languageToggles = document.querySelectorAll('.ai-translate-language-section__toggle');
+    Array.prototype.forEach.call(languageToggles, function (toggle) {
+        toggle.addEventListener('click', function () {
+            var sectionKey = toggle.getAttribute('data-section');
+            var action = toggle.getAttribute('data-action');
+            toggleLanguageSection(sectionKey, action === 'enable');
+            scheduleLanguageSave(sectionKey);
+        });
+    });
 
     /**
      * Cache Management Section
@@ -1143,4 +1402,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    // Trigger initial API validation after page load
+    setTimeout(function () {
+        if (typeof scheduleApiValidation === 'function') {
+            scheduleApiValidation(true);
+        }
+    }, 800);
 });

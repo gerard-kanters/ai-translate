@@ -1062,8 +1062,8 @@ msgstr "कैश मेटाडेटा पुनः स्कैन कि�
 
 #: includes/admin-page.php:1977
 
-msgid "No cache records added. Possible causes:"
-msgstr "कोई कैश रिकॉर्ड नहीं जोड़ा गया। संभावित कारण:"
+msgid "No cache records added. There are currently no cache files available."
+msgstr "No cache records added. There are currently no cache files available."
 
 #: includes/admin-page.php:1979
 

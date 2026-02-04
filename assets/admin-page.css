@@ -5,6 +5,130 @@
     color: #1d2327 !important;
 }
 
+.ai-translate-api-status-wrapper {
+    margin-top: 10px;
+}
+
+.ai-translate-api-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-weight: 600;
+    font-size: 13px;
+    border: 1px solid transparent;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ai-translate-api-status--validating {
+    background-color: #fff4ce;
+    color: #935200;
+    border-color: #ffd27f;
+}
+
+.ai-translate-api-status--success {
+    background-color: #e6fff1;
+    color: #0d6b3e;
+    border-color: #7ae0b0;
+}
+
+.ai-translate-api-status--error {
+    background-color: #fcebea;
+    color: #a1231d;
+    border-color: #f5c6cb;
+}
+
+.ai-translate-language-section {
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    background: #fff;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.ai-translate-language-section__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.ai-translate-language-section__header-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: #1f1f1f;
+}
+
+.ai-translate-language-section__header-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.ai-translate-language-section__status {
+    min-height: 20px;
+    font-size: 13px;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+    color: #444;
+}
+
+.ai-translate-language-section__status--saving {
+    color: #1f4b8b;
+}
+
+.ai-translate-language-section__status--success {
+    color: #0d6b3e;
+}
+
+.ai-translate-language-section__status--error {
+    color: #a1231d;
+}
+
+.ai-translate-language-section__list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ececec;
+    border-radius: 4px;
+    padding: 10px;
+    background: #ffffff;
+}
+
+.ai-translate-language-section__columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.ai-translate-language-column label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.ai-translate-language-flag {
+    width: 16px;
+    height: 12px;
+    object-fit: cover;
+}
+
+@media (max-width: 900px) {
+    .ai-translate-language-section__columns {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .ai-translate-language-section__columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .cache-stats-section {
     margin-top: 20px;
     background: #f9f9f9;

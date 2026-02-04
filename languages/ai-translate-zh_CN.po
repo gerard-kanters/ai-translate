@@ -1064,8 +1064,8 @@ msgstr "缓存元数据已重新扫描：添加或更新了%d个缓存记录。"
 
 #: includes/admin-page.php:1977
 
-msgid "No cache records added. Possible causes:"
-msgstr "未添加缓存记录。可能的原因："
+msgid "No cache records added. There are currently no cache files available."
+msgstr "No cache records added. There are currently no cache files available."
 
 #: includes/admin-page.php:1979
 

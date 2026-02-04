@@ -264,8 +264,8 @@ msgid "Cache files do not exist at the expected location"
 msgstr "Les fichiers de cache n'existent pas à l'emplacement attendu"
 
 #: includes/admin-page.php:1977
-msgid "No cache records added. Possible causes:"
-msgstr "Aucun enregistrement de cache ajouté. Causes possibles :"
+msgid "No cache records added. There are currently no cache files available."
+msgstr "Aucun enregistrement de cache ajouté. Aucun fichier cache n'est disponible actuellement."
 
 #: includes/admin-page.php:1973
 msgid "Cache metadata rescanned: %d cache records added or updated."
