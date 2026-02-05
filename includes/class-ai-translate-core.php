@@ -566,64 +566,55 @@ final class AI_Translate_Core
         $titleHint = isset($context['is_title']) && $context['is_title'] ? "\n- If the text is a title or menu label, keep it concise and natural." : '';
 
         $prompt = sprintf(
-            'You are a professional translation engine. Your ONLY job is to translate text from %s to %s.
+            'You are a professional translation engine. Translate text from %s to %s.
         
-        CRITICAL RULES - YOU MUST FOLLOW THESE EXACTLY:
-        1. The input text is in %s (source language). You MUST translate it to %s (target language).
-        2. ALWAYS translate every segment. NEVER return the source text unchanged.
-        3. Even if the input text appears to already be in %s, you MUST still translate it to ensure it is properly in %s.
-        4. Do NOT analyze or detect the language of the input. Simply translate from %s to %s as instructed.
-        5. The output MUST be in %s. Every word must be translated.%s%s
+        MANDATORY REQUIREMENTS:
+        - The input text is in %s. You MUST translate every segment to %s. NEVER return source text unchanged.
+        - Do NOT analyze or detect the language. Translate from %s to %s as instructed.
+        - Even if input appears to already be in %s, still translate it to ensure proper %s output.
+        - Every word must be translated. The output MUST be entirely in %s.%s%s
         
-        TRANSLATION STYLE:
-        - Make the translation sound natural, fluent, and professional, as if written by a native speaker of %s.
-        - Adapt phrasing slightly to ensure it is persuasive and consistent with standard website language in %s.
-        - Avoid literal translations that sound awkward or robotic.
-        - Use idiomatic expressions and natural vocabulary appropriate for %s speakers.
-        - Maintain the original tone and intent while ensuring the text flows smoothly in %s.
-        - ALWAYS translate every word. Do not skip any text. Do not return the source text.
+        TRANSLATION QUALITY STANDARDS:
+        - Preserve the original meaning, intent, nuance, and tone of the %s source text. Do NOT add or remove information.
+        - Produce grammatically correct, idiomatic, and natural text that reads as if originally written in %s by a native speaker.
+        - Avoid literal, word-for-word translations. Render concepts in culturally natural and linguistically appropriate expressions.
+        - Do NOT preserve metaphors or idiomatic expressions literally if they sound unnatural in %s. Use culturally appropriate equivalents instead.
+        - Maintain consistent terminology for recurring concepts throughout the site.
+        - Translate technical terms using standard professional equivalents in %s, not literal translations.
+        - Use appropriate tone for a personal website: friendly, informative, clear, and professional but not overly formal.
+        - For languages with gendered pronouns or formal/informal address (e.g., German \'Sie\' vs \'du\', French \'vous\' vs \'tu\', Chinese polite conventions), use the form most appropriate for a public professional site.
         
-        MENU ITEMS:
-        - For segments where segment.type is "menu": translate literally and accurately.
-        - Keep menu items concise (1-3 words maximum), but always preserve the exact meaning of the original text.
-        - NEVER substitute with generic menu labels like "About", "News", or "Services" unless those words appear in the original.
-        - Translate the actual words provided, not what you think the menu item should be called.
-        - NEVER return the source text unchanged. Always translate to %s.
-        
-        URL SLUGS (META TYPE):
-        - For segments where segment.type is "meta": these are URL slugs or short keywords.
-        - Keep them SHORT and URL-friendly: maximum 2-3 words, ideally one compound word.
-        - Use hyphens (-) to separate words if needed in Latin-based languages.
-        - For UTF-8 languages use 2-4 characters maximum.
-        - Never use full sentences, descriptions, or long phrases.
-        - Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH).
+        SEGMENT-SPECIFIC GUIDELINES:
+        - Menu items (segment.type = "menu"): Translate accurately and concisely (1-3 words). Preserve exact meaning. Translate the actual words provided, not generic substitutes. Make clear, concise, and natural in %s.
+        - Navigational text, headings, buttons, calls to action, form labels: Ensure clarity, conciseness, and natural flow in %s.
+        - URL slugs (segment.type = "meta"): Keep SHORT and URL-friendly - maximum 2-3 words (ideally one compound word) for Latin-based languages, 2-4 characters for UTF-8 languages. Use hyphens (-) to separate words if needed. Never use full sentences or long phrases. Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH).%s
         
         OUTPUT FORMAT:
-        - Return ONLY valid JSON in this exact format: {"translations": {"<id>": "<translated_text>"}}
-        - Every segment ID must have a translated text in %s (target language).
-        - Do not include any explanations, comments, or extra text outside the JSON.
-        - The translated_text MUST be in %s, not in %s.%s',
+        - Return ONLY valid JSON: {"translations": {"<id>": "<translated_text>"}}
+        - Every segment ID must have translated text in %s.
+        - No explanations, comments, or text outside the JSON.
+        - The translated_text MUST be in %s, not in %s.',
             $sourceLangName,
             $targetLangName,
             $sourceLangName,
             $targetLangName,
-            $targetLangName,
-            $targetLangName,
             $sourceLangName,
+            $targetLangName,
+            $targetLangName,
             $targetLangName,
             $targetLangName,
             $websiteContext,
             $titleHint,
-            $targetLangName,
-            $targetLangName,
-            $targetLangName,
-            $targetLangName,
-            $targetLangName,
-            $targetLangName,
-            $targetLangName,
             $sourceLangName,
             $targetLangName,
-            $titleHint
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $targetLangName,
+            $titleHint,
+            $targetLangName,
+            $targetLangName,
+            $sourceLangName
         );
 
         return $prompt;
@@ -760,15 +751,6 @@ final class AI_Translate_Core
     /**
      * Generate a website context suggestion based on homepage content.
      * This is a lightweight heuristic (no external calls) to avoid failures without API.
-     *
-     * @return string
-     */
-    /**
-     * Get cleaned homepage content for AI analysis.
-     *
-     * @return string
-     */
-    /**
      * Get clean homepage content, optionally for a specific domain.
      *
      * @param string $domain Optional. Domain to fetch content from. If provided, fetches via HTTP.
@@ -852,7 +834,7 @@ final class AI_Translate_Core
                         $content = preg_replace('/\s+/', ' ', $content);
                         $content = mb_substr($content, 0, 4000);
                         
-                        if (!empty($content)) {
+                        if (!empty($content) && mb_strlen($content) >= 120) {
                             return $content;
                         }
                     }
@@ -876,10 +858,19 @@ final class AI_Translate_Core
         if ($home_id > 0) {
             $post = get_post($home_id);
             if ($post) {
-                // Strip tags and shortcodes
-                $raw_content = $post->post_title . "\n" . ($post->post_excerpt ?: $post->post_content);
-                // Strip shortcodes first, then HTML tags
-                $content = wp_strip_all_tags(strip_shortcodes($raw_content));
+                // Render content through WordPress filters to match frontend output
+                $raw_content = $post->post_title . "\n";
+                if (!empty($post->post_excerpt)) {
+                    $raw_content .= $post->post_excerpt . "\n";
+                }
+                $rendered = apply_filters('the_content', $post->post_content);
+                if (is_string($rendered) && $rendered !== '') {
+                    $raw_content .= $rendered;
+                } else {
+                    $raw_content .= $post->post_content;
+                }
+                // Strip HTML tags and normalize whitespace
+                $content = wp_strip_all_tags($raw_content);
                 // Remove extra whitespace and newlines
                 $content = preg_replace('/\s+/', ' ', $content);
                 // Limit length
