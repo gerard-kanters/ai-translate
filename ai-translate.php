@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.2.4
+ * Version: 2.2.5
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0
@@ -108,6 +108,10 @@ require_once __DIR__ . '/includes/class-ai-seo.php';
 require_once __DIR__ . '/includes/class-ai-url.php';
 require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
+require_once __DIR__ . '/includes/class-ai-sitemap.php';
+
+// Initialize sitemap integration
+\AITranslate\AI_Sitemap::init();
 
 
 /**

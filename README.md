@@ -184,6 +184,11 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
+### 2.2.5
+- Improve system prompt (role, what and how).
+- Improve website context generator (what is the website about).
+- Improve admin UX.
+
 ### 2.2.4
 
 - Added cache warming for pages to admin.
