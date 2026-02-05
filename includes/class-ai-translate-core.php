@@ -787,7 +787,35 @@ final class AI_Translate_Core
                 }
                 // Strip HTML tags and normalize whitespace
                 $content = wp_strip_all_tags($raw_content);
-                // Remove extra whitespace and newlines
+                $content = preg_replace('/\s+/', ' ', $content);
+            }
+        } else {
+            $raw_content = $site_name . "\n";
+            if ($tagline !== '') {
+                $raw_content .= $tagline . "\n";
+            }
+            $recent_posts = get_posts([
+                'posts_per_page' => 5,
+                'post_status' => 'publish',
+                'orderby' => 'date',
+                'order' => 'DESC',
+                'suppress_filters' => false,
+                'ignore_sticky_posts' => true,
+            ]);
+            foreach ($recent_posts as $post) {
+                $title = trim($post->post_title);
+                if ($title !== '') {
+                    $raw_content .= $title . "\n";
+                }
+                $rendered = apply_filters('the_content', $post->post_content);
+                if (is_string($rendered) && $rendered !== '') {
+                    $raw_content .= $rendered . "\n";
+                } else {
+                    $raw_content .= $post->post_content . "\n";
+                }
+            }
+            if (!empty($raw_content)) {
+                $content = wp_strip_all_tags($raw_content);
                 $content = preg_replace('/\s+/', ' ', $content);
             }
         }
