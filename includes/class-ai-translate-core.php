@@ -758,108 +758,24 @@ final class AI_Translate_Core
      */
     private function get_clean_homepage_content($domain = '')
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        // If multi-domain caching is enabled and a specific domain is provided, try to fetch from that domain
-        if ($multi_domain && !empty($domain)) {
-            // Determine protocol (prefer https, fallback to http)
-            $protocol = 'https';
-            if (isset($_SERVER['REQUEST_SCHEME'])) {
-                $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
-            } elseif (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
-                $protocol = 'https';
-            }
-            
-            // Build URL for the specific domain
-            $domain_url = $protocol . '://' . $domain . '/';
-            
-            // Fetch homepage content from the specific domain
-            $response = wp_remote_get($domain_url, [
-                'timeout' => 15,
-                'sslverify' => true,
-                'user-agent' => 'WordPress/' . get_bloginfo('version') . '; ' . home_url(),
-                'redirection' => 5,
-            ]);
-            
-            if (!is_wp_error($response)) {
-                $response_code = wp_remote_retrieve_response_code($response);
-                if ($response_code === 200) {
-                    $html = wp_remote_retrieve_body($response);
-                    
-                    if (!empty($html)) {
-                        // Extract text content from HTML
-                        $dom = new \DOMDocument();
-                        libxml_use_internal_errors(true);
-                        @$dom->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
-                        libxml_clear_errors();
-                        $xpath = new \DOMXPath($dom);
-                        
-                        // Get title
-                        $title_nodes = $xpath->query('//title');
-                        $title = '';
-                        if ($title_nodes && $title_nodes->length > 0) {
-                            $title = trim($title_nodes->item(0)->textContent);
-                        }
-                        
-                        // Get main content (try common content selectors)
-                        $content_selectors = [
-                            '//main',
-                            '//article',
-                            '//div[@class="entry-content"]',
-                            '//div[@class="content"]',
-                            '//div[@id="content"]',
-                            '//body',
-                        ];
-                        
-                        $content_text = '';
-                        foreach ($content_selectors as $selector) {
-                            $nodes = $xpath->query($selector);
-                            if ($nodes && $nodes->length > 0) {
-                                $content_text = trim($nodes->item(0)->textContent);
-                                if (!empty($content_text) && mb_strlen($content_text) > 100) {
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // Combine title and content
-                        $raw_content = $title;
-                        if (!empty($content_text)) {
-                            $raw_content .= "\n" . $content_text;
-                        }
-                        
-                        // Strip HTML entities and clean up
-                        $content = wp_strip_all_tags($raw_content);
-                        $content = preg_replace('/\s+/', ' ', $content);
-                        $content = mb_substr($content, 0, 4000);
-                        
-                        if (!empty($content) && mb_strlen($content) >= 120) {
-                            return $content;
-                        }
-                    }
-                } else {
-                    if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('AI Translate: Failed to fetch from domain ' . $domain . ' (HTTP code: ' . $response_code . ')');
-                    }
-                }
-            } else {
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('AI Translate: Error fetching from domain ' . $domain . ': ' . $response->get_error_message());
-                }
-            }
-        }
-        
-        // Fallback to standard WordPress content fetching
+        // Use WordPress-rendered content for highest fidelity
         $content = '';
         $home_id = (int) get_option('page_on_front');
-        $site_name = (string) 'AI Translate';
+        $site_name = (string) get_bloginfo('name');
+        if ($site_name === '') {
+            $site_name = (string) 'AI Translate';
+        }
+        $tagline = (string) get_bloginfo('description');
         
         if ($home_id > 0) {
             $post = get_post($home_id);
             if ($post) {
                 // Render content through WordPress filters to match frontend output
-                $raw_content = $post->post_title . "\n";
+                $raw_content = $site_name . "\n";
+                if ($tagline !== '') {
+                    $raw_content .= $tagline . "\n";
+                }
+                $raw_content .= $post->post_title . "\n";
                 if (!empty($post->post_excerpt)) {
                     $raw_content .= $post->post_excerpt . "\n";
                 }
@@ -873,13 +789,11 @@ final class AI_Translate_Core
                 $content = wp_strip_all_tags($raw_content);
                 // Remove extra whitespace and newlines
                 $content = preg_replace('/\s+/', ' ', $content);
-                // Limit length
-                $content = mb_substr($content, 0, 4000); 
             }
         }
         
         if (empty($content)) {
-            $content = $site_name . ' - ' . get_bloginfo('description');
+            $content = $site_name . ($tagline !== '' ? ' - ' . $tagline : '');
         }
         
         return $content;
@@ -988,7 +902,9 @@ final class AI_Translate_Core
                           "1. Plain text only. No Markdown, no HTML, no special formatting.\n" .
                           "2. Maximum 5 lines / sentences.\n" .
                           "3. Focus on what the company/site does, who it serves, and the key terminology.\n" .
-                          "4. Do NOT include navigation menus, footer links, or irrelevant UI text.\n\n" .
+                          "4. Include the mission or slogan (tagline) if present.\n" .
+                          "5. Include key USPs if they are present on the homepage content.\n" .
+                          "6. Do NOT include navigation menus, footer links, or irrelevant UI text.\n\n" .
                           "Website Content:\n" . $content;
 
                 $body = [
