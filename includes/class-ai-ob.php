@@ -1465,7 +1465,7 @@ final class AI_OB
         // Collect UI attributes that need translation (same as JavaScript does)
         $uiStrings = [];
         $uiStringsWithAttr = [];
-        $nodes = $xpath->query('//input | //textarea | //select | //button | //*[@title] | //*[@aria-label] | //*[contains(@class, "initial-greeting")] | //*[contains(@class, "chatbot-bot-text")]');
+        $nodes = $xpath->query('//input | //textarea | //select | //button | //*[@title] | //*[@aria-label] | //img[@alt] | //*[contains(@class, "initial-greeting")] | //*[contains(@class, "chatbot-bot-text")]');
         
         if (!$nodes || $nodes->length === 0) {
             return $result;
@@ -1476,8 +1476,17 @@ final class AI_OB
                 continue;
             }
             
-            // Skip elements with data-ai-trans-skip attribute
-            if ($node->hasAttribute('data-ai-trans-skip')) {
+            // Skip elements with data-ai-trans-skip attribute (also check ancestors)
+            $skip = false;
+            $check = $node;
+            while ($check instanceof \DOMElement) {
+                if ($check->hasAttribute('data-ai-trans-skip')) {
+                    $skip = true;
+                    break;
+                }
+                $check = $check->parentNode;
+            }
+            if ($skip) {
                 continue;
             }
             
@@ -1511,6 +1520,18 @@ final class AI_OB
                     $uiStrings[$normalized] = $normalized;
                     if (!isset($uiStringsWithAttr[$normalized])) {
                         $uiStringsWithAttr[$normalized] = ['attr' => 'aria-label', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
+                    }
+                }
+            }
+            
+            // Collect alt for images
+            if ($node->hasAttribute('alt')) {
+                $text = trim($node->getAttribute('alt'));
+                if ($text !== '' && mb_strlen($text) >= 2) {
+                    $normalized = preg_replace('/\s+/u', ' ', $text);
+                    $uiStrings[$normalized] = $normalized;
+                    if (!isset($uiStringsWithAttr[$normalized])) {
+                        $uiStringsWithAttr[$normalized] = ['attr' => 'alt', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
                     }
                 }
             }
