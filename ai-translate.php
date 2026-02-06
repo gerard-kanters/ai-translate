@@ -990,31 +990,6 @@ function ai_translate_get_nav_switcher_html() {
 }
 
 /**
- * Inject language switcher into navigation menu when nav-start or nav-end is selected.
- */
-// Note: Automatic menu injection is disabled. Users should add language switcher via Appearance > Menus
-// add_filter('wp_nav_menu_items', function ($items, $args) {
-//     $switcher_html = ai_translate_get_nav_switcher_html();
-//     if (empty($switcher_html)) {
-//         return $items;
-//     }
-//     if (!is_string($items)) {
-//         $items = '';
-//     }
-//
-//     $settings = get_option('ai_translate_settings', array());
-//     $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
-//
-//     // Inject at start or end based on position
-//     if ($position === 'nav-start') {
-//         return $switcher_html . $items;
-//     } else {
-//         return $items . $switcher_html;
-//     }
-// }, 10, 2);
-
-// Language switcher is intentionally removed as per request
-/**
  * Minimal server-side language switcher (no JS): renders links to current path in other languages.
  */
 add_action('wp_footer', function () {

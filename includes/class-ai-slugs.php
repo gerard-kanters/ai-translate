@@ -34,6 +34,9 @@ final class AI_Slugs
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
 
+        // Invalidate cached schema detection so detect_schema() re-checks after table change
+        delete_transient('ai_tr_slugs_schema');
+
         // Only ensure indexes exist if this is a fresh installation (not on every init)
         $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) === $table;
         if (!$table_exists) {
@@ -682,12 +685,21 @@ final class AI_Slugs
     {
         static $schema = null;
         if ($schema !== null) return $schema;
+
+        // Check persistent transient to avoid SHOW COLUMNS on every request
+        $cached = get_transient('ai_tr_slugs_schema');
+        if ($cached !== false && in_array($cached, ['original', 'new'], true)) {
+            $schema = $cached;
+            return $schema;
+        }
+
         global $wpdb;
         $table = self::table_name();
         $cols = $wpdb->get_col($wpdb->prepare("SHOW COLUMNS FROM %i", $table), 0);
         if (!is_array($cols)) {
             // Safe default: assume original to avoid querying non-existent 'lang'/'source_slug'
             $schema = 'original';
+            set_transient('ai_tr_slugs_schema', $schema, DAY_IN_SECONDS);
             return $schema;
         }
         $hasLanguageCode = in_array('language_code', $cols, true);
@@ -702,6 +714,7 @@ final class AI_Slugs
             // Ambiguous: prefer original to prevent SQL errors against 'lang'/'source_slug'
             $schema = 'original';
         }
+        set_transient('ai_tr_slugs_schema', $schema, DAY_IN_SECONDS);
         return $schema;
     }
 }
