@@ -825,7 +825,7 @@ final class AI_Translate_Core
         $home_id = (int) get_option('page_on_front');
         $site_name = (string) get_bloginfo('name');
         if ($site_name === '') {
-            $site_name = (string) 'AI Translate';
+            $site_name = self::get_active_domain();
         }
         $tagline = (string) get_bloginfo('description');
         
@@ -930,7 +930,7 @@ final class AI_Translate_Core
                 $site_name = strtok($domain, ':');
             }
         } else {
-            $site_name = (string) 'AI Translate';
+            $site_name = (string) get_bloginfo('name');
         }
 
         // 3. Try AI generation if configured
@@ -1069,7 +1069,7 @@ final class AI_Translate_Core
                 $site_name = strtok($domain, ':');
             }
         } else {
-            $site_name = (string) 'AI Translate';
+            $site_name = (string) get_bloginfo('name');
         }
         
         // Get website context (per-domain if multi-domain caching is enabled)
