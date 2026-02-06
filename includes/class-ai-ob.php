@@ -705,13 +705,16 @@ final class AI_OB
         // This prevents homepage from being cached multiple times with different route_ids
         if (function_exists('is_front_page') && is_front_page()) {
             $front_page_id = (int) get_option('page_on_front');
+            $paged = get_query_var('paged', 0);
             if ($front_page_id > 0) {
                 // Static front page: use post ID
                 return 'post:' . $front_page_id;
             } else {
-                // Posts listing homepage: always use normalized path
-                // Normalize to '/' to prevent /en/, /en, //, etc. from creating different caches
-                return 'path:' . md5('/');
+                // Posts listing homepage: include page number to differentiate paginated pages.
+                // is_front_page() returns true for ALL paginated blog pages when show_on_front='posts',
+                // so without paged in the key, /page/2 would serve the cached /page/1 content.
+                $path_key = ($paged > 1) ? '/page/' . $paged : '/';
+                return 'path:' . md5($path_key);
             }
         }
         
