@@ -54,7 +54,9 @@ final class AI_Batch
 
         // Build prompt with minimal deterministic context
         $system = self::buildSystemPrompt($source, $target, $context);
-        $endpoint = rtrim($baseUrl, '/') . '/chat/completions';
+        $endpointPath = AI_Translate_Core::get_model_endpoint_path($model);
+        $endpoint = rtrim($baseUrl, '/') . $endpointPath;
+        $isResponses = ($endpointPath === '/responses');
 
         // Build primary-id set by de-duplicating equal texts per type; cache per string to reduce calls
         $targetLang = (string) $target;
@@ -190,7 +192,7 @@ final class AI_Batch
                 $metas = [];
                 foreach ($group as $batchSegs) {
                     $userPayload = self::buildUserPayload($batchSegs);
-                    $body = self::buildApiBody($model, $system, $userPayload, $provider);
+                    $body = self::buildApiBody($model, $system, $userPayload, $provider, $isResponses);
                     $headers = self::buildApiHeaders($apiKey, $provider, $settings);
                     $requests[] = [
                         'url' => $endpoint,
@@ -208,6 +210,39 @@ final class AI_Batch
                     }
                 };
                 $responses = $doAttempt($requests);
+                // Auto-detect /responses API from parallel 404 errors
+                if (!($responses instanceof \Throwable) && !$isResponses) {
+                    $detectedResponses = false;
+                    foreach ($responses as $resp) {
+                        if (is_object($resp) && property_exists($resp, 'status_code') && (int)$resp->status_code === 404) {
+                            $respBodyStr = is_object($resp) && property_exists($resp, 'body') ? (string)$resp->body : '';
+                            if (AI_Translate_Core::is_responses_api_error($respBodyStr)) {
+                                $detectedResponses = true;
+                                break;
+                            }
+                        }
+                    }
+                    if ($detectedResponses) {
+                        AI_Translate_Core::mark_model_responses_api($model);
+                        $isResponses = true;
+                        $endpoint = rtrim($baseUrl, '/') . '/responses';
+                        // Rebuild and retry this group with the correct endpoint
+                        $requests = [];
+                        foreach ($group as $batchSegs) {
+                            $userPayload = self::buildUserPayload($batchSegs);
+                            $body = self::buildApiBody($model, $system, $userPayload, $provider, true);
+                            $headers = self::buildApiHeaders($apiKey, $provider, $settings);
+                            $requests[] = [
+                                'url' => $endpoint,
+                                'headers' => $headers,
+                                'data' => wp_json_encode($body),
+                                'type' => 'POST',
+                                'options' => [ 'timeout' => $timeoutSeconds, 'verify' => true ],
+                            ];
+                        }
+                        $responses = $doAttempt($requests);
+                    }
+                }
                 if ($responses instanceof \Throwable) {
                     // Fallback to sequential handling for this group
                     foreach ($group as $idx => $batchSegs) {
@@ -215,7 +250,7 @@ final class AI_Batch
                         $batchesSingle = [$batchSegs];
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             $userPayload = self::buildUserPayload($batchSegs2);
-                            $body = self::buildApiBody($model, $system, $userPayload, $provider);
+                            $body = self::buildApiBody($model, $system, $userPayload, $provider, $isResponses);
                             $fallbackHeaders = self::buildApiHeaders($apiKey, $provider, $settings);
                             $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                             if (is_wp_error($resp)) { continue; }
@@ -223,9 +258,8 @@ final class AI_Batch
                             if ($code !== 200) { continue; }
                             $respBody = (string) wp_remote_retrieve_body($resp);
                             $data = json_decode($respBody, true);
-                            $choices = is_array($data) ? ($data['choices'] ?? []) : [];
-                            if (!$choices || !isset($choices[0]['message']['content'])) { continue; }
-                            $content = (string) $choices[0]['message']['content'];
+                            $content = AI_Translate_Core::extract_message_content($data);
+                            if ($content === null) { continue; }
                             $translations = self::parseTranslationResponse($content);
                             if (is_array($translations)) {
                                 foreach ($translations as $k => $v) { $translationsPrimary[(string)$k] = (string)$v; }
@@ -245,12 +279,11 @@ final class AI_Batch
                     $content = '';
                     if (is_object($resp) && property_exists($resp, 'body')) { $content = (string) $resp->body; }
                     $data = json_decode($content, true);
-                    $choices = is_array($data) ? ($data['choices'] ?? []) : [];
-                    if (!$choices || !isset($choices[0]['message']['content'])) { 
+                    $msg = AI_Translate_Core::extract_message_content($data);
+                    if ($msg === null) { 
                         $failedIndexes[] = (int)$idx; 
                         continue; 
                     }
-                    $msg = (string)$choices[0]['message']['content'];
                     if (trim($msg) === '') {
                         $failedIndexes[] = (int)$idx;
                         continue;
@@ -279,9 +312,8 @@ final class AI_Batch
                             if (!$ok) { continue; }
                             $content = is_object($resp) && property_exists($resp, 'body') ? (string)$resp->body : '';
                             $data = json_decode($content, true);
-                            $choices = is_array($data) ? ($data['choices'] ?? []) : [];
-                            if (!$choices || !isset($choices[0]['message']['content'])) { continue; }
-                            $msg = (string)$choices[0]['message']['content'];
+                            $msg = AI_Translate_Core::extract_message_content($data);
+                            if ($msg === null) { continue; }
                             $translations = self::parseTranslationResponse($msg);
                             if (is_array($translations)) {
                                 foreach ($translations as $k => $v) {
@@ -341,7 +373,7 @@ final class AI_Batch
         foreach ($batches as $i => $batchSegs) {
             $batchStart = microtime(true);
             $userPayload = self::buildUserPayload($batchSegs);
-            $body = self::buildApiBody($model, $system, $userPayload, $provider);
+            $body = self::buildApiBody($model, $system, $userPayload, $provider, $isResponses);
             $headers = self::buildApiHeaders($apiKey, $provider, $settings);
 
             $requestTime = isset($_SERVER['REQUEST_TIME_FLOAT']) ? $_SERVER['REQUEST_TIME_FLOAT'] : microtime(true);
@@ -359,17 +391,37 @@ final class AI_Batch
                 break;
             }
             $code = (int) wp_remote_retrieve_response_code($response);
+            // Auto-detect /responses API on first sequential batch
+            if ($code === 404 && !$isResponses && $i === 0) {
+                $errBody = (string) wp_remote_retrieve_body($response);
+                if (AI_Translate_Core::is_responses_api_error($errBody)) {
+                    AI_Translate_Core::mark_model_responses_api($model);
+                    $isResponses = true;
+                    $endpoint = rtrim($baseUrl, '/') . '/responses';
+                    $body = self::buildApiBody($model, $system, $userPayload, $provider, true);
+                    $response = wp_remote_post($endpoint, [
+                        'headers' => $headers,
+                        'timeout' => $safeTimeout,
+                        'connect_timeout' => 10,
+                        'sslverify' => true,
+                        'body' => wp_json_encode($body),
+                    ]);
+                    if (is_wp_error($response)) {
+                        break;
+                    }
+                    $code = (int) wp_remote_retrieve_response_code($response);
+                }
+            }
             if ($code !== 200) {
                 break;
             }
 
             $respBody = (string) wp_remote_retrieve_body($response);
             $data = json_decode($respBody, true);
-            $choices = is_array($data) ? ($data['choices'] ?? []) : [];
-            if (!$choices || !isset($choices[0]['message']['content'])) {
+            $content = AI_Translate_Core::extract_message_content($data);
+            if ($content === null) {
                 break;
             }
-            $content = (string) $choices[0]['message']['content'];
             $translations = self::parseTranslationResponse($content);
             if (!is_array($translations)) {
                 break;
@@ -506,7 +558,7 @@ final class AI_Batch
      * @param string $provider API provider name.
      * @return array Request body array.
      */
-    private static function buildApiBody(string $model, string $system, string $userPayload, string $provider): array
+    private static function buildApiBody(string $model, string $system, string $userPayload, string $provider, bool $isResponses = false): array
     {
         $body = [
             'model' => $model,
@@ -524,6 +576,9 @@ final class AI_Batch
             } else {
                 $body['reasoning'] = ['effort' => 'minimal'];
             }
+        }
+        if ($isResponses) {
+            $body = AI_Translate_Core::convert_body_to_responses($body);
         }
         return $body;
     }
@@ -624,9 +679,10 @@ final class AI_Batch
 
         $retryChunks = array_chunk($retrySegs, 5);
         $headers = self::buildApiHeaders($apiKey, $provider, $settings);
+        $retryIsResponses = (substr($endpoint, -10) === '/responses');
         foreach ($retryChunks as $rc) {
             $userPayload = self::buildUserPayload($rc);
-            $body = self::buildApiBody($model, $strictSystem, $userPayload, $provider);
+            $body = self::buildApiBody($model, $strictSystem, $userPayload, $provider, $retryIsResponses);
             $resp = wp_remote_post($endpoint, ['headers' => $headers, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body)]);
             if (is_wp_error($resp)) {
                 continue;
@@ -637,11 +693,10 @@ final class AI_Batch
             }
             $rb = (string) wp_remote_retrieve_body($resp);
             $d = json_decode($rb, true);
-            $choices = is_array($d) ? ($d['choices'] ?? []) : [];
-            if (!$choices || !isset($choices[0]['message']['content'])) {
+            $msg = AI_Translate_Core::extract_message_content($d);
+            if ($msg === null) {
                 continue;
             }
-            $msg = (string) $choices[0]['message']['content'];
             $translations = self::parseTranslationResponse($msg);
             if (is_array($translations)) {
                 foreach ($translations as $k => $v) {

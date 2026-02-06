@@ -149,6 +149,118 @@ final class AI_Translate_Core
         return '';
     }
 
+    // ── Responses API helpers ──────────────────────────────────────────
+    // Some models (e.g. OpenAI Codex) only support /v1/responses instead of
+    // /v1/chat/completions.  The helpers below detect this automatically from
+    // the 404 error body and cache the result so subsequent calls go directly
+    // to the correct endpoint.
+
+    /**
+     * Return the endpoint path for a model: '/responses' or '/chat/completions'.
+     * Uses a transient cache so the detection only happens once.
+     *
+     * @param string $model
+     * @return string  '/responses' | '/chat/completions'
+     */
+    public static function get_model_endpoint_path(string $model): string
+    {
+        if ($model === '') {
+            return '/chat/completions';
+        }
+        $key = 'ai_tr_resp_' . md5($model);
+        if (get_transient($key)) {
+            return '/responses';
+        }
+        return '/chat/completions';
+    }
+
+    /**
+     * Mark a model as requiring the /responses endpoint (cached 24 h).
+     *
+     * @param string $model
+     */
+    public static function mark_model_responses_api(string $model): void
+    {
+        $key = 'ai_tr_resp_' . md5($model);
+        set_transient($key, '1', DAY_IN_SECONDS);
+    }
+
+    /**
+     * Check whether an HTTP error body indicates the model requires /responses.
+     *
+     * @param string $body  Raw HTTP response body.
+     * @return bool
+     */
+    public static function is_responses_api_error(string $body): bool
+    {
+        return strpos($body, 'v1/responses') !== false;
+    }
+
+    /**
+     * Convert a chat/completions request body to the /responses format.
+     *
+     * @param array $body  Body with 'model' and 'messages'.
+     * @return array       Body with 'model', 'instructions', 'input'.
+     */
+    public static function convert_body_to_responses(array $body): array
+    {
+        $result = ['model' => $body['model']];
+        $input  = [];
+        if (isset($body['messages']) && is_array($body['messages'])) {
+            foreach ($body['messages'] as $msg) {
+                if (isset($msg['role']) && $msg['role'] === 'system') {
+                    $result['instructions'] = $msg['content'];
+                } else {
+                    $input[] = $msg;
+                }
+            }
+        }
+        $result['input'] = $input;
+        // Pass through compatible parameters
+        if (isset($body['temperature'])) {
+            $result['temperature'] = $body['temperature'];
+        }
+        return $result;
+    }
+
+    /**
+     * Extract assistant text from either a chat/completions or /responses response.
+     *
+     * @param array|null $data  Decoded JSON response body.
+     * @return string|null      The assistant text, or null when not found.
+     */
+    public static function extract_message_content($data)
+    {
+        if (!is_array($data)) {
+            return null;
+        }
+        // Standard chat/completions format
+        if (isset($data['choices'][0]['message']['content'])) {
+            return (string) $data['choices'][0]['message']['content'];
+        }
+        // Responses API format
+        if (isset($data['output']) && is_array($data['output'])) {
+            foreach ($data['output'] as $output) {
+                if (
+                    isset($output['type']) && $output['type'] === 'message'
+                    && isset($output['content']) && is_array($output['content'])
+                ) {
+                    foreach ($output['content'] as $item) {
+                        if (isset($item['type']) && $item['type'] === 'output_text' && isset($item['text'])) {
+                            return (string) $item['text'];
+                        }
+                    }
+                }
+            }
+        }
+        if (isset($data['output_text'])) {
+            return (string) $data['output_text'];
+        }
+        return null;
+    }
+
+    // ── End Responses API helpers ────────────────────────────────────────
+
     /**
      * Validate API settings by performing a light request to the provider.
      * - For OpenAI-compatible APIs: GET /models with Bearer key.
@@ -236,9 +348,10 @@ final class AI_Translate_Core
             }
         }
 
-        // If model is provided, test chat/completions endpoint to ensure model is actually usable
+        // If model is provided, test the API endpoint to ensure model is actually usable
         if ($model !== '') {
-            $chatEndpoint = rtrim($base, '/') . '/chat/completions';
+            $endpointPath = self::get_model_endpoint_path($model);
+            $chatEndpoint = rtrim($base, '/') . $endpointPath;
             $chatHeaders = [
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type'  => 'application/json',
@@ -254,6 +367,9 @@ final class AI_Translate_Core
                     ['role' => 'user', 'content' => 'Test'],
                 ],
             ];
+            if ($endpointPath === '/responses') {
+                $chatBody = self::convert_body_to_responses($chatBody);
+            }
             $chatResp = wp_remote_post($chatEndpoint, [
                 'headers' => $chatHeaders,
                 'timeout' => 20,
@@ -266,7 +382,31 @@ final class AI_Translate_Core
             $chatCode = (int) wp_remote_retrieve_response_code($chatResp);
             if ($chatCode !== 200) {
                 $chatBodyText = (string) wp_remote_retrieve_body($chatResp);
-                throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
+                // Auto-detect /responses API requirement and retry once
+                if ($chatCode === 404 && self::is_responses_api_error($chatBodyText)) {
+                    self::mark_model_responses_api($model);
+                    $chatEndpoint = rtrim($base, '/') . '/responses';
+                    $chatBody = self::convert_body_to_responses([
+                        'model' => $model,
+                        'messages' => [['role' => 'user', 'content' => 'Test']],
+                    ]);
+                    $chatResp = wp_remote_post($chatEndpoint, [
+                        'headers' => $chatHeaders,
+                        'timeout' => 20,
+                        'sslverify' => true,
+                        'body' => wp_json_encode($chatBody),
+                    ]);
+                    if (is_wp_error($chatResp)) {
+                        throw new \Exception('Chat test failed: ' . $chatResp->get_error_message());
+                    }
+                    $chatCode = (int) wp_remote_retrieve_response_code($chatResp);
+                    if ($chatCode !== 200) {
+                        $chatBodyText = (string) wp_remote_retrieve_body($chatResp);
+                        throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
+                    }
+                } else {
+                    throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
+                }
             }
         }
 
@@ -936,7 +1076,8 @@ final class AI_Translate_Core
         // 3. Try AI generation if configured
         if ($provider !== '' && $model !== '' && $apiKey !== '' && $baseUrl !== '') {
             try {
-                $endpoint = rtrim($baseUrl, '/') . '/chat/completions';
+                $endpointPath = self::get_model_endpoint_path($model);
+                $endpoint = rtrim($baseUrl, '/') . $endpointPath;
                 
                 $prompt = "Analyze the following website content and generate a concise website context description of maximum 5 lines.\n" .
                           "This description will be used to inform an AI translator about the nature, tone, and subject matter of the site.\n" .
@@ -958,6 +1099,9 @@ final class AI_Translate_Core
                 ];
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
                     $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
+                }
+                if ($endpointPath === '/responses') {
+                    $body = self::convert_body_to_responses($body);
                 }
 
                 $headers = [
@@ -986,10 +1130,33 @@ final class AI_Translate_Core
                     'body' => wp_json_encode($body),
                 ]);
 
+                // Auto-detect /responses API and retry once on 404
+                if (!is_wp_error($response) && (int) wp_remote_retrieve_response_code($response) === 404) {
+                    $errBody = (string) wp_remote_retrieve_body($response);
+                    if (self::is_responses_api_error($errBody)) {
+                        self::mark_model_responses_api($model);
+                        $endpoint = rtrim($baseUrl, '/') . '/responses';
+                        $body = self::convert_body_to_responses([
+                            'model' => $model,
+                            'messages' => [
+                                ['role' => 'system', 'content' => 'You are a helpful assistant that summarizes website content.'],
+                                ['role' => 'user', 'content' => $prompt],
+                            ],
+                        ]);
+                        $response = wp_remote_post($endpoint, [
+                            'headers' => $headers,
+                            'timeout' => 30,
+                            'sslverify' => true,
+                            'body' => wp_json_encode($body),
+                        ]);
+                    }
+                }
+
                 if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
                     $data = json_decode(wp_remote_retrieve_body($response), true);
-                    if (isset($data['choices'][0]['message']['content'])) {
-                        $ai_context = trim($data['choices'][0]['message']['content']);
+                    $ai_context = self::extract_message_content($data);
+                    if ($ai_context !== null) {
+                        $ai_context = trim($ai_context);
                         // Remove markdown code blocks if present
                         $ai_context = str_replace(["```json", "```JSON", "```"], '', $ai_context);
                         // Final cleanup
@@ -1078,8 +1245,6 @@ final class AI_Translate_Core
         // 3. Try AI generation if configured
         if ($provider !== '' && $model !== '' && $apiKey !== '' && $baseUrl !== '') {
             try {
-                $endpoint = rtrim($baseUrl, '/') . '/chat/completions';
-                
                 $context_section = '';
                 if ($website_context !== '') {
                     $context_section = "\n\nWebsite Context (use this to understand the business/industry):\n" . $website_context;
@@ -1099,6 +1264,8 @@ final class AI_Translate_Core
                           "Website Content:\n" . $content . $context_section;
 
                 $metaModel = (stripos($model, 'gpt-5') !== false) ? 'gpt-4.1-mini' : $model;
+                $endpointPath = self::get_model_endpoint_path($metaModel);
+                $endpoint = rtrim($baseUrl, '/') . $endpointPath;
                 $body = [
                     'model' => $metaModel,
                     'messages' => [
@@ -1116,6 +1283,9 @@ final class AI_Translate_Core
                 }
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
                     $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
+                }
+                if ($endpointPath === '/responses') {
+                    $body = self::convert_body_to_responses($body);
                 }
 
                 $headers = [
@@ -1145,6 +1315,28 @@ final class AI_Translate_Core
                     'body' => wp_json_encode($body),
                 ]);
 
+                // Auto-detect /responses API and retry once on 404
+                if (!is_wp_error($response) && (int) wp_remote_retrieve_response_code($response) === 404) {
+                    $errBody = (string) wp_remote_retrieve_body($response);
+                    if (self::is_responses_api_error($errBody)) {
+                        self::mark_model_responses_api($metaModel);
+                        $endpoint = rtrim($baseUrl, '/') . '/responses';
+                        $body = self::convert_body_to_responses([
+                            'model' => $metaModel,
+                            'messages' => [
+                                ['role' => 'system', 'content' => 'You are an expert SEO copywriter specializing in writing compelling, keyword-rich meta descriptions that drive click-through rates. You understand that generic descriptions hurt SEO performance.'],
+                                ['role' => 'user', 'content' => $prompt],
+                            ],
+                        ]);
+                        $response = wp_remote_post($endpoint, [
+                            'headers' => $headers,
+                            'timeout' => 60,
+                            'sslverify' => true,
+                            'body' => wp_json_encode($body),
+                        ]);
+                    }
+                }
+
                 if (is_wp_error($response)) {
                     throw new \Exception('API request failed: ' . $response->get_error_message());
                 }
@@ -1158,11 +1350,12 @@ final class AI_Translate_Core
                 $response_body = wp_remote_retrieve_body($response);
                 $data = json_decode($response_body, true);
                 
-                if (!isset($data['choices'][0]['message']['content'])) {
-                    throw new \Exception('Invalid API response: missing content in choices');
+                $meta = self::extract_message_content($data);
+                if ($meta === null) {
+                    throw new \Exception('Invalid API response: missing content');
                 }
                 
-                $meta = trim($data['choices'][0]['message']['content']);
+                $meta = trim($meta);
                 $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
                 $meta = strip_tags($meta);
                 $meta = trim($meta);
