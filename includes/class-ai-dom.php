@@ -347,7 +347,7 @@ final class AI_DOM
      * @param int $counter
      * @return string
      */
-    private static function extractAndReplace($html, $tagName, &$placeholders, &$counter)
+    public static function extractAndReplace($html, $tagName, &$placeholders, &$counter)
     {
         $result = '';
         $pos = 0;

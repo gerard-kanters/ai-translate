@@ -406,10 +406,19 @@ final class AI_OB
             }
         }
 
+        // Protect script/style tags from DOMDocument corruption in SEO/URL pass.
+        // DOMDocument::saveHTML() can encode & as &amp; inside <script>/<style>,
+        // breaking JavaScript operators like && and CSS syntax.
+        $seoPlaceholders = [];
+        $seoPlaceholderCounter = 0;
+        $html2Protected = $html2;
+        $html2Protected = AI_DOM::extractAndReplace($html2Protected, 'script', $seoPlaceholders, $seoPlaceholderCounter);
+        $html2Protected = AI_DOM::extractAndReplace($html2Protected, 'style', $seoPlaceholders, $seoPlaceholderCounter);
+
         // Combined SEO + URL pass: single DOM parse instead of two separate ones
         $doc = new \DOMDocument();
         $internalErrors = libxml_use_internal_errors(true);
-        $htmlToLoad = AI_DOM::ensureUtf8($html2);
+        $htmlToLoad = AI_DOM::ensureUtf8($html2Protected);
         $doc->loadHTML('<?xml encoding="utf-8" ?>' . $htmlToLoad, LIBXML_HTML_NODEFDTD);
         libxml_clear_errors();
         libxml_use_internal_errors($internalErrors);
@@ -423,6 +432,17 @@ final class AI_OB
         if (preg_match('/^(<!DOCTYPE[^>]*>)/i', $html2, $docMatch)) {
             if (stripos($html3, '<!DOCTYPE') === false) {
                 $html3 = $docMatch[1] . "\n" . $html3;
+            }
+        }
+
+        // Restore script/style tags from placeholders
+        if (!empty($seoPlaceholders)) {
+            foreach ($seoPlaceholders as $placeholderId => $original_tag) {
+                $escapedId = preg_quote($placeholderId, '/');
+                $pattern = '/<div\s+[^>]*data-ai-placeholder=["\']' . $escapedId . '["\'][^>]*><\/div>/is';
+                if (preg_match($pattern, $html3)) {
+                    $html3 = preg_replace($pattern, $original_tag, $html3, 1);
+                }
             }
         }
 
