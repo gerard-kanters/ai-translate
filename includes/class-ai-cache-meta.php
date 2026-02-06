@@ -34,7 +34,7 @@ class AI_Cache_Meta
     }
 
     /**
-     * Get the cache directory path for the current domain (same logic as AI_Cache)
+     * Get the cache directory path for the current domain.
      *
      * @return string Cache directory path
      */
@@ -43,8 +43,7 @@ class AI_Cache_Meta
         $uploads = wp_upload_dir();
         $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
         
-        // Add site-specific directory if multi-domain caching is enabled
-        $site_dir = self::get_site_cache_dir();
+        $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir();
         if (!empty($site_dir)) {
             $base = trailingslashit($base) . $site_dir . '/';
         }
@@ -53,50 +52,13 @@ class AI_Cache_Meta
     }
     
     /**
-     * Get site-specific cache directory name (same logic as AI_Cache::get_site_cache_dir)
+     * Delegate to centralized get_site_cache_dir in AI_Translate_Core.
      *
      * @return string
      */
     private static function get_site_cache_dir()
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        if (!$multi_domain) {
-            return '';
-        }
-        
-        // Use the active domain from HTTP_HOST (the domain the user is actually visiting)
-        // This ensures each domain gets its own cache directory
-        $active_domain = '';
-        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-            // Remove port if present (e.g., "example.com:8080" -> "example.com")
-            if (strpos($active_domain, ':') !== false) {
-                $active_domain = strtok($active_domain, ':');
-            }
-        }
-        
-        // Fallback to SERVER_NAME if HTTP_HOST is not available
-        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-        }
-        
-        // Final fallback to home_url() host (should rarely be needed)
-        if (empty($active_domain)) {
-            $active_domain = parse_url(home_url(), PHP_URL_HOST);
-            if (empty($active_domain)) {
-                $active_domain = 'default';
-            }
-        }
-        
-        // Sanitize domain name for use as directory name
-        $sanitized = sanitize_file_name($active_domain);
-        if (empty($sanitized)) {
-            $sanitized = 'default';
-        }
-        
-        return $sanitized;
+        return \AITranslate\AI_Translate_Core::get_site_cache_dir();
     }
 
     /**
@@ -268,7 +230,7 @@ class AI_Cache_Meta
 
     /**
      * Clear all cached translations for a post: delete cache files and metadata.
-     * Gebruikt bij inhouds- of titelwijziging zodat bij het volgende bezoek opnieuw wordt vertaald.
+     * Used on content or title changes so the next visit triggers a fresh translation.
      *
      * @param int $post_id Post ID
      * @return array{deleted: int, meta_deleted: int, errors: string[]}
@@ -887,12 +849,18 @@ class AI_Cache_Meta
     }
     
     /**
-     * Ensure the cache metadata table exists, create it if it doesn't
+     * Ensure the cache metadata table exists, create it if it doesn't.
+     * Uses a static flag to avoid repeated checks within the same request.
      *
      * @return void
      */
     public static function ensure_table_exists()
     {
+        static $verified = false;
+        if ($verified) {
+            return;
+        }
+
         global $wpdb;
         
         $table_name = self::get_table_name();
@@ -905,9 +873,10 @@ class AI_Cache_Meta
         // If query failed, table doesn't exist
         if ($wpdb->last_error) {
             $wpdb->last_error = ''; // Clear error
-            // Table doesn't exist, create it
             self::create_table();
         }
+        
+        $verified = true;
     }
 
     /**

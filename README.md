@@ -188,6 +188,7 @@ AI Translate requires an API key from one of the supported providers:
 - Improve system prompt (role, what and how).
 - Improve website context generator (what is the website about).
 - Improve admin UX.
+- All enabled and detectable languages added to Wordpress sitemap (/wp-sitemap.xml) 
 
 ### 2.2.4
 

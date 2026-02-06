@@ -293,12 +293,6 @@ final class AI_Slugs
     }
 
     /**
-     * Resolve any translated slug (any language) to source slug.
-     *
-     * @param string $path
-     * @return string|null source slug (default language)
-     */
-    /**
      * Resolve any slug (source or translated) to source slug.
      * If post_type is provided, filters by that type to handle slug conflicts.
      *
@@ -424,42 +418,7 @@ final class AI_Slugs
             return $source_slug;
         }
 
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        // Get website context (per-domain if multi-domain caching is enabled)
-        $website_context = '';
-        if ($multi_domain) {
-            $active_domain = '';
-            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-                if (strpos($active_domain, ':') !== false) {
-                    $active_domain = strtok($active_domain, ':');
-                }
-            }
-            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-            }
-            if (empty($active_domain)) {
-                $active_domain = parse_url(home_url(), PHP_URL_HOST);
-                if (empty($active_domain)) {
-                    $active_domain = 'default';
-                }
-            }
-            
-            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
-                ? $settings['website_context_per_domain'] 
-                : [];
-            
-            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
-                $website_context = trim((string) $domain_context[$active_domain]);
-            }
-        }
-        
-        if (empty($website_context)) {
-            $website_context = isset($settings['website_context']) ? (string)$settings['website_context'] : '';
-        }
-        
-        $ctx = [ 'website_context' => $website_context ];
+        $ctx = [ 'website_context' => AI_Translate_Core::get_website_context() ];
         // Always translate from original default language to target
         $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);
         $translations = is_array($res['segments'] ?? null) ? $res['segments'] : [];
@@ -500,7 +459,7 @@ final class AI_Slugs
         
         // Log for warm cache debugging
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-        $is_warm_cache_request = (strpos($user_agent, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36') !== false);
+        $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
         if ($is_warm_cache_request) {
             $uploads = wp_upload_dir();
             $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';

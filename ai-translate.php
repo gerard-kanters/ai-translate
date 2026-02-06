@@ -276,25 +276,14 @@ function ai_translate_register_rewrite_rules()
 
 add_action('init', 'ai_translate_register_rewrite_rules', 999); // Priority 999: runs AFTER custom post types are registered (default priority 10)
 
-// Ensure slug map table exists early in init
+// Ensure slug map table exists — only run dbDelta when schema version changes
 add_action('init', function () {
-    \AITranslate\AI_Slugs::install_table();
-}, 1);
-
-// Schedule cache metadata sync cron job
-add_action('ai_translate_sync_cache_metadata', function () {
-    \AITranslate\AI_Cache_Meta::sync_from_filesystem();
-});
-
-if (!wp_next_scheduled('ai_translate_sync_cache_metadata')) {
-    wp_schedule_event(time(), 'hourly', 'ai_translate_sync_cache_metadata');
-}
-
-
-
-// Ensure slug map table exists early in init
-add_action('init', function () {
-    \AITranslate\AI_Slugs::install_table();
+    $current_version = '2.2.5';
+    $stored_version = get_option('ai_translate_slugs_schema_version', '');
+    if ($stored_version !== $current_version) {
+        \AITranslate\AI_Slugs::install_table();
+        update_option('ai_translate_slugs_schema_version', $current_version);
+    }
 }, 1);
 
 // Schedule cache metadata sync cron job
@@ -464,7 +453,7 @@ add_filter('request', function ($vars) {
     if ($req !== '' && (strpos($req, '/wp-admin/') !== false || strpos($req, 'wp-login.php') !== false)) {
         return $vars;
     }
-    // Fallback: als rewrite geen ai_translate_path zette (bijv. URL met %), haal path uit REQUEST_URI
+    // Fallback: if rewrite did not set ai_translate_path (e.g. URL with %), extract path from REQUEST_URI
     if (empty($vars['ai_translate_path']) && !empty($req) && preg_match('#^/([a-z]{2})/([^?]+)#i', $req, $m)) {
         $path_from_uri = (string) parse_url($req, PHP_URL_PATH);
         if ($path_from_uri !== '' && preg_match('#^/([a-z]{2})(?:/(.*))?$#i', $path_from_uri, $path_m)) {
@@ -472,8 +461,8 @@ add_filter('request', function ($vars) {
             $vars['ai_translate_path'] = isset($path_m[2]) ? trim($path_m[2], '/') : '';
         }
     }
-    // ai_translate_path: bij /{lang}/{pad}/ zet de generic rule ai_translate_path. Resolve naar post
-    // vóór de main query zodat de juiste page_id of p+post_type wordt meegenomen.
+    // ai_translate_path: the generic rewrite rule sets ai_translate_path for /{lang}/{path}/.
+    // Resolve to post before the main query so the correct page_id or p+post_type is included.
     if (!empty($vars['ai_translate_path']) && !empty($vars['lang'])) {
         $path = trim((string) $vars['ai_translate_path'], '/');
         $lang = (string) $vars['lang'];
@@ -925,14 +914,6 @@ add_action('wp_enqueue_scripts', function () {
     }
 });
 
-// Never adjust admin URLs or rewrite menu items in admin or default language
-add_filter('nav_menu_link_attributes', function ($atts, $item) {
-    if (is_admin() || \AITranslate\AI_Lang::is_exempt_request()) {
-        return $atts;
-    }
-    return $atts;
-}, 10, 2);
-
 /**
  * Generate language switcher HTML for navigation menu.
  * 
@@ -984,7 +965,7 @@ function ai_translate_get_nav_switcher_html() {
     
     // Build switcher HTML (compact nav version)
     $switcher_html = '<li class="menu-item ai-trans-nav-container"><div class="ai-trans ai-trans-nav">';
-    // Gebruik <a> i.p.v. <button> zodat themes die op <a> stylen het item zichtbaar houden.
+    // Use <a> instead of <button> so themes that style <a> elements keep the item visible.
     $switcher_html .= '<a href="#" class="ai-trans-btn" role="button" aria-haspopup="true" aria-expanded="false" aria-controls="' . esc_attr($menu_id) . '" title="' . esc_attr(strtoupper($currentLang)) . '">';
     $switcher_html .= '<img src="' . $currentFlag . '" alt="' . esc_attr($currentLang) . '"><span class="ai-trans-code">' . esc_html(strtoupper($currentLang)) . '</span>';
     $switcher_html .= '</a>';
@@ -1210,14 +1191,36 @@ add_action('init', function () {
     }
 }, 99);
 /**
- * REST endpoint voor dynamische UI-attribuutvertaling (geen admin-ajax).
+ * REST endpoint for dynamic UI attribute translation.
  */
 add_action('rest_api_init', function () {
     register_rest_route('ai-translate/v1', '/batch-strings', [
         'methods' => 'POST',
-        'permission_callback' => '__return_true',
+        'permission_callback' => function (\WP_REST_Request $request) {
+            $nonce = $request->get_header('X-WP-Nonce');
+            if ($nonce && wp_verify_nonce($nonce, 'wp_rest')) {
+                return true;
+            }
+            $nonce_param = $request->get_param('_nonce');
+            if ($nonce_param && wp_verify_nonce($nonce_param, 'ai_translate_front_nonce')) {
+                return true;
+            }
+            return new \WP_Error('rest_forbidden', 'Invalid nonce', ['status' => 403]);
+        },
         'args' => [],
         'callback' => function (\WP_REST_Request $request) {
+            // Rate limiting: max 60 requests per minute per IP.
+            // This endpoint is called by client-side JavaScript for UI attribute translation.
+            // Warm cache does not trigger this endpoint (server-side only, no JS execution).
+            // 60/min is generous enough for normal browsing (2-3 calls per page load).
+            $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
+            $rate_key = 'ai_tr_rate_' . md5($ip);
+            $rate_count = (int) get_transient($rate_key);
+            if ($rate_count >= 60) {
+                return new \WP_REST_Response(['error' => 'Rate limit exceeded'], 429);
+            }
+            set_transient($rate_key, $rate_count + 1, 60);
+
             $arr = $request->get_param('strings');
             if (!is_array($arr)) {
                 $arr = [];
@@ -1932,8 +1935,8 @@ add_action('post_updated', function ($post_id, $post_after, $post_before) {
 }, 10, 3);
 
 /**
- * Bij gewijzigde inhoud of titel: vertaalcache voor dit bericht wissen zodat bij het volgende
- * bezoek opnieuw wordt vertaald (hervertaling).
+ * On content or title changes: clear translation cache for this post so the next
+ * visit triggers a fresh translation (retranslation).
  */
 add_action('post_updated', function ($post_id, $post_after, $post_before) {
     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {

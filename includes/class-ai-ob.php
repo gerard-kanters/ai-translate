@@ -133,7 +133,7 @@ final class AI_OB
     {
         // Log callback trigger for warm cache debugging (before static check)
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-        $is_warm_cache_request = (strpos($user_agent, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36') !== false);
+        $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
         $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
         
         if ($is_warm_cache_request) {
@@ -296,53 +296,6 @@ final class AI_OB
                 // All users get cached content with admin bar post-processing
                 $processing = false;
                 return $this->post_process_cached_content($cached);
-                $cache_age_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
-                $cache_age_days = $cache_age_hours / 24;
-
-                // Validate cached content if it's older than 80% of the configured cache expiration period
-                // This ensures we only validate when cache is nearing expiration, not prematurely
-                $validate_threshold_days = $cache_age_days * 0.8; // 80% of expiration time
-                if ($cache_age_days > $validate_threshold_days) {
-                    // Validate cached content for substantial untranslated text (> 4 words)
-                    $defaultLang = AI_Lang::default();
-                    if ($defaultLang !== null) {
-                        $untranslatedCheck = $this->detect_untranslated_content($cached, $lang, $defaultLang, $url);
-                        $wordCount = isset($untranslatedCheck['word_count']) ? (int) $untranslatedCheck['word_count'] : 0;
-                        $reason = isset($untranslatedCheck['reason']) ? (string) $untranslatedCheck['reason'] : '';
-                        $isUIAttributes = strpos($reason, 'UI attribute') !== false;
-
-                        // UI attributes are handled separately via batch-strings (JavaScript) and stored in transient cache (ai_tr_attr_*)
-                        // They are independent of the page cache, so we should NOT invalidate the page cache for UI attributes
-                        // Only invalidate for body text with > 4 untranslated words
-                        if ($untranslatedCheck['has_untranslated'] && !$isUIAttributes && $wordCount > 4) {
-                            $retryKey = 'ai_translate_retry_' . md5($key);
-                            $retryCount = (int) get_transient($retryKey);
-
-                            if ($retryCount < 1) {
-                                // Body text: use retry counter to avoid infinite loops
-                                set_transient($retryKey, $retryCount + 1, HOUR_IN_SECONDS);
-                                // Fall through to translation below (don't return cached)
-                            } else {
-                                // Max retries reached for body text, serve cached version anyway
-                                $processing = false;
-                                return $this->post_process_cached_content($cached);
-                            }
-                        } else {
-                            // Cache is good, return it
-                            // Note: UI attributes will be translated client-side via batch-strings if needed
-                            $processing = false;
-                            return $this->post_process_cached_content($cached);
-                        }
-                    } else {
-                        // Default language not available, return cached
-                        $processing = false;
-                        return $this->post_process_cached_content($cached);
-                    }
-                } else {
-                    // Cache is recent (< 7 days), skip validation for performance
-                    $processing = false;
-                    return $this->post_process_cached_content($cached);
-                }
             }
         } else {
             $bypassReason = $bypassUserCache ? 'logged_in_user' : ($nocache ? 'nocache_param' : 'unknown');
@@ -547,8 +500,25 @@ final class AI_OB
             }
         }
 
-        $html3 = AI_SEO::inject($html2, $lang);
-        $html3 = AI_URL::rewrite($html3, $lang);
+        // Combined SEO + URL pass: single DOM parse instead of two separate ones
+        $doc = new \DOMDocument();
+        $internalErrors = libxml_use_internal_errors(true);
+        $htmlToLoad = AI_DOM::ensureUtf8($html2);
+        $doc->loadHTML('<?xml encoding="utf-8" ?>' . $htmlToLoad, LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        libxml_use_internal_errors($internalErrors);
+
+        $xpath = new \DOMXPath($doc);
+        AI_SEO::inject_dom($doc, $xpath, $lang);
+        AI_URL::rewrite_dom($doc, $lang);
+
+        $html3 = $doc->saveHTML();
+        $html3 = preg_replace('/<\?xml[^?]*\?>\s*/i', '', $html3);
+        if (preg_match('/^(<!DOCTYPE[^>]*>)/i', $html2, $docMatch)) {
+            if (stripos($html3, '<!DOCTYPE') === false) {
+                $html3 = $docMatch[1] . "\n" . $html3;
+            }
+        }
 
         // Validate final output before caching
         $html3Len = strlen($html3);
@@ -557,7 +527,7 @@ final class AI_OB
         
         // Log validation for warm cache debugging
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-        $is_warm_cache_request = (strpos($user_agent, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36') !== false);
+        $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
         
         if ($is_warm_cache_request) {
             $uploads = wp_upload_dir();
@@ -600,7 +570,7 @@ final class AI_OB
             // Log cache write attempt for warm cache debugging
             $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
             $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-            $is_warm_cache_request = (strpos($user_agent, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36') !== false);
+            $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
             
             if ($is_warm_cache_request) {
                 $uploads = wp_upload_dir();
@@ -628,7 +598,7 @@ final class AI_OB
             // Log why cache was skipped
             $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
             $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-            $is_warm_cache_request = (strpos($user_agent, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36') !== false);
+            $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
             
             if ($is_warm_cache_request) {
                 $uploads = wp_upload_dir();
@@ -1333,106 +1303,17 @@ final class AI_OB
     }
 
     /**
-     * Compute a content version hash based on common content signals.
-     *
-     * @return string
-     */
-    private function content_version()
-    {
-        $bits = [];
-        if (is_singular()) {
-            $post_id = get_queried_object_id();
-            $modified = $post_id ? get_post_modified_time('U', true, $post_id) : 0;
-            $bits[] = 'singular:' . (int) $post_id . ':' . (int) $modified;
-        } else {
-            // Archive/search: include query vars and recent posts modified.
-            $q = get_queried_object();
-            $bits[] = 'archive:' . maybe_serialize($q);
-        }
-        return substr(sha1(implode('|', $bits)), 0, 16);
-    }
-
-    /**
-     * Build site context for translation prompts.
+     * Build site context for translation prompts using centralized helpers.
      *
      * @return array
      */
     private function site_context()
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        // Get website context (per-domain if multi-domain caching is enabled)
-        $website_context = '';
-        if ($multi_domain) {
-            $active_domain = '';
-            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-                if (strpos($active_domain, ':') !== false) {
-                    $active_domain = strtok($active_domain, ':');
-                }
-            }
-            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-            }
-            if (empty($active_domain)) {
-                $active_domain = parse_url(home_url(), PHP_URL_HOST);
-                if (empty($active_domain)) {
-                    $active_domain = 'default';
-                }
-            }
-            
-            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
-                ? $settings['website_context_per_domain'] 
-                : [];
-            
-            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
-                $website_context = trim((string) $domain_context[$active_domain]);
-            }
-        }
-        
-        if (empty($website_context)) {
-            $website_context = isset($settings['website_context']) ? (string)$settings['website_context'] : '';
-        }
-        
-        // Get homepage meta description (per-domain if multi-domain caching is enabled)
-        $homepage_meta = '';
-        if ($multi_domain) {
-            $active_domain = '';
-            if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-                $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-                if (strpos($active_domain, ':') !== false) {
-                    $active_domain = strtok($active_domain, ':');
-                }
-            }
-            if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-                $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-            }
-            if (empty($active_domain)) {
-                $active_domain = parse_url(home_url(), PHP_URL_HOST);
-                if (empty($active_domain)) {
-                    $active_domain = 'default';
-                }
-            }
-            
-            $domain_meta = isset($settings['homepage_meta_description_per_domain']) && is_array($settings['homepage_meta_description_per_domain']) 
-                ? $settings['homepage_meta_description_per_domain'] 
-                : [];
-            
-            if (isset($domain_meta[$active_domain]) && trim((string) $domain_meta[$active_domain]) !== '') {
-                $homepage_meta = trim((string) $domain_meta[$active_domain]);
-            }
-        }
-        
-        if (empty($homepage_meta)) {
-            $homepage_meta = isset($settings['homepage_meta_description']) ? (string)$settings['homepage_meta_description'] : '';
-        }
-        
         return [
             'site_name' => (string) get_bloginfo('name'),
             'default_language' => AI_Lang::default(),
-            'website_context' => $website_context,
-            'homepage_meta_description' => $homepage_meta,
+            'website_context' => AI_Translate_Core::get_website_context(),
+            'homepage_meta_description' => AI_Translate_Core::get_homepage_meta_description(),
         ];
     }
 

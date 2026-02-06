@@ -26,7 +26,7 @@ final class AI_Lang
 
         $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_map('strval', $settings['enabled_languages']) : [];
         $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? array_map('strval', $settings['detectable_languages']) : [];
-        // Allow any supported language in URL (not alleen enabled/detectable)
+        // Allow any supported language in URL (not only enabled/detectable)
         $available = [];
         if (class_exists('AITranslate\\AI_Translate_Core')) {
             $core = \AITranslate\AI_Translate_Core::get_instance();

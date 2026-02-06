@@ -31,74 +31,7 @@ final class AI_URL
         libxml_clear_errors();
         libxml_use_internal_errors($internalErrors);
 
-        $xpath = new \DOMXPath($doc);
-        $links = $xpath->query('//a[@href]');
-        if ($links) {
-            foreach ($links as $a) {
-                /** @var \DOMElement $a */
-                // Skip language switcher or marked links (self or ancestor)
-                if (self::hasSkipFlag($a)) {
-                    continue;
-                }
-                $href = (string) $a->getAttribute('href');
-                if ($href === '' || self::isSkippableHref($href)) {
-                    continue;
-                }
-                
-                // Special handling for logo links: rewrite even if they point to homepage
-                $isLogo = self::isLogoLink($a);
-                $new = self::rewriteHref($href, $lang, $default, $isLogo);
-                if ($new !== null) {
-                    $a->setAttribute('href', $new);
-                }
-            }
-        }
-
-        // Rewrite singular permalinks using slug map when possible
-        $permalinks = $xpath->query('//a[@href]');
-        if ($permalinks) {
-            foreach ($permalinks as $a) {
-                /** @var \DOMElement $a */
-                // Skip language switcher or marked links (self or ancestor)
-                if (self::hasSkipFlag($a)) {
-                    continue;
-                }
-                $href = (string) $a->getAttribute('href');
-                if ($href === '' || self::isSkippableHref($href)) continue;
-                // For posts index pagination, prefer ?blogpage=N variant to keep theme compatible
-                $hrefParts = wp_parse_url($href);
-                $path = isset($hrefParts['path']) ? (string) $hrefParts['path'] : '';
-                if ($path !== '' && preg_match('#/page/([0-9]+)/?$#', $path, $mm)) {
-                    $postsPageId = (int) get_option('page_for_posts');
-                    if ($postsPageId > 0) {
-                        $postsSlug = (string) get_page_uri($postsPageId);
-                        $translatedSlug = \AITranslate\AI_Slugs::get_or_generate($postsPageId, $lang);
-                        if (!is_string($translatedSlug) || $translatedSlug === '') {
-                            $translatedSlug = $postsSlug;
-                        }
-                        // Build base posts index URL in current language
-                        $base = (strtolower($lang) === strtolower($default))
-                            ? ('/' . trim($postsSlug, '/') . '/')
-                            : ('/' . $lang . '/' . trim($translatedSlug, '/') . '/');
-                        $n = max(1, (int) $mm[1]);
-                        // Merge existing query and set blogpage
-                        $params = array();
-                        if (isset($hrefParts['query']) && $hrefParts['query'] !== '') {
-                            parse_str((string)$hrefParts['query'], $params);
-                        }
-                        $params['blogpage'] = $n;
-                        $q = '?' . http_build_query($params);
-                        $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
-                        $a->setAttribute('href', $base . $q . $frag);
-                        continue;
-                    }
-                }
-                $translated = self::rewriteSingularWithSlugMap($href, $lang, $default);
-                if ($translated) {
-                    $a->setAttribute('href', $translated);
-                }
-            }
-        }
+        self::rewrite_dom($doc, $lang);
 
         $result = $doc->saveHTML();
         
@@ -124,6 +57,85 @@ final class AI_URL
         }
         
         return $result;
+    }
+
+    /**
+     * Rewrite internal links in an already-parsed DOMDocument.
+     * Modifies the document in place. Used by combined DOM pass in AI_OB.
+     *
+     * @param \DOMDocument $doc  Parsed HTML document.
+     * @param string       $lang Target language code.
+     * @return void
+     */
+    public static function rewrite_dom(\DOMDocument $doc, string $lang): void
+    {
+        $default = AI_Lang::default();
+        if ($default === null) {
+            return;
+        }
+
+        $xpath = new \DOMXPath($doc);
+        $links = $xpath->query('//a[@href]');
+        if ($links) {
+            foreach ($links as $a) {
+                /** @var \DOMElement $a */
+                if (self::hasSkipFlag($a)) {
+                    continue;
+                }
+                $href = (string) $a->getAttribute('href');
+                if ($href === '' || self::isSkippableHref($href)) {
+                    continue;
+                }
+                
+                $isLogo = self::isLogoLink($a);
+                $new = self::rewriteHref($href, $lang, $default, $isLogo);
+                if ($new !== null) {
+                    $a->setAttribute('href', $new);
+                }
+            }
+        }
+
+        // Rewrite singular permalinks using slug map when possible
+        $permalinks = $xpath->query('//a[@href]');
+        if ($permalinks) {
+            foreach ($permalinks as $a) {
+                /** @var \DOMElement $a */
+                if (self::hasSkipFlag($a)) {
+                    continue;
+                }
+                $href = (string) $a->getAttribute('href');
+                if ($href === '' || self::isSkippableHref($href)) continue;
+                $hrefParts = wp_parse_url($href);
+                $path = isset($hrefParts['path']) ? (string) $hrefParts['path'] : '';
+                if ($path !== '' && preg_match('#/page/([0-9]+)/?$#', $path, $mm)) {
+                    $postsPageId = (int) get_option('page_for_posts');
+                    if ($postsPageId > 0) {
+                        $postsSlug = (string) get_page_uri($postsPageId);
+                        $translatedSlug = \AITranslate\AI_Slugs::get_or_generate($postsPageId, $lang);
+                        if (!is_string($translatedSlug) || $translatedSlug === '') {
+                            $translatedSlug = $postsSlug;
+                        }
+                        $base = (strtolower($lang) === strtolower($default))
+                            ? ('/' . trim($postsSlug, '/') . '/')
+                            : ('/' . $lang . '/' . trim($translatedSlug, '/') . '/');
+                        $n = max(1, (int) $mm[1]);
+                        $params = array();
+                        if (isset($hrefParts['query']) && $hrefParts['query'] !== '') {
+                            parse_str((string)$hrefParts['query'], $params);
+                        }
+                        $params['blogpage'] = $n;
+                        $q = '?' . http_build_query($params);
+                        $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
+                        $a->setAttribute('href', $base . $q . $frag);
+                        continue;
+                    }
+                }
+                $translated = self::rewriteSingularWithSlugMap($href, $lang, $default);
+                if ($translated) {
+                    $a->setAttribute('href', $translated);
+                }
+            }
+        }
     }
 
     /**

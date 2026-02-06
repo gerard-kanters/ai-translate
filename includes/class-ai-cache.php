@@ -116,7 +116,7 @@ final class AI_Cache
         
         // Log cache write for warm cache debugging
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-        $is_warm_cache_request = (strpos($user_agent, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36') !== false);
+        $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
         
         if ($is_warm_cache_request) {
             $uploads = wp_upload_dir();
@@ -170,52 +170,13 @@ final class AI_Cache
     }
 
     /**
-     * Get site-specific cache directory name.
-     * Returns sanitized domain name for use as directory name.
-     * Uses the active domain (HTTP_HOST) instead of the WordPress home URL to support multi-domain setups.
+     * Delegate to centralized get_site_cache_dir in AI_Translate_Core.
      *
      * @return string
      */
     private static function get_site_cache_dir()
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        if (!$multi_domain) {
-            return '';
-        }
-        
-        // Use the active domain from HTTP_HOST (the domain the user is actually visiting)
-        // This ensures each domain gets its own cache directory
-        $active_domain = '';
-        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-            // Remove port if present (e.g., "example.com:8080" -> "example.com")
-            if (strpos($active_domain, ':') !== false) {
-                $active_domain = strtok($active_domain, ':');
-            }
-        }
-        
-        // Fallback to SERVER_NAME if HTTP_HOST is not available
-        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-        }
-        
-        // Final fallback to home_url() host (should rarely be needed)
-        if (empty($active_domain)) {
-            $active_domain = parse_url(home_url(), PHP_URL_HOST);
-            if (empty($active_domain)) {
-                $active_domain = 'default';
-            }
-        }
-        
-        // Sanitize domain name for use as directory name
-        $sanitized = sanitize_file_name($active_domain);
-        if (empty($sanitized)) {
-            $sanitized = 'default';
-        }
-        
-        return $sanitized;
+        return \AITranslate\AI_Translate_Core::get_site_cache_dir();
     }
 
     /**

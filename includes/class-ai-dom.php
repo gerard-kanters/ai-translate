@@ -509,17 +509,6 @@ final class AI_DOM
         return false;
     }
 
-    private static function nodeText(\DOMNode $node)
-    {
-        $text = '';
-        foreach ($node->childNodes as $child) {
-            if ($child->nodeType === XML_TEXT_NODE) {
-                $text .= $child->nodeValue;
-            }
-        }
-        return $text;
-    }
-
     /**
      * Collect all descendant DOMText nodes that are not inside excluded tags.
      * Uses a visited set to avoid duplicates when multiple tag selectors overlap.
@@ -572,7 +561,13 @@ final class AI_DOM
         $node->insertBefore($node->ownerDocument->createTextNode($text), $node->firstChild);
     }
 
-    private static function ensureUtf8($html)
+    /**
+     * Ensure HTML string is valid UTF-8.
+     *
+     * @param string $html
+     * @return string
+     */
+    public static function ensureUtf8($html)
     {
         if (!\mb_detect_encoding($html, 'UTF-8', true)) {
             $html = \mb_convert_encoding($html, 'UTF-8');

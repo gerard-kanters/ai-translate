@@ -59,11 +59,6 @@ final class AI_SEO
         if ($lang === null) {
             return $html;
         }
-        
-        if (is_front_page() || is_home()) {
-            $homepage_setting = self::get_homepage_meta_description();
-            $blogdesc = (string) get_option('blogdescription', '');
-        }
 
         // Parse HTML into DOM
         $doc = new \DOMDocument();
@@ -75,391 +70,9 @@ final class AI_SEO
         libxml_use_internal_errors($internalErrors);
 
         $xpath = new \DOMXPath($doc);
-        $head = $doc->getElementsByTagName('head')->item(0);
-        if (!$head) {
-            // Create <head> if missing
-            $head = $doc->createElement('head');
-            $htmlEl = $doc->getElementsByTagName('html')->item(0);
-            if ($htmlEl) {
-                $htmlEl->insertBefore($head, $htmlEl->firstChild);
-            } else {
-                // As a fallback, prepend head at the top-level
-                $doc->insertBefore($head, $doc->firstChild);
-            }
-        }
 
-        // Translate <title> content for non-default languages (preserve structure)
-        try {
-            if ($default && $lang && strtolower((string)$lang) !== strtolower((string)$default)) {
-                $titleNode = $doc->getElementsByTagName('title')->item(0);
-                if ($titleNode) {
-                    $origTitle = trim((string) $titleNode->textContent);
-                    if ($origTitle !== '') {
-                        $newTitle = self::maybeTranslateMeta($origTitle, $default, $lang);
-                        if (is_string($newTitle) && $newTitle !== '') {
-                            while ($titleNode->firstChild) { $titleNode->removeChild($titleNode->firstChild); }
-                            $titleNode->appendChild($doc->createTextNode($newTitle));
-                        }
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            // Fail-safe: keep original title on error
-        }
-
-        // 1) Meta Description (add if missing, or replace if empty/not admin setting for homepage)
-        // For translated languages: always use computed description (admin setting) and translate it
-        $metaDescNodes = $xpath->query('//head/meta[translate(@name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="description"]');
-        $existingMetaDesc = null;
-        if ($metaDescNodes && $metaDescNodes->length > 0) {
-            $item = $metaDescNodes->item(0);
-            if ($item instanceof \DOMElement) {
-                $existingMetaDesc = $item;
-            }
-        }
-        
-        $desc = self::computeMetaDescription();
-        $shouldReplace = false;
-        $isTranslatedLang = $default && $lang && strtolower((string)$lang) !== strtolower((string)$default);
-        
-        if ($existingMetaDesc === null) {
-            // No meta description exists, add one
-            $shouldReplace = true;
-        } else {
-            // Meta description exists, check if we should replace it
-            $existingContent = trim((string) $existingMetaDesc->getAttribute('content'));
-            
-            // For translated languages: always replace with computed description (admin setting)
-            if ($isTranslatedLang) {
-                $shouldReplace = true;
-            } elseif (is_front_page() || is_home()) {
-                // For default language homepage: replace if empty or if admin setting exists and doesn't match
-                $homepage = self::get_homepage_meta_description();
-                if ($homepage !== '') {
-                    // Admin setting exists: replace if empty or different
-                    if ($existingContent === '' || $existingContent !== $homepage) {
-                        $shouldReplace = true;
-                    }
-                } elseif ($existingContent === '') {
-                    // No admin setting but existing is empty, use computed description
-                    $shouldReplace = true;
-                }
-            } elseif ($existingContent === '') {
-                // Not homepage, but existing is empty, use computed description
-                $shouldReplace = true;
-            }
-        }
-        
-        if ($shouldReplace && $desc !== '') {
-            $finalDesc = self::maybeTranslateMeta($desc, $default, $lang);
-            $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
-            if ($finalDesc !== '') {
-                if ($existingMetaDesc !== null) {
-                    // Replace existing meta description
-                    $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
-                } else {
-                    // Add new meta description
-                    $meta = $doc->createElement('meta');
-                    $meta->setAttribute('name', 'description');
-                    $meta->setAttribute('content', esc_attr($finalDesc));
-                    $head->appendChild($meta);
-                    $head->appendChild($doc->createTextNode("\n"));
-                }
-            }
-        } else {
-            // For translated languages: ensure existing meta description is always translated
-            if ($isTranslatedLang && $existingMetaDesc !== null && $desc === '') {
-                // Even if computeMetaDescription returned empty, translate existing if present
-                $existingContent = trim((string) $existingMetaDesc->getAttribute('content'));
-                if ($existingContent !== '') {
-                    $finalDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
-                    $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
-                    if ($finalDesc !== '') {
-                        $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
-                    }
-                }
-            }
-        }
-
-        // 2) Open Graph (add missing og:* tags or replace for translated languages)
-        $ogTitleMissing = self::isOgMissing($xpath, 'og:title');
-        $ogDescMissing = self::isOgMissing($xpath, 'og:description');
-        $ogImageMissing = self::isOgMissing($xpath, 'og:image');
-        $ogUrlMissing   = self::isOgMissing($xpath, 'og:url');
-        
-        $ogLocale = '';
-        $langNorm = strtolower(trim((string) $lang));
-        if ($langNorm !== '') {
-            if (preg_match('/^([a-z]{2})[-_](.+)$/i', $langNorm, $m)) {
-                $langPart = strtolower($m[1]);
-                $regionPart = strtoupper(preg_replace('/[^a-z]/i', '', $m[2]));
-                if ($regionPart !== '') {
-                    $ogLocale = $langPart . '_' . $regionPart;
-                }
-            }
-            if ($ogLocale === '') {
-                $ogLocaleMap = [
-                    'en' => 'en_US',
-                    'nl' => 'nl_NL',
-                    'de' => 'de_DE',
-                    'fr' => 'fr_FR',
-                    'es' => 'es_ES',
-                    'it' => 'it_IT',
-                    'pt' => 'pt_PT',
-                    'ru' => 'ru_RU',
-                    'ka' => 'ka_GE',
-                    'fi' => 'fi_FI',
-                    'sv' => 'sv_SE',
-                    'no' => 'no_NO',
-                    'da' => 'da_DK',
-                    'pl' => 'pl_PL',
-                    'cs' => 'cs_CZ',
-                    'sk' => 'sk_SK',
-                    'hu' => 'hu_HU',
-                    'ro' => 'ro_RO',
-                    'bg' => 'bg_BG',
-                    'hr' => 'hr_HR',
-                    'sl' => 'sl_SI',
-                    'el' => 'el_GR',
-                    'tr' => 'tr_TR',
-                    'ar' => 'ar_SA',
-                    'he' => 'he_IL',
-                    'hi' => 'hi_IN',
-                    'ja' => 'ja_JP',
-                    'ko' => 'ko_KR',
-                    'zh' => 'zh_CN',
-                    'th' => 'th_TH',
-                    'vi' => 'vi_VN',
-                    'id' => 'id_ID',
-                    'uk' => 'uk_UA',
-                    'kk' => 'kk_KZ',
-                    'et' => 'et_EE',
-                    'ga' => 'ga_IE',
-                    'lv' => 'lv_LV',
-                    'lt' => 'lt_LT',
-                    'mt' => 'mt_MT',
-                ];
-                $ogLocale = $ogLocaleMap[$langNorm] ?? $langNorm;
-            }
-        }
-        
-        if ($ogLocale !== '') {
-            // Always remove ALL existing og:locale tags first to ensure no duplicates
-            $existingOgLocale = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:locale"]');
-            if ($existingOgLocale && $existingOgLocale->length > 0) {
-                // Remove all existing og:locale tags (iterate backwards to avoid index issues)
-                for ($i = $existingOgLocale->length - 1; $i >= 0; $i--) {
-                    $ogLocaleElem = $existingOgLocale->item($i);
-                    if ($ogLocaleElem instanceof \DOMElement) {
-                        $parent = $ogLocaleElem->parentNode;
-                        if ($parent) {
-                            $parent->removeChild($ogLocaleElem);
-                        }
-                    }
-                }
-            }
-            // Always add exactly one correct og:locale tag
-            $meta = $doc->createElement('meta');
-            $meta->setAttribute('property', 'og:locale');
-            $meta->setAttribute('content', esc_attr($ogLocale));
-            $head->appendChild($meta);
-            $head->appendChild($doc->createTextNode("\n"));
-        }
-        
-        // For all languages: synchronize og:description with computed meta description (admin setting)
-        // For translated languages: always replace; for default language: replace if admin setting is set
-        $shouldReplaceOgDesc = $isTranslatedLang;
-        if (!$isTranslatedLang && (is_front_page() || is_home())) {
-            // For default language homepage: check if admin setting is set
-            $homepage = self::get_homepage_meta_description();
-            if ($homepage !== '') {
-                $shouldReplaceOgDesc = true;
-            }
-        }
-        // Also replace if og:description is missing
-        if ($ogDescMissing) {
-            $shouldReplaceOgDesc = true;
-        }
-        
-        // On homepage: always replace og:image with domain logo (if available via site_icon)
-        $shouldReplaceOgImage = (is_front_page() || is_home());
-
-        if ($ogTitleMissing || $shouldReplaceOgDesc || $ogImageMissing || $ogUrlMissing || $shouldReplaceOgImage) {
-            $ogTitle = '';
-            if ($ogTitleMissing) {
-                // Use the title tag content directly (without adding site name)
-                $titleNode = $doc->getElementsByTagName('title')->item(0);
-                if ($titleNode) {
-                    $ogTitle = trim((string) $titleNode->textContent);
-                }
-                // Fallback if title tag is not available
-                if ($ogTitle === '') {
-                    if (is_singular()) {
-                        $postId = get_queried_object_id();
-                        if ($postId) {
-                            $ogTitle = (string) get_the_title($postId);
-                        }
-                    } elseif (is_front_page() || is_home()) {
-                        $ogTitle = (string) get_bloginfo('description');
-                    } elseif (is_archive()) {
-                        $ogTitle = (string) get_the_archive_title();
-                    }
-                }
-                // Translate og:title for translated languages
-                if ($ogTitle !== '' && $isTranslatedLang) {
-                    $ogTitle = self::maybeTranslateMeta($ogTitle, $default, $lang);
-                }
-            }
-
-            $ogDesc = '';
-            if ($shouldReplaceOgDesc) {
-                $ogDesc = self::computeMetaDescription();
-                if ($ogDesc !== '') {
-                    $ogDesc = self::maybeTranslateMeta($ogDesc, $default, $lang);
-                    $ogDesc = self::truncateUtf8($ogDesc, 200, '...');
-                }
-            }
-
-            $ogImage = '';
-            if ($ogImageMissing || $shouldReplaceOgImage) {
-                // On homepage: check if a custom logo ID is provided via filter (only for sites that want to replace)
-                if ($shouldReplaceOgImage) {
-                    $logoId = apply_filters('ai_translate_homepage_logo_id', null);
-                    if ($logoId && $logoId > 0) {
-                        $url = wp_get_attachment_image_url($logoId, 'large');
-                        if (is_string($url) && $url !== '') {
-                            $ogImage = (string) $url;
-                        }
-                    }
-                }
-                
-                // Normal logic: use featured image for singular pages (including homepage if it's a page)
-                if ($ogImage === '' && is_singular()) {
-                    $postId = get_queried_object_id();
-                    if ($postId && has_post_thumbnail($postId)) {
-                        $imgId = get_post_thumbnail_id($postId);
-                        $url = wp_get_attachment_image_url($imgId, 'large');
-                        if (is_string($url) && $url !== '') {
-                            $ogImage = (string) $url;
-                        }
-                    }
-                }
-                
-                // Final fallback to theme logo
-                if ($ogImage === '') {
-                    $logoId = get_theme_mod('custom_logo');
-                    if ($logoId) {
-                        $url = wp_get_attachment_image_url($logoId, 'large');
-                        if (is_string($url) && $url !== '') {
-                            $ogImage = (string) $url;
-                        }
-                    }
-                }
-            }
-
-            $ogUrl = '';
-            if ($ogUrlMissing) {
-                $currentAbs = self::currentPageUrlAbsolute();
-                $path = AI_URL::rewrite_single_href($currentAbs, $lang, $default);
-                if (is_string($path) && $path !== '') {
-                    // Check if path is already a full URL (starts with http:// or https://)
-                    if (preg_match('#^https?://#i', $path)) {
-                        $ogUrl = $path;
-                    } else {
-                        $ogUrl = home_url($path);
-                    }
-                }
-                if ($ogUrl === '') {
-                    $ogUrl = $currentAbs;
-                }
-            }
-
-            if ($ogTitleMissing && $ogTitle !== '') {
-                $meta = $doc->createElement('meta');
-                $meta->setAttribute('property', 'og:title');
-                $meta->setAttribute('content', esc_attr(trim($ogTitle)));
-                $head->appendChild($meta);
-                $head->appendChild($doc->createTextNode("\n"));
-            }
-            if ($shouldReplaceOgDesc && $ogDesc !== '') {
-                // Find existing og:description to replace, or add new one
-                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
-                if ($existingOgDesc && $existingOgDesc->length > 0) {
-                    // Replace existing og:description
-                    $ogDescElem = $existingOgDesc->item(0);
-                    if ($ogDescElem instanceof \DOMElement) {
-                        $ogDescElem->setAttribute('content', esc_attr(trim($ogDesc)));
-                    }
-                } else {
-                    // Add new og:description
-                    $meta = $doc->createElement('meta');
-                    $meta->setAttribute('property', 'og:description');
-                    $meta->setAttribute('content', esc_attr(trim($ogDesc)));
-                    $head->appendChild($meta);
-                    $head->appendChild($doc->createTextNode("\n"));
-                }
-            } elseif ($isTranslatedLang && $shouldReplaceOgDesc && $ogDesc === '') {
-                // For translated languages: translate existing og:description if computed is empty
-                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
-                if ($existingOgDesc && $existingOgDesc->length > 0) {
-                    $ogDescElem = $existingOgDesc->item(0);
-                    if ($ogDescElem instanceof \DOMElement) {
-                        $existingContent = trim((string) $ogDescElem->getAttribute('content'));
-                        if ($existingContent !== '') {
-                            $translatedOgDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
-                            $translatedOgDesc = self::truncateUtf8($translatedOgDesc, 200, '...');
-                            if ($translatedOgDesc !== '') {
-                                $ogDescElem->setAttribute('content', esc_attr(trim($translatedOgDesc)));
-                            }
-                        }
-                    }
-                }
-            }
-            if (($ogImageMissing || $shouldReplaceOgImage) && $ogImage !== '') {
-                // Find existing og:image to replace, or add new one
-                $existingOgImage = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image"]');
-                if ($existingOgImage && $existingOgImage->length > 0) {
-                    // Replace existing og:image
-                    $ogImageElem = $existingOgImage->item(0);
-                    if ($ogImageElem instanceof \DOMElement) {
-                        $ogImageElem->setAttribute('content', esc_url($ogImage));
-                    }
-                } else {
-                    // Add new og:image
-                    $meta = $doc->createElement('meta');
-                    $meta->setAttribute('property', 'og:image');
-                    $meta->setAttribute('content', esc_url($ogImage));
-                    $head->appendChild($meta);
-                    $head->appendChild($doc->createTextNode("\n"));
-                }
-            }
-            // og:image:alt: translate existing content for translated languages
-            if ($isTranslatedLang) {
-                $existingOgImageAlt = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
-                if ($existingOgImageAlt && $existingOgImageAlt->length > 0) {
-                    $ogImageAltElem = $existingOgImageAlt->item(0);
-                    if ($ogImageAltElem instanceof \DOMElement) {
-                        $existingAlt = trim((string) $ogImageAltElem->getAttribute('content'));
-                        if ($existingAlt !== '') {
-                            $translatedAlt = self::maybeTranslateMeta($existingAlt, $default, $lang);
-                            if (is_string($translatedAlt) && $translatedAlt !== '') {
-                                $ogImageAltElem->setAttribute('content', esc_attr(trim($translatedAlt)));
-                            }
-                        }
-                    }
-                }
-            }
-            if ($ogUrlMissing && $ogUrl !== '') {
-                $meta = $doc->createElement('meta');
-                $meta->setAttribute('property', 'og:url');
-                $meta->setAttribute('content', esc_url($ogUrl));
-                $head->appendChild($meta);
-                $head->appendChild($doc->createTextNode("\n"));
-            }
-        }
-
-        // 3) hreflang alternates
-        self::injectHreflang($doc, $xpath, $head, $lang, $default);
+        // Apply all SEO modifications to the DOM
+        self::inject_dom($doc, $xpath, $lang);
 
         $result = $doc->saveHTML();
         
@@ -498,6 +111,341 @@ final class AI_SEO
         }
         
         return $result;
+    }
+
+    /**
+     * Apply all SEO modifications to an already-parsed DOMDocument.
+     * Modifies the document in place. Used by combined DOM pass in AI_OB.
+     *
+     * @param \DOMDocument $doc   Parsed HTML document.
+     * @param \DOMXPath    $xpath XPath instance for the document.
+     * @param string       $lang  Target language code.
+     * @return void
+     */
+    public static function inject_dom(\DOMDocument $doc, \DOMXPath $xpath, string $lang): void
+    {
+        $default = AI_Lang::default();
+        if ($default === null) {
+            return;
+        }
+
+        $head = $doc->getElementsByTagName('head')->item(0);
+        if (!$head) {
+            $head = $doc->createElement('head');
+            $htmlEl = $doc->getElementsByTagName('html')->item(0);
+            if ($htmlEl) {
+                $htmlEl->insertBefore($head, $htmlEl->firstChild);
+            } else {
+                $doc->insertBefore($head, $doc->firstChild);
+            }
+        }
+
+        $isTranslatedLang = strtolower((string)$lang) !== strtolower((string)$default);
+
+        // Translate <title> content for non-default languages
+        try {
+            if ($isTranslatedLang) {
+                $titleNode = $doc->getElementsByTagName('title')->item(0);
+                if ($titleNode) {
+                    $origTitle = trim((string) $titleNode->textContent);
+                    if ($origTitle !== '') {
+                        $newTitle = self::maybeTranslateMeta($origTitle, $default, $lang);
+                        if (is_string($newTitle) && $newTitle !== '') {
+                            while ($titleNode->firstChild) { $titleNode->removeChild($titleNode->firstChild); }
+                            $titleNode->appendChild($doc->createTextNode($newTitle));
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fail-safe: keep original title on error
+        }
+
+        // 1) Meta Description
+        $metaDescNodes = $xpath->query('//head/meta[translate(@name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="description"]');
+        $existingMetaDesc = null;
+        if ($metaDescNodes && $metaDescNodes->length > 0) {
+            $item = $metaDescNodes->item(0);
+            if ($item instanceof \DOMElement) {
+                $existingMetaDesc = $item;
+            }
+        }
+        
+        $desc = self::computeMetaDescription();
+        $shouldReplace = false;
+        
+        if ($existingMetaDesc === null) {
+            $shouldReplace = true;
+        } else {
+            $existingContent = trim((string) $existingMetaDesc->getAttribute('content'));
+            if ($isTranslatedLang) {
+                $shouldReplace = true;
+            } elseif (is_front_page() || is_home()) {
+                $homepage = self::get_homepage_meta_description();
+                if ($homepage !== '') {
+                    if ($existingContent === '' || $existingContent !== $homepage) {
+                        $shouldReplace = true;
+                    }
+                } elseif ($existingContent === '') {
+                    $shouldReplace = true;
+                }
+            } elseif ($existingContent === '') {
+                $shouldReplace = true;
+            }
+        }
+        
+        if ($shouldReplace && $desc !== '') {
+            $finalDesc = self::maybeTranslateMeta($desc, $default, $lang);
+            $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
+            if ($finalDesc !== '') {
+                if ($existingMetaDesc !== null) {
+                    $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
+                } else {
+                    $meta = $doc->createElement('meta');
+                    $meta->setAttribute('name', 'description');
+                    $meta->setAttribute('content', esc_attr($finalDesc));
+                    $head->appendChild($meta);
+                    $head->appendChild($doc->createTextNode("\n"));
+                }
+            }
+        } else {
+            if ($isTranslatedLang && $existingMetaDesc !== null && $desc === '') {
+                $existingContent = trim((string) $existingMetaDesc->getAttribute('content'));
+                if ($existingContent !== '') {
+                    $finalDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
+                    $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
+                    if ($finalDesc !== '') {
+                        $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
+                    }
+                }
+            }
+        }
+
+        // 2) Open Graph
+        $ogTitleMissing = self::isOgMissing($xpath, 'og:title');
+        $ogDescMissing = self::isOgMissing($xpath, 'og:description');
+        $ogImageMissing = self::isOgMissing($xpath, 'og:image');
+        $ogUrlMissing   = self::isOgMissing($xpath, 'og:url');
+        
+        $ogLocale = '';
+        $langNorm = strtolower(trim((string) $lang));
+        if ($langNorm !== '') {
+            if (preg_match('/^([a-z]{2})[-_](.+)$/i', $langNorm, $m)) {
+                $langPart = strtolower($m[1]);
+                $regionPart = strtoupper(preg_replace('/[^a-z]/i', '', $m[2]));
+                if ($regionPart !== '') {
+                    $ogLocale = $langPart . '_' . $regionPart;
+                }
+            }
+            if ($ogLocale === '') {
+                $ogLocaleMap = [
+                    'en' => 'en_US', 'nl' => 'nl_NL', 'de' => 'de_DE', 'fr' => 'fr_FR',
+                    'es' => 'es_ES', 'it' => 'it_IT', 'pt' => 'pt_PT', 'ru' => 'ru_RU',
+                    'ka' => 'ka_GE', 'fi' => 'fi_FI', 'sv' => 'sv_SE', 'no' => 'no_NO',
+                    'da' => 'da_DK', 'pl' => 'pl_PL', 'cs' => 'cs_CZ', 'sk' => 'sk_SK',
+                    'hu' => 'hu_HU', 'ro' => 'ro_RO', 'bg' => 'bg_BG', 'hr' => 'hr_HR',
+                    'sl' => 'sl_SI', 'el' => 'el_GR', 'tr' => 'tr_TR', 'ar' => 'ar_SA',
+                    'he' => 'he_IL', 'hi' => 'hi_IN', 'ja' => 'ja_JP', 'ko' => 'ko_KR',
+                    'zh' => 'zh_CN', 'th' => 'th_TH', 'vi' => 'vi_VN', 'id' => 'id_ID',
+                    'uk' => 'uk_UA', 'kk' => 'kk_KZ', 'et' => 'et_EE', 'ga' => 'ga_IE',
+                    'lv' => 'lv_LV', 'lt' => 'lt_LT', 'mt' => 'mt_MT',
+                ];
+                $ogLocale = $ogLocaleMap[$langNorm] ?? $langNorm;
+            }
+        }
+        
+        if ($ogLocale !== '') {
+            $existingOgLocale = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:locale"]');
+            if ($existingOgLocale && $existingOgLocale->length > 0) {
+                for ($i = $existingOgLocale->length - 1; $i >= 0; $i--) {
+                    $ogLocaleElem = $existingOgLocale->item($i);
+                    if ($ogLocaleElem instanceof \DOMElement) {
+                        $parent = $ogLocaleElem->parentNode;
+                        if ($parent) {
+                            $parent->removeChild($ogLocaleElem);
+                        }
+                    }
+                }
+            }
+            $meta = $doc->createElement('meta');
+            $meta->setAttribute('property', 'og:locale');
+            $meta->setAttribute('content', esc_attr($ogLocale));
+            $head->appendChild($meta);
+            $head->appendChild($doc->createTextNode("\n"));
+        }
+        
+        $shouldReplaceOgDesc = $isTranslatedLang;
+        if (!$isTranslatedLang && (is_front_page() || is_home())) {
+            $homepage = self::get_homepage_meta_description();
+            if ($homepage !== '') {
+                $shouldReplaceOgDesc = true;
+            }
+        }
+        if ($ogDescMissing) {
+            $shouldReplaceOgDesc = true;
+        }
+        
+        $shouldReplaceOgImage = (is_front_page() || is_home());
+
+        if ($ogTitleMissing || $shouldReplaceOgDesc || $ogImageMissing || $ogUrlMissing || $shouldReplaceOgImage) {
+            $ogTitle = '';
+            if ($ogTitleMissing) {
+                $titleNode = $doc->getElementsByTagName('title')->item(0);
+                if ($titleNode) {
+                    $ogTitle = trim((string) $titleNode->textContent);
+                }
+                if ($ogTitle === '') {
+                    if (is_singular()) {
+                        $postId = get_queried_object_id();
+                        if ($postId) {
+                            $ogTitle = (string) get_the_title($postId);
+                        }
+                    } elseif (is_front_page() || is_home()) {
+                        $ogTitle = (string) get_bloginfo('description');
+                    } elseif (is_archive()) {
+                        $ogTitle = (string) get_the_archive_title();
+                    }
+                }
+                if ($ogTitle !== '' && $isTranslatedLang) {
+                    $ogTitle = self::maybeTranslateMeta($ogTitle, $default, $lang);
+                }
+            }
+
+            $ogDesc = '';
+            if ($shouldReplaceOgDesc) {
+                $ogDesc = self::computeMetaDescription();
+                if ($ogDesc !== '') {
+                    $ogDesc = self::maybeTranslateMeta($ogDesc, $default, $lang);
+                    $ogDesc = self::truncateUtf8($ogDesc, 200, '...');
+                }
+            }
+
+            $ogImage = '';
+            if ($ogImageMissing || $shouldReplaceOgImage) {
+                if ($shouldReplaceOgImage) {
+                    $logoId = apply_filters('ai_translate_homepage_logo_id', null);
+                    if ($logoId && $logoId > 0) {
+                        $url = wp_get_attachment_image_url($logoId, 'large');
+                        if (is_string($url) && $url !== '') {
+                            $ogImage = (string) $url;
+                        }
+                    }
+                }
+                if ($ogImage === '' && is_singular()) {
+                    $postId = get_queried_object_id();
+                    if ($postId && has_post_thumbnail($postId)) {
+                        $imgId = get_post_thumbnail_id($postId);
+                        $url = wp_get_attachment_image_url($imgId, 'large');
+                        if (is_string($url) && $url !== '') {
+                            $ogImage = (string) $url;
+                        }
+                    }
+                }
+                if ($ogImage === '') {
+                    $logoId = get_theme_mod('custom_logo');
+                    if ($logoId) {
+                        $url = wp_get_attachment_image_url($logoId, 'large');
+                        if (is_string($url) && $url !== '') {
+                            $ogImage = (string) $url;
+                        }
+                    }
+                }
+            }
+
+            $ogUrl = '';
+            if ($ogUrlMissing) {
+                $currentAbs = self::currentPageUrlAbsolute();
+                $path = AI_URL::rewrite_single_href($currentAbs, $lang, $default);
+                if (is_string($path) && $path !== '') {
+                    if (preg_match('#^https?://#i', $path)) {
+                        $ogUrl = $path;
+                    } else {
+                        $ogUrl = home_url($path);
+                    }
+                }
+                if ($ogUrl === '') {
+                    $ogUrl = $currentAbs;
+                }
+            }
+
+            if ($ogTitleMissing && $ogTitle !== '') {
+                $meta = $doc->createElement('meta');
+                $meta->setAttribute('property', 'og:title');
+                $meta->setAttribute('content', esc_attr(trim($ogTitle)));
+                $head->appendChild($meta);
+                $head->appendChild($doc->createTextNode("\n"));
+            }
+            if ($shouldReplaceOgDesc && $ogDesc !== '') {
+                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
+                if ($existingOgDesc && $existingOgDesc->length > 0) {
+                    $ogDescElem = $existingOgDesc->item(0);
+                    if ($ogDescElem instanceof \DOMElement) {
+                        $ogDescElem->setAttribute('content', esc_attr(trim($ogDesc)));
+                    }
+                } else {
+                    $meta = $doc->createElement('meta');
+                    $meta->setAttribute('property', 'og:description');
+                    $meta->setAttribute('content', esc_attr(trim($ogDesc)));
+                    $head->appendChild($meta);
+                    $head->appendChild($doc->createTextNode("\n"));
+                }
+            } elseif ($isTranslatedLang && $shouldReplaceOgDesc && $ogDesc === '') {
+                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
+                if ($existingOgDesc && $existingOgDesc->length > 0) {
+                    $ogDescElem = $existingOgDesc->item(0);
+                    if ($ogDescElem instanceof \DOMElement) {
+                        $existingContent = trim((string) $ogDescElem->getAttribute('content'));
+                        if ($existingContent !== '') {
+                            $translatedOgDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
+                            $translatedOgDesc = self::truncateUtf8($translatedOgDesc, 200, '...');
+                            if ($translatedOgDesc !== '') {
+                                $ogDescElem->setAttribute('content', esc_attr(trim($translatedOgDesc)));
+                            }
+                        }
+                    }
+                }
+            }
+            if (($ogImageMissing || $shouldReplaceOgImage) && $ogImage !== '') {
+                $existingOgImage = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image"]');
+                if ($existingOgImage && $existingOgImage->length > 0) {
+                    $ogImageElem = $existingOgImage->item(0);
+                    if ($ogImageElem instanceof \DOMElement) {
+                        $ogImageElem->setAttribute('content', esc_url($ogImage));
+                    }
+                } else {
+                    $meta = $doc->createElement('meta');
+                    $meta->setAttribute('property', 'og:image');
+                    $meta->setAttribute('content', esc_url($ogImage));
+                    $head->appendChild($meta);
+                    $head->appendChild($doc->createTextNode("\n"));
+                }
+            }
+            if ($isTranslatedLang) {
+                $existingOgImageAlt = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
+                if ($existingOgImageAlt && $existingOgImageAlt->length > 0) {
+                    $ogImageAltElem = $existingOgImageAlt->item(0);
+                    if ($ogImageAltElem instanceof \DOMElement) {
+                        $existingAlt = trim((string) $ogImageAltElem->getAttribute('content'));
+                        if ($existingAlt !== '') {
+                            $translatedAlt = self::maybeTranslateMeta($existingAlt, $default, $lang);
+                            if (is_string($translatedAlt) && $translatedAlt !== '') {
+                                $ogImageAltElem->setAttribute('content', esc_attr(trim($translatedAlt)));
+                            }
+                        }
+                    }
+                }
+            }
+            if ($ogUrlMissing && $ogUrl !== '') {
+                $meta = $doc->createElement('meta');
+                $meta->setAttribute('property', 'og:url');
+                $meta->setAttribute('content', esc_url($ogUrl));
+                $head->appendChild($meta);
+                $head->appendChild($doc->createTextNode("\n"));
+            }
+        }
+
+        // 3) hreflang alternates
+        self::injectHreflang($doc, $xpath, $head, $lang, $default);
     }
 
     /**
@@ -554,91 +502,33 @@ final class AI_SEO
     }
 
     /**
-     * Get the active domain for multi-domain caching support.
+     * Delegate to centralized active domain resolver.
      *
      * @return string
      */
     private static function get_active_domain()
     {
-        $active_domain = '';
-        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-            // Remove port if present (e.g., "example.com:8080" -> "example.com")
-            if (strpos($active_domain, ':') !== false) {
-                $active_domain = strtok($active_domain, ':');
-            }
-        }
-        
-        // Fallback to SERVER_NAME if HTTP_HOST is not available
-        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-        }
-        
-        // Final fallback to home_url() host (should rarely be needed)
-        if (empty($active_domain)) {
-            $active_domain = parse_url(home_url(), PHP_URL_HOST);
-            if (empty($active_domain)) {
-                $active_domain = 'default';
-            }
-        }
-        
-        return $active_domain;
+        return AI_Translate_Core::get_active_domain();
     }
 
     /**
-     * Get homepage meta description for the current domain.
-     * Supports per-domain meta descriptions when multi-domain caching is enabled.
+     * Delegate to centralized homepage meta description.
      *
      * @return string
      */
     private static function get_homepage_meta_description()
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        if ($multi_domain) {
-            // Multi-domain caching enabled: use per-domain meta description
-            $active_domain = self::get_active_domain();
-            $domain_meta = isset($settings['homepage_meta_description_per_domain']) && is_array($settings['homepage_meta_description_per_domain']) 
-                ? $settings['homepage_meta_description_per_domain'] 
-                : [];
-            
-            if (isset($domain_meta[$active_domain]) && trim((string) $domain_meta[$active_domain]) !== '') {
-                return trim((string) $domain_meta[$active_domain]);
-            }
-        }
-        
-        // Fallback to global homepage meta description
-        $homepage = isset($settings['homepage_meta_description']) ? (string) $settings['homepage_meta_description'] : '';
-        return trim($homepage);
+        return AI_Translate_Core::get_homepage_meta_description();
     }
 
     /**
-     * Get website context for the current domain.
-     * Supports per-domain website context when multi-domain caching is enabled.
+     * Delegate to centralized website context.
      *
      * @return string
      */
     private static function get_website_context()
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        if ($multi_domain) {
-            // Multi-domain caching enabled: use per-domain website context
-            $active_domain = self::get_active_domain();
-            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
-                ? $settings['website_context_per_domain'] 
-                : [];
-            
-            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
-                return trim((string) $domain_context[$active_domain]);
-            }
-        }
-        
-        // Fallback to global website context
-        $context = isset($settings['website_context']) ? (string) $settings['website_context'] : '';
-        return trim($context);
+        return AI_Translate_Core::get_website_context();
     }
 
     /**
@@ -911,17 +801,14 @@ final class AI_SEO
     }
 
     /**
-     * Ensure string is UTF-8 before loadHTML.
+     * Delegate to centralized UTF-8 helper.
      *
      * @param string $html
      * @return string
      */
     private static function ensureUtf8($html)
     {
-        if (!\mb_detect_encoding($html, 'UTF-8', true)) {
-            $html = \mb_convert_encoding($html, 'UTF-8');
-        }
-        return $html;
+        return AI_DOM::ensureUtf8($html);
     }
 
     /**

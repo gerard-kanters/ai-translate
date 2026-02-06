@@ -3,7 +3,7 @@
 namespace AITranslate;
 
 /**
- * Batch translation abstraction (bundelt segmenten binnen één request).
+ * Batch translation abstraction (bundles segments within a single request).
  */
 final class AI_Batch
 {
@@ -29,7 +29,7 @@ final class AI_Batch
             return ['segments' => [], 'map' => []];
         }
 
-        $settings = get_option('ai_translate_settings', []);
+        $settings = AI_Translate_Core::settings();
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
         $model = $provider !== '' ? ($models[$provider] ?? '') : '';
@@ -60,7 +60,7 @@ final class AI_Batch
         $targetLang = (string) $target;
         $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14*24);
         $expiry = $expiry_hours * HOUR_IN_SECONDS;
-        $identicalWhitelist = array_map('strtolower', ['wordpress', 'netcare', 'netcare.nl', 'vioolles', 'vioolles.net', 'veiligebuurt']);
+        $identicalWhitelist = self::getBrandWhitelist();
 
         $primaryByKey = [];
         $idsByPrimary = [];
@@ -190,28 +190,8 @@ final class AI_Batch
                 $metas = [];
                 foreach ($group as $batchSegs) {
                     $userPayload = self::buildUserPayload($batchSegs);
-                    $body = [
-                        'model' => $model,
-                        'messages' => [
-                            ['role' => 'system', 'content' => $system],
-                            ['role' => 'user', 'content' => $userPayload],
-                        ],
-                    ];
-                    // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
-                    if (stripos($model, 'gpt-5') !== false) {
-                        if ($provider === 'openai') {
-                            $body['reasoning_effort'] = 'minimal';
-                        } else {
-                            // OpenRouter, DeepInfra, etc. use nested reasoning.effort
-                            $body['reasoning'] = ['effort' => 'minimal'];
-                        }
-                    }
-                    $headers = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
-                    // OpenRouter requires Referer header (WordPress adds HTTP- prefix automatically)
-                    if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                        $headers['Referer'] = home_url();
-                        $headers['X-Title'] = get_bloginfo('name');
-                    }
+                    $body = self::buildApiBody($model, $system, $userPayload, $provider);
+                    $headers = self::buildApiHeaders($apiKey, $provider, $settings);
                     $requests[] = [
                         'url' => $endpoint,
                         'headers' => $headers,
@@ -235,23 +215,8 @@ final class AI_Batch
                         $batchesSingle = [$batchSegs];
                         foreach ($batchesSingle as $i => $batchSegs2) {
                             $userPayload = self::buildUserPayload($batchSegs2);
-                            $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $userPayload] ] ];
-                            if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
-                                $body['temperature'] = 0;
-                            }
-                            // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
-                            if (stripos($model, 'gpt-5') !== false) {
-                                if ($provider === 'openai') {
-                                    $body['reasoning_effort'] = 'minimal';
-                                } else {
-                                    $body['reasoning'] = ['effort' => 'minimal'];
-                                }
-                            }
-                            $fallbackHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
-                            if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
-                                $fallbackHeaders['Referer'] = home_url();
-                                $fallbackHeaders['X-Title'] = get_bloginfo('name');
-                            }
+                            $body = self::buildApiBody($model, $system, $userPayload, $provider);
+                            $fallbackHeaders = self::buildApiHeaders($apiKey, $provider, $settings);
                             $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                             if (is_wp_error($resp)) { continue; }
                             $code = (int) wp_remote_retrieve_response_code($resp);
@@ -261,15 +226,9 @@ final class AI_Batch
                             $choices = is_array($data) ? ($data['choices'] ?? []) : [];
                             if (!$choices || !isset($choices[0]['message']['content'])) { continue; }
                             $content = (string) $choices[0]['message']['content'];
-                            $parsed = json_decode($content, true);
-                            if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                                $candidate = str_replace(["```json","```JSON","```"], '', $content);
-                                $s = strpos($candidate, '{'); $e = strrpos($candidate, '}');
-                                if ($s !== false && $e !== false && $e >= $s) { $candidate = substr($candidate, $s, $e - $s + 1); }
-                                $parsed = json_decode(trim($candidate), true);
-                            }
-                            if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations'])) {
-                                foreach ($parsed['translations'] as $k => $v) { $translationsPrimary[(string)$k] = (string)$v; }
+                            $translations = self::parseTranslationResponse($content);
+                            if (is_array($translations)) {
+                                foreach ($translations as $k => $v) { $translationsPrimary[(string)$k] = (string)$v; }
                             }
                         }
                     }
@@ -296,41 +255,15 @@ final class AI_Batch
                         $failedIndexes[] = (int)$idx;
                         continue;
                     }
-                    $parsed = json_decode($msg, true);
-                    if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                        $candidate = str_replace(["```json","```JSON","```"], '', $msg);
-                        $s = strpos($candidate, '{'); $e = strrpos($candidate, '}');
-                        if ($s !== false && $e !== false && $e >= $s) { $candidate = substr($candidate, $s, $e - $s + 1); }
-                        $parsed = json_decode(trim($candidate), true);
-                    }
-                    if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations']) && !empty($parsed['translations'])) {
-                        foreach ($parsed['translations'] as $k => $v) { 
+                    $translations = self::parseTranslationResponse($msg);
+                    if (is_array($translations) && !empty($translations)) {
+                        foreach ($translations as $k => $v) { 
                             $translated = trim((string)$v);
                             if ($translated !== '') {
                                 $translationsPrimary[(string)$k] = $translated;
                             }
                         }
-                        // Partial caching: persist translated primaries after each successful batch
-                        foreach ($parsed['translations'] as $k => $v) {
-                            $pid = (string) $k;
-                            if (!isset($primarySegById[$pid])) {
-                                continue;
-                            }
-                            $tr = trim((string) $v);
-                            if ($tr === '') {
-                                continue;
-                            }
-                            $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
-                            set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
-                            if ($primarySegById[$pid]['type'] === 'attr') {
-                                $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
-                                if (function_exists('ai_translate_set_attr_transient')) {
-                                    ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
-                                } else {
-                                    set_transient($attrKey, (string) $tr, $expiry);
-                                }
-                            }
-                        }
+                        self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
                     } else {
                         $failedIndexes[] = (int)$idx;
                     }
@@ -349,41 +282,15 @@ final class AI_Batch
                             $choices = is_array($data) ? ($data['choices'] ?? []) : [];
                             if (!$choices || !isset($choices[0]['message']['content'])) { continue; }
                             $msg = (string)$choices[0]['message']['content'];
-                            $parsed = json_decode($msg, true);
-                            if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                                $candidate = str_replace(["```json","```JSON","```"], '', $msg);
-                                $s = strpos($candidate, '{'); $e = strrpos($candidate, '}');
-                                if ($s !== false && $e !== false && $e >= $s) { $candidate = substr($candidate, $s, $e - $s + 1); }
-                                $parsed = json_decode(trim($candidate), true);
-                            }
-                            if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations'])) {
-                                foreach ($parsed['translations'] as $k => $v) {
+                            $translations = self::parseTranslationResponse($msg);
+                            if (is_array($translations)) {
+                                foreach ($translations as $k => $v) {
                                     $translated = trim((string) $v);
                                     if ($translated !== '') {
                                         $translationsPrimary[(string)$k] = $translated;
                                     }
                                 }
-                                // Partial caching: persist translated primaries after retry batch
-                                foreach ($parsed['translations'] as $k => $v) {
-                                    $pid = (string) $k;
-                                    if (!isset($primarySegById[$pid])) {
-                                        continue;
-                                    }
-                                    $tr = trim((string) $v);
-                                    if ($tr === '') {
-                                        continue;
-                                    }
-                                    $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
-                                    set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
-                                    if ($primarySegById[$pid]['type'] === 'attr') {
-                                        $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
-                                        if (function_exists('ai_translate_set_attr_transient')) {
-                                            ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
-                                        } else {
-                                            set_transient($attrKey, (string) $tr, $expiry);
-                                        }
-                                    }
-                                }
+                                self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
                             }
                         }
                     }
@@ -393,134 +300,26 @@ final class AI_Batch
             $needsRetry = [];
             foreach ($primarySegById as $pid => $meta) {
                 if (isset($translationsPrimary[$pid])) {
-                    $tr = (string)$translationsPrimary[$pid];
-                    $src = (string)$meta['text'];
-                    $srcLen = mb_strlen($src);
-                    $trLen = mb_strlen($tr);
-                    
-                    // For ALL languages and ALL lengths: check if translation is exactly identical
-                    // This catches untranslated placeholders like "Naam", "Email", "Telefoon" etc.
-                    // Only skip very short words (≤15 chars) like "Send Message", "Submit", "Cancel" which can be valid UI texts
-                    // Also accept if text contains whitelisted brand names (case-insensitive)
-                    $srcLower = mb_strtolower(trim($src));
-                    $containsWhitelisted = false;
-                    foreach ($identicalWhitelist as $brand) {
-                        if (stripos($srcLower, $brand) !== false) {
-                            $containsWhitelisted = true;
-                            break;
-                        }
-                    }
-                    if ($srcLen > 15 && trim($tr) === trim($src) && !$containsWhitelisted) {
+                    if (self::needsTranslationRetry((string)$meta['text'], (string)$translationsPrimary[$pid], $targetLang, $identicalWhitelist)) {
                         $needsRetry[] = $pid;
-                    }
-                    // For non-Latin target languages with longer texts: additional check for Latin ratio
-                    // Only trigger if >40% Latin to avoid false positives with brand names
-                    elseif ($trLen > 100 && in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'], true)) {
-                        $latinChars = preg_match_all('/[A-Za-z]/', $tr);
-                        $latinRatio = $trLen > 0 ? ($latinChars / $trLen) : 0;
-                        if ($latinRatio > 0.4) {
-                            $needsRetry[] = $pid;
-                        }
                     }
                 } elseif (!isset($cachedPrimary[$pid])) {
                     $needsRetry[] = $pid;
                 }
             }
-            // If no translations at all, retry all segments with stronger prompt
             if (empty($translationsPrimary) && !empty($primarySegById)) {
                 $needsRetry = array_keys($primarySegById);
             }
             
             if (!empty($needsRetry)) {
-                $core = \AITranslate\AI_Translate_Core::get_instance();
-                $targetLangName = '';
-                $availableLangs = $core->get_available_languages();
-                if (isset($availableLangs[$target])) {
-                    $targetLangName = $availableLangs[$target] . ' (' . strtoupper($target) . ')';
-                } else {
-                    $targetLangName = strtoupper($target);
-                }
-                $strictSystem = $system . "\n\nCRITICAL: You MUST translate every segment into " . $targetLangName . ". NEVER return the source text unchanged. If the source text is already in the target language, still translate it to ensure it matches the target language perfectly. Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name that should remain unchanged.";
-                $retrySegs = [];
-                foreach ($needsRetry as $pid) { 
-                    if (isset($primarySegById[$pid])) {
-                        $retrySegs[] = $primarySegById[$pid]; 
-                    }
-                }
-                if (!empty($retrySegs)) {
-                    $retryChunks = array_chunk($retrySegs, 5);
-                    foreach ($retryChunks as $rc) {
-                        $userPayload = self::buildUserPayload($rc);
-                        $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
-                        if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
-                            $body['temperature'] = 0;
-                        }
-                        // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
-                        if (stripos($model, 'gpt-5') !== false) {
-                            if ($provider === 'openai') {
-                                $body['reasoning_effort'] = 'minimal';
-                            } else {
-                                $body['reasoning'] = ['effort' => 'minimal'];
-                            }
-                        }
-                        $retryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
-                        if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
-                            $retryHeaders['Referer'] = home_url();
-                            $retryHeaders['X-Title'] = get_bloginfo('name');
-                        }
-                        $resp = wp_remote_post($endpoint, [ 'headers' => $retryHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
-                        if (is_wp_error($resp)) { 
-                            continue; 
-                        }
-                        $code = (int)wp_remote_retrieve_response_code($resp);
-                        if ($code !== 200) { 
-                            continue; 
-                        }
-                        $rb = (string) wp_remote_retrieve_body($resp);
-                        $d = json_decode($rb, true);
-                        $choices = is_array($d) ? ($d['choices'] ?? []) : [];
-                        if (!$choices || !isset($choices[0]['message']['content'])) { 
-                            continue; 
-                        }
-                        $msg = (string) $choices[0]['message']['content'];
-                        $parsed = json_decode($msg, true);
-                        if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                            $cand = str_replace(["```json","```JSON","```"], '', $msg);
-                            $s = strpos($cand, '{'); $e = strrpos($cand, '}');
-                            if ($s !== false && $e !== false && $e >= $s) { $cand = substr($cand, $s, $e - $s + 1); }
-                            $parsed = json_decode(trim($cand), true);
-                        }
-                        if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations']) && !empty($parsed['translations'])) {
-                            foreach ($parsed['translations'] as $k => $v) { 
-                                $translated = trim((string)$v);
-                                if ($translated !== '') {
-                                    $translationsPrimary[(string)$k] = $translated;
-                                }
-                            }
-                        }
-                    }
+                $retryTranslations = self::retryFailedSegments($needsRetry, $primarySegById, $system, $model, $provider, $apiKey, $endpoint, $timeoutSeconds, $settings, $target);
+                foreach ($retryTranslations as $k => $v) {
+                    $translationsPrimary[(string)$k] = $v;
                 }
             }
 
             // Write cache for primaries and expand to full id map
-            $cacheWriteStart = microtime(true);
-            $newlyCached = 0;
-            foreach ($translationsPrimary as $pid => $tr) {
-                if (isset($primarySegById[$pid])) {
-                    $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
-                    set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
-                    // Also seed UI attribute cache so batch-strings doesn't need to retranslate
-                    if ($primarySegById[$pid]['type'] === 'attr') {
-                        $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
-                        if (function_exists('ai_translate_set_attr_transient')) {
-                            ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
-                        } else {
-                            set_transient($attrKey, (string) $tr, $expiry);
-                        }
-                    }
-                    $newlyCached++;
-                }
-            }
+            $newlyCached = self::cacheTranslations($translationsPrimary, $primarySegById, $targetLang, $expiry);
             $final = [];
             // include cached primaries as well
             foreach ($cachedPrimary as $pid => $tr) {
@@ -538,65 +337,24 @@ final class AI_Batch
         // Sequential fallback (when parallel not available)
         $apiStart = microtime(true);
 
+        $timeoutSeconds = 45;
         foreach ($batches as $i => $batchSegs) {
             $batchStart = microtime(true);
             $userPayload = self::buildUserPayload($batchSegs);
-            $body = [
-                'model' => $model,
-                'messages' => [
-                    ['role' => 'system', 'content' => $system],
-                    ['role' => 'user', 'content' => $userPayload],
-                ],
-            ];
-            if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
-                $body['temperature'] = 0;
-            }
-            // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
-            if (stripos($model, 'gpt-5') !== false) {
-                if ($provider === 'openai') {
-                    $body['reasoning_effort'] = 'minimal';
-                } else {
-                    $body['reasoning'] = ['effort' => 'minimal'];
-                }
-            }
+            $body = self::buildApiBody($model, $system, $userPayload, $provider);
+            $headers = self::buildApiHeaders($apiKey, $provider, $settings);
 
-        $timeoutSeconds = 45; // Balanced timeout for sequential fallback (was 60)
-            $attempts = 0;
-            $maxAttempts = 1;
-            $response = null;
-            do {
-                $attempts++;
-                $requestTime = isset($_SERVER['REQUEST_TIME_FLOAT']) ? $_SERVER['REQUEST_TIME_FLOAT'] : microtime(true);
-                $timeRemaining = $timeLimit > 0 ? ($timeLimit - (microtime(true) - $requestTime)) : 60;
-                $safeTimeout = min($timeoutSeconds, max(10, (int)($timeRemaining - 10)));
-                
-                $headers = [
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type'  => 'application/json',
-                ];
-                // OpenRouter requires Referer header
-                if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-                    $headers['Referer'] = home_url();
-                    $headers['X-Title'] = get_bloginfo('name');
-                }
-                $response = wp_remote_post($endpoint, [
-                    'headers' => $headers,
-                    'timeout' => $safeTimeout,
-                    'connect_timeout' => 10,
-                    'sslverify' => true,
-                    'body' => wp_json_encode($body),
-                ]);
-                if (is_wp_error($response)) {
-                    if ($attempts < $maxAttempts) { usleep(300000); }
-                    continue;
-                }
-                $code = (int) wp_remote_retrieve_response_code($response);
-                if ($code !== 200) {
-                    if ($attempts < $maxAttempts) { usleep(300000); continue; }
-                }
-                break;
-            } while ($attempts < $maxAttempts);
+            $requestTime = isset($_SERVER['REQUEST_TIME_FLOAT']) ? $_SERVER['REQUEST_TIME_FLOAT'] : microtime(true);
+            $timeRemaining = $timeLimit > 0 ? ($timeLimit - (microtime(true) - $requestTime)) : 60;
+            $safeTimeout = min($timeoutSeconds, max(10, (int)($timeRemaining - 10)));
 
+            $response = wp_remote_post($endpoint, [
+                'headers' => $headers,
+                'timeout' => $safeTimeout,
+                'connect_timeout' => 10,
+                'sslverify' => true,
+                'body' => wp_json_encode($body),
+            ]);
             if (is_wp_error($response)) {
                 break;
             }
@@ -612,176 +370,40 @@ final class AI_Batch
                 break;
             }
             $content = (string) $choices[0]['message']['content'];
-            $parsed = json_decode($content, true);
-            if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                $candidate = $content;
-                $candidate = str_replace(["```json", "```JSON", "```"], '', $candidate);
-                $start = strpos($candidate, '{');
-                $end = strrpos($candidate, '}');
-                if ($start !== false && $end !== false && $end >= $start) {
-                    $candidate = substr($candidate, $start, $end - $start + 1);
-                }
-                $parsed = json_decode(trim($candidate), true);
-            }
-            if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
+            $translations = self::parseTranslationResponse($content);
+            if (!is_array($translations)) {
                 break;
             }
-            foreach ($parsed['translations'] as $k => $v) {
+            foreach ($translations as $k => $v) {
                 $translationsPrimary[(string) $k] = (string) $v;
             }
-            // Partial caching: persist translated primaries after each successful batch
-            foreach ($parsed['translations'] as $k => $v) {
-                $pid = (string) $k;
-                if (!isset($primarySegById[$pid])) {
-                    continue;
-                }
-                $tr = trim((string) $v);
-                if ($tr === '') {
-                    continue;
-                }
-                $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
-                set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
-                if ($primarySegById[$pid]['type'] === 'attr') {
-                    $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
-                    if (function_exists('ai_translate_set_attr_transient')) {
-                        ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
-                    } else {
-                        set_transient($attrKey, (string) $tr, $expiry);
-                    }
-                }
-            }
+            self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
         }
         
         // Validate coverage and quality; retry missing/unchanged primaries
         $needsRetry = [];
         foreach ($primarySegById as $pid => $meta) {
             if (isset($translationsPrimary[$pid])) {
-                $tr = (string)$translationsPrimary[$pid];
-                $src = (string)$meta['text'];
-                $srcLen = mb_strlen($src);
-                $trLen = mb_strlen($tr);
-                
-                // For ALL languages and ALL lengths: check if translation is exactly identical
-                // Only skip very short words (≤15 chars) like "Send Message", "Submit", "Cancel" which can be valid UI texts
-                // Also accept if text contains whitelisted brand names (case-insensitive)
-                $srcLower = mb_strtolower(trim($src));
-                $containsWhitelisted = false;
-                foreach ($identicalWhitelist as $brand) {
-                    if (stripos($srcLower, $brand) !== false) {
-                        $containsWhitelisted = true;
-                        break;
-                    }
-                }
-                if ($srcLen > 15 && trim($tr) === trim($src) && !$containsWhitelisted) {
+                if (self::needsTranslationRetry((string)$meta['text'], (string)$translationsPrimary[$pid], $targetLang, $identicalWhitelist)) {
                     $needsRetry[] = $pid;
-                }
-                // For non-Latin target languages with longer texts: additional check for Latin ratio
-                elseif ($trLen > 100 && in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'], true)) {
-                    $latinChars = preg_match_all('/[A-Za-z]/', $tr);
-                    $latinRatio = $trLen > 0 ? ($latinChars / $trLen) : 0;
-                    if ($latinRatio > 0.4) {
-                        $needsRetry[] = $pid;
-                    }
                 }
             } elseif (!isset($cachedPrimary[$pid])) {
                 $needsRetry[] = $pid;
             }
         }
-        
-        // If no translations at all, retry all segments with stronger prompt
         if (empty($translationsPrimary) && !empty($primarySegById)) {
             $needsRetry = array_keys($primarySegById);
         }
         
         if (!empty($needsRetry)) {
-            $core = \AITranslate\AI_Translate_Core::get_instance();
-            $targetLangName = '';
-            $availableLangs = $core->get_available_languages();
-            if (isset($availableLangs[$targetLang])) {
-                $targetLangName = $availableLangs[$targetLang] . ' (' . strtoupper($targetLang) . ')';
-            } else {
-                $targetLangName = strtoupper($targetLang);
-            }
-            $strictSystem = $system . "\n\nCRITICAL: You MUST translate every segment into " . $targetLangName . ". NEVER return the source text unchanged. If the source text is already in the target language, still translate it to ensure it matches the target language perfectly. Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name that should remain unchanged.";
-            $retrySegs = [];
-            foreach ($needsRetry as $pid) { 
-                if (isset($primarySegById[$pid])) {
-                    $retrySegs[] = $primarySegById[$pid]; 
-                }
-            }
-            if (!empty($retrySegs)) {
-                $retryChunks = array_chunk($retrySegs, 5);
-                foreach ($retryChunks as $rc) {
-                    $userPayload = self::buildUserPayload($rc);
-                    $body = [ 'model' => $model, 'messages' => [ ['role' => 'system', 'content' => $strictSystem], ['role' => 'user', 'content' => $userPayload] ] ];
-                    if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
-                        $body['temperature'] = 0;
-                    }
-                    // GPT-5: set reasoning effort to low for fast translations (provider-specific format)
-                    if (stripos($model, 'gpt-5') !== false) {
-                        if ($provider === 'openai') {
-                            $body['reasoning_effort'] = 'minimal';
-                        } else {
-                            $body['reasoning'] = ['effort' => 'minimal'];
-                        }
-                    }
-                    $seqRetryHeaders = [ 'Authorization' => 'Bearer ' . $apiKey, 'Content-Type' => 'application/json' ];
-                    if ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false) {
-                        $seqRetryHeaders['Referer'] = home_url();
-                        $seqRetryHeaders['X-Title'] = get_bloginfo('name');
-                    }
-                    $resp = wp_remote_post($endpoint, [ 'headers' => $seqRetryHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
-                        if (is_wp_error($resp)) {
-                        continue; 
-                    }
-                    $code = (int)wp_remote_retrieve_response_code($resp);
-                    if ($code !== 200) { 
-                        continue; 
-                    }
-                    $rb = (string) wp_remote_retrieve_body($resp);
-                    $d = json_decode($rb, true);
-                    $choices = is_array($d) ? ($d['choices'] ?? []) : [];
-                    if (!$choices || !isset($choices[0]['message']['content'])) { 
-                        continue; 
-                    }
-                    $msg = (string) $choices[0]['message']['content'];
-                    $parsed = json_decode($msg, true);
-                    if (!is_array($parsed) || !isset($parsed['translations']) || !is_array($parsed['translations'])) {
-                        $cand = str_replace(["```json","```JSON","```"], '', $msg);
-                        $s = strpos($cand, '{'); $e = strrpos($cand, '}');
-                        if ($s !== false && $e !== false && $e >= $s) { $cand = substr($cand, $s, $e - $s + 1); }
-                        $parsed = json_decode(trim($cand), true);
-                    }
-                    if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations']) && !empty($parsed['translations'])) {
-                        foreach ($parsed['translations'] as $k => $v) { 
-                            $translated = trim((string)$v);
-                            if ($translated !== '') {
-                                $translationsPrimary[(string)$k] = $translated;
-                            }
-                        }
-                    }
-                }
+            $retryTranslations = self::retryFailedSegments($needsRetry, $primarySegById, $system, $model, $provider, $apiKey, $endpoint, $timeoutSeconds, $settings, $target);
+            foreach ($retryTranslations as $k => $v) {
+                $translationsPrimary[(string)$k] = $v;
             }
         }
         
         // Cache and expand to all ids
-        $newlyCached = 0;
-        foreach ($translationsPrimary as $pid => $tr) {
-            if (isset($primarySegById[$pid])) {
-                $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
-                set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), (string)$tr, $expiry);
-                // Also seed UI attribute cache to avoid follow-up batch-strings API calls
-                if ($primarySegById[$pid]['type'] === 'attr') {
-                    $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
-                    if (function_exists('ai_translate_set_attr_transient')) {
-                        ai_translate_set_attr_transient($attrKey, (string) $tr, $expiry);
-                    } else {
-                        set_transient($attrKey, (string) $tr, $expiry);
-                    }
-                }
-                $newlyCached++;
-            }
-        }
+        $newlyCached = self::cacheTranslations($translationsPrimary, $primarySegById, $targetLang, $expiry);
         $final = [];
         foreach ($cachedPrimary as $pid => $tr) { $translationsPrimary[$pid] = $tr; }
         foreach ($idsByPrimary as $pid => $ids) {
@@ -811,5 +433,239 @@ final class AI_Batch
         }
         $payload['instruction'] = 'Translate every segment from the source language to the target language. You MUST translate every segment. Do NOT return the source text unchanged. Return ONLY valid JSON in this exact format: {"translations": {"<id>": "<translated_text>"}}. Every segment ID must have a translated text in the target language. The translated_text must be in the target language, not the source language. No extra text, explanations, or comments outside the JSON.';
         return wp_json_encode($payload);
+    }
+
+    /**
+     * Parse an AI response message into a translations array.
+     * Handles markdown-wrapped JSON and extracts the first valid JSON object.
+     *
+     * @param string $msg Raw message content from AI response.
+     * @return array|null Associative array of translations, or null on failure.
+     */
+    private static function parseTranslationResponse(string $msg): ?array
+    {
+        $parsed = json_decode($msg, true);
+        if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations'])) {
+            return $parsed['translations'];
+        }
+        $candidate = str_replace(["```json", "```JSON", "```"], '', $msg);
+        $s = strpos($candidate, '{');
+        $e = strrpos($candidate, '}');
+        if ($s !== false && $e !== false && $e >= $s) {
+            $candidate = substr($candidate, $s, $e - $s + 1);
+        }
+        $parsed = json_decode(trim($candidate), true);
+        if (is_array($parsed) && isset($parsed['translations']) && is_array($parsed['translations'])) {
+            return $parsed['translations'];
+        }
+        return null;
+    }
+
+    /**
+     * Persist translated segments to transient cache.
+     *
+     * @param array  $translations  Associative array of pid => translated text.
+     * @param array  $primarySegById Metadata for each primary segment.
+     * @param string $targetLang     Target language code.
+     * @param int    $expiry         Cache expiry in seconds.
+     * @return int   Number of newly cached entries.
+     */
+    private static function cacheTranslations(array $translations, array $primarySegById, string $targetLang, int $expiry): int
+    {
+        $count = 0;
+        foreach ($translations as $pid => $tr) {
+            $pid = (string) $pid;
+            if (!isset($primarySegById[$pid])) {
+                continue;
+            }
+            $tr = trim((string) $tr);
+            if ($tr === '') {
+                continue;
+            }
+            $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
+            set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), $tr, $expiry);
+            if ($primarySegById[$pid]['type'] === 'attr') {
+                $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
+                if (function_exists('ai_translate_set_attr_transient')) {
+                    ai_translate_set_attr_transient($attrKey, $tr, $expiry);
+                } else {
+                    set_transient($attrKey, $tr, $expiry);
+                }
+            }
+            $count++;
+        }
+        return $count;
+    }
+
+    /**
+     * Build API request body for translation.
+     *
+     * @param string $model    Model identifier.
+     * @param string $system   System prompt.
+     * @param string $userPayload JSON user payload.
+     * @param string $provider API provider name.
+     * @return array Request body array.
+     */
+    private static function buildApiBody(string $model, string $system, string $userPayload, string $provider): array
+    {
+        $body = [
+            'model' => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user', 'content' => $userPayload],
+            ],
+        ];
+        if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
+            $body['temperature'] = 0;
+        }
+        if (stripos($model, 'gpt-5') !== false) {
+            if ($provider === 'openai') {
+                $body['reasoning_effort'] = 'minimal';
+            } else {
+                $body['reasoning'] = ['effort' => 'minimal'];
+            }
+        }
+        return $body;
+    }
+
+    /**
+     * Build API request headers including provider-specific headers.
+     *
+     * @param string $apiKey   API key.
+     * @param string $provider API provider name.
+     * @param array  $settings Plugin settings.
+     * @return array Headers array.
+     */
+    private static function buildApiHeaders(string $apiKey, string $provider, array $settings): array
+    {
+        $headers = [
+            'Authorization' => 'Bearer ' . $apiKey,
+            'Content-Type' => 'application/json',
+        ];
+        if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
+            $headers['Referer'] = home_url();
+            $headers['X-Title'] = get_bloginfo('name');
+        }
+        return $headers;
+    }
+
+    /**
+     * Check if a translation needs retry (untranslated or bad quality).
+     *
+     * @param string $src            Source text.
+     * @param string $tr             Translated text.
+     * @param string $targetLang     Target language code.
+     * @param array  $brandWhitelist Lowercased brand names to accept as identical.
+     * @return bool True if the translation should be retried.
+     */
+    private static function needsTranslationRetry(string $src, string $tr, string $targetLang, array $brandWhitelist): bool
+    {
+        $srcLen = mb_strlen($src);
+        $trLen = mb_strlen($tr);
+        $srcLower = mb_strtolower(trim($src));
+
+        $containsWhitelisted = false;
+        foreach ($brandWhitelist as $brand) {
+            if (stripos($srcLower, $brand) !== false) {
+                $containsWhitelisted = true;
+                break;
+            }
+        }
+        if ($srcLen > 15 && trim($tr) === trim($src) && !$containsWhitelisted) {
+            return true;
+        }
+        if ($trLen > 100 && in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'], true)) {
+            $latinChars = preg_match_all('/[A-Za-z]/', $tr);
+            $latinRatio = $trLen > 0 ? ($latinChars / $trLen) : 0;
+            if ($latinRatio > 0.4) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Retry translation for segments that failed or were returned untranslated.
+     *
+     * @param array  $needsRetry     Array of primary segment IDs to retry.
+     * @param array  $primarySegById Metadata for each primary segment.
+     * @param string $system         Base system prompt.
+     * @param string $model          Model identifier.
+     * @param string $provider       API provider name.
+     * @param string $apiKey         API key.
+     * @param string $endpoint       API endpoint URL.
+     * @param int    $timeoutSeconds Request timeout.
+     * @param array  $settings       Plugin settings.
+     * @param string $target         Target language code.
+     * @return array Associative array of pid => translated text.
+     */
+    private static function retryFailedSegments(array $needsRetry, array $primarySegById, string $system, string $model, string $provider, string $apiKey, string $endpoint, int $timeoutSeconds, array $settings, string $target): array
+    {
+        $core = AI_Translate_Core::get_instance();
+        $targetLangName = '';
+        $availableLangs = $core->get_available_languages();
+        if (isset($availableLangs[$target])) {
+            $targetLangName = $availableLangs[$target] . ' (' . strtoupper($target) . ')';
+        } else {
+            $targetLangName = strtoupper($target);
+        }
+        $strictSystem = $system . "\n\nCRITICAL: You MUST translate every segment into " . $targetLangName . ". NEVER return the source text unchanged. If the source text is already in the target language, still translate it to ensure it matches the target language perfectly. Do not copy the source text. ALWAYS translate into the target language. Never return the source text unchanged unless it's a proper noun or brand name that should remain unchanged.";
+
+        $retrySegs = [];
+        foreach ($needsRetry as $pid) {
+            if (isset($primarySegById[$pid])) {
+                $retrySegs[] = $primarySegById[$pid];
+            }
+        }
+        $result = [];
+        if (empty($retrySegs)) {
+            return $result;
+        }
+
+        $retryChunks = array_chunk($retrySegs, 5);
+        $headers = self::buildApiHeaders($apiKey, $provider, $settings);
+        foreach ($retryChunks as $rc) {
+            $userPayload = self::buildUserPayload($rc);
+            $body = self::buildApiBody($model, $strictSystem, $userPayload, $provider);
+            $resp = wp_remote_post($endpoint, ['headers' => $headers, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body)]);
+            if (is_wp_error($resp)) {
+                continue;
+            }
+            $code = (int) wp_remote_retrieve_response_code($resp);
+            if ($code !== 200) {
+                continue;
+            }
+            $rb = (string) wp_remote_retrieve_body($resp);
+            $d = json_decode($rb, true);
+            $choices = is_array($d) ? ($d['choices'] ?? []) : [];
+            if (!$choices || !isset($choices[0]['message']['content'])) {
+                continue;
+            }
+            $msg = (string) $choices[0]['message']['content'];
+            $translations = self::parseTranslationResponse($msg);
+            if (is_array($translations)) {
+                foreach ($translations as $k => $v) {
+                    $translated = trim((string) $v);
+                    if ($translated !== '') {
+                        $result[(string) $k] = $translated;
+                    }
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Get the brand name whitelist from settings, falling back to defaults.
+     *
+     * @return array Lowercased brand names.
+     */
+    private static function getBrandWhitelist(): array
+    {
+        $settings = AI_Translate_Core::settings();
+        if (isset($settings['brand_whitelist']) && is_array($settings['brand_whitelist']) && !empty($settings['brand_whitelist'])) {
+            return array_map('strtolower', $settings['brand_whitelist']);
+        }
+        return ['wordpress'];
     }
 }

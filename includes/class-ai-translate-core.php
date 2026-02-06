@@ -25,6 +25,99 @@ final class AI_Translate_Core
     }
 
     /**
+     * Cached accessor for plugin settings. Avoids repeated get_option() calls per request.
+     *
+     * @return array
+     */
+    public static function settings(): array
+    {
+        static $s = null;
+        if ($s === null) {
+            $s = get_option('ai_translate_settings', []);
+        }
+        return is_array($s) ? $s : [];
+    }
+
+    /**
+     * Resolve the active domain from the current HTTP request.
+     * Falls back to SERVER_NAME and home_url() host.
+     *
+     * @return string
+     */
+    public static function get_active_domain(): string
+    {
+        static $domain = null;
+        if ($domain !== null) {
+            return $domain;
+        }
+        $domain = '';
+        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+            $domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
+            if (strpos($domain, ':') !== false) {
+                $domain = strtok($domain, ':');
+            }
+        }
+        if (empty($domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
+            $domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
+        }
+        if (empty($domain)) {
+            $domain = parse_url(home_url(), PHP_URL_HOST);
+            if (empty($domain)) {
+                $domain = 'default';
+            }
+        }
+        return $domain;
+    }
+
+    /**
+     * Get website context for a domain. Supports per-domain context when multi-domain caching is enabled.
+     *
+     * @param string $domain Optional domain override.
+     * @return string
+     */
+    public static function get_website_context(string $domain = ''): string
+    {
+        $settings = self::settings();
+        $multi_domain = !empty($settings['multi_domain_caching']);
+
+        if ($multi_domain) {
+            $active = $domain !== '' ? $domain : self::get_active_domain();
+            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain'])
+                ? $settings['website_context_per_domain']
+                : [];
+            if (isset($domain_context[$active]) && trim((string) $domain_context[$active]) !== '') {
+                return trim((string) $domain_context[$active]);
+            }
+        }
+        $context = isset($settings['website_context']) ? (string) $settings['website_context'] : '';
+        return trim($context);
+    }
+
+    /**
+     * Get homepage meta description for a domain. Per-domain when multi-domain caching is enabled.
+     *
+     * @param string $domain Optional domain override.
+     * @return string
+     */
+    public static function get_homepage_meta_description(string $domain = ''): string
+    {
+        $settings = self::settings();
+        $multi_domain = !empty($settings['multi_domain_caching']);
+
+        if ($multi_domain) {
+            $active = $domain !== '' ? $domain : self::get_active_domain();
+            $domain_meta = isset($settings['homepage_meta_description_per_domain']) && is_array($settings['homepage_meta_description_per_domain'])
+                ? $settings['homepage_meta_description_per_domain']
+                : [];
+            if (isset($domain_meta[$active]) && trim((string) $domain_meta[$active]) !== '') {
+                return trim((string) $domain_meta[$active]);
+            }
+        }
+        $homepage = isset($settings['homepage_meta_description']) ? (string) $settings['homepage_meta_description'] : '';
+        return trim($homepage);
+    }
+
+    /**
      * List of supported API providers.
      *
      * @return array<string,array{name:string,base_url:string}>
@@ -246,7 +339,7 @@ final class AI_Translate_Core
         $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
         
         // Add site-specific directory if multi-domain caching is enabled
-        $site_dir = $this->get_site_cache_dir();
+        $site_dir = self::get_site_cache_dir();
         if (!empty($site_dir)) {
             $base = trailingslashit($base) . $site_dir . '/';
         }
@@ -296,21 +389,26 @@ final class AI_Translate_Core
     }
 
     /**
-     * Clear memory/transient caches except slugs.
+     * Clear AI Translate transient caches (segment + attribute) except slugs.
+     * Only deletes transients owned by this plugin, not those of other plugins.
      */
     public function clear_memory_and_transients_except_slugs()
     {
         global $wpdb;
-        // Clear all transients (including segment translations ai_tr_seg_* and menu items ai_tr_attr_*)
+        // Only clear AI Translate transients (ai_tr_seg_* and ai_tr_attr_*)
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->options}
             WHERE option_name LIKE %s
+            OR option_name LIKE %s
+            OR option_name LIKE %s
             OR option_name LIKE %s",
-            '_transient_%',
-            '_site_transient_%'
+            '_transient_ai_tr_seg_%',
+            '_transient_timeout_ai_tr_seg_%',
+            '_transient_ai_tr_attr_%',
+            '_transient_timeout_ai_tr_attr_%'
         ));
-        // In-memory nothing persistent beyond this request
+        // Flush object cache for AI Translate entries
         wp_cache_flush();
     }
 
@@ -326,7 +424,7 @@ final class AI_Translate_Core
         $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
         
         // Add site-specific directory if multi-domain caching is enabled
-        $site_dir = $this->get_site_cache_dir();
+        $site_dir = self::get_site_cache_dir();
         if (!empty($site_dir)) {
             $root = trailingslashit($root) . $site_dir . '/';
         }
@@ -362,7 +460,7 @@ final class AI_Translate_Core
         $uploads = wp_upload_dir();
         $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
 
-        $site_dir = $this->get_site_cache_dir_for_clearing();
+        $site_dir = self::get_site_cache_dir_for_clearing();
         if (!empty($site_dir)) {
             $root = trailingslashit($root) . $site_dir . '/';
         }
@@ -387,26 +485,23 @@ final class AI_Translate_Core
     }
 
     /**
-     * Site cache subdir name for clearing: based on this WordPress site's home URL host.
-     * Ensures we clear the correct dir (e.g. netcare.nl) even when admin is opened via www.netcare.nl.
+     * Site cache subdir name for clearing: based on home_url() host (not HTTP_HOST).
+     * Ensures we clear the correct dir even when admin is opened via www subdomain.
      *
      * @return string
      */
-    private function get_site_cache_dir_for_clearing()
+    public static function get_site_cache_dir_for_clearing(): string
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-
-        if (!$multi_domain) {
+        $settings = self::settings();
+        if (empty($settings['multi_domain_caching'])) {
             return '';
         }
-
         $host = parse_url(home_url(), PHP_URL_HOST);
         if (empty($host)) {
             return 'default';
         }
         $sanitized = sanitize_file_name($host);
-        return empty($sanitized) ? 'default' : $sanitized;
+        return $sanitized !== '' ? $sanitized : 'default';
     }
 
     /**
@@ -621,52 +716,19 @@ final class AI_Translate_Core
     }
 
     /**
-     * Get site-specific cache directory name.
-     * Returns sanitized domain name for use as directory name.
-     * Uses the active domain (HTTP_HOST) instead of the WordPress home URL to support multi-domain setups.
+     * Get site-specific cache directory name based on the active domain (HTTP_HOST).
      *
-     * @return string
+     * @return string Sanitized domain name or empty string when multi-domain is disabled.
      */
-    private function get_site_cache_dir()
+    public static function get_site_cache_dir(): string
     {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        if (!$multi_domain) {
+        $settings = self::settings();
+        if (empty($settings['multi_domain_caching'])) {
             return '';
         }
-        
-        // Use the active domain from HTTP_HOST (the domain the user is actually visiting)
-        // This ensures each domain gets its own cache directory
-        $active_domain = '';
-        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-            // Remove port if present (e.g., "example.com:8080" -> "example.com")
-            if (strpos($active_domain, ':') !== false) {
-                $active_domain = strtok($active_domain, ':');
-            }
-        }
-        
-        // Fallback to SERVER_NAME if HTTP_HOST is not available
-        if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-            $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-        }
-        
-        // Final fallback to home_url() host (should rarely be needed)
-        if (empty($active_domain)) {
-            $active_domain = parse_url(home_url(), PHP_URL_HOST);
-            if (empty($active_domain)) {
-                $active_domain = 'default';
-            }
-        }
-        
-        // Sanitize domain name for use as directory name
+        $active_domain = self::get_active_domain();
         $sanitized = sanitize_file_name($active_domain);
-        if (empty($sanitized)) {
-            $sanitized = 'default';
-        }
-        
-        return $sanitized;
+        return $sanitized !== '' ? $sanitized : 'default';
     }
 
     /**
@@ -683,7 +745,7 @@ final class AI_Translate_Core
         $root = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
         
         // Add site-specific directory if multi-domain caching is enabled
-        $site_dir = $this->get_site_cache_dir();
+        $site_dir = self::get_site_cache_dir();
         if (!empty($site_dir)) {
             $root = trailingslashit($root) . $site_dir . '/';
         }
@@ -825,54 +887,6 @@ final class AI_Translate_Core
         }
         
         return $content;
-    }
-
-    /**
-     * Get website context for a specific domain.
-     * Supports per-domain website context when multi-domain caching is enabled.
-     *
-     * @param string $domain Optional. Domain to get context for. If not provided, uses active domain.
-     * @return string
-     */
-    private function get_website_context_for_domain($domain = '')
-    {
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
-        
-        if ($multi_domain) {
-            // Determine active domain if not provided
-            $active_domain = $domain;
-            if (empty($active_domain)) {
-                if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-                    if (strpos($active_domain, ':') !== false) {
-                        $active_domain = strtok($active_domain, ':');
-                    }
-                }
-                if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-                }
-                if (empty($active_domain)) {
-                    $active_domain = parse_url(home_url(), PHP_URL_HOST);
-                    if (empty($active_domain)) {
-                        $active_domain = 'default';
-                    }
-                }
-            }
-            
-            // Multi-domain caching enabled: use per-domain website context
-            $domain_context = isset($settings['website_context_per_domain']) && is_array($settings['website_context_per_domain']) 
-                ? $settings['website_context_per_domain'] 
-                : [];
-            
-            if (isset($domain_context[$active_domain]) && trim((string) $domain_context[$active_domain]) !== '') {
-                return trim((string) $domain_context[$active_domain]);
-            }
-        }
-        
-        // Fallback to global website context
-        $context = isset($settings['website_context']) ? (string) $settings['website_context'] : '';
-        return trim($context);
     }
 
     /**
@@ -1059,7 +1073,7 @@ final class AI_Translate_Core
         }
         
         // Get website context (per-domain if multi-domain caching is enabled)
-        $website_context = $this->get_website_context_for_domain($domain);
+        $website_context = self::get_website_context($domain);
 
         // 3. Try AI generation if configured
         if ($provider !== '' && $model !== '' && $apiKey !== '' && $baseUrl !== '') {
