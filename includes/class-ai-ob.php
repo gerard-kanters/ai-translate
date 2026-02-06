@@ -520,6 +520,13 @@ final class AI_OB
             }
         }
 
+        // Translate chatbot greeting strings embedded in inline script JSON (e.g. Kognetiks kchat_settings).
+        // These are JavaScript strings that become DOM content at runtime, outside our DOM translation scope.
+        $defaultLang = AI_Lang::default();
+        if ($defaultLang !== null) {
+            $html3 = $this->translateInlineScriptJsonValues($html3, $lang, $defaultLang);
+        }
+
         // Validate final output before caching
         $html3Len = strlen($html3);
         $html3HasHtml = (stripos($html3, '<html') !== false || stripos($html3, '<!DOCTYPE') !== false);
@@ -624,6 +631,71 @@ final class AI_OB
         
         $processing = false;
         return $this->post_process_cached_content($html3);
+    }
+
+    /**
+     * Translate known JSON string values inside inline &lt;script&gt; tags.
+     * Targets chatbot plugins (e.g., Kognetiks) that embed translatable strings in JS settings objects.
+     * Uses the existing transient cache; only calls the translation API on cache miss.
+     *
+     * @param string $html  Full page HTML
+     * @param string $lang  Target language code
+     * @param string $default  Default (source) language code
+     * @return string HTML with translated inline script values
+     */
+    private function translateInlineScriptJsonValues($html, $lang, $default)
+    {
+        if ($lang === $default) {
+            return $html;
+        }
+
+        // JSON keys whose values should be translated (chatbot greetings/names)
+        $keys = [
+            'chatbot_chatgpt_initial_greeting',
+            'chatbot_chatgpt_subsequent_greeting',
+            'chatbot_chatgpt_bot_name',
+        ];
+
+        foreach ($keys as $jsonKey) {
+            $pattern = '/"' . preg_quote($jsonKey, '/') . '"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/';
+            $html = preg_replace_callback($pattern, function ($m) use ($lang, $default, $jsonKey) {
+                $jsonStr = $m[1];
+                $original = json_decode('"' . $jsonStr . '"');
+                if ($original === null || trim($original) === '') {
+                    return $m[0];
+                }
+                $normalized = preg_replace('/\s+/u', ' ', trim($original));
+                if (mb_strlen($normalized) < 2) {
+                    return $m[0];
+                }
+
+                // Check transient cache first
+                $cacheKey = 'ai_tr_attr_' . $lang . '_' . md5($normalized);
+                $cached = ai_translate_get_attr_transient($cacheKey);
+                if ($cached !== false) {
+                    $escaped = substr(json_encode((string) $cached, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 1, -1);
+                    return '"' . $jsonKey . '":"' . $escaped . '"';
+                }
+
+                // Cache miss — translate via AI_Batch
+                $settings = \AITranslate\AI_Translate_Core::settings();
+                $ctx = ['website_context' => isset($settings['website_context']) ? (string) $settings['website_context'] : ''];
+                $plan = ['segments' => [['id' => 's1', 'text' => $normalized, 'type' => 'node']]];
+                $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
+                $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : [];
+                $tr = isset($segs['s1']) ? (string) $segs['s1'] : $normalized;
+
+                // Cache the result
+                $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
+                $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
+                ai_translate_set_attr_transient($cacheKey, $tr, $expiry);
+
+                $escaped = substr(json_encode($tr, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 1, -1);
+                return '"' . $jsonKey . '":"' . $escaped . '"';
+            }, $html);
+        }
+
+        return $html;
     }
 
     /**
