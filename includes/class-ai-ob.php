@@ -379,7 +379,18 @@ final class AI_OB
             if (preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $merged, $mNew) &&
                 preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', (string) $html, $mOrig)) {
                 $newInner = (string) $mNew[1];
-                $html2 = (string) preg_replace('/(<body\b[^>]*>)[\s\S]*?(<\/body>)/i', '$1' . $newInner . '$2', (string) $html, 1);
+                // Use preg_replace_callback instead of preg_replace to prevent $n back-reference
+                // interpretation in the replacement string. Content like bash code blocks may contain
+                // $1, $2 etc. which preg_replace would interpret as capture group references,
+                // injecting </body> mid-content and truncating the page.
+                $html2 = (string) preg_replace_callback(
+                    '/(<body\b[^>]*>)[\s\S]*?(<\/body>)/i',
+                    function ($m) use ($newInner) {
+                        return $m[1] . $newInner . $m[2];
+                    },
+                    (string) $html,
+                    1
+                );
             }
             
             // Update HTML lang attribute in the preserved original HTML to match target language
