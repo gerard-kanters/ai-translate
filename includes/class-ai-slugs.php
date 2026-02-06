@@ -460,21 +460,6 @@ final class AI_Slugs
 
         self::upsert_row($post_id, $lang, $source_slug, $translated_slug, $version);
         
-        // Log for warm cache debugging
-        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-        $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
-        if ($is_warm_cache_request) {
-            $uploads = wp_upload_dir();
-            $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
-            if (!is_dir($log_dir)) {
-                wp_mkdir_p($log_dir);
-            }
-            $log_file = $log_dir . 'warm-cache-debug.log';
-            $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] SLUGS_GET_OR_GENERATE: Generated new slug | post_id: {$post_id} | lang: {$lang} | translated_slug: {$translated_slug}\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
-        
         return $translated_slug;
     }
 

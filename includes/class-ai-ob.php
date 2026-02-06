@@ -131,108 +131,46 @@ final class AI_OB
      */
     public function callback($html)
     {
-        // Log callback trigger for warm cache debugging (before static check)
+        // Detect warm cache requests (bypass static processing check)
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
         $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
-        
-        if ($is_warm_cache_request) {
-            $uploads = wp_upload_dir();
-            $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
-            if (!is_dir($log_dir)) {
-                wp_mkdir_p($log_dir);
-            }
-            $log_file = $log_dir . 'warm-cache-debug.log';
-            $timestamp = date('Y-m-d H:i:s');
-            $lang = AI_Lang::current();
-            $log_entry = "[{$timestamp}] OB_CALLBACK: Triggered | request_uri: {$request_uri} | lang: " . ($lang ?? 'null') . " | html_size: " . strlen($html) . "\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
         
         static $processing = false;
         
-        if ($is_warm_cache_request && $log_file) {
-            $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] OB_CALLBACK: Static check | processing: " . ($processing ? 'true' : 'false') . " | is_warm_cache: " . ($is_warm_cache_request ? 'true' : 'false') . "\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
-        
         // Allow warm cache requests to bypass static processing check (they need to generate cache)
         if ($processing && !$is_warm_cache_request) {
-            if ($is_warm_cache_request && $log_file) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (static processing check)\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             return $html;
         }
         $processing = true;
 
-        if ($is_warm_cache_request && $log_file) {
-            $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] OB_CALLBACK: Past static check, starting PHASE checks\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
-
         // PHASE 1: Basic environment checks
         if ($this->should_skip_basic_checks()) {
-            if ($is_warm_cache_request) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (basic checks)\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             $processing = false;
             return $html;
         }
 
         // PHASE 2: Content type validation
         if ($this->should_skip_content_type($html)) {
-            if ($is_warm_cache_request && $log_file) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (PHASE 2: content type)\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             $processing = false;
             return $html;
         }
 
         // PHASE 3: Page structure validation
         if ($this->should_skip_page_structure()) {
-            if ($is_warm_cache_request && $log_file) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (PHASE 3: page structure)\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             $processing = false;
             return $html;
         }
 
         // PHASE 4: File type checks
         if ($this->should_skip_file_types($html)) {
-            if ($is_warm_cache_request && $log_file) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (PHASE 4: file type)\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             $processing = false;
             return $html;
         }
 
         // PHASE 5: Language and user validation
         if ($this->should_skip_language_or_user()) {
-            if ($is_warm_cache_request && $log_file) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (PHASE 5: language/user)\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             $processing = false;
             return $html;
-        }
-        
-        if ($is_warm_cache_request && $log_file) {
-            $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] OB_CALLBACK: All PHASE checks passed, continuing\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
         }
 
         // Get validated language (already checked in PHASE 5)
@@ -277,11 +215,6 @@ final class AI_OB
         // This allows search pages and other dynamic content to be translated but not cached
         $shouldTranslate = $this->route_should_be_translated($route);
         if (!$shouldTranslate) {
-            if ($is_warm_cache_request) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (route should not be translated) | route: {$route}\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             $processing = false;
             return $html; // Return untranslated HTML without processing
         }
@@ -315,11 +248,6 @@ final class AI_OB
                 if ((time() - $lockStart) > $maxLockWait) {
                     // Another request is still generating this page; avoid duplicate API calls
                     // Serve the current HTML without starting a second translation pass
-                    if ($is_warm_cache_request) {
-                        $timestamp = date('Y-m-d H:i:s');
-                        $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (lock timeout) | lockKey: {$lockKey}\n";
-                        @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-                    }
                     $processing = false;
                     return $html;
                 }
@@ -328,11 +256,6 @@ final class AI_OB
                 // Check if cache became available while waiting
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
-                    if ($is_warm_cache_request) {
-                        $timestamp = date('Y-m-d H:i:s');
-                        $log_entry = "[{$timestamp}] OB_CALLBACK: Cache found while waiting for lock | key: {$key}\n";
-                        @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-                    }
                     $processing = false;
                     return $cached;
                 }
@@ -341,23 +264,12 @@ final class AI_OB
             // Acquire lock for this page generation
             set_transient($lockKey, time(), 120); // Lock expires after 2 minutes as failsafe
             $lockAcquired = true;
-            
-            if ($is_warm_cache_request) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Lock acquired | lockKey: {$lockKey}\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
         }
         
         $timeLimit = (int) ini_get('max_execution_time');
         $elapsed = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
         $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 120;
         if ($remaining < 20) {
-            if ($is_warm_cache_request) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (insufficient time remaining) | remaining: {$remaining}\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             if ($lockAcquired) {
                 delete_transient($lockKey);
             }
@@ -438,12 +350,6 @@ final class AI_OB
             
             if (!$cache_exists || !$cache_is_expired) {
                 // Cache doesn't exist or is not expired, block translation
-                if ($is_warm_cache_request) {
-                    $timestamp = date('Y-m-d H:i:s');
-                    $reason = $cache_exists ? 'cache_not_expired' : 'cache_not_exists';
-                    $log_entry = "[{$timestamp}] OB_CALLBACK: Skipped (stop_translations enabled) | reason: {$reason} | cache_exists: " . ($cache_exists ? 'yes' : 'no') . " | cache_is_expired: " . ($cache_is_expired ? 'yes' : 'no') . "\n";
-                    @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-                }
                 if ($lockAcquired) {
                     delete_transient($lockKey);
                 }
@@ -532,28 +438,7 @@ final class AI_OB
         $html3HasHtml = (stripos($html3, '<html') !== false || stripos($html3, '<!DOCTYPE') !== false);
         $html3HasBody = (stripos($html3, '<body') !== false);
         
-        // Log validation for warm cache debugging
-        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-        $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
-        
-        if ($is_warm_cache_request) {
-            $uploads = wp_upload_dir();
-            $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
-            if (!is_dir($log_dir)) {
-                wp_mkdir_p($log_dir);
-            }
-            $log_file = $log_dir . 'warm-cache-debug.log';
-            $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] OB_CALLBACK: HTML validation | lang: {$lang} | route: {$route} | html3Len: {$html3Len} | hasHtml: " . ($html3HasHtml ? 'yes' : 'no') . " | hasBody: " . ($html3HasBody ? 'yes' : 'no') . "\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
-        
         if ($html3Len < 500 || !$html3HasHtml || !$html3HasBody) {
-            if ($is_warm_cache_request) {
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: HTML validation FAILED - skipping cache\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
             if ($lockAcquired) {
                 delete_transient($lockKey);
             }
@@ -567,61 +452,8 @@ final class AI_OB
         // Additional check: only cache if route corresponds to cacheable content (not search pages, etc.)
         $isCacheable = $this->route_has_valid_content($route);
         
-        if ($is_warm_cache_request) {
-            $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] OB_CALLBACK: Cache decision | bypassUserCache: " . ($bypassUserCache ? 'yes' : 'no') . " | hasDynamicQueryParams: " . ($hasDynamicQueryParams ? 'yes' : 'no') . " | isCacheable: " . ($isCacheable ? 'yes' : 'no') . " | route: {$route}\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
-        
         if (!$bypassUserCache && !$hasDynamicQueryParams && $isCacheable) {
-            // Log cache write attempt for warm cache debugging
-            $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
-            $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-            $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
-            
-            if ($is_warm_cache_request) {
-                $uploads = wp_upload_dir();
-                $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
-                if (!is_dir($log_dir)) {
-                    wp_mkdir_p($log_dir);
-                }
-                $log_file = $log_dir . 'warm-cache-debug.log';
-                $cache_file = AI_Cache::get_file_path($key);
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Writing cache | lang: {$lang} | route: {$route} | key: {$key} | cache_file: {$cache_file} | request_uri: {$request_uri}\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
-            
             AI_Cache::set($key, $html3);
-            
-            if ($is_warm_cache_request) {
-                $cache_file_after = AI_Cache::get_file_path($key);
-                $file_exists = file_exists($cache_file_after);
-                $timestamp = date('Y-m-d H:i:s');
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Cache write completed | cache_file: {$cache_file_after} | exists: " . ($file_exists ? 'yes' : 'no') . "\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
-        } else {
-            // Log why cache was skipped
-            $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
-            $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-            $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
-            
-            if ($is_warm_cache_request) {
-                $uploads = wp_upload_dir();
-                $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
-                if (!is_dir($log_dir)) {
-                    wp_mkdir_p($log_dir);
-                }
-                $log_file = $log_dir . 'warm-cache-debug.log';
-                $timestamp = date('Y-m-d H:i:s');
-                $skip_reasons = [];
-                if ($bypassUserCache) $skip_reasons[] = 'bypassUserCache';
-                if ($hasDynamicQueryParams) $skip_reasons[] = 'hasDynamicQueryParams';
-                if (!$isCacheable) $skip_reasons[] = '!isCacheable';
-                $log_entry = "[{$timestamp}] OB_CALLBACK: Cache SKIPPED | lang: {$lang} | route: {$route} | reasons: " . implode(', ', $skip_reasons) . " | request_uri: {$request_uri}\n";
-                @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-            }
         }
         
         // Release lock after successful cache generation

@@ -307,26 +307,6 @@ function ajax_delete_cache_file()
 add_action('wp_ajax_ai_translate_delete_cache_file', __NAMESPACE__ . '\\ajax_delete_cache_file');
 
 /**
- * Log warm cache debugging information to a dedicated log file.
- *
- * @param string $message Log message
- * @param array $context Additional context data
- */
-function warm_cache_log($message, $context = [])
-{
-    $uploads = wp_upload_dir();
-    $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
-    if (!is_dir($log_dir)) {
-        wp_mkdir_p($log_dir);
-    }
-    $log_file = $log_dir . 'warm-cache-debug.log';
-    $timestamp = date('Y-m-d H:i:s');
-    $context_str = !empty($context) ? ' | Context: ' . json_encode($context, JSON_UNESCAPED_SLASHES) : '';
-    $log_entry = "[{$timestamp}] {$message}{$context_str}\n";
-    @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-}
-
-/**
  * Return route_id used for cache key when warming cache. Must match class-ai-ob current_route_id() for the same URL.
  *
  * @param int $post_id Post ID (0 = homepage)
@@ -381,17 +361,13 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
     // Use same URL as hreflang/crawlers: AI_SEO::get_translated_url.
     foreach ($lang_codes as $lang_code) {
         try {
-            warm_cache_log("WARM_CACHE_BATCH: Generating URL", ['post_id' => $post_id, 'lang_code' => $lang_code]);
             $translated_url = \AITranslate\AI_SEO::get_translated_url($post_id, $lang_code);
-            warm_cache_log("WARM_CACHE_BATCH: Generated URL", ['post_id' => $post_id, 'lang_code' => $lang_code, 'url' => $translated_url]);
             
             if ($translated_url === '') {
                 $results[$lang_code] = array('success' => false, 'error' => __('Could not generate post URL.', 'ai-translate'));
-                warm_cache_log("WARM_CACHE_BATCH: Could not generate URL", ['post_id' => $post_id, 'lang_code' => $lang_code]);
                 continue;
             }
 
-            warm_cache_log("WARM_CACHE_BATCH: Starting curl request", ['post_id' => $post_id, 'lang_code' => $lang_code, 'url' => $translated_url]);
             $ch = curl_init($translated_url);
             curl_setopt_array($ch, array(
                 CURLOPT_RETURNTRANSFER => true,
@@ -453,9 +429,6 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
         
         // Accept 200 as success (unless it's an error page)
         if ($http_code === 200 && !$is_error_page) {
-            $effective_url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL); // Get actual URL after redirects
-            warm_cache_log("WARM_CACHE_BATCH: HTTP 200 received", ['post_id' => $post_id, 'lang_code' => $lang_code, 'requested_url' => $translated_url, 'effective_url' => $effective_url, 'response_size' => strlen($response_body)]);
-            
             // Wait a moment for async cache writes to complete
             usleep(500000); // 0.5 second
             
@@ -463,14 +436,10 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
             $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
             
-            warm_cache_log("WARM_CACHE_BATCH: Checking cache file", ['post_id' => $post_id, 'lang_code' => $lang_code, 'route_id' => $route_id, 'cache_key' => $cache_key, 'cache_file' => $cache_file]);
-            
             if ($cache_file && file_exists($cache_file)) {
                 // Ensure metadata is inserted/updated in database
                 $cache_hash = md5($cache_key);
                 AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
-                
-                warm_cache_log("WARM_CACHE_BATCH: Cache file found immediately", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
                 $results[$lang_code] = array('success' => true, 'error' => '');
             } else {
                 // Check again after longer delays (up to 3 seconds total)
@@ -481,7 +450,6 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                     if ($cache_file && file_exists($cache_file)) {
                         $cache_hash = md5($cache_key);
                         AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
-                        warm_cache_log("WARM_CACHE_BATCH: Cache file found after delay", ['post_id' => $post_id, 'lang_code' => $lang_code, 'attempt' => $attempt, 'cache_file' => $cache_file]);
                         $results[$lang_code] = array('success' => true, 'error' => '');
                         $found = true;
                         break;
@@ -522,13 +490,11 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                         if ($cache_file && file_exists($cache_file)) {
                             $cache_hash = md5($cache_key);
                             AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
-                            warm_cache_log("WARM_CACHE_BATCH: Cache file written from response", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
                             $results[$lang_code] = array('success' => true, 'error' => '');
                             continue;
                         }
                     }
 
-                    warm_cache_log("WARM_CACHE_BATCH: Cache file NOT found after all attempts", $debug_info);
                     $results[$lang_code] = array('success' => false, 'error' => $error_detail);
                 }
             }
@@ -574,11 +540,8 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
     $lang_code     = sanitize_key((string) $lang_code);
     $translated_url = \AITranslate\AI_SEO::get_translated_url($post_id, $lang_code);
     if ($translated_url === '') {
-        warm_cache_log("WARM_CACHE_INTERNAL: Could not generate URL", ['post_id' => $post_id, 'lang_code' => $lang_code, 'request_path' => $request_path]);
         return array('success' => false, 'error' => __('Could not generate post URL.', 'ai-translate'));
     }
-    
-    warm_cache_log("WARM_CACHE_INTERNAL: Starting request", ['post_id' => $post_id, 'lang_code' => $lang_code, 'request_path' => $request_path, 'url' => $translated_url]);
 
     // Parse URL to get host and path
     $parsed = parse_url($translated_url);
@@ -623,8 +586,6 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
     
     // Accept 200 as success (redirects might indicate issues, but we'll check cache anyway)
     if ($response_code === 200) {
-        warm_cache_log("WARM_CACHE_INTERNAL: HTTP 200 received", ['post_id' => $post_id, 'lang_code' => $lang_code, 'url' => $translated_url]);
-        
         // Verify cache was generated by checking if cache file exists
         // Wait a moment for async cache writes to complete
         usleep(500000); // 0.5 second
@@ -633,15 +594,11 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
         $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
         $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
         
-        warm_cache_log("WARM_CACHE_INTERNAL: Checking cache file", ['post_id' => $post_id, 'lang_code' => $lang_code, 'route_id' => $route_id, 'cache_key' => $cache_key, 'cache_file' => $cache_file]);
-        
         if ($cache_file && file_exists($cache_file)) {
             // Ensure metadata is inserted/updated in database
             // The cache file exists, but metadata might not be in database yet
             $cache_hash = md5($cache_key);
             AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
-            
-            warm_cache_log("WARM_CACHE_INTERNAL: Cache file found immediately", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
             return array('success' => true, 'error' => '');
         } else {
             // Check again after a longer delay (some systems might be slower)
@@ -651,11 +608,9 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
                 $cache_hash = md5($cache_key);
                 AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
                 
-                warm_cache_log("WARM_CACHE_INTERNAL: Cache file found after delay", ['post_id' => $post_id, 'lang_code' => $lang_code, 'cache_file' => $cache_file]);
                 return array('success' => true, 'error' => '');
             }
             // Request was successful but cache not found - might be bypassed or error in generation
-            warm_cache_log("WARM_CACHE_INTERNAL: Cache file NOT found", ['post_id' => $post_id, 'lang_code' => $lang_code, 'route_id' => $route_id, 'cache_key' => $cache_key, 'cache_file' => $cache_file, 'cache_dir_exists' => ($cache_file ? is_dir(dirname($cache_file)) : false), 'cache_dir_writable' => ($cache_file ? is_writable(dirname($cache_file)) : false)]);
             return array('success' => false, 'error' => __('Cache file not generated after successful request', 'ai-translate'));
         }
     }

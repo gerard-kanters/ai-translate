@@ -114,30 +114,7 @@ final class AI_Cache
             wp_mkdir_p($dir);
         }
         
-        // Log cache write for warm cache debugging
-        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-        $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
-        
-        if ($is_warm_cache_request) {
-            $uploads = wp_upload_dir();
-            $log_dir = trailingslashit($uploads['basedir']) . 'ai-translate/logs/';
-            if (!is_dir($log_dir)) {
-                wp_mkdir_p($log_dir);
-            }
-            $log_file = $log_dir . 'warm-cache-debug.log';
-            $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[{$timestamp}] CACHE_SET: Writing cache file | key: {$key} | file: {$file} | dir_exists: " . (is_dir($dir) ? 'yes' : 'no') . " | dir_writable: " . (is_writable($dir) ? 'yes' : 'no') . " | html_size: " . strlen($html) . "\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
-        
         $result = @file_put_contents($file, $html);
-        
-        if ($is_warm_cache_request) {
-            $timestamp = date('Y-m-d H:i:s');
-            $file_exists_after = file_exists($file);
-            $log_entry = "[{$timestamp}] CACHE_SET: Write result | file: {$file} | write_result: " . ($result !== false ? 'success (' . $result . ' bytes)' : 'failed') . " | file_exists_after: " . ($file_exists_after ? 'yes' : 'no') . "\n";
-            @file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-        }
         
         // Track cache metadata for admin table
         // Extract post_id from route_id in cache key: ait:v4:site:lang:route_id
