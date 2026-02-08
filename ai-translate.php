@@ -1196,7 +1196,7 @@ add_action('rest_api_init', function () {
             $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
             $rate_key = 'ai_tr_rate_' . md5($ip);
             $rate_count = (int) get_transient($rate_key);
-            if ($rate_count >= 20) {
+            if ($rate_count >= 30) {
                 return new \WP_REST_Response(['error' => 'Rate limit exceeded'], 429);
             }
             set_transient($rate_key, $rate_count + 1, 60);
@@ -1400,6 +1400,54 @@ add_action('rest_api_init', function () {
                     }
                     // Clear $toTranslate to prevent API call
                     $toTranslate = [];
+                } else {
+                    // Validate that strings actually exist on the page (security: prevent abuse)
+                    $referer = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
+                    if ($referer !== '' && strpos($referer, home_url()) === 0) {
+                        // Get page HTML (cached using same expiration as translations)
+                        $page_cache_key = 'ai_tr_page_html_' . md5($referer);
+                        $page_html = get_transient($page_cache_key);
+                        if ($page_html === false) {
+                            // Fetch page HTML
+                            $response = wp_remote_get($referer, array(
+                                'timeout' => 5,
+                                'sslverify' => false,
+                                'headers' => array(
+                                    'User-Agent' => 'AI-Translate-Validator/1.0'
+                                )
+                            ));
+                            if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                                $page_html = wp_remote_retrieve_body($response);
+                                // Cache using same expiration as translations
+                                $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
+                                $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
+                                set_transient($page_cache_key, $page_html, $expiry);
+                            } else {
+                                // Security: if page HTML cannot be fetched, block translation to prevent abuse
+                                $toTranslate = [];
+                            }
+                        }
+                        // Validate each string exists on page (in attributes or content)
+                        if ($page_html !== '') {
+                            $validated = [];
+                            foreach ($toTranslate as $id => $text) {
+                                // Check if string exists in HTML (escape special regex chars)
+                                $text_escaped = preg_quote($text, '/');
+                                // Match in attributes (placeholder, title, aria-label, alt, value) or content
+                                if (preg_match('/' . $text_escaped . '/iu', $page_html)) {
+                                    $validated[$id] = $text;
+                                }
+                            }
+                            // Only allow translation of validated strings
+                            $toTranslate = $validated;
+                        } else {
+                            // Security: if page HTML is empty, block translation to prevent abuse
+                            $toTranslate = [];
+                        }
+                    } else {
+                        // Security: if referer is invalid or missing, block translation
+                        $toTranslate = [];
+                    }
                 }
             }
             

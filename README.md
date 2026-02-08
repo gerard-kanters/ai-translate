@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.2.5
+Stable tag: 2.2.6
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -184,12 +184,13 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
-### 2.2.5
+### 2.2.6
 - Improve system prompt (role, what and how).
 - Improve website context generator (what is the website about).
 - Improve admin UX.
 - All enabled and detectable languages added to Wordpress sitemap (/wp-sitemap.xml) 
 - Code base refactoring. Improve performance and security, thighening code.
+
 
 ### 2.2.4
 
