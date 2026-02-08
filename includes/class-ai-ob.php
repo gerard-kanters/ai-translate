@@ -678,6 +678,11 @@ final class AI_OB
             return 'path:' . md5($req);
         }
         
+        // For 404 pages: use a single consistent route_id so all 404s share one cache entry per language
+        if (function_exists('is_404') && is_404()) {
+            return 'path:' . md5('/404');
+        }
+
         // CRITICAL: For warm cache requests and translated URLs, resolve the post ID from the URL FIRST
         // This is needed because WordPress query functions (is_singular, get_queried_object_id) 
         // may not work correctly during warm cache internal requests
@@ -877,9 +882,14 @@ final class AI_OB
      */
     private function should_skip_content_type($html)
     {
-        // Skip 404 pages - multiple detection methods
+        // Skip 404 pages - but allow translation when a non-default language is active
+        // Users encountering a 404 in another language should see translated error messages
         if ($this->is_404_page($html)) {
-            return true;
+            $lang = AI_Lang::current();
+            if ($lang === null || !AI_Lang::should_translate($lang)) {
+                return true;
+            }
+            // Non-default language active: allow 404 through for translation
         }
 
         // Skip redirect pages - detect redirect responses
@@ -906,11 +916,12 @@ final class AI_OB
      */
     private function should_skip_page_structure()
     {
-        // Only translate singular posts/pages, with exceptions for search/homepage
+        // Only translate singular posts/pages, with exceptions for search/homepage/404
         if (function_exists('is_singular') && !is_singular()) {
             $is_search = function_exists('is_search') && is_search();
             $is_front_page = function_exists('is_front_page') && is_front_page();
-            if (!$is_search && !$is_front_page) {
+            $is_404 = function_exists('is_404') && is_404();
+            if (!$is_search && !$is_front_page && !$is_404) {
                 return true;
             }
         }
@@ -1221,6 +1232,10 @@ final class AI_OB
                 return true;
             }
             if (function_exists('is_front_page') && is_front_page()) {
+                return true;
+            }
+            // Cache translated 404 pages - always same content, avoids repeated API calls
+            if (function_exists('is_404') && is_404()) {
                 return true;
             }
 

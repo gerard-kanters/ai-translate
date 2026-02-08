@@ -1753,15 +1753,23 @@ add_action('parse_request', function ($wp) {
 
     // Check if path contains a post type prefix (e.g., service/slug)
     $slug_used_for_lookup = null;
+    $detected_post_type = null;
     if (strpos($rest, '/') !== false) {
         $parts = explode('/', $rest, 2);
         if (count($parts) === 2) {
             $potential_post_type = $parts[0];
-            $potential_slug = $parts[1];
+            $potential_slug = trim($parts[1], '/');
             $slug_used_for_lookup = $potential_slug;
 
             // Check if this is a registered post type
             if (post_type_exists($potential_post_type)) {
+                $detected_post_type = $potential_post_type;
+                // If slug is empty (only post type, e.g., /it/service/), redirect to language root
+                if ($potential_slug === '') {
+                    nocache_headers();
+                    wp_redirect(home_url('/' . $lang . '/'), 301);
+                    exit;
+                }
                 $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $potential_slug);
                 if ($post_id) {
                     $post = get_post((int) $post_id);
@@ -1773,6 +1781,15 @@ add_action('parse_request', function ($wp) {
                     }
                 }
             }
+        }
+    } else {
+        // Single segment: check if it's a post type without slug (e.g., /it/service)
+        if (post_type_exists($rest)) {
+            $detected_post_type = $rest;
+            // Post type without slug, redirect to language root
+            nocache_headers();
+            wp_redirect(home_url('/' . $lang . '/'), 301);
+            exit;
         }
     }
 
@@ -1938,6 +1955,12 @@ add_action('parse_request', function ($wp) {
             return;
         }
     }
+
+    // No resolution found for this language-prefixed URL.
+    // Remove the rewrite-generated pagename (e.g. "es/bestaat-niet") to prevent
+    // WordPress from falling back to the blog index instead of properly triggering a 404.
+    unset($wp->query_vars['pagename']);
+    $wp->query_vars['error'] = '404';
 });
 
 /**

@@ -76,7 +76,7 @@ class AI_Cache_Meta
 
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            post_id BIGINT UNSIGNED NOT NULL,
+            post_id BIGINT NOT NULL,
             language_code VARCHAR(10) NOT NULL,
             cache_file VARCHAR(255) NOT NULL,
             cache_hash VARCHAR(64) NOT NULL,
@@ -485,6 +485,25 @@ class AI_Cache_Meta
             // Insert homepage at the beginning
             array_unshift($results, $homepage_obj);
         }
+
+        // Add 404 page row if it has cached translations
+        $error404_cached = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d",
+            -1
+        ));
+        if ($error404_cached > 0) {
+            $error404_obj = new \stdClass();
+            $error404_obj->ID = -1;
+            $error404_obj->post_type = '404';
+            $error404_obj->post_title = __('404 Page', 'ai-translate');
+            $error404_obj->cached_languages = $error404_cached;
+            $error404_obj->total_languages = $total_languages;
+            $error404_obj->percentage = $total_languages > 0
+                ? round(($error404_cached / $total_languages) * 100)
+                : 0;
+            $error404_obj->url = home_url('/404');
+            $results[] = $error404_obj;
+        }
         
         // Add percentage and URL
         foreach ($results as &$row) {
@@ -648,7 +667,7 @@ class AI_Cache_Meta
                     }
                     
                     $post_id = (int) $row->post_id;
-                    $title = $post_id === 0 ? __('Homepage', 'ai-translate') : get_the_title($post_id);
+                    $title = $post_id === 0 ? __('Homepage', 'ai-translate') : ($post_id === -1 ? __('404 Page', 'ai-translate') : get_the_title($post_id));
                     if ($title === '') {
                         $title = sprintf(__('Post %d', 'ai-translate'), $post_id);
                     }
@@ -778,6 +797,9 @@ class AI_Cache_Meta
         
         if ($post_id === 0) {
             $path = '/';
+        } elseif ($post_id === -1) {
+            // 404 page - no real permalink
+            return home_url('/' . $lang . '/404/');
         } else {
             $permalink = get_permalink($post_id);
             if ($permalink) {

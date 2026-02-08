@@ -133,6 +133,11 @@ final class AI_Cache
                 // Use post_id = 0 for homepage (blog listing)
                 $post_id = 0;
             }
+            // Check if route_id is the 404 page (path:md5(/404))
+            elseif ($route_id === ('path:' . md5('/404'))) {
+                // Use post_id = -1 for 404 page
+                $post_id = -1;
+            }
             
             if ($post_id !== null) {
                 // Extract language from key

@@ -744,6 +744,11 @@ final class AI_SEO
             return home_url('/' . $lang . '/');
         }
 
+        // 404 page: use a non-existent path to trigger a 404 response
+        if ((int) $post_id === -1) {
+            return home_url('/' . $lang . '/ait-404-cache-warm/');
+        }
+
         $translatedSlug = AI_Slugs::get_or_generate((int) $post_id, $lang);
         if ($translatedSlug !== null && $translatedSlug !== '') {
             if (strtolower($lang) === strtolower($default)) {

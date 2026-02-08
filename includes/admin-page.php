@@ -128,12 +128,12 @@ function ajax_delete_post_cache()
 
     $post_id = intval($raw_post_id);
     
-    if ($post_id < 0) {
+    if ($post_id < -1) {
         wp_send_json_error(['message' => __('Invalid post ID.', 'ai-translate')]);
         return;
     }
     
-    // For homepage (post_id = 0), skip post verification
+    // For homepage (post_id = 0) and 404 page (post_id = -1), skip post verification
     if ($post_id > 0) {
         // Verify post exists and user has permission to access it
         $post = get_post($post_id);
@@ -318,6 +318,9 @@ function warm_cache_route_id($post_id)
         $front_page_id = (int) get_option('page_on_front');
         return ($front_page_id > 0) ? ('post:' . $front_page_id) : ('path:' . md5('/'));
     }
+    if ($post_id === -1) {
+        return 'path:' . md5('/404');
+    }
     return 'post:' . $post_id;
 }
 
@@ -415,10 +418,10 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             continue;
         }
         
-        // Check if response looks like an error page (404, 403, etc.)
+        // Check if response looks like an error page (403, 500, etc.)
         $is_error_page = false;
-        if ($http_code === 200 && !empty($response_body)) {
-            // Check for common error indicators in HTML
+        if ($http_code === 200 && !empty($response_body) && $post_id !== -1) {
+            // Check for common error indicators in HTML (skip for 404 pages which are expected)
             if (stripos($response_body, '<title>404') !== false || 
                 stripos($response_body, 'page not found') !== false ||
                 stripos($response_body, 'Fatal error') !== false ||
@@ -427,8 +430,9 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
             }
         }
         
-        // Accept 200 as success (unless it's an error page)
-        if ($http_code === 200 && !$is_error_page) {
+        // Accept 200 as success (unless it's an error page), and 404 for 404 page warming
+        $is_success = ($http_code === 200 && !$is_error_page) || ($post_id === -1 && $http_code === 404);
+        if ($is_success) {
             // Wait a moment for async cache writes to complete
             usleep(500000); // 0.5 second
             
@@ -657,12 +661,12 @@ function ajax_warm_post_cache()
 
     $post_id = intval($raw_post_id);
     
-    if ($post_id < 0) {
+    if ($post_id < -1) {
         wp_send_json_error(['message' => __('Invalid post ID.', 'ai-translate')]);
         return;
     }
     
-    // For homepage (post_id = 0), skip post verification
+    // For homepage (post_id = 0) and 404 page (post_id = -1), skip post verification
     if ($post_id > 0) {
         // Verify post exists and user has permission to access it
         $post = get_post($post_id);
@@ -691,9 +695,12 @@ function ajax_warm_post_cache()
         return;
     }
     
-    // Get post URL (homepage uses home_url)
+    // Get post URL (homepage uses home_url, 404 uses a non-existent path to trigger 404)
     if ($post_id === 0) {
         $post_url = home_url('/');
+    } elseif ($post_id === -1) {
+        // 404 page: use a non-existent path that will trigger a 404
+        $post_url = home_url('/ait-404-cache-warm/');
     } else {
         $post_url = get_permalink($post_id);
         if (!$post_url) {
