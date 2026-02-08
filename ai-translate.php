@@ -1188,14 +1188,14 @@ add_action('rest_api_init', function () {
                 return true;
             }
             if ($is_bot) {
+                $request->set_param('_ai_tr_bot_no_nonce', 1);
                 return true;
             }
             return new \WP_Error('rest_forbidden', 'Invalid nonce', ['status' => 403]);
         },
         'args' => [],
         'callback' => function (\WP_REST_Request $request) {
-            $ua = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-            if ($ua !== '' && preg_match('/googlebot|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i', $ua)) {
+            if ($request->get_param('_ai_tr_bot_no_nonce')) {
                 return new \WP_REST_Response(['success' => true, 'data' => ['map' => []]], 200);
             }
             // Rate limiting: max 60 requests per minute per IP.
