@@ -1239,6 +1239,30 @@ add_action('rest_api_init', function () {
             } else {
                 // Fallback: try to detect from Referer header if available (more reliable than current() for REST calls)
                 $referer = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
+                // Normalize referrer: remove double slashes in path (e.g., /de// -> /de/)
+                if ($referer !== '') {
+                    $refererParsed = parse_url($referer);
+                    if (isset($refererParsed['path'])) {
+                        $refererParsed['path'] = preg_replace('#/+#', '/', $refererParsed['path']);
+                        $referer = '';
+                        if (isset($refererParsed['scheme'])) {
+                            $referer .= $refererParsed['scheme'] . '://';
+                        }
+                        if (isset($refererParsed['host'])) {
+                            $referer .= $refererParsed['host'];
+                            if (isset($refererParsed['port'])) {
+                                $referer .= ':' . $refererParsed['port'];
+                            }
+                        }
+                        $referer .= $refererParsed['path'];
+                        if (isset($refererParsed['query'])) {
+                            $referer .= '?' . $refererParsed['query'];
+                        }
+                        if (isset($refererParsed['fragment'])) {
+                            $referer .= '#' . $refererParsed['fragment'];
+                        }
+                    }
+                }
                 if ($referer !== '' && preg_match('#/([a-z]{2})(?:/|$)#i', parse_url($referer, PHP_URL_PATH) ?: '', $m)) {
                     $lang = strtolower($m[1]);
                 } else {
@@ -1403,6 +1427,30 @@ add_action('rest_api_init', function () {
                 } else {
                     // Validate that strings actually exist on the page (security: prevent abuse)
                     $referer = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
+                    // Normalize referrer: remove double slashes in path (e.g., /de// -> /de/)
+                    if ($referer !== '') {
+                        $refererParsed = parse_url($referer);
+                        if (isset($refererParsed['path'])) {
+                            $refererParsed['path'] = preg_replace('#/+#', '/', $refererParsed['path']);
+                            $referer = '';
+                            if (isset($refererParsed['scheme'])) {
+                                $referer .= $refererParsed['scheme'] . '://';
+                            }
+                            if (isset($refererParsed['host'])) {
+                                $referer .= $refererParsed['host'];
+                                if (isset($refererParsed['port'])) {
+                                    $referer .= ':' . $refererParsed['port'];
+                                }
+                            }
+                            $referer .= $refererParsed['path'];
+                            if (isset($refererParsed['query'])) {
+                                $referer .= '?' . $refererParsed['query'];
+                            }
+                            if (isset($refererParsed['fragment'])) {
+                                $referer .= '#' . $refererParsed['fragment'];
+                            }
+                        }
+                    }
                     if ($referer !== '' && strpos($referer, home_url()) === 0) {
                         // Get page HTML (cached using same expiration as translations)
                         $page_cache_key = 'ai_tr_page_html_' . md5($referer);
