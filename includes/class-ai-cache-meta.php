@@ -486,12 +486,12 @@ class AI_Cache_Meta
             array_unshift($results, $homepage_obj);
         }
 
-        // Add 404 page row if it has cached translations
-        $error404_cached = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d",
-            -1
-        ));
-        if ($error404_cached > 0) {
+        // Add 404 page row (always show on first page, even if no cache yet - similar to homepage)
+        if ($offset === 0) {
+            $error404_cached = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d",
+                -1
+            ));
             $error404_obj = new \stdClass();
             $error404_obj->ID = -1;
             $error404_obj->post_type = '404';
