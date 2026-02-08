@@ -1172,6 +1172,11 @@ add_action('rest_api_init', function () {
     register_rest_route('ai-translate/v1', '/batch-strings', [
         'methods' => 'POST',
         'permission_callback' => function (\WP_REST_Request $request) {
+            // Referer check: must originate from this site
+            $referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+            if ($referer === '' || strpos($referer, home_url()) !== 0) {
+                return new \WP_Error('rest_forbidden', 'Invalid referer', ['status' => 403]);
+            }
             $nonce = $request->get_header('X-WP-Nonce');
             if ($nonce && wp_verify_nonce($nonce, 'wp_rest')) {
                 return true;
@@ -1191,7 +1196,7 @@ add_action('rest_api_init', function () {
             $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
             $rate_key = 'ai_tr_rate_' . md5($ip);
             $rate_count = (int) get_transient($rate_key);
-            if ($rate_count >= 60) {
+            if ($rate_count >= 20) {
                 return new \WP_REST_Response(['error' => 'Rate limit exceeded'], 429);
             }
             set_transient($rate_key, $rate_count + 1, 60);
@@ -1200,6 +1205,11 @@ add_action('rest_api_init', function () {
             if (!is_array($arr)) {
                 $arr = [];
             }
+            // Input limits: max 50 strings of max 150 chars each (UI attributes are short)
+            $arr = array_slice($arr, 0, 50);
+            $arr = array_filter($arr, function ($s) {
+                return is_string($s) && mb_strlen($s) <= 150;
+            });
             // Normalize texts: trim and collapse multiple whitespace to single space
             // Keep mapping between original and normalized for response
             // Multiple originals can map to same normalized (e.g., "Naam " and "Naam" both become "Naam")
