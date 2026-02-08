@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.2.5
+ * Version: 2.2.6
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0
@@ -2305,6 +2305,17 @@ add_action('pre_get_posts', function ($query) {
     if ($current === null || $default === null || strtolower($current) === strtolower($default)) {
         return;
     }
+
+    // Rate limiting: max 10 search queries per minute per IP (prevent abuse/cost attacks)
+    // Normal users rarely exceed 1-2 searches per minute; 5 is generous but prevents abuse
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : 'unknown';
+    $rate_key = 'ai_tr_search_rate_' . md5($ip);
+    $rate_count = (int) get_transient($rate_key);
+    if ($rate_count >= 10) {
+        // Rate limit exceeded: skip translation, use original query
+        return;
+    }
+    set_transient($rate_key, $rate_count + 1, 60);
 
     $settings = get_option('ai_translate_settings', array());
     $ctx = array(
