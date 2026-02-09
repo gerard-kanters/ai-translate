@@ -1172,13 +1172,18 @@ add_action('rest_api_init', function () {
     register_rest_route('ai-translate/v1', '/batch-strings', [
         'methods' => 'POST',
         'permission_callback' => function (\WP_REST_Request $request) {
+            // Bot check first: bots get empty response anyway, no need for referer/nonce
+            $ua = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
+            $is_bot = $ua !== '' && preg_match('/googlebot|googleother|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i', $ua);
+            if ($is_bot) {
+                $request->set_param('_ai_tr_bot_no_nonce', 1);
+                return true;
+            }
             // Referer check: must originate from this site
             $referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
             if ($referer === '' || strpos($referer, home_url()) !== 0) {
                 return new \WP_Error('rest_forbidden', 'Invalid referer', ['status' => 403]);
             }
-            $ua = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
-            $is_bot = $ua !== '' && preg_match('/googlebot|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i', $ua);
             $nonce = $request->get_header('X-WP-Nonce');
             if ($nonce && wp_verify_nonce($nonce, 'wp_rest')) {
                 return true;
@@ -1187,17 +1192,11 @@ add_action('rest_api_init', function () {
             if ($nonce_param && wp_verify_nonce($nonce_param, 'ai_translate_front_nonce')) {
                 return true;
             }
-            if ($is_bot) {
-                $request->set_param('_ai_tr_bot_no_nonce', 1);
-                return true;
-            }
             return new \WP_Error('rest_forbidden', 'Invalid nonce', ['status' => 403]);
         },
         'args' => [],
         'callback' => function (\WP_REST_Request $request) {
-            if ($request->get_param('_ai_tr_bot_no_nonce')) {
-                return new \WP_REST_Response(['success' => true, 'data' => ['map' => []]], 200);
-            }
+            $is_bot_request = (bool) $request->get_param('_ai_tr_bot_no_nonce');
             // Rate limiting: max 60 requests per minute per IP.
             // This endpoint is called by client-side JavaScript for UI attribute translation.
             // Warm cache does not trigger this endpoint (server-side only, no JS execution).
@@ -1300,9 +1299,8 @@ add_action('rest_api_init', function () {
             // This is different from page translations where we allow cache invalidation
             // Batch-strings are UI attributes that should not be translated if stop_translations is enabled
             $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
-            
-            if ($stop_translations) {
-            }
+            // Bots get cached translations but no API calls (same as stop_translations)
+            $skip_api = $stop_translations || $is_bot_request;
             
             $map = [];
             $toTranslate = [];
@@ -1357,8 +1355,8 @@ add_action('rest_api_init', function () {
                     $srcLen = mb_strlen($normalized);
                     $cacheInvalid = false;
 
-                    // If stop_translations is enabled, always use cache (don't validate)
-                    if (!$stop_translations) {
+                    // If stop_translations is enabled or bot request, always use cache (don't validate)
+                    if (!$skip_api) {
                         // Validate cache: check if translation is exactly identical to source
                         // NOTE: Identical translations are now accepted as valid (text was already in target language)
                         // This prevents unnecessary API calls for texts already in target language
@@ -1384,7 +1382,7 @@ add_action('rest_api_init', function () {
                         }
                     }
 
-                    if ($cacheInvalid && !$stop_translations) {
+                    if ($cacheInvalid && !$skip_api) {
                         // Cache entry is invalid - delete it and re-translate
                         ai_translate_delete_attr_transient($attrCacheKey);
                         $id = 's' . (++$i);
@@ -1399,8 +1397,8 @@ add_action('rest_api_init', function () {
                     }
                 } else {
                     // Text not in cache
-                    if ($stop_translations) {
-                        // Stop translations enabled: use source text without API call
+                    if ($skip_api) {
+                        // Stop translations or bot: use source text without API call
                         $originalText = isset($textsOriginal[$normalized]) ? $textsOriginal[$normalized] : $normalized;
                         $map[$originalText] = $originalText;
                         $cacheHits++;
@@ -1424,8 +1422,8 @@ add_action('rest_api_init', function () {
                 }
             }
             if (!empty($toTranslate)) {
-                if ($stop_translations) {
-                    // Stop translations enabled: block API calls, use source texts
+                if ($skip_api) {
+                    // Stop translations or bot: block API calls, use source texts
                     // Use source texts for all segments that would have been translated
                     foreach ($toTranslate as $id => $origNormalized) {
                         $originalText = isset($textsOriginal[$origNormalized]) ? $textsOriginal[$origNormalized] : $origNormalized;
