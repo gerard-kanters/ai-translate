@@ -255,7 +255,7 @@ final class AI_SEO
         }
         
         if ($ogLocale !== '') {
-            $existingOgLocale = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:locale"]');
+            $existingOgLocale = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:locale"]');
             if ($existingOgLocale && $existingOgLocale->length > 0) {
                 for ($i = $existingOgLocale->length - 1; $i >= 0; $i--) {
                     $ogLocaleElem = $existingOgLocale->item($i);
@@ -376,7 +376,7 @@ final class AI_SEO
                 $head->appendChild($doc->createTextNode("\n"));
             }
             if ($shouldReplaceOgDesc && $ogDesc !== '') {
-                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
+                $existingOgDesc = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
                 if ($existingOgDesc && $existingOgDesc->length > 0) {
                     $ogDescElem = $existingOgDesc->item(0);
                     if ($ogDescElem instanceof \DOMElement) {
@@ -390,7 +390,7 @@ final class AI_SEO
                     $head->appendChild($doc->createTextNode("\n"));
                 }
             } elseif ($isTranslatedLang && $shouldReplaceOgDesc && $ogDesc === '') {
-                $existingOgDesc = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
+                $existingOgDesc = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
                 if ($existingOgDesc && $existingOgDesc->length > 0) {
                     $ogDescElem = $existingOgDesc->item(0);
                     if ($ogDescElem instanceof \DOMElement) {
@@ -406,7 +406,7 @@ final class AI_SEO
                 }
             }
             if (($ogImageMissing || $shouldReplaceOgImage) && $ogImage !== '') {
-                $existingOgImage = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image"]');
+                $existingOgImage = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image"]');
                 if ($existingOgImage && $existingOgImage->length > 0) {
                     $ogImageElem = $existingOgImage->item(0);
                     if ($ogImageElem instanceof \DOMElement) {
@@ -421,7 +421,7 @@ final class AI_SEO
                 }
             }
             if ($isTranslatedLang) {
-                $existingOgImageAlt = $xpath->query('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
+                $existingOgImageAlt = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
                 if ($existingOgImageAlt && $existingOgImageAlt->length > 0) {
                     $ogImageAltElem = $existingOgImageAlt->item(0);
                     if ($ogImageAltElem instanceof \DOMElement) {
@@ -777,7 +777,9 @@ final class AI_SEO
      */
     private static function isOgMissing($xpath, $prop)
     {
-        $q = sprintf('//head/meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="%s"]', strtolower($prop));
+        // Search entire document, not just <head>. DOMDocument may move OG tags from
+        // Jetpack/Yoast/RankMath to <body> when placeholder <div>s break <head> structure.
+        $q = sprintf('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="%s"]', strtolower($prop));
         $nodes = $xpath->query($q);
         return !($nodes && $nodes->length > 0);
     }
