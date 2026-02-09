@@ -728,6 +728,37 @@ add_action('template_redirect', function () {
         }
     }
 
+    // RULE 0: Strip explicit ?lang= query parameter from URL → redirect to clean path-based URL
+    // The ?lang= parameter is only used internally by rewrite rules, never in actual visitor URLs.
+    // Examples: /es?lang=fr → /es/  |  /?lang=es → /es/  |  /?lang={default} → /
+    if (isset($_GET['lang']) && trim((string) $_GET['lang']) !== '') {
+        $cleanParams = $_GET;
+        unset($cleanParams['lang']);
+
+        $targetPath = $reqPath;
+        if ($langFromUrl === null) {
+            // No language in path yet — use the GET parameter to build the correct path
+            $getLang = strtolower(sanitize_key((string) $_GET['lang']));
+            if ($getLang !== '' && $defaultLang && strtolower($getLang) !== strtolower((string) $defaultLang)) {
+                $targetPath = '/' . $getLang . '/';
+            }
+        }
+
+        // Ensure trailing slash (except bare root)
+        if ($targetPath !== '/' && substr($targetPath, -1) !== '/') {
+            $targetPath .= '/';
+        }
+
+        $targetUrl = home_url($targetPath);
+        if (!empty($cleanParams)) {
+            $targetUrl = add_query_arg($cleanParams, $targetUrl);
+        }
+
+        nocache_headers();
+        wp_safe_redirect(esc_url_raw($targetUrl), 301);
+        exit;
+    }
+
     $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
 
     // Ensure search requests have language-prefixed URL (before RULE 4 to prevent early return)
@@ -766,9 +797,8 @@ add_action('template_redirect', function () {
     }
 
     // RULE 4: If cookie exists and on root, ensure language is set to default
-    // Skip this rule if there's a search parameter or explicit lang parameter (handled above)
-    $hasExplicitLang = isset($_GET['lang']) && trim((string) $_GET['lang']) !== '';
-    if ($reqPath === '/' && $cookieLang !== '' && !$hasSearchParam && !$hasExplicitLang) {
+    // Skip this rule if there's a search parameter (explicit ?lang= is already handled by RULE 0)
+    if ($reqPath === '/' && $cookieLang !== '' && !$hasSearchParam) {
         \AITranslate\AI_Lang::set_cookie((string) $defaultLang);
         // Set language and stop processing
         $finalLang = (string) $defaultLang;
