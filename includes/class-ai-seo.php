@@ -842,6 +842,117 @@ final class AI_SEO
         if ($path === '') { $path = '/'; }
         return home_url($path);
     }
+
+    /**
+     * Translate Twitter Card meta tags in final HTML.
+     * Runs on the fully assembled HTML (after DOMDocument + placeholder restore)
+     * because DOMDocument may move Jetpack meta tags out of <head> when
+     * preceding script/style placeholders break the head structure.
+     *
+     * @param string $html Full HTML output.
+     * @param string $lang Target language code.
+     * @return string HTML with translated Twitter Card meta tags.
+     */
+    public static function translateTwitterCards($html, $lang)
+    {
+        $default = AI_Lang::default();
+        if ($default === null || strtolower((string) $lang) === strtolower((string) $default)) {
+            return $html;
+        }
+
+        $twitterNames = ['twitter:text:title', 'twitter:title', 'twitter:description', 'twitter:image:alt'];
+        $names = implode('|', array_map(function ($n) { return preg_quote($n, '#'); }, $twitterNames));
+        $pattern = '#(<meta\s+name="(?:' . $names . ')"\s+content=")([^"]+)("[^>]*>)#i';
+
+        return preg_replace_callback($pattern, function ($m) use ($default, $lang) {
+            $original = html_entity_decode($m[2], ENT_QUOTES, 'UTF-8');
+            if (trim($original) === '') {
+                return $m[0];
+            }
+            $translated = self::maybeTranslateMeta($original, $default, $lang);
+            if (!is_string($translated) || $translated === '' || $translated === $original) {
+                return $m[0];
+            }
+            return $m[1] . esc_attr($translated) . $m[3];
+        }, $html);
+    }
+
+    /**
+     * Translate JSON-LD BreadcrumbList name fields in final HTML.
+     * Called after script placeholders have been restored.
+     *
+     * @param string $html Full HTML output.
+     * @param string $lang Target language code.
+     * @return string HTML with translated JSON-LD.
+     */
+    public static function translateJsonLd($html, $lang)
+    {
+        $default = AI_Lang::default();
+        if ($default === null || strtolower((string) $lang) === strtolower((string) $default)) {
+            return $html;
+        }
+
+        return preg_replace_callback(
+            '#(<script\b[^>]*type=["\']application/ld\+json["\'][^>]*>)(.*?)(</script>)#is',
+            function ($m) use ($default, $lang) {
+                $json = json_decode($m[2], true);
+                if (!is_array($json)) {
+                    return $m[0];
+                }
+
+                $changed = self::translateJsonLdNode($json, $default, $lang);
+                if (!$changed) {
+                    return $m[0];
+                }
+
+                $encoded = wp_json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                if (!is_string($encoded) || $encoded === '') {
+                    return $m[0];
+                }
+                return $m[1] . $encoded . $m[3];
+            },
+            $html
+        );
+    }
+
+    /**
+     * Recursively translate name/description fields in JSON-LD BreadcrumbList nodes.
+     *
+     * @param array  &$node   JSON-LD node (modified in place).
+     * @param string $default Default language.
+     * @param string $lang    Target language.
+     * @return bool Whether any field was translated.
+     */
+    private static function translateJsonLdNode(array &$node, $default, $lang)
+    {
+        $type = $node['@type'] ?? '';
+        $changed = false;
+
+        if ($type === 'BreadcrumbList' && isset($node['itemListElement']) && is_array($node['itemListElement'])) {
+            foreach ($node['itemListElement'] as &$item) {
+                if (isset($item['name']) && is_string($item['name']) && trim($item['name']) !== '') {
+                    $translated = self::maybeTranslateMeta($item['name'], $default, $lang);
+                    if (is_string($translated) && $translated !== '' && $translated !== $item['name']) {
+                        $item['name'] = $translated;
+                        $changed = true;
+                    }
+                }
+            }
+            unset($item);
+        }
+
+        // Handle @graph arrays (used by Yoast and others)
+        if (isset($node['@graph']) && is_array($node['@graph'])) {
+            foreach ($node['@graph'] as &$graphNode) {
+                if (is_array($graphNode)) {
+                    if (self::translateJsonLdNode($graphNode, $default, $lang)) {
+                        $changed = true;
+                    }
+                }
+            }
+            unset($graphNode);
+        }
+
+        return $changed;
+    }
 }
-
-

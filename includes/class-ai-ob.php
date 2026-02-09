@@ -457,6 +457,12 @@ final class AI_OB
             }
         }
 
+        // Translate Twitter Card and JSON-LD text that Jetpack/plugins inject via wp_head.
+        // These run as regex on the final HTML because DOMDocument placeholder divs break
+        // the <head> structure, causing these meta/script tags to be inaccessible in the DOM pass.
+        $html3 = AI_SEO::translateTwitterCards($html3, $lang);
+        $html3 = AI_SEO::translateJsonLd($html3, $lang);
+
         // Translate chatbot greeting strings embedded in inline script JSON (e.g. Kognetiks kchat_settings).
         // These are JavaScript strings that become DOM content at runtime, outside our DOM translation scope.
         $defaultLang = AI_Lang::default();
