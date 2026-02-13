@@ -350,18 +350,8 @@ final class AI_Translate_Core
 
         // If model is provided, test the API endpoint to ensure model is actually usable
         if ($model !== '') {
-            if ($provider_key === 'openai' && !preg_match('/^(chatgpt-|gpt-)/i', $model)) {
-                throw new \Exception(
-                    sprintf(
-                        /* translators: %s is the selected model ID */
-                        __('Selected OpenAI model "%s" is not a supported chat model for translations. Choose a GPT chat model.', 'ai-translate'),
-                        $model
-                    )
-                );
-            }
-
             // Early guard for model families that are known to be non-chat/non-translation models.
-            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex)/i', $model)) {
+            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|instruct)/i', $model)) {
                 throw new \Exception(
                     sprintf(
                         /* translators: %s is the selected model ID */
@@ -403,6 +393,38 @@ final class AI_Translate_Core
             $chatCode = (int) wp_remote_retrieve_response_code($chatResp);
             if ($chatCode !== 200) {
                 $chatBodyText = (string) wp_remote_retrieve_body($chatResp);
+                $chatErrorMessage = '';
+                $chatErrorData = json_decode($chatBodyText, true);
+                if (
+                    is_array($chatErrorData)
+                    && isset($chatErrorData['error'])
+                    && is_array($chatErrorData['error'])
+                    && isset($chatErrorData['error']['message'])
+                ) {
+                    $chatErrorMessage = (string) $chatErrorData['error']['message'];
+                }
+                $haystack = strtolower($chatErrorMessage . ' ' . $chatBodyText);
+                $nonChatModelError = (
+                    strpos($haystack, 'not allowed to sample from this model') !== false
+                    || strpos($haystack, 'not a chat model') !== false
+                    || strpos($haystack, 'v1/completions') !== false
+                    || strpos($haystack, 'completions endpoint') !== false
+                    || strpos($haystack, 'does not support') !== false
+                    || strpos($haystack, 'image generation') !== false
+                    || strpos($haystack, 'embedding') !== false
+                    || strpos($haystack, 'moderation') !== false
+                    || strpos($haystack, 'audio') !== false
+                    || strpos($haystack, 'codex') !== false
+                );
+                if ($nonChatModelError) {
+                    throw new \Exception(
+                        sprintf(
+                            /* translators: %s is the selected model ID */
+                            __('Selected model "%s" is not supported for chat-based translations. Choose a chat/completions model instead.', 'ai-translate'),
+                            $model
+                        )
+                    );
+                }
                 // Auto-detect /responses API requirement and retry once
                 if ($chatCode === 404 && self::is_responses_api_error($chatBodyText)) {
                     self::mark_model_responses_api($model);
@@ -426,43 +448,6 @@ final class AI_Translate_Core
                         throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
                     }
                 } else {
-                    $chatErrorMessage = '';
-                    $chatErrorData = json_decode($chatBodyText, true);
-                    if (
-                        is_array($chatErrorData)
-                        && isset($chatErrorData['error'])
-                        && is_array($chatErrorData['error'])
-                        && isset($chatErrorData['error']['message'])
-                    ) {
-                        $chatErrorMessage = (string) $chatErrorData['error']['message'];
-                    }
-
-                    $nonChatModelError = false;
-                    if ($chatCode === 403 || $chatCode === 400) {
-                        $haystack = strtolower($chatErrorMessage . ' ' . $chatBodyText);
-                        if (
-                            strpos($haystack, 'not allowed to sample from this model') !== false
-                            || strpos($haystack, 'does not support') !== false
-                            || strpos($haystack, 'image generation') !== false
-                            || strpos($haystack, 'embedding') !== false
-                            || strpos($haystack, 'moderation') !== false
-                            || strpos($haystack, 'audio') !== false
-                            || strpos($haystack, 'codex') !== false
-                        ) {
-                            $nonChatModelError = true;
-                        }
-                    }
-
-                    if ($nonChatModelError) {
-                        throw new \Exception(
-                            sprintf(
-                                /* translators: %s is the selected model ID */
-                                __('Selected model "%s" is not supported for chat-based translations. Choose a chat/completions model instead.', 'ai-translate'),
-                                $model
-                            )
-                        );
-                    }
-
                     throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
                 }
             }

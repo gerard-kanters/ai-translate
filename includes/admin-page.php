@@ -2527,12 +2527,6 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
     }, $data['data']);
     $models = array_filter($models);
-    // OpenAI returns many non-translation model families. Keep only chat-style IDs.
-    if ($provider_key === 'openai') {
-        $models = array_filter($models, function ($model) {
-            return preg_match('/^(chatgpt-|gpt-)/i', $model);
-        });
-    }
     // Filter model families known to be incompatible with text translation chat/completions.
     // Keep only models that are likely usable for this plugin's translation pipeline.
     $models = array_filter($models, function ($model) {
@@ -2540,7 +2534,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
             return false;
         }
         // Block non-chat capabilities even when they appear later in a GPT model ID.
-        return !preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex)/i', $model);
+        return !preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|instruct)/i', $model);
     });
     sort($models);
     wp_send_json_success(['models' => $models]);
