@@ -953,8 +953,6 @@ final class AI_SEO
                 }
             }
             unset($graphNode);
-        }
-
-        return $changed;
+        }        return $changed;
     }
 }

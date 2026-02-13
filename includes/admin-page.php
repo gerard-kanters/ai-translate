@@ -2527,9 +2527,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
     }, $data['data']);
     $models = array_filter($models);
-    // o1/o3 reasoning models don't support temperature; block from selection to avoid API errors
+    // Filter model families known to be incompatible with text translation chat/completions.
+    // Keep only models that are likely usable for this plugin's translation pipeline.
     $models = array_filter($models, function ($model) {
-        return !preg_match('/^(o1-|o3-)/i', $model);
+        return !preg_match('/^(o1-|o3-|dall-e|whisper|tts-|text-embedding-|embedding-|omni-moderation-|moderation-)/i', $model);
     });
     sort($models);
     wp_send_json_success(['models' => $models]);

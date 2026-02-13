@@ -350,6 +350,17 @@ final class AI_Translate_Core
 
         // If model is provided, test the API endpoint to ensure model is actually usable
         if ($model !== '') {
+            // Early guard for model families that are known to be non-chat/non-translation models.
+            if (preg_match('/^(dall-e|whisper|tts-|text-embedding-|embedding-|omni-moderation-|moderation-)/i', $model)) {
+                throw new \Exception(
+                    sprintf(
+                        /* translators: %s is the selected model ID */
+                        __('Selected model "%s" is not a chat/completions model and cannot be used for translations. Choose a text chat model (for example: gpt-4o-mini, gpt-4.1-mini, deepseek-chat).', 'ai-translate'),
+                        $model
+                    )
+                );
+            }
+
             $endpointPath = self::get_model_endpoint_path($model);
             $chatEndpoint = rtrim($base, '/') . $endpointPath;
             $chatHeaders = [
@@ -405,6 +416,42 @@ final class AI_Translate_Core
                         throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
                     }
                 } else {
+                    $chatErrorMessage = '';
+                    $chatErrorData = json_decode($chatBodyText, true);
+                    if (
+                        is_array($chatErrorData)
+                        && isset($chatErrorData['error'])
+                        && is_array($chatErrorData['error'])
+                        && isset($chatErrorData['error']['message'])
+                    ) {
+                        $chatErrorMessage = (string) $chatErrorData['error']['message'];
+                    }
+
+                    $nonChatModelError = false;
+                    if ($chatCode === 403 || $chatCode === 400) {
+                        $haystack = strtolower($chatErrorMessage . ' ' . $chatBodyText);
+                        if (
+                            strpos($haystack, 'not allowed to sample from this model') !== false
+                            || strpos($haystack, 'does not support') !== false
+                            || strpos($haystack, 'image generation') !== false
+                            || strpos($haystack, 'embedding') !== false
+                            || strpos($haystack, 'moderation') !== false
+                            || strpos($haystack, 'audio') !== false
+                        ) {
+                            $nonChatModelError = true;
+                        }
+                    }
+
+                    if ($nonChatModelError) {
+                        throw new \Exception(
+                            sprintf(
+                                /* translators: %s is the selected model ID */
+                                __('Selected model "%s" is not supported for chat-based translations. Choose a chat/completions model instead.', 'ai-translate'),
+                                $model
+                            )
+                        );
+                    }
+
                     throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
                 }
             }
