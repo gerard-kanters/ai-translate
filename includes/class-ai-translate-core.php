@@ -350,8 +350,18 @@ final class AI_Translate_Core
 
         // If model is provided, test the API endpoint to ensure model is actually usable
         if ($model !== '') {
+            if ($provider_key === 'openai' && !preg_match('/^(chatgpt-|gpt-)/i', $model)) {
+                throw new \Exception(
+                    sprintf(
+                        /* translators: %s is the selected model ID */
+                        __('Selected OpenAI model "%s" is not a supported chat model for translations. Choose a GPT chat model.', 'ai-translate'),
+                        $model
+                    )
+                );
+            }
+
             // Early guard for model families that are known to be non-chat/non-translation models.
-            if (preg_match('/^(dall-e|whisper|tts-|text-embedding-|embedding-|omni-moderation-|moderation-)/i', $model)) {
+            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex)/i', $model)) {
                 throw new \Exception(
                     sprintf(
                         /* translators: %s is the selected model ID */
@@ -437,6 +447,7 @@ final class AI_Translate_Core
                             || strpos($haystack, 'embedding') !== false
                             || strpos($haystack, 'moderation') !== false
                             || strpos($haystack, 'audio') !== false
+                            || strpos($haystack, 'codex') !== false
                         ) {
                             $nonChatModelError = true;
                         }
