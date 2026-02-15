@@ -191,6 +191,7 @@ AI Translate requires an API key from one of the supported providers:
 - All enabled and detectable languages added to Wordpress sitemap (/wp-sitemap.xml) 
 - Code base refactoring. Improve performance and security, thighening code.
 - Better detect usable models from OpenAI.  
+- Change language switcher url to fixed urls instead of query param.
 
 
 ### 2.2.4
