@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.2.6
+ * Version: 2.2.7
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0
@@ -1003,10 +1003,13 @@ function ai_translate_get_nav_switcher_html() {
     
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
-        $label = strtoupper($code === $default ? $default : $code);
-        // Use ?switch_lang= parameter to ensure cookie is set via init hook
+        $isDefaultLang = (strtolower($code) === strtolower((string) $default));
+        $label = strtoupper($isDefaultLang ? $default : $code);
+        // Use one canonical public URL format:
+        // - default language => /
+        // - non-default language => /{lang}/
         // Build relative URL to avoid host/home filters
-        $url = '/?switch_lang=' . $code;
+        $url = $isDefaultLang ? '/' : '/' . $code . '/';
         $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');
         $switcher_html .= '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1">';
@@ -1101,16 +1104,19 @@ add_action('wp_footer', function () {
 
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
+        $isDefaultLang = (strtolower($code) === strtolower((string) $default));
 
         // Skip current language
         if ($code === $currentLang) {
             continue;
         }
 
-        $label = strtoupper($code === $default ? $default : $code);
-        // Use ?switch_lang= parameter to ensure cookie is set via init hook
+        $label = strtoupper($isDefaultLang ? $default : $code);
+        // Use one canonical public URL format:
+        // - default language => /
+        // - non-default language => /{lang}/
         // Build relative URL to avoid host/home filters
-        $url = '/?switch_lang=' . $code;
+        $url = $isDefaultLang ? '/' : '/' . $code . '/';
         $url = esc_url($url);
         $flag = esc_url($flags_url . $code . '.png');
         echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr($label) . '"><span>' . esc_html($label) . '</span></a>';
