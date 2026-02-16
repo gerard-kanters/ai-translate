@@ -928,9 +928,7 @@ final class AI_SEO
     private static function translateJsonLdNode(array &$node, $default, $lang)
     {
         $type = $node['@type'] ?? '';
-        $changed = false;
-
-        if ($type === 'BreadcrumbList' && isset($node['itemListElement']) && is_array($node['itemListElement'])) {
+        $changed = false;        if ($type === 'BreadcrumbList' && isset($node['itemListElement']) && is_array($node['itemListElement'])) {
             foreach ($node['itemListElement'] as &$item) {
                 if (isset($item['name']) && is_string($item['name']) && trim($item['name']) !== '') {
                     $translated = self::maybeTranslateMeta($item['name'], $default, $lang);
@@ -941,9 +939,7 @@ final class AI_SEO
                 }
             }
             unset($item);
-        }
-
-        // Handle @graph arrays (used by Yoast and others)
+        }        // Handle @graph arrays (used by Yoast and others)
         if (isset($node['@graph']) && is_array($node['@graph'])) {
             foreach ($node['@graph'] as &$graphNode) {
                 if (is_array($graphNode)) {

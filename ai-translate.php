@@ -3046,32 +3046,28 @@ add_action('wp_footer', function() {
         // Wait for DOM to be ready
         function initLanguageSwitcherReplacement() {
 
-            // Find language switcher menu items (links with href="#" containing "Language Switcher")
-            const languageItems = document.querySelectorAll('a[href="#"]');
+            // Find language switcher items by stable classes/object markers (not translated text).
+            const candidates = document.querySelectorAll(
+                'li.menu-item-language-switcher > a[href="#"], li[class*="menu-item-object-ai_language_switcher"] > a[href="#"], a.ai-menu-language-current[href="#"]'
+            );
 
-            languageItems.forEach(function(link, index) {
-                if (link.textContent.trim() === 'Language Switcher') {
-                    const listItem = link.closest('li');
-                    if (listItem) {
-                        // Replace the entire menu item
-                        listItem.outerHTML = <?php echo json_encode($replacement_html); ?>;
-                    }
+            candidates.forEach(function(link) {
+                const listItem = link.closest('li');
+                if (!listItem) {
+                    return;
+                }
+                // Replace only when not already rendered with a submenu.
+                if (!listItem.querySelector('.sub-menu') || !listItem.classList.contains('menu-item-language-switcher')) {
+                    listItem.outerHTML = <?php echo json_encode($replacement_html); ?>;
                 }
             });
 
-            // Also check for items that might have been created differently
-            const allMenuItems = document.querySelectorAll('li.menu-item a[href="#"]');
-
-            allMenuItems.forEach(function(link, index) {
-                if (link.textContent.includes('NL') && link.querySelector('img')) {
-                    // This looks like our language switcher, make sure it has submenu
-                    const listItem = link.closest('li');
-                    if (listItem && !listItem.querySelector('.sub-menu')) {
-                        // Add submenu if missing
-                        const submenu = <?php echo json_encode($submenu_html); ?>;
-                        listItem.insertAdjacentHTML('beforeend', submenu);
-                        listItem.classList.add('menu-item-has-children');
-                    }
+            // Safety net: if a language-switcher container exists without submenu, append it.
+            const switcherItems = document.querySelectorAll('li.menu-item-language-switcher');
+            switcherItems.forEach(function(listItem) {
+                if (!listItem.querySelector('.sub-menu')) {
+                    listItem.insertAdjacentHTML('beforeend', <?php echo json_encode($submenu_html); ?>);
+                    listItem.classList.add('menu-item-has-children');
                 }
             });
         }
