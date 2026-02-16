@@ -964,6 +964,9 @@ function ai_translate_get_nav_switcher_html() {
     
     $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_values($settings['enabled_languages']) : array();
     $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    if ($default !== '' && !in_array($default, $enabled, true)) {
+        $enabled[] = $default;
+    }
     if ($default === '' && !empty($enabled)) {
         $default = (string) $enabled[0];
     }
@@ -1029,6 +1032,9 @@ add_action('wp_footer', function () {
     $settings = get_option('ai_translate_settings', array());
     $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_values($settings['enabled_languages']) : array();
     $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    if ($default !== '' && !in_array($default, $enabled, true)) {
+        $enabled[] = $default;
+    }
     if (empty($enabled) || $default === '') {
         return;
     }
@@ -2499,6 +2505,9 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
     $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
         array_values($settings['enabled_languages']) : array();
     $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
+        $enabled_languages[] = $default_language;
+    }
 
     if (empty($enabled_languages) || empty($default_language)) {
         return '';
@@ -2828,6 +2837,9 @@ add_shortcode('ai_menu_language_switcher', function($atts) {
     $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
         array_values($settings['enabled_languages']) : array();
     $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
+        $enabled_languages[] = $default_language;
+    }
 
     if (empty($enabled_languages) || empty($default_language)) {
         return '';
@@ -2968,6 +2980,9 @@ add_action('wp_footer', function() {
     $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
         array_values($settings['enabled_languages']) : array();
     $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
+        $enabled_languages[] = $default_language;
+    }
 
     if (empty($enabled_languages) || empty($default_language)) {
         return;
@@ -3139,6 +3154,9 @@ class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
         $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
             array_values($settings['enabled_languages']) : array();
         $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+        if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
+            $enabled_languages[] = $default_language;
+        }
 
         if (empty($enabled_languages) || empty($default_language)) {
             return; // No languages configured
