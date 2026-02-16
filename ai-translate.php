@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.2.7
+ * Version: 2.2.8
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0
@@ -653,9 +653,9 @@ add_action('template_redirect', function () {
             if ($cookieLang !== '' && strtolower($cookieLang) !== strtolower((string) $defaultLang)) {
                 \AITranslate\AI_Lang::set_cookie((string) $defaultLang);
                 \AITranslate\AI_Lang::set_current((string) $defaultLang);
-                // Add JavaScript redirect to / after page renders
+                // Add JavaScript redirect to site root after page renders
                 add_action('wp_footer', function() {
-                    echo '<script>setTimeout(function(){window.location.href="/";},100);</script>';
+                    echo '<script>window.location.replace(' . wp_json_encode(home_url('/')) . ');</script>';
                 }, 999);
                 // Continue to render page - Rule 3 below will be skipped
                 // Set final language and start OB
@@ -2930,7 +2930,7 @@ add_action('admin_init', function() {
                 get_post_meta($menu_item->ID, '_menu_item_menu_item_parent', true) ?: 0,
                 $menu_item->ID,
                 array(
-                    'menu-item-title' => 'Language Switcher'
+                            'menu-item-title' => __('Language Switcher', 'ai-translate')
                 )
             );
         }

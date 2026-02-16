@@ -63,6 +63,7 @@
 
       // Handle dropdown toggle button clicks
       b.addEventListener("click", function (e) {
+        e.preventDefault();
         e.stopPropagation();
         var open = !w.classList.contains("ai-trans-open");
         closeAll(w);

@@ -184,10 +184,11 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
-### 2.2.7
+### 2.2.8
 - Improve system prompt (role, what and how).
 - Improve website context generator (what is the website about).
 - Improve admin UX.
+- Fix issue with language switcher in some specific themes.
 - All enabled and detectable languages added to Wordpress sitemap (/wp-sitemap.xml) 
 - Code base refactoring. Improve performance and security, thighening code.
 - Better detect usable models from OpenAI.  

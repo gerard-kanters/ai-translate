@@ -217,10 +217,13 @@
  * Initialize mobile menu support for language switcher submenus
  */
 function initMobileMenuSupport() {
-    // Wait for mobile menu to be ready
-    setTimeout(function() {
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    function bindMobileSwitchers() {
         // Find language switcher menu items
         const languageItems = document.querySelectorAll('.menu-item-language-switcher');
+        let boundCount = 0;
 
         languageItems.forEach(function(item) {
             const link = item.querySelector('.ai-menu-language-current');
@@ -228,11 +231,19 @@ function initMobileMenuSupport() {
 
             // Only handle dropdown items (with submenu), inline items work without JS
             if (link && submenu) {
+                if (link.getAttribute('data-ai-mobile-bound') === '1') {
+                    return;
+                }
+                link.setAttribute('data-ai-mobile-bound', '1');
+                boundCount++;
+
                 // Add click handler for mobile
                 link.addEventListener('click', function(event) {
+                    // Prevent hash-jumps and theme anchor handlers from hijacking this toggle.
+                    event.preventDefault();
+
                     // Only handle click on mobile/tablet (screen width <= 768px)
                     if (window.innerWidth <= 768) {
-                        event.preventDefault();
                         event.stopPropagation();
 
                         // Toggle submenu visibility
@@ -269,6 +280,12 @@ function initMobileMenuSupport() {
             }
         });
 
+        // Retry shortly for themes that render/replace menus after initial load.
+        if (boundCount === 0 && attempts < maxAttempts) {
+            attempts++;
+            setTimeout(bindMobileSwitchers, 300);
+        }
+    }
 
-    }, 1000); // Shorter timeout for testing
+    bindMobileSwitchers();
 }
