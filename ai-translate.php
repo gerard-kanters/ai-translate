@@ -1234,6 +1234,17 @@ add_action('rest_api_init', function () {
             if ($nonce_param && wp_verify_nonce($nonce_param, 'ai_translate_front_nonce')) {
                 return true;
             }
+
+            // Public frontend pages can be heavily cached, causing stale inline nonces.
+            // Allow anonymous same-site requests without requiring a valid nonce.
+            if (!is_user_logged_in()) {
+                $origin = isset($_SERVER['HTTP_ORIGIN']) ? (string) $_SERVER['HTTP_ORIGIN'] : '';
+                if ($origin !== '' && strpos($origin, home_url()) !== 0) {
+                    return new \WP_Error('rest_forbidden', 'Invalid origin', ['status' => 403]);
+                }
+                return true;
+            }
+
             return new \WP_Error('rest_forbidden', 'Invalid nonce', ['status' => 403]);
         },
         'args' => [],
