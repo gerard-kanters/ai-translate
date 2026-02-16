@@ -2533,10 +2533,52 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         if (preg_match('/^(o1-|o3-)/i', $model)) {
             return false;
         }
-        // Block non-chat capabilities even when they appear later in a GPT model ID.
-        return !preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|instruct)/i', $model);
+        // Legacy non-chat model family; incompatible with chat/completions translations.
+        if (preg_match('/^babbage-/i', $model)) {
+            return false;
+        }
+        // Block non-chat capabilities and known image-generation families.
+        return !preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria)/i', $model);
     });
     sort($models);
+
+    // Place preferred translation models first per provider.
+    // Existing saved selections are kept by the UI; this only controls default-first ordering.
+    $preferred_model_patterns = [
+        'openai' => [
+            '/^gpt-4\.1-mini$/i',
+        ],
+        'openrouter' => [
+            '/gemini[-\s_.]*2\.5[-\s_.]*flash[-\s_.]*lite/i',
+        ],
+        'deepinfra' => [
+            '/gemini[-\s_.]*2\.5[-\s_.]*flash(?![-\s_.]*lite)/i',
+        ],
+        'deepseek' => [
+            '/^deepseek-chat$/i',
+        ],
+        'groq' => [
+            '/llama[-\s_.]*3\.1[-\s_.]*8b[-\s_.]*instant/i',
+        ],
+    ];
+
+    if (isset($preferred_model_patterns[$provider_key])) {
+        $preferred_index = false;
+        foreach ($preferred_model_patterns[$provider_key] as $pattern) {
+            foreach ($models as $index => $model) {
+                if (preg_match($pattern, $model)) {
+                    $preferred_index = $index;
+                    break 2;
+                }
+            }
+        }
+        if ($preferred_index !== false) {
+            $preferred_model = $models[$preferred_index];
+            unset($models[$preferred_index]);
+            array_unshift($models, $preferred_model);
+            $models = array_values($models);
+        }
+    }
     wp_send_json_success(['models' => $models]);
 });
 

@@ -351,7 +351,7 @@ final class AI_Translate_Core
         // If model is provided, test the API endpoint to ensure model is actually usable
         if ($model !== '') {
             // Early guard for model families that are known to be non-chat/non-translation models.
-            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|instruct)/i', $model)) {
+            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria)/i', $model)) {
                 throw new \Exception(
                     sprintf(
                         /* translators: %s is the selected model ID */
@@ -415,6 +415,8 @@ final class AI_Translate_Core
                     || strpos($haystack, 'moderation') !== false
                     || strpos($haystack, 'audio') !== false
                     || strpos($haystack, 'codex') !== false
+                    || strpos($haystack, 'model_not_found') !== false
+                    || strpos($haystack, 'does not exist') !== false
                 );
                 if ($nonChatModelError) {
                     throw new \Exception(
