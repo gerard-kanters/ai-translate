@@ -445,6 +445,10 @@ final class AI_OB
                 $html3 = $docMatch[1] . "\n" . $html3;
             }
         }
+        // Preserve original body attributes/classes (Kadence relies on these for layout sizing).
+        if (preg_match('/<body\b[^>]*>/i', (string) $html2, $origBodyOpen)) {
+            $html3 = (string) preg_replace('/<body\b[^>]*>/i', (string) $origBodyOpen[0], (string) $html3, 1);
+        }
 
         // Restore script/style tags from placeholders
         if (!empty($seoPlaceholders)) {
