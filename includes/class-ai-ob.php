@@ -51,12 +51,85 @@ final class AI_OB
             $html = preg_replace('/(<body[^>]*>)/', '$1' . $admin_bar_html, $html, 1);
         } elseif (!$should_show_admin_bar && $has_admin_bar) {
             // Regular user should NOT see admin bar but it's in cached content
-            // Remove admin bar completely
-            $html = preg_replace(
-                '/<div[^>]*id=["\']wpadminbar["\'][^>]*>.*?<\/div>/s',
-                '',
-                $html
-            );
+            // Remove admin bar robustly via DOM (regex breaks on nested toolbar markup).
+            $doc = new \DOMDocument();
+            $internalErrors = libxml_use_internal_errors(true);
+            $htmlToLoad = AI_DOM::ensureUtf8((string) $html);
+            $doc->loadHTML('<?xml encoding="utf-8" ?>' . $htmlToLoad, LIBXML_HTML_NODEFDTD);
+            libxml_clear_errors();
+            libxml_use_internal_errors($internalErrors);
+
+            $xpath = new \DOMXPath($doc);
+            $adminNodes = $xpath->query('//*[@id="wpadminbar" or @id="wp-toolbar"]');
+            if ($adminNodes !== false) {
+                foreach ($adminNodes as $adminNode) {
+                    if ($adminNode->parentNode) {
+                        $adminNode->parentNode->removeChild($adminNode);
+                    }
+                }
+            }
+
+            // Remove inline adminbar style blocks from old cached variants.
+            $styleNodes = $xpath->query('//style');
+            if ($styleNodes !== false) {
+                foreach ($styleNodes as $styleNode) {
+                    $styleText = strtolower((string) $styleNode->textContent);
+                    if (strpos($styleText, '#wpadminbar') !== false ||
+                        strpos($styleText, 'body{margin-top:32px') !== false ||
+                        strpos($styleText, 'body {margin-top:32px') !== false) {
+                        if ($styleNode->parentNode) {
+                            $styleNode->parentNode->removeChild($styleNode);
+                        }
+                    }
+                }
+            }
+
+            // Also remove body/html "admin-bar" class to avoid layout offsets.
+            $bodyNodes = $xpath->query('//body');
+            if ($bodyNodes !== false) {
+                foreach ($bodyNodes as $bodyNode) {
+                    if ($bodyNode instanceof \DOMElement) {
+                        $classAttr = trim((string) $bodyNode->getAttribute('class'));
+                        if ($classAttr !== '') {
+                            $classes = preg_split('/\s+/', $classAttr);
+                            if (is_array($classes)) {
+                                $classes = array_values(array_filter($classes, function ($className) {
+                                    return $className !== 'admin-bar';
+                                }));
+                                if (!empty($classes)) {
+                                    $bodyNode->setAttribute('class', implode(' ', $classes));
+                                } else {
+                                    $bodyNode->removeAttribute('class');
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            $htmlNodes = $xpath->query('//html');
+            if ($htmlNodes !== false) {
+                foreach ($htmlNodes as $htmlNode) {
+                    if ($htmlNode instanceof \DOMElement) {
+                        $classAttr = trim((string) $htmlNode->getAttribute('class'));
+                        if ($classAttr !== '') {
+                            $classes = preg_split('/\s+/', $classAttr);
+                            if (is_array($classes)) {
+                                $classes = array_values(array_filter($classes, function ($className) {
+                                    return $className !== 'admin-bar';
+                                }));
+                                if (!empty($classes)) {
+                                    $htmlNode->setAttribute('class', implode(' ', $classes));
+                                } else {
+                                    $htmlNode->removeAttribute('class');
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            $html = $doc->saveHTML();
+            $html = preg_replace('/<\?xml[^?]*\?>\s*/i', '', $html);
         }
 
         // Update internal permalinks to use current translated slugs
