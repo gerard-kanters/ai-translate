@@ -931,10 +931,6 @@ final class AI_Translate_Core
         
         // Add site-specific directory if multi-domain caching is enabled
         $site_dir = self::get_site_cache_dir();
-        if (!empty($site_dir)) {
-            $root = trailingslashit($root) . $site_dir . '/';
-        }
-        
         $stats = [
             'total_files' => 0,
             'total_size' => 0,
@@ -948,49 +944,110 @@ final class AI_Translate_Core
         $expiry_hours = (int) (get_option('ai_translate_settings')['cache_expiration'] ?? (14 * 24));
         $expiry_seconds = $expiry_hours * HOUR_IN_SECONDS;
         $now = time();
+        $roots = [];
+        if (!empty($site_dir)) {
+            $roots[] = trailingslashit($root) . $site_dir . '/';
+        } else {
+            $roots[] = $root;
 
-        if (!is_dir($root)) {
-            return $stats;
+            // Backward compatibility: when shared cache mode is active but files are still in
+            // /cache/{domain}/{lang}/pages/, include those domain roots in the overview.
+            $entries = @scandir($root);
+            $has_flat_layout = false;
+            if (is_array($entries)) {
+                foreach ($entries as $entry) {
+                    if ($entry === '.' || $entry === '..') {
+                        continue;
+                    }
+                    if (strlen($entry) === 2 && ctype_alpha($entry) && is_dir($root . $entry . '/pages/')) {
+                        $has_flat_layout = true;
+                        break;
+                    }
+                }
+                if (!$has_flat_layout) {
+                    foreach ($entries as $entry) {
+                        if ($entry === '.' || $entry === '..') {
+                            continue;
+                        }
+                        $domain_root = $root . $entry . '/';
+                        if (!is_dir($domain_root)) {
+                            continue;
+                        }
+                        $domain_entries = @scandir($domain_root);
+                        if (!is_array($domain_entries)) {
+                            continue;
+                        }
+                        $has_lang_dirs = false;
+                        foreach ($domain_entries as $lang_entry) {
+                            if ($lang_entry === '.' || $lang_entry === '..') {
+                                continue;
+                            }
+                            if (strlen($lang_entry) === 2 && ctype_alpha($lang_entry) && is_dir($domain_root . $lang_entry . '/pages/')) {
+                                $has_lang_dirs = true;
+                                break;
+                            }
+                        }
+                        if ($has_lang_dirs) {
+                            $roots[] = $domain_root;
+                        }
+                    }
+                }
+            }
         }
 
-        $langs = scandir($root);
-        if (!is_array($langs)) {
-            return $stats;
-        }
-        foreach ($langs as $lang) {
-            if ($lang === '.' || $lang === '..') continue;
-            $langDir = $root . $lang . '/pages/';
-            if (!is_dir($langDir)) continue;
-            $count = 0;
-            $size = 0;
-            $expired = 0;
-            $lastMod = 0;
-            $rii = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($langDir, \FilesystemIterator::SKIP_DOTS)
-            );
-            foreach ($rii as $file) {
-                /** @var \SplFileInfo $file */
-                if ($file->isFile()) {
-                    $count++;
+        $seen_files = [];
+        foreach ($roots as $cache_root) {
+            if (!is_dir($cache_root)) {
+                continue;
+            }
+            $langs = scandir($cache_root);
+            if (!is_array($langs)) {
+                continue;
+            }
+            foreach ($langs as $lang) {
+                if ($lang === '.' || $lang === '..') continue;
+                $langDir = $cache_root . $lang . '/pages/';
+                if (!is_dir($langDir)) continue;
+                if (!isset($stats['languages'][$lang])) {
+                    $stats['languages'][$lang] = 0;
+                    $stats['languages_details'][$lang] = [
+                        'size' => 0,
+                        'expired_count' => 0,
+                        'last_modified' => 0,
+                    ];
+                }
+                $rii = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($langDir, \FilesystemIterator::SKIP_DOTS)
+                );
+                foreach ($rii as $file) {
+                    /** @var \SplFileInfo $file */
+                    if (!$file->isFile()) {
+                        continue;
+                    }
+                    $path = wp_normalize_path($file->getPathname());
+                    if (isset($seen_files[$path])) {
+                        continue;
+                    }
+                    $seen_files[$path] = true;
+
+                    $stats['languages'][$lang]++;
                     $filesize = (int) $file->getSize();
-                    $size += $filesize;
+                    $stats['languages_details'][$lang]['size'] += $filesize;
                     $mtime = (int) $file->getMTime();
-                    if ($mtime > $lastMod) $lastMod = $mtime;
+                    if ($mtime > $stats['languages_details'][$lang]['last_modified']) {
+                        $stats['languages_details'][$lang]['last_modified'] = $mtime;
+                    }
                     if (($now - $mtime) > $expiry_seconds) {
-                        $expired++;
+                        $stats['languages_details'][$lang]['expired_count']++;
                         $stats['expired_files']++;
                     }
                     $stats['total_files']++;
                     $stats['total_size'] += $filesize;
-                    if ($mtime > $stats['last_modified']) $stats['last_modified'] = $mtime;
+                    if ($mtime > $stats['last_modified']) {
+                        $stats['last_modified'] = $mtime;
+                    }
                 }
             }
-            $stats['languages'][$lang] = $count;
-            $stats['languages_details'][$lang] = [
-                'size' => $size,
-                'expired_count' => $expired,
-                'last_modified' => $lastMod,
-            ];
         }
         return $stats;
     }

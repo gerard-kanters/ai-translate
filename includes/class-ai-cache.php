@@ -44,7 +44,30 @@ final class AI_Cache
         if (is_file($file)) {
             return self::validate_and_read_cache($file, $key);
         }
-        
+
+        // Backward compatibility: in shared-cache mode, older installs may still have
+        // files under /cache/{domain}/{lang}/pages/ while current path is /cache/{lang}/pages/.
+        $settings = get_option('ai_translate_settings', []);
+        $multi_domain = !empty($settings['multi_domain_caching']);
+        if (!$multi_domain) {
+            $parts = explode(':', (string) $key);
+            $lang = isset($parts[3]) ? sanitize_key($parts[3]) : '';
+            if ($lang !== '') {
+                $hash = md5($key);
+                $uploads = wp_upload_dir();
+                $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
+                $domain_dirs = glob($base . '*/', GLOB_ONLYDIR);
+                if (is_array($domain_dirs)) {
+                    foreach ($domain_dirs as $domain_dir) {
+                        $candidate = trailingslashit($domain_dir) . $lang . '/pages/' . substr($hash, 0, 2) . '/' . $hash . '.html';
+                        if (is_file($candidate)) {
+                            return self::validate_and_read_cache($candidate, $key);
+                        }
+                    }
+                }
+            }
+        }
+
         return false;
     }
     

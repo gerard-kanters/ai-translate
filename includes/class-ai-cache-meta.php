@@ -630,16 +630,39 @@ class AI_Cache_Meta
             $cache_base = trailingslashit($cache_base) . $site_dir . '/';
         }
         
-        $lang_cache_dir = $cache_base . $lang . '/pages/';
+        $lang_cache_dirs = [$cache_base . $lang . '/pages/'];
+        if (empty($site_dir)) {
+            // Shared mode compatibility: include legacy domain-based directories.
+            $domain_dirs = glob($cache_base . '*/', GLOB_ONLYDIR);
+            if (is_array($domain_dirs)) {
+                foreach ($domain_dirs as $domain_dir) {
+                    $candidate = trailingslashit($domain_dir) . $lang . '/pages/';
+                    if (is_dir($candidate)) {
+                        $lang_cache_dirs[] = $candidate;
+                    }
+                }
+            }
+        }
+        $lang_cache_dirs = array_values(array_unique(array_map('wp_normalize_path', $lang_cache_dirs)));
         $filesystem_count = 0;
-        if (is_dir($lang_cache_dir)) {
+        $seen_files = [];
+        foreach ($lang_cache_dirs as $lang_cache_dir) {
+            if (!is_dir($lang_cache_dir)) {
+                continue;
+            }
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($lang_cache_dir, \FilesystemIterator::SKIP_DOTS)
             );
             foreach ($iterator as $file) {
-                if ($file->isFile() && $file->getExtension() === 'html') {
-                    $filesystem_count++;
+                if (!$file->isFile() || $file->getExtension() !== 'html') {
+                    continue;
                 }
+                $path = wp_normalize_path($file->getPathname());
+                if (isset($seen_files[$path])) {
+                    continue;
+                }
+                $seen_files[$path] = true;
+                $filesystem_count++;
             }
         }
         
@@ -696,67 +719,72 @@ class AI_Cache_Meta
         // Als het aantal bestanden op filesystem hoger is dan in database,
         // voeg alleen de ontbrekende bestanden toe zonder volledige rescan (te traag voor AJAX)
         // De volledige rescan kan handmatig worden gedaan via een aparte actie
-        if ($filesystem_count > count($items) && is_dir($lang_cache_dir)) {
+        if ($filesystem_count > count($items)) {
             $db_files = array_column($items, 'cache_file');
             $db_files_normalized = array_map('wp_normalize_path', $db_files);
             
             // Limiteer het aantal bestanden dat we scannen om timeout te voorkomen
             $max_scan = 50; // Max 50 bestanden per AJAX call
             $scanned = 0;
-            
-            // Scan filesystem voor ontbrekende bestanden (beperkt)
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($lang_cache_dir, \FilesystemIterator::SKIP_DOTS)
-            );
-            foreach ($iterator as $file) {
-                if ($scanned >= $max_scan) {
-                    break; // Stop na max aantal scans
+
+            foreach ($lang_cache_dirs as $lang_cache_dir) {
+                if (!is_dir($lang_cache_dir) || $scanned >= $max_scan) {
+                    continue;
                 }
-                
-                if ($file->isFile() && $file->getExtension() === 'html') {
-                    $file_path = wp_normalize_path($file->getPathname());
-                    if (!in_array($file_path, $db_files_normalized, true)) {
-                        $scanned++;
-                        
-                        // Probeer snel te bepalen wat het is zonder volledige file read
-                        // Gebruik alleen filename hash matching als snelle check
-                        $filename = basename($file_path, '.html');
-                        
-                        // Quick check: als het een bekende homepage hash is
-                        global $wpdb;
-                        $db_identifier = defined('DB_NAME') ? DB_NAME : '';
-                        $table_prefix = isset($wpdb->prefix) ? $wpdb->prefix : 'wp_';
-                        $site_hash = substr(md5($db_identifier . '|' . $table_prefix), 0, 8);
-                        $homepage_route = 'path:' . md5('/');
-                        $homepage_hash = md5('ait:v4:' . $site_hash . ':' . $lang . ':' . $homepage_route);
-                        
-                        $post_id = -1;
-                        $title = __('Unknown (not in DB)', 'ai-translate');
-                        $url = '#';
-                        
-                        if ($filename === $homepage_hash) {
-                            $post_id = 0;
-                            $title = __('Homepage (not in DB)', 'ai-translate');
-                            $url = self::build_translated_url(0, $lang);
-                        } else {
-                            // Probeer alleen eerste paar bytes te lezen voor title
-                            $content = @file_get_contents($file_path, false, null, 0, 2000);
-                            if ($content !== false && preg_match('/<title[^>]*>([^<]+)<\/title>/i', $content, $matches)) {
-                                $title_text = trim(strip_tags($matches[1]));
-                                // Decode HTML entities to normal characters
-                                $title_text = html_entity_decode($title_text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                                $title = $title_text . ' (' . __('not in DB', 'ai-translate') . ')';
+                // Scan filesystem voor ontbrekende bestanden (beperkt)
+                $iterator = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($lang_cache_dir, \FilesystemIterator::SKIP_DOTS)
+                );
+                foreach ($iterator as $file) {
+                    if ($scanned >= $max_scan) {
+                        break; // Stop na max aantal scans
+                    }
+
+                    if ($file->isFile() && $file->getExtension() === 'html') {
+                        $file_path = wp_normalize_path($file->getPathname());
+                        if (!in_array($file_path, $db_files_normalized, true)) {
+                            $scanned++;
+
+                            // Probeer snel te bepalen wat het is zonder volledige file read
+                            // Gebruik alleen filename hash matching als snelle check
+                            $filename = basename($file_path, '.html');
+
+                            // Quick check: als het een bekende homepage hash is
+                            global $wpdb;
+                            $db_identifier = defined('DB_NAME') ? DB_NAME : '';
+                            $table_prefix = isset($wpdb->prefix) ? $wpdb->prefix : 'wp_';
+                            $site_hash = substr(md5($db_identifier . '|' . $table_prefix), 0, 8);
+                            $homepage_route = 'path:' . md5('/');
+                            $homepage_hash = md5('ait:v4:' . $site_hash . ':' . $lang . ':' . $homepage_route);
+
+                            $post_id = -1;
+                            $title = __('Unknown (not in DB)', 'ai-translate');
+                            $url = '#';
+
+                            if ($filename === $homepage_hash) {
+                                $post_id = 0;
+                                $title = __('Homepage (not in DB)', 'ai-translate');
+                                $url = self::build_translated_url(0, $lang);
+                            } else {
+                                // Probeer alleen eerste paar bytes te lezen voor title
+                                $content = @file_get_contents($file_path, false, null, 0, 2000);
+                                if ($content !== false && preg_match('/<title[^>]*>([^<]+)<\/title>/i', $content, $matches)) {
+                                    $title_text = trim(strip_tags($matches[1]));
+                                    // Decode HTML entities to normal characters
+                                    $title_text = html_entity_decode($title_text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                                    $title = $title_text . ' (' . __('not in DB', 'ai-translate') . ')';
+                                }
                             }
+
+                            $items[] = [
+                                'post_id' => $post_id,
+                                'url' => $url,
+                                'title' => $title,
+                                'file_size' => (int) $file->getSize(),
+                                'updated_at' => (int) $file->getMTime(),
+                                'cache_file' => $file_path,
+                            ];
                         }
-                        
-                        $items[] = [
-                            'post_id' => $post_id,
-                            'url' => $url,
-                            'title' => $title,
-                            'file_size' => (int) $file->getSize(),
-                            'updated_at' => (int) $file->getMTime(),
-                            'cache_file' => $file_path,
-                        ];
                     }
                 }
             }
@@ -1025,9 +1053,6 @@ class AI_Cache_Meta
      */
     private static function scan_filesystem_for_cache($force_rescan = false)
     {
-        // Use the same directory logic as AI_Cache::get_file_path()
-        $cache_dir = self::get_cache_directory();
-        
         // Always check what's actually in the uploads directory
         $uploads = wp_upload_dir();
         $base_cache_dir = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
@@ -1035,22 +1060,34 @@ class AI_Cache_Meta
         if (!is_dir($base_cache_dir)) {
             return 0;
         }
-        
-        // List all directories in base cache directory
+
         $dirs = glob($base_cache_dir . '*/', GLOB_ONLYDIR);
-        
-        if (is_array($dirs) && !empty($dirs)) {
-            // Multi-domain: scan all domain directories
-            $added = 0;
-            foreach ($dirs as $domain_dir) {
-                $result = self::scan_cache_directory($domain_dir, $force_rescan);
-                $added += $result;
-            }
-            return $added;
-        } else {
-            // Single domain: scan base directory
+        if (!is_array($dirs) || empty($dirs)) {
             return self::scan_cache_directory($base_cache_dir, $force_rescan);
         }
+
+        // Detect flat/shared layout: /cache/{lang}/pages/
+        $has_flat_layout = false;
+        foreach ($dirs as $dir) {
+            $basename = basename(rtrim((string) $dir, '/\\'));
+            if (strlen($basename) === 2 && ctype_alpha($basename) && is_dir(trailingslashit($dir) . 'pages/')) {
+                $has_flat_layout = true;
+                break;
+            }
+        }
+
+        if ($has_flat_layout) {
+            return self::scan_cache_directory($base_cache_dir, $force_rescan);
+        }
+
+        // Domain layout: /cache/{domain}/{lang}/pages/
+        $added = 0;
+        foreach ($dirs as $domain_dir) {
+            $result = self::scan_cache_directory($domain_dir, $force_rescan);
+            $added += $result;
+        }
+
+        return $added;
     }
     
     /**
