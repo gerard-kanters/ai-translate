@@ -97,6 +97,21 @@ final class AI_Cache
     }
     
     /**
+     * Delete a cached file by key.
+     *
+     * @param string $key
+     * @return bool True if file was deleted
+     */
+    public static function delete($key)
+    {
+        $file = self::file_path($key);
+        if (is_file($file)) {
+            return @unlink($file);
+        }
+        return false;
+    }
+
+    /**
      * Validate cache file and read contents if valid.
      *
      * @param string $file

@@ -295,11 +295,18 @@ final class AI_OB
         if (!$bypassUserCache && !$nocache && !$hasDynamicQueryParams) {
             $cached = AI_Cache::get($key);
 
-            if ($cached !== false) {
-                // PERFORMANCE FIX: Skip expensive untranslated content validation for cached content
-                // This validation can take 10+ seconds and is not necessary for admin users or recent cache
+            if ($cached !== false && !$this->content_matches_target_lang($cached, $lang)) {
+                $retryKey = 'ai_tr_retry_' . md5($key);
+                $retries = (int) get_transient($retryKey);
+                if ($retries >= 3) {
+                    // Max retries reached — serve cached content as-is
+                } else {
+                    AI_Cache::delete($key);
+                    $cached = false;
+                }
+            }
 
-                // All users get cached content with admin bar post-processing
+            if ($cached !== false) {
                 $processing = false;
                 return $this->post_process_cached_content($cached);
             }
@@ -443,8 +450,11 @@ final class AI_OB
         $res = AI_Batch::translate_plan($plan, AI_Lang::default(), $lang, $this->site_context());
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
         if (empty($translations)) {
+            if ($lockAcquired) {
+                delete_transient($lockKey);
+            }
             $processing = false;
-            $html2 = $html;
+            return $html;
         } else {
             $merged = AI_DOM::merge($plan, $translations, $lang);
             // Preserve original <body> framing to avoid theme conflicts: replace only inner body
@@ -566,8 +576,20 @@ final class AI_OB
         // Additional check: only cache if route corresponds to cacheable content (not search pages, etc.)
         $isCacheable = $this->route_has_valid_content($route);
         
+        $contentMatchesLang = $this->content_matches_target_lang($html3, $lang);
         if (!$bypassUserCache && !$hasDynamicQueryParams && $isCacheable) {
-            AI_Cache::set($key, $html3);
+            $retryKey = 'ai_tr_retry_' . md5($key);
+            if ($contentMatchesLang) {
+                AI_Cache::set($key, $html3);
+                delete_transient($retryKey);
+            } else {
+                $retries = (int) get_transient($retryKey);
+                $retries++;
+                set_transient($retryKey, $retries, 7 * DAY_IN_SECONDS);
+                if ($retries >= 3) {
+                    AI_Cache::set($key, $html3);
+                }
+            }
         }
         
         // Release lock after successful cache generation
@@ -1693,5 +1715,58 @@ final class AI_OB
             return true;
         }
         return false;
+    }
+
+    /**
+     * Lightweight check whether HTML body content matches the expected target language.
+     * Detects Latin ↔ Non-Latin mismatches only (e.g. NL body text cached for JA target).
+     * Returns true when content appears correct or when detection is not possible (Latin↔Latin).
+     *
+     * @param string $html  Full page HTML
+     * @param string|null $targetLang  Target language code
+     * @return bool True if content looks correct for the target language
+     */
+    private function content_matches_target_lang($html, $targetLang)
+    {
+        if ($targetLang === null) {
+            return true;
+        }
+        $defaultLang = AI_Lang::default();
+        if ($defaultLang === null || strtolower($targetLang) === strtolower($defaultLang)) {
+            return true;
+        }
+
+        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi'];
+        $targetIsNonLatin = in_array(strtolower($targetLang), $nonLatinLangs, true);
+        $sourceIsNonLatin = in_array(strtolower($defaultLang), $nonLatinLangs, true);
+
+        if ($targetIsNonLatin === $sourceIsNonLatin) {
+            return true;
+        }
+
+        if (!preg_match('/<body[^>]*>(.*)<\/body>/si', $html, $m)) {
+            return true;
+        }
+        $bodyHtml = $m[1];
+        $bodyHtml = preg_replace('/<script[^>]*>.*?<\/script>/si', '', $bodyHtml);
+        $bodyHtml = preg_replace('/<style[^>]*>.*?<\/style>/si', '', $bodyHtml);
+        $bodyText = trim(strip_tags($bodyHtml));
+
+        if (mb_strlen($bodyText) < 100) {
+            return true;
+        }
+
+        $latinChars = preg_match_all('/[a-zA-Z]/', $bodyText);
+        $totalChars = max(1, mb_strlen($bodyText));
+        $latinRatio = $latinChars / $totalChars;
+
+        if ($targetIsNonLatin && $latinRatio > 0.4) {
+            return false;
+        }
+        if (!$targetIsNonLatin && $sourceIsNonLatin && $latinRatio < 0.3) {
+            return false;
+        }
+
+        return true;
     }
 }
