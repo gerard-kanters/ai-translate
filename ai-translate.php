@@ -796,11 +796,15 @@ add_action('template_redirect', function () {
         }
     }
 
-    // RULE 4: If cookie exists and on root, ensure language is set to default
-    // Skip this rule if there's a search parameter (explicit ?lang= is already handled by RULE 0)
+    // RULE 4: If cookie exists and on root, redirect to cookie language or serve default
     if ($reqPath === '/' && $cookieLang !== '' && !$hasSearchParam) {
-        \AITranslate\AI_Lang::set_cookie((string) $defaultLang);
-        // Set language and stop processing
+        if ($defaultLang && strtolower($cookieLang) !== strtolower((string) $defaultLang)) {
+            // Returning visitor with non-default language preference - redirect to their preferred URL
+            nocache_headers();
+            wp_safe_redirect(home_url('/' . $cookieLang . '/'), 302);
+            exit;
+        }
+        // Cookie is set to default language - serve default language page
         $finalLang = (string) $defaultLang;
         \AITranslate\AI_Lang::set_current($finalLang);
         add_filter('locale', function ($locale) {
@@ -814,10 +818,20 @@ add_action('template_redirect', function () {
         return;
     }
 
+    // RULE 5: Non-root pages without language prefix - redirect to cookie language URL
+    // If visitor has a non-default language preference and visits a page without a language
+    // prefix, redirect them to the language-prefixed version so they see it in their language.
+    if ($langFromUrl === null && $reqPath !== '/' && $cookieLang !== '' && $defaultLang &&
+        strtolower($cookieLang) !== strtolower((string) $defaultLang) && !$hasSearchParam) {
+        nocache_headers();
+        wp_safe_redirect(home_url('/' . $cookieLang . $reqPath), 302);
+        exit;
+    }
+
     $resolvedLang = null;
 
-    // RULE 1: First visit (no cookie) on root - detect browser language and redirect
-    if ($reqPath === '/' && $cookieLang === '') {
+    // RULE 1: First visit (no cookie) - detect browser language and redirect
+    if ($cookieLang === '' && $langFromUrl === null && !$hasSearchParam) {
         \AITranslate\AI_Lang::reset();
         \AITranslate\AI_Lang::detect();
         $detected = \AITranslate\AI_Lang::current();
@@ -834,7 +848,9 @@ add_action('template_redirect', function () {
         // IMPORTANT: prevent browsers/proxies from caching this 302 (incognito can get "stuck")
         if ($detected && strtolower($detected) !== strtolower((string) $defaultLang)) {
             nocache_headers();
-            wp_safe_redirect(home_url('/' . $detected . '/'), 302);
+            // For root: redirect to /{lang}/; for non-root: redirect to /{lang}{path}
+            $targetPath = ($reqPath === '/') ? '/' . $detected . '/' : '/' . $detected . $reqPath;
+            wp_safe_redirect(home_url($targetPath), 302);
             exit;
         }
         // If detected == default, no redirect needed, just set language below
@@ -945,8 +961,50 @@ add_action('wp_enqueue_scripts', function () {
 });
 
 /**
+ * Return the canonical root-relative path for the current page in the original/default language.
+ * Bypasses post_link/page_link filters (which prefix the current language + translated slug)
+ * by reading raw WordPress slugs via get_page_uri() / post_name directly.
+ * Example: on /fr/actualites/ this returns /nieuws/ so all language links use the original slug.
+ *
+ * @param string $fallback Path to use when canonical URL cannot be determined.
+ * @return string Root-relative path ending with '/'.
+ */
+function ai_translate_canonical_path($fallback) {
+    if ($fallback === '/' || !function_exists('get_queried_object')) {
+        return $fallback;
+    }
+    $obj = get_queried_object();
+    $path = null;
+    if ($obj instanceof WP_Post && isset($obj->ID)) {
+        if ($obj->post_type === 'page') {
+            // get_page_uri builds parent/child slug path without any permalink filter
+            $uri = get_page_uri($obj->ID);
+            if ($uri) { $path = '/' . trim($uri, '/') . '/'; }
+        } else {
+            // Raw post slug - no filter applied
+            $slug = get_post_field('post_name', $obj->ID);
+            if ($slug) { $path = '/' . trim((string)$slug, '/') . '/'; }
+        }
+    } elseif ($obj instanceof WP_Term && isset($obj->term_id)) {
+        // ai-translate has no term_link filter, safe to use
+        $p = get_term_link($obj);
+        if ($p && !is_wp_error($p)) {
+            $tp = (string) parse_url($p, PHP_URL_PATH);
+            if ($tp && $tp !== '/') { $path = trailingslashit($tp); }
+        }
+    } elseif ($obj instanceof WP_Post_Type && isset($obj->name)) {
+        $p = get_post_type_archive_link($obj->name);
+        if ($p) {
+            $tp = (string) parse_url($p, PHP_URL_PATH);
+            if ($tp && $tp !== '/') { $path = trailingslashit($tp); }
+        }
+    }
+    return $path ?? $fallback;
+}
+
+/**
  * Generate language switcher HTML for navigation menu.
- * 
+ *
  * @return string Switcher HTML or empty string if not applicable
  */
 function ai_translate_get_nav_switcher_html() {
@@ -1004,24 +1062,27 @@ function ai_translate_get_nav_switcher_html() {
     $switcher_html .= '</a>';
     $switcher_html .= '<div id="' . esc_attr($menu_id) . '" class="ai-trans-menu" role="menu">';
     
+    // Build path without language prefix so switcher lands on the same page in the target language
+    $pathNoLang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
+    if ($pathNoLang === '') {
+        $pathNoLang = '/';
+    }
+    // Resolve translated slugs back to original-language slug (e.g. /fr/actualites/ → /nieuws/)
+    $pathNoLang = ai_translate_canonical_path($pathNoLang);
+
     foreach ($enabled as $code) {
         $code = sanitize_key($code);
         $isDefaultLang = (strtolower($code) === strtolower((string) $default));
         $label = strtoupper($isDefaultLang ? $default : $code);
-        // Use one canonical public URL format:
-        // - default language => /
-        // - non-default language => /{lang}/
-        // Build relative URL to avoid host/home filters
-        $url = $isDefaultLang ? '/' : '/' . $code . '/';
-        $url = esc_url($url);
+        $url = $isDefaultLang ? esc_url($pathNoLang) : esc_url('/' . $code . $pathNoLang);
         $flag = esc_url($flags_url . $code . '.png');
         $switcher_html .= '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1">';
         $switcher_html .= '<img src="' . $flag . '" alt="' . esc_attr($label) . '">';
         $switcher_html .= '</a>';
     }
-    
+
     $switcher_html .= '</div></div></li>';
-    
+
     return $switcher_html;
 }
 
@@ -1049,6 +1110,7 @@ add_action('wp_footer', function () {
     if ($pathNoLang === '') {
         $pathNoLang = '/';
     }
+    $pathNoLang = ai_translate_canonical_path($pathNoLang);
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
@@ -1118,12 +1180,7 @@ add_action('wp_footer', function () {
         }
 
         $label = strtoupper($isDefaultLang ? $default : $code);
-        // Use one canonical public URL format:
-        // - default language => /
-        // - non-default language => /{lang}/
-        // Build relative URL to avoid host/home filters
-        $url = $isDefaultLang ? '/' : '/' . $code . '/';
-        $url = esc_url($url);
+        $url = $isDefaultLang ? esc_url($pathNoLang) : esc_url('/' . $code . $pathNoLang);
         $flag = esc_url($flags_url . $code . '.png');
         echo '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . $flag . '" alt="' . esc_attr($label) . '"><span>' . esc_html($label) . '</span></a>';
     }
@@ -2545,6 +2602,7 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
     if ($path_no_lang === '') {
         $path_no_lang = '/';
     }
+    $path_no_lang = ai_translate_canonical_path($path_no_lang);
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
@@ -2877,6 +2935,7 @@ add_shortcode('ai_menu_language_switcher', function($atts) {
     if ($path_no_lang === '') {
         $path_no_lang = '/';
     }
+    $path_no_lang = ai_translate_canonical_path($path_no_lang);
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
@@ -3020,6 +3079,7 @@ add_action('wp_footer', function() {
     if ($path_no_lang === '') {
         $path_no_lang = '/';
     }
+    $path_no_lang = ai_translate_canonical_path($path_no_lang);
 
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
@@ -3069,7 +3129,8 @@ add_action('wp_footer', function() {
     ?>
     <script>
     (function() {
-        // Wait for DOM to be ready
+        var replacementHtml = <?php echo json_encode($replacement_html); ?>;
+
         function initLanguageSwitcherReplacement() {
 
             // Find language switcher items by stable classes/object markers (not translated text).
@@ -3084,24 +3145,51 @@ add_action('wp_footer', function() {
                 }
                 // Replace only when not already rendered with a submenu.
                 if (!listItem.querySelector('.sub-menu') || !listItem.classList.contains('menu-item-language-switcher')) {
-                    listItem.outerHTML = <?php echo json_encode($replacement_html); ?>;
+                    listItem.outerHTML = replacementHtml;
                 }
             });
 
-            // Safety net: if a language-switcher container exists without submenu, append it.
-            const switcherItems = document.querySelectorAll('li.menu-item-language-switcher');
-            switcherItems.forEach(function(listItem) {
-                if (!listItem.querySelector('.sub-menu')) {
-                    listItem.insertAdjacentHTML('beforeend', <?php echo json_encode($submenu_html); ?>);
-                    listItem.classList.add('menu-item-has-children');
-                }
-            });
+            // Safety net: if a language-switcher container exists without submenu, extract and
+            // append the submenu from the replacement HTML rather than a second JSON blob.
+            if (candidates.length === 0) {
+                const switcherItems = document.querySelectorAll('li.menu-item-language-switcher');
+                switcherItems.forEach(function(listItem) {
+                    if (!listItem.querySelector('.sub-menu')) {
+                        var tmp = document.createElement('ul');
+                        tmp.innerHTML = replacementHtml;
+                        var subMenu = tmp.querySelector('.sub-menu');
+                        if (subMenu) {
+                            listItem.appendChild(subMenu);
+                        }
+                        listItem.classList.add('menu-item-has-children');
+                    }
+                });
+            }
         }
 
-        // Run immediately and after a delay for dynamically loaded content
+        // Run immediately, then once after a short delay for dynamically loaded content.
         initLanguageSwitcherReplacement();
-        setTimeout(initLanguageSwitcherReplacement, 1000);
-        setTimeout(initLanguageSwitcherReplacement, 3000);
+        setTimeout(initLanguageSwitcherReplacement, 500);
+
+        // Set cookie BEFORE navigating on language switch so server-side redirects
+        // (RULE 4 / RULE 5) immediately see the new preference and don't bounce back.
+        // Use the same domain format as PHP (.hostname) to avoid duplicate cookie conflicts
+        // where the browser sends both an old PHP-set cookie and a new JS-set cookie.
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('a[data-lang]');
+            if (link) {
+                var lang = link.getAttribute('data-lang');
+                if (lang) {
+                    var host = window.location.hostname;
+                    var cookieDomain = (host.indexOf('.') !== -1 && !/^\d+\.\d+\.\d+\.\d+$/.test(host)) ? '.' + host : '';
+                    var cookieStr = 'ai_translate_lang=' + encodeURIComponent(lang) + '; path=/; max-age=2592000; SameSite=Lax; Secure';
+                    if (cookieDomain) { cookieStr += '; domain=' + cookieDomain; }
+                    document.cookie = cookieStr;
+                    // Also clear any cookie set without domain (plain hostname) to avoid duplicates
+                    document.cookie = 'ai_translate_lang=; path=/; max-age=0; SameSite=Lax; Secure';
+                }
+            }
+        }, true);
 
     })();
     </script>

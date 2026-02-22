@@ -915,9 +915,7 @@ final class AI_SEO
             },
             $html
         );
-    }
-
-    /**
+    }    /**
      * Recursively translate name/description fields in JSON-LD BreadcrumbList nodes.
      *
      * @param array  &$node   JSON-LD node (modified in place).
