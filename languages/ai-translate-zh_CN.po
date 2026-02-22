@@ -879,29 +879,3 @@ msgstr "... 以及数据库中没有的另外%d个文件（使用重新扫描来
 msgid "Request Key"
 msgstr "请求密钥"
 
-#~ msgid "lang directory missing"
-#~ msgstr "语言目录缺失"
-
-#~ msgid "no write occurred"
-#~ msgstr "未发生写入"
-
-#~ msgid "not writable"
-#~ msgstr "不可写"
-
-#~ msgid "check logs"
-#~ msgstr "查看日志"
-
-#~ msgid "Error page (404/500)"
-#~ msgstr "错误页面 (404/500)"
-
-#~ msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
-#~ msgstr "GPT-5 已被屏蔽，因为无法禁用推理且翻译不需要推理，因此速度太慢且价格昂贵。"
-
-#~ msgid "Cache files do not exist at the expected location"
-#~ msgstr "缓存文件不存在于预期位置"
-
-#~ msgid "Cache files have a different format than expected"
-#~ msgstr "缓存文件的格式与预期不同"
-
-#~ msgid "Multi-domain caching configuration does not match"
-#~ msgstr "多域名缓存配置不匹配"

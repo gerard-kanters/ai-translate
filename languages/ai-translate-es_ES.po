@@ -1,7 +1,7 @@
 # Translation of Plugins - AI Translate - Stable (latest release) in Spanish (Spain)
 # This file is distributed under the same license as the Plugins - AI Translate - Stable (latest release) package.
 msgid ""
-msgstr "Project-Id-Version: Plugins - AI Translate - Stable (latest release)\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: 2026-01-10 23:42:34+0000\nLanguage: es\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=n != 1;\nX-Generator: GlotPress/4.0.3\n"
+msgstr "Project-Id-Version: Plugins - AI Translate - Stable (latest release)\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: +0000\nLanguage: es\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=n != 1;\nX-Generator: GlotPress/4.0.3\n"
 
 #. Plugin Name of the plugin
 #: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
@@ -867,32 +867,3 @@ msgstr "... y %d archivos más no están en la base de datos (use «Escanear arc
 msgid "Request Key"
 msgstr "Solicitar clave"
 
-#~ msgid "Multi-domain caching configuration does not match"
-#~ msgstr "La configuración de caché de múltiples dominios no coincide"
-
-#~ msgid "Cache files have a different format than expected"
-#~ msgstr "Los archivos de caché tienen un formato diferente al esperado"
-
-#~ msgid "Cache files do not exist at the expected location"
-#~ msgstr "Los archivos de caché no existen en la ubicación esperada"
-
-#~ msgid "No cache records added. Possible causes:"
-#~ msgstr "No se añadieron registros de caché. Posibles causas:"
-
-#~ msgid "lang directory missing"
-#~ msgstr "falta directorio de idioma"
-
-#~ msgid "no write occurred"
-#~ msgstr "no se escribió"
-
-#~ msgid "not writable"
-#~ msgstr "no escribible"
-
-#~ msgid "check logs"
-#~ msgstr "revisar registros"
-
-#~ msgid "Error page (404/500)"
-#~ msgstr "Página de error (404/500)"
-
-#~ msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
-#~ msgstr "GPT-5 está bloqueado, ya que el razonamiento no se puede desactivar y no es necesario para las traducciones, por lo que es demasiado lento y costoso."

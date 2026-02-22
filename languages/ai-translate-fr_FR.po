@@ -866,15 +866,3 @@ msgstr "... et %d autres fichiers pas dans la base de données (utilisez réanal
 #: includes/admin-page.php:899
 msgid "Request Key"
 msgstr "Clé de requête"
-
-#~ msgid "Multi-domain caching configuration does not match"
-#~ msgstr "La configuration de mise en cache multi-domaines ne correspond pas"
-
-#~ msgid "Cache files have a different format than expected"
-#~ msgstr "Les fichiers de cache ont un format différent de celui attendu"
-
-#~ msgid "Cache files do not exist at the expected location"
-#~ msgstr "Les fichiers de cache n'existent pas à l'emplacement attendu"
-
-#~ msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
-#~ msgstr "GPT-5 est bloqué, car le raisonnement ne peut pas être désactivé et n'est pas requis pour les traductions, ce qui le rend trop lent et coûteux."

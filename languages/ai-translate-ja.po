@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Netcare
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
-msgstr "Project-Id-Version: AI Translate 2.1.7\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: 2025-12-29 22:00+0000\nLast-Translator: Netcare <info@netcare.nl>\nLanguage-Team: 日本語\nLanguage: ja\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\n"
+msgstr "Project-Id-Version: Plugins - AI Translate - Stable (latest release)\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: +0000\nLanguage: ja\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=1; plural=0;\nX-Generator: GlotPress/4.0.3\n"
 
 #. Plugin Name of the plugin
 #: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
@@ -884,61 +884,3 @@ msgstr "... およびデータベースにない%d個の追加ファイル (再�
 msgid "Request Key"
 msgstr "リクエストキー"
 
-#~ msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
-#~ msgstr "GPT-5はブロックされています。推論を無効にできず、翻訳には不要であり、非常に遅く高価であるためです。"
-
-#~ msgid "Cache files do not exist at the expected location"
-#~ msgstr "キャッシュファイルが期待される場所に存在しません"
-
-#~ msgid "Cache files have a different format than expected"
-#~ msgstr "キャッシュファイルの形式が期待されるものと異なります"
-
-#~ msgid "Multi-domain caching configuration does not match"
-#~ msgstr "マルチドメインキャッシュ設定が一致しません"
-
-#~ msgid "Bottom Left"
-#~ msgstr "左下"
-
-#~ msgid "Bottom Right"
-#~ msgstr "右下"
-
-#~ msgid "Top Left"
-#~ msgstr "左上"
-
-#~ msgid "Top Right"
-#~ msgstr "右上"
-
-#, fuzzy
-#~ msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-#~ msgstr "言語スイッチャーの表示位置を選択してください。ナビゲーションメニューの位置は、メインナビゲーションメニューにスイッチャーを追加します。フローティング位置は、コーナーに固定スイッチャーを表示します。下の位置の場合はメニューが上に、上の位置の場合はメニューが下に開きます。"
-
-#, fuzzy
-#~ msgid "Acties"
-#~ msgstr "操作"
-
-#~ msgid "API Provider is missing."
-#~ msgstr "APIプロバイダーがありません。"
-
-#~ msgid "Settings"
-#~ msgstr "設定"
-
-#~ msgid "AI Translate Warning:"
-#~ msgstr "AI Translate 警告："
-
-#~ msgid "Please set your permalinks to \"Post name\" or another structure."
-#~ msgstr "パーマリンクを「投稿名」または別の構造に設定してください。"
-
-#~ msgid "Start of Navigation Menu"
-#~ msgstr "ナビゲーションメニューの開始"
-
-#~ msgid "End of Navigation Menu"
-#~ msgstr "ナビゲーションメニューの終了"
-
-#~ msgid "Stop vertalingen"
-#~ msgstr "翻訳を停止"
-
-#~ msgid "Stop translation of archive pages"
-#~ msgstr "アーカイブページの翻訳を停止"
-
-#~ msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
-#~ msgstr "有効にすると、アーカイブページ（カテゴリ、タグ、日付アーカイブなど）は翻訳されません。単一ページ（投稿、ページ、カスタム投稿タイプ）は引き続き翻訳されます。"

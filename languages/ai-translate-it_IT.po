@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Netcare
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
-msgstr "Project-Id-Version: AI Translate 2.1.7\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: 2025-12-29 22:00+0000\nLast-Translator: Netcare <info@netcare.nl>\nLanguage-Team: Italiano\nLanguage: it_IT\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: Plugins - AI Translate - Stable (latest release)\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: +0000\nLanguage: it\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=n != 1;\nX-Generator: GlotPress/4.0.3\n"
 
 #. Plugin Name of the plugin
 #: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
@@ -884,62 +884,3 @@ msgstr "... e altri %d file non nel database (usa rescansione per aggiungerli)"
 #: includes/admin-page.php:899
 msgid "Request Key"
 msgstr "Chiave di richiesta"
-
-#~ msgid "GPT-5 is blocked, since reasoning cannot be disabled and not required for translations and therefore too slow and expensive."
-#~ msgstr "GPT-5 è bloccato, poiché il ragionamento non può essere disattivato e non è richiesto per le traduzioni, risultando quindi troppo lento e costoso."
-
-#~ msgid "Cache files do not exist at the expected location"
-#~ msgstr "I file cache non esistono nella posizione prevista"
-
-#~ msgid "Cache files have a different format than expected"
-#~ msgstr "I file cache hanno un formato diverso da quello previsto"
-
-#~ msgid "Multi-domain caching configuration does not match"
-#~ msgstr "La configurazione della cache multi-dominio non corrisponde"
-
-#~ msgid "Bottom Left"
-#~ msgstr "In basso a sinistra"
-
-#~ msgid "Bottom Right"
-#~ msgstr "In basso a destra"
-
-#~ msgid "Top Left"
-#~ msgstr "In alto a sinistra"
-
-#~ msgid "Top Right"
-#~ msgstr "In alto a destra"
-
-#, fuzzy
-#~ msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
-#~ msgstr "Scegli dove appare il selettore di lingua sul tuo sito web. Le posizioni del menu di navigazione aggiungeranno il selettore al menu di navigazione principale. Le posizioni fluttuanti mostreranno un selettore fisso nell'angolo. Il menu si aprirà verso l'alto per le posizioni in basso e verso il basso per le posizioni in alto."
-
-#, fuzzy
-#~ msgid "Acties"
-#~ msgstr "Azione"
-
-#~ msgid "API Provider is missing."
-#~ msgstr "Il fornitore API è mancante."
-
-#~ msgid "Settings"
-#~ msgstr "Impostazioni"
-
-#~ msgid "AI Translate Warning:"
-#~ msgstr "Avviso AI Translate:"
-
-#~ msgid "Please set your permalinks to \"Post name\" or another structure."
-#~ msgstr "Imposta i tuoi permalink su \"Nome articolo\" o un'altra struttura."
-
-#~ msgid "Start of Navigation Menu"
-#~ msgstr "Inizio del menu di navigazione"
-
-#~ msgid "End of Navigation Menu"
-#~ msgstr "Fine del menu di navigazione"
-
-#~ msgid "Stop vertalingen"
-#~ msgstr "Interrompi le traduzioni"
-
-#~ msgid "Stop translation of archive pages"
-#~ msgstr "Interrompi la traduzione delle pagine di archivio"
-
-#~ msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
-#~ msgstr "Se abilitato, le pagine di archivio (categorie, tag, archivi di date, ecc.) non verranno tradotte. Le pagine singolari (articoli, pagine, tipi di post personalizzati) continueranno a essere tradotte."
