@@ -2558,7 +2558,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
             '/^deepseek-chat$/i',
         ],
         'groq' => [
-            '/llama[-\s_.]*3\.1[-\s_.]*8b[-\s_.]*instant/i',
+            '/openai\/gpt[-\s_.]*oss[-\s_.]*120b/i',
         ],
     ];
 

@@ -1,1239 +1,895 @@
 # Copyright (C) 2025 Netcare
 # This file is distributed under the same license as the AI Translate plugin.
-
 msgid ""
-msgstr ""
-"Project-Id-Version: AI Translate 2.1.7\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\n"
-"POT-Creation-Date: 2026-01-11T11:07:29+00:00\n"
-"PO-Revision-Date: 2025-12-29 22:00+0000\n"
-"Last-Translator: Netcare <info@netcare.nl>\n"
-"Language-Team: Nederlands\n"
-"Language: nl_NL\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+msgstr "Project-Id-Version: AI Translate 2.1.7\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: 2025-12-29 22:00+0000\nLast-Translator: Netcare <info@netcare.nl>\nLanguage-Team: Nederlands\nLanguage: nl_NL\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. Plugin Name of the plugin
 #: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
-
 msgid "AI Translate"
 msgstr "AI Translate"
 
 #. Description of the plugin
 #: ai-translate.php
-
 msgid "AI based translation plugin. Adding 35 languages in a few clicks."
 msgstr "AI-gebaseerde vertaalplugin. Voeg 35 talen toe met een paar klikken."
 
 #. Author of the plugin
 #: ai-translate.php
-
 msgid "Netcare"
 msgstr "Netcare"
 
 #. Author URI of the plugin
 #: ai-translate.php
-
 msgid "https://netcare.nl/"
 msgstr "https://netcare.nl/"
 
 #: ai-translate.php:377
-
 msgid "Rate on WordPress.org"
 msgstr "Beoordeel op WordPress.org"
 
 #: ai-translate.php:1894
-
 msgid "Instellingen"
 msgstr "Instellingen"
 
 #: ai-translate.php:1982
-
 msgid "This plugin requires a permalink structure other than \"Plain\". "
 msgstr "Deze plugin vereist een permalinkstructuur anders dan \"Eenvoudig\". "
 
 #: ai-translate.php:1985
-
 msgid "Configure Permalinks"
 msgstr "Permalinks configureren"
 
 #: ai-translate.php:2107 ai-translate.php:2116
-
 msgid "🌐 Language Switcher"
 msgstr "🌐 Taalwisselaar"
 
 #: ai-translate.php:2119
-
 msgid "Language Switcher"
 msgstr "Taalwisselaar"
 
 #: ai-translate.php:2127
-
 msgid "Add to Menu"
 msgstr "Aan menu toevoegen"
 
 #: ai-translate.php:2185
-
 msgid "Make this a language switcher"
 msgstr "Maak dit een taalwisselaar"
 
 #: ai-translate.php:2192
-
 msgid "Switcher Type:"
 msgstr "Switcher Type:"
 
 #: ai-translate.php:2195
-
 msgid "Dropdown"
 msgstr "Dropdown"
 
 #: ai-translate.php:2196
-
 msgid "Inline"
 msgstr "Inline"
 
 #: ai-translate.php:2206
 #, fuzzy
-
 msgid "Show language flags"
 msgstr "Geen taal geselecteerd."
 
 #: ai-translate.php:2215
 #, fuzzy
-
 msgid "Show language codes"
 msgstr "Geen taal geselecteerd."
 
 #: includes/admin-page.php:28 includes/admin-page.php:74
 #: includes/admin-page.php:186 includes/admin-page.php:523
 #: includes/admin-page.php:698 includes/admin-page.php:740
-
 msgid "Insufficient permissions to perform this action."
 msgstr "Onvoldoende rechten om deze actie uit te voeren."
 
 #: includes/admin-page.php:35 includes/admin-page.php:81
 #: includes/admin-page.php:192 includes/admin-page.php:530
 #: includes/admin-page.php:705 includes/admin-page.php:747
-
 msgid "Security check failed (nonce). Refresh the page and try again."
-msgstr "Beveiligingscontrole"
-"Beveiligingscontrole mislukt (nonce). Ververs de pagina en probeer het "
-"opnieuw."
+msgstr "BeveiligingscontroleBeveiligingscontrole mislukt (nonce). Ververs de pagina en probeer het opnieuw."
 
 #: includes/admin-page.php:41 includes/admin-page.php:198
-
 msgid "No language selected."
 msgstr "Geen taal geselecteerd."
 
 #: includes/admin-page.php:52
-
 msgid "Cache for language \"%s\" cleared. %d files removed."
 msgstr "Cache voor taal \"%s\" gewist. %d bestanden verwijderd."
 
 #: includes/admin-page.php:57
-
 msgid "Error clearing cache:"
 msgstr "Fout bij wissen cache:"
 
 #: includes/admin-page.php:88 includes/admin-page.php:537
-
 msgid "No post ID provided."
 msgstr "Geen bericht-ID opgegeven."
 
 #: includes/admin-page.php:95 includes/admin-page.php:544
 #, fuzzy
-
 msgid "Invalid post ID."
 msgstr "Ongeldig antwoord van API"
 
 #: includes/admin-page.php:104 includes/admin-page.php:553
-
 msgid "Post not found."
 msgstr "Bericht niet gevonden."
 
 #: includes/admin-page.php:133
-
 msgid "Invalid file path: %s"
 msgstr "Ongeldig bestandspad: %s"
 
 #: includes/admin-page.php:144
-
 msgid "Invalid file type: %s"
 msgstr "Ongeldig bestandstype: %s"
 
 #: includes/admin-page.php:151
-
 msgid "Could not delete file: %s"
 msgstr "Kon bestand niet verwijderen: %s"
 
 #: includes/admin-page.php:162
-
 msgid "Cache deleted for %d languages"
 msgstr "Cache verwijderd voor %d talen"
 
 #: includes/admin-page.php:164 includes/admin-page.php:672
-
 msgid "Warnings:"
 msgstr "Waarschuwingen:"
 
 #: includes/admin-page.php:220
-
 msgid "Security check failed"
 msgstr "Beveiligingscontrole"
 
 #: includes/admin-page.php:226
-
 msgid "Insufficient permissions"
 msgstr "Onvoldoende rechten"
 
 #: includes/admin-page.php:236
-
 msgid "No cache file specified"
 msgstr "Geen cachebestand opgegeven"
 
 #: includes/admin-page.php:247
-
 msgid "Invalid cache file path"
 msgstr "Ongeldig cachebestand pad"
 
 #: includes/admin-page.php:252
-
 msgid "Cache file not found"
 msgstr "Cachebestand niet gevonden"
 
 #: includes/admin-page.php:258 includes/admin-page.php:880
-
 msgid "Failed to delete cache file"
 msgstr "Kan cachebestand niet verwijderen"
 
 #: includes/admin-page.php:267
-
 msgid "Cache file deleted successfully"
 msgstr "Cachebestand succesvol verwijderd"
 
 #: includes/admin-page.php:385
-
 msgid "Cache file not generated"
 msgstr "Cachebestand niet gegenereerd"
 
-#: includes/admin-page.php:458
-msgid "lang directory missing"
-msgstr "taalmap ontbreekt"
-
-#: includes/admin-page.php:461
-msgid "no write occurred"
-msgstr "geen schrijfactie uitgevoerd"
-
-#: includes/admin-page.php:463
-msgid "not writable"
-msgstr "niet beschrijfbaar"
-
-#: includes/admin-page.php:465
-msgid "check logs"
-msgstr "controleer logbestanden"
-
-#: includes/admin-page.php:473
-msgid "Error page (404/500)"
-msgstr "Foutpagina (404/500)"
-
 #: includes/admin-page.php:399
-
 msgid "HTTP %d (redirect)"
 msgstr "HTTP %d (redirect)"
 
 #: includes/admin-page.php:402 includes/admin-page.php:511
-
 msgid "HTTP %d"
 msgstr "HTTP %d"
 
 #: includes/admin-page.php:497
-
 msgid "Cache file not generated after successful request"
 msgstr "Cachebestand"
 
 #: includes/admin-page.php:559
-
 msgid "Only published posts can be cached."
 msgstr "Alleen gepubliceerde berichten kunnen worden gecached."
 
 #: includes/admin-page.php:573
 #, fuzzy
-
 msgid "No languages configured."
 msgstr "Geen taal geselecteerd."
 
 #: includes/admin-page.php:583
-
 msgid "Could not generate post URL."
 msgstr "Kon bericht URL niet genereren."
 
 #: includes/admin-page.php:592
-
 msgid "Invalid post URL."
 msgstr "Ongeldige bericht URL."
 
 #: includes/admin-page.php:634
-
 msgid "Error for %s: %s"
 msgstr "Fout voor %s: %s"
 
 #: includes/admin-page.php:667
-
 msgid "Cache warmed for %d languages"
 msgstr "Cache opgewarmd voor %d talen"
 
 #: includes/admin-page.php:669
-
 msgid " (%d skipped)"
 msgstr " (%d overgeslagen)"
 
 #: includes/admin-page.php:674
-
 msgid " and %d more"
 msgstr " en %d meer"
 
 #: includes/admin-page.php:725
-
 msgid "Error generating context:"
 msgstr "Fout bij genereren context:"
 
 #: includes/admin-page.php:764
-
 msgid "Error generating meta description:"
 msgstr "Fout bij genereren meta-omschrijving:"
 
 #: includes/admin-page.php:851
-
 msgid "Enter API Key first..."
 msgstr "Vul eerst API Key in..."
 
 #: includes/admin-page.php:852
-
 msgid "Enter API Key first to load models."
 msgstr "Vul eerst de API Key in om modellen te laden."
 
 #: includes/admin-page.php:853
-
 msgid "Loading models..."
 msgstr "Modellen laden..."
 
 #: includes/admin-page.php:854
-
 msgid "Models loaded successfully."
 msgstr "Modellen succesvol geladen."
 
 #: includes/admin-page.php:855
-
 msgid "No models found"
 msgstr "Geen modellen gevonden"
 
 #: includes/admin-page.php:856 includes/admin-page.php:2208
-
 msgid "Invalid key"
 msgstr "Onjuiste key"
 
 #: includes/admin-page.php:857
-
 msgid "Error loading models"
 msgstr "Fout bij laden modellen"
 
 #: includes/admin-page.php:858
-
 msgid "Select API Provider first..."
 msgstr "Selecteer eerst een API Provider..."
 
 #: includes/admin-page.php:859 includes/admin-page.php:1658
 #: includes/admin-page.php:1777
-
 msgid "Unknown error"
 msgstr "Onbekende fout"
 
 #: includes/admin-page.php:860
-
 msgid "Save your settings first before opening the menu editor."
 msgstr "Sla eerst je instellingen op voordat je de menu-editor opent."
 
 #: includes/admin-page.php:870
-
 msgid "Loading cached URLs..."
 msgstr "Gecachete URL's laden..."
 
 #: includes/admin-page.php:871
-
 msgid "Could not load cached URLs. Please try again."
 msgstr "Kon gecachete URL's niet laden. Probeer het opnieuw."
 
 #: includes/admin-page.php:872
-
-msgid ""
-"Request timed out. The site may have many cache files. Please try again or "
-"use the rescan function."
-msgstr ""
-"Aanvraag time-out. De site heeft mogelijk veel cachebestanden. Probeer het "
-"opnieuw of gebruik de herscan functie."
+msgid "Request timed out. The site may have many cache files. Please try again or use the rescan function."
+msgstr "Aanvraag time-out. De site heeft mogelijk veel cachebestanden. Probeer het opnieuw of gebruik de herscan functie."
 
 #: includes/admin-page.php:873
-
 msgid "No cached pages for this language."
 msgstr "Geen gecachete pagina's voor deze taal."
 
 #: includes/admin-page.php:874
-
 msgid "Show cached URLs"
 msgstr "Toon gecachete URL's"
 
 #: includes/admin-page.php:875
-
 msgid "Hide cached URLs"
 msgstr "Verberg gecachete URL's"
 
 #: includes/admin-page.php:876
-
 msgid "Showing first %1$s of %2$s entries"
 msgstr "Toont eerst %1$s van %2$s entries"
 
 #: includes/admin-page.php:877
-
 msgid "Delete file"
 msgstr "Bestand verwijderen"
 
 #: includes/admin-page.php:878
-
 msgid "Deleting..."
 msgstr "Verwijderen..."
 
 #: includes/admin-page.php:879
 #, fuzzy
-
 msgid "Are you sure you want to delete this cache file?"
 msgstr "Verwijder dit cachebestand"
 
 #: includes/admin-page.php:930
-
 msgid "Invalid API provider selected."
 msgstr "Ongeldige API-provider geselecteerd."
 
 #: includes/admin-page.php:950
-
 msgid "Custom API URL is required for the custom provider."
 msgstr "Aangepaste API URL is vereist voor de aangepaste provider."
 
 #: includes/admin-page.php:964
-
-msgid ""
-"Cache duration cannot be less than 14 days. It has been automatically set to "
-"14 days."
-msgstr ""
-"Cacheduur kan niet minder zijn dan 14 dagen. Dit is automatisch ingesteld op "
-"14 dagen."
+msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
+msgstr "Cacheduur kan niet minder zijn dan 14 dagen. Dit is automatisch ingesteld op 14 dagen."
 
 #: includes/admin-page.php:1024
-
 msgid "Custom model name is required when selecting a custom model."
-msgstr "Aangepaste modelnaam is vereist bij het selecteren van een aangepast model."
-"Aangepaste modelnaam is vereist bij het selecteren van een aangepast model."
+msgstr "Aangepaste modelnaam is vereist bij het selecteren van een aangepast model.Aangepaste modelnaam is vereist bij het selecteren van een aangepast model."
 
 #: includes/admin-page.php:1047
-
 msgid "API key is required for the selected provider."
 msgstr "API-sleutel is vereist voor de geselecteerde provider."
 
-#: includes/admin-page.php:1052
-#: includes/class-ai-translate-core.php:96
+#: includes/admin-page.php:1052 includes/class-ai-translate-core.php:96
 msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
 msgstr "Google API is niet OpenAI-compatibel. Gebruik Openrouter of Deepinfra voor Gemini."
 
 #: includes/admin-page.php:1170
-
 msgid "API Settings"
 msgstr "API-instellingen"
 
 #: includes/admin-page.php:1176
-
 msgid "API Provider"
 msgstr "API-provider"
 
 #: includes/admin-page.php:1183
-
 msgid "— Select provider —"
 msgstr "— Selecteer provider —"
 
 #: includes/admin-page.php:1190 includes/admin-page.php:1433
 #: includes/admin-page.php:1645
-
 msgid "Note:"
 msgstr "Opmerking:"
 
 #: includes/admin-page.php:1292
-
 msgid "GPT-5 models use minimal reasoning for fast translations. O1 and O3 models are not supported."
 msgstr "GPT-5 modellen gebruiken minimaal redeneren voor snelle vertalingen. O1 en O3 modellen worden niet ondersteund."
 
 #: includes/admin-page.php:1196
-
 msgid "Enter the endpoint URL for your custom API provider. Example: %s"
 msgstr "Voer de endpoint URL in voor uw aangepaste API-provider. Voorbeeld: %s"
 
 #: includes/admin-page.php:1207
-
 msgid "API Key"
 msgstr "API-sleutel"
 
 #: includes/admin-page.php:1222
-
 msgid "Translation Model"
 msgstr "Vertalingsmodel"
 
 #: includes/admin-page.php:1230
-
 msgid "— Select model —"
 msgstr "— Selecteer model —"
 
 #: includes/admin-page.php:1234
-
 msgid "Select..."
 msgstr "Selecteren..."
 
 #: includes/admin-page.php:1237
-
 msgid "E.g.: deepseek-chat, gpt-4o, ..."
 msgstr "Bijv.: deepseek-chat, gpt-4o, ..."
 
 #: includes/admin-page.php:1239
-
 msgid "Validate API settings"
 msgstr "Valideer API-instellingen"
 
 #: includes/admin-page.php:1250
-
 msgid "Language Settings"
 msgstr "Taalinstellingen"
 
 #: includes/admin-page.php:1252
-
-msgid ""
-"Select the default language for your site and which languages should be "
-"available in the language switcher. Detectable languages will be used if a "
-"visitor's browser preference matches, but won't show in the switcher."
-msgstr ""
-"Selecteer de standaardtaal voor uw site en welke talen beschikbaar moeten "
-"zijn in de taalschakelaar. Detecteerbare talen worden gebruikt als de "
-"browserinstelling van een bezoeker overeenkomt, maar worden niet getoond in "
-"de schakelaar."
+msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
+msgstr "Selecteer de standaardtaal voor uw site en welke talen beschikbaar moeten zijn in de taalschakelaar. Detecteerbare talen worden gebruikt als de browserinstelling van een bezoeker overeenkomt, maar worden niet getoond in de schakelaar."
 
 #: includes/admin-page.php:1258
-
 msgid "Default Language"
 msgstr "Standaardtaal"
 
 #: includes/admin-page.php:1265
-
 msgid "— Select default language —"
 msgstr "— Selecteer standaardtaal —"
 
 #: includes/admin-page.php:1268
-
 msgid "Current"
 msgstr "Huidig"
 
 #: includes/admin-page.php:1280
-
 msgid "Enabled Languages (in Switcher)"
 msgstr "Ingeschakelde talen (in schakelaar)"
 
 #: includes/admin-page.php:1300
-
 msgid "Languages selected here will appear in the language switcher."
 msgstr "Hier geselecteerde talen verschijnen in de taalschakelaar."
 
 #: includes/admin-page.php:1308
-
 msgid "Detectable Languages (Auto-Translate)"
 msgstr "Detecteerbare talen (automatisch vertalen)"
 
 #: includes/admin-page.php:1337
-
-msgid ""
-"If a visitor's browser language matches one of these, the site will be "
-"automatically translated (if enabled), but these languages won't show in the "
-"switcher."
-msgstr ""
-"Als de browserinstelling van een bezoeker overeenkomt met een van deze "
-"talen, wordt de site automatisch vertaald (indien ingeschakeld), maar deze "
-"talen worden niet getoond in de schakelaar."
+msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
+msgstr "Als de browserinstelling van een bezoeker overeenkomt met een van deze talen, wordt de site automatisch vertaald (indien ingeschakeld), maar deze talen worden niet getoond in de schakelaar."
 
 #: includes/admin-page.php:1346
-
 msgid "Language Switcher Position"
 msgstr "Positie taalschakelaar"
 
 #: includes/admin-page.php:1351
-
 msgid "Bottom Left Corner"
 msgstr "Linkeronderhoek"
 
 #: includes/admin-page.php:1352
-
 msgid "Bottom Right Corner"
 msgstr "Rechteronderhoek"
 
 #: includes/admin-page.php:1353
-
 msgid "Top Left Corner"
 msgstr "Linkerbovenhoek"
 
 #: includes/admin-page.php:1354
-
 msgid "Top Right Corner"
 msgstr "Rechterbovenhoek"
 
 #: includes/admin-page.php:1355
-
 msgid "Hidden - Add manually via Appearance > Menus"
 msgstr "Verborgen - Handmatig toevoegen via Weergave > Menu's"
 
 #: includes/admin-page.php:1365
-
-msgid ""
-"Choose where the language switcher appears on your website. \"Hidden - Add "
-"manually via Appearance > Menus\" means the switcher will not be visible in "
-"corners - add it manually to your navigation menu instead. Corner positions "
-"show a floating switcher. The menu will open upward for bottom positions and "
-"downward for top positions."
-msgstr ""
-"Kies waar de taalwisselaar verschijnt op uw website. \"Verborgen - Handmatig "
-"toevoegen via Weergave > Menu's\" betekent dat de wisselaar niet zichtbaar "
-"is in hoeken - voeg deze handmatig toe aan uw navigatiemenu. Hoekposities "
-"tonen een zwevende wisselaar. Het menu opent omhoog voor onderposities en "
-"omlaag voor bovenposities."
+msgid "Choose where the language switcher appears on your website. \"Hidden - Add manually via Appearance > Menus\" means the switcher will not be visible in corners - add it manually to your navigation menu instead. Corner positions show a floating switcher. The menu will open upward for bottom positions and downward for top positions."
+msgstr "Kies waar de taalwisselaar verschijnt op uw website. \"Verborgen - Handmatig toevoegen via Weergave > Menu's\" betekent dat de wisselaar niet zichtbaar is in hoeken - voeg deze handmatig toe aan uw navigatiemenu. Hoekposities tonen een zwevende wisselaar. Het menu opent omhoog voor onderposities en omlaag voor bovenposities."
 
 #: includes/admin-page.php:1366
-
 msgid "Open Menu Editor"
 msgstr "Open Menu-editor"
 
 #: includes/admin-page.php:1366
-
 msgid "Add language switcher to your navigation menus"
 msgstr "Taalwisselaar toevoegen aan uw navigatiemenu's"
 
 #: includes/admin-page.php:1375
-
 msgid "Cache Settings"
 msgstr "Cache-instellingen"
 
 #: includes/admin-page.php:1381
-
 msgid "Cache Duration (days)"
 msgstr "Cacheduur (dagen)"
 
 #: includes/admin-page.php:1402
-
 msgid "days"
 msgstr "dagen"
 
 #: includes/admin-page.php:1403
-
 msgid "minimum 14 days"
 msgstr "minimaal 14 dagen"
 
 #: includes/admin-page.php:1410
-
-msgid "Keep URL Slugs in English"
+#, fuzzy
+msgid "Keep URL Slugs in default language"
 msgstr "URL-slugs in het NL houden"
 
 #: includes/admin-page.php:1415
-
-msgid ""
-"Keep URL slugs in English instead of translating them to target languages"
-msgstr ""
-"URL-slugs in het Engels houden in plaats van ze naar doeltalen te vertalen"
-"Houd URL-slugs in het NL in plaats van ze naar doeltalen te vertalen"
+#, fuzzy
+msgid "Keep URL slugs in default language instead of translating them to target languages"
+msgstr "URL-slugs in het Engels houden in plaats van ze naar doeltalen te vertalenHoud URL-slugs in het NL in plaats van ze naar doeltalen te vertalen"
 
 #: includes/admin-page.php:1416
-
 msgid "When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/)."
 msgstr "Indien ingeschakeld, blijven URL's consistent over talen heen (bijv. /zh/cv-tips/ in plaats van /zh/简历技巧/)."
 
 #: includes/admin-page.php:1423
-
 msgid "Auto-Clear Pages on Menu Update"
 msgstr "Pagina's automatisch wissen bij menu-update"
 
 #: includes/admin-page.php:1430
-
 msgid "Automatically clear all page caches when menu items are updated"
 msgstr "Wis automatisch alle paginacaches wanneer menu-items worden bijgewerkt"
 
 #: includes/admin-page.php:1434
-
-msgid ""
-"Menu translation caches (transients) are ALWAYS cleared when you update "
-"menus, regardless of this setting."
-msgstr ""
-"Menuvertalingscaches (transients) worden ALTIJD gewist wanneer u menu's "
-"bijwerkt, ongeacht deze instelling."
+msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
+msgstr "Menuvertalingscaches (transients) worden ALTIJD gewist wanneer u menu's bijwerkt, ongeacht deze instelling."
 
 #: includes/admin-page.php:1436
-
 msgid "When enabled:"
 msgstr "Wanneer ingeschakeld:"
 
 #: includes/admin-page.php:1437
-
-msgid ""
-"All translated page HTML caches will also be cleared. Menu changes are "
-"visible immediately, but requires re-translating pages on next visit "
-"(expensive for large sites with many languages)."
-msgstr ""
-"Alle vertaalde pagina HTML-caches worden ook gewist. Menuwijzigingen zijn "
-"direct zichtbaar, maar vereisen het opnieuw vertalen van pagina's bij het "
-"volgende bezoek (duur voor grote sites met veel talen)."
+msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
+msgstr "Alle vertaalde pagina HTML-caches worden ook gewist. Menuwijzigingen zijn direct zichtbaar, maar vereisen het opnieuw vertalen van pagina's bij het volgende bezoek (duur voor grote sites met veel talen)."
 
 #: includes/admin-page.php:1439
-
 msgid "When disabled:"
 msgstr "Wanneer uitgeschakeld:"
 
 #: includes/admin-page.php:1440
-
-msgid ""
-"Only menu caches are cleared. Page HTML caches remain. Menu changes in "
-"already-cached pages will only be visible after cache expires or manual "
-"clearing via Cache tab."
-msgstr ""
-"Alleen menucaches worden gewist. Pagina HTML-caches blijven behouden. "
-"Menuwijzigingen in reeds gecachte pagina's zijn alleen zichtbaar na het "
-"verlopen van de cache of handmatig wissen via het Cache-tabblad."
+msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
+msgstr "Alleen menucaches worden gewist. Pagina HTML-caches blijven behouden. Menuwijzigingen in reeds gecachte pagina's zijn alleen zichtbaar na het verlopen van de cache of handmatig wissen via het Cache-tabblad."
 
 #: includes/admin-page.php:1448
-
 msgid "Multi-Domain Caching"
 msgstr "Multi-domein caching"
 
 #: includes/admin-page.php:1455
-
 msgid "Enable separate cache per domain"
 msgstr "Schakel aparte cache per domein in"
 
 #: includes/admin-page.php:1458
-
-msgid ""
-"When enabled, each domain will have its own cache directory named after the "
-"site name. This prevents cache conflicts when multiple domains share the "
-"same WordPress installation."
-msgstr ""
-"Wanneer ingeschakeld, heeft elk domein zijn eigen cache-directory genoemd "
-"naar de sitenaam. Dit voorkomt cacheconflicten wanneer meerdere domeinen "
-"dezelfde WordPress-installatie delen."
+msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
+msgstr "Wanneer ingeschakeld, heeft elk domein zijn eigen cache-directory genoemd naar de sitenaam. Dit voorkomt cacheconflicten wanneer meerdere domeinen dezelfde WordPress-installatie delen."
 
 #: includes/admin-page.php:1466 includes/admin-page.php:1473
-
 msgid "Stop translations (except cache invalidation)"
 msgstr "Stop vertalingen (behalve cache invalidatie)"
 
 #: includes/admin-page.php:1476
-
-msgid ""
-"When enabled, new translations via API will be blocked. Translations will "
-"only occur when cached pages expire and need to be refreshed."
-msgstr ""
-"Wanneer ingeschakeld, worden nieuwe vertalingen via API geblokkeerd. "
-"Vertalingen vinden alleen plaats wanneer gecachte pagina's verlopen en "
-"moeten worden vernieuwd."
+msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
+msgstr "Wanneer ingeschakeld, worden nieuwe vertalingen via API geblokkeerd. Vertalingen vinden alleen plaats wanneer gecachte pagina's verlopen en moeten worden vernieuwd."
 
 #: includes/admin-page.php:1486
-
 msgid "Advanced Settings"
 msgstr "Geavanceerde instellingen"
 
 #: includes/admin-page.php:1494
-
 msgid "Homepage Meta Description"
 msgstr "Homepage meta-omschrijving"
 
 #: includes/admin-page.php:1523 includes/admin-page.php:1574
 #, fuzzy
-
 msgid "Active domain:"
 msgstr "Actie"
 
 #: includes/admin-page.php:1530
-
-msgid ""
-"Enter the specific meta description for the homepage for the current domain "
-"(in the default language). This will override the site tagline or generated "
-"excerpt on the homepage."
-msgstr ""
-"Voer de specifieke meta-omschrijving voor de homepage in voor het huidige "
-"domein (in de standaardtaal). Dit overschrijft de site tagline of "
-"gegenereerde excerpt op de homepage."
+msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "Voer de specifieke meta-omschrijving voor de homepage in voor het huidige domein (in de standaardtaal). Dit overschrijft de site tagline of gegenereerde excerpt op de homepage."
 
 #: includes/admin-page.php:1532
-
-msgid ""
-"Enter the specific meta description for the homepage (in the default "
-"language). This will override the site tagline or generated excerpt on the "
-"homepage."
-msgstr ""
-"Voer de specifieke meta-omschrijving voor de homepage in (in de "
-"standaardtaal). Dit overschrijft de site tagline of gegenereerde excerpt op "
-"de homepage."
+msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
+msgstr "Voer de specifieke meta-omschrijving voor de homepage in (in de standaardtaal). Dit overschrijft de site tagline of gegenereerde excerpt op de homepage."
 
 #: includes/admin-page.php:1534
-
 msgid "Generate Meta Description"
 msgstr "Genereer meta-omschrijving"
 
 #: includes/admin-page.php:1545
-
 msgid "Website Context"
 msgstr "Websitecontext"
 
 #: includes/admin-page.php:1579
-
 msgid "Describe your website, business, or organization. For example:"
 msgstr "Beschrijf uw website, bedrijf of organisatie. Bijvoorbeeld:"
 
 #: includes/admin-page.php:1580
-
-msgid ""
-"We are a healthcare technology company specializing in patient management "
-"systems. Our services include electronic health records, appointment "
-"scheduling, and telemedicine solutions. We serve hospitals, clinics, and "
-"healthcare providers across Europe."
-msgstr ""
-"Wij zijn een gezondheidszorgtechnologiebedrijf gespecialiseerd in "
-"patiëntbeheersystemen. Onze diensten omvatten elektronische "
-"patiëntendossiers, afsprakenplanning en telemedicine-oplossingen. Wij "
-"bedienen ziekenhuizen, klinieken en zorgverleners in heel Europa."
+msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
+msgstr "Wij zijn een gezondheidszorgtechnologiebedrijf gespecialiseerd in patiëntbeheersystemen. Onze diensten omvatten elektronische patiëntendossiers, afsprakenplanning en telemedicine-oplossingen. Wij bedienen ziekenhuizen, klinieken en zorgverleners in heel Europa."
 
 #: includes/admin-page.php:1581
-
 msgid "Or:"
 msgstr "Of:"
 
 #: includes/admin-page.php:1582
-
-msgid ""
-"This is a personal blog about sustainable gardening and organic farming "
-"techniques. I share tips, tutorials, and experiences from my own garden."
-msgstr ""
-"Dit is een persoonlijke blog over duurzame tuinbouw en biologische "
-"landbouwtechnieken. Ik deel tips, tutorials en ervaringen uit mijn eigen "
-"tuin."
+msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr "Dit is een persoonlijke blog over duurzame tuinbouw en biologische landbouwtechnieken. Ik deel tips, tutorials en ervaringen uit mijn eigen tuin."
 
 #: includes/admin-page.php:1585
-
-msgid ""
-"Provide context about your website or business for the current domain to "
-"help the AI generate more accurate and contextually appropriate translations."
-msgstr ""
-"Geef context over uw website of bedrijf voor het huidige domein om de AI te "
-"helpen nauwkeurigere en contextueel geschiktere vertalingen te genereren."
+msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
+msgstr "Geef context over uw website of bedrijf voor het huidige domein om de AI te helpen nauwkeurigere en contextueel geschiktere vertalingen te genereren."
 
 #: includes/admin-page.php:1587
-
-msgid ""
-"Provide context about your website or business to help the AI generate more "
-"accurate and contextually appropriate translations. "
-msgstr ""
-"Geef context over uw website of bedrijf om de AI te helpen nauwkeurigere en "
-"contextueel geschiktere vertalingen te genereren. "
+msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
+msgstr "Geef context over uw website of bedrijf om de AI te helpen nauwkeurigere en contextueel geschiktere vertalingen te genereren. "
 
 #: includes/admin-page.php:1589
-
 msgid "Generate Context from Homepage"
 msgstr "Genereer context van homepage"
 
 #: includes/admin-page.php:1638
 #, fuzzy
-
 msgid "Cache for language %s cleared."
 msgstr "Cache voor taal \"%s\" gewist. %d bestanden verwijderd."
 
 #: includes/admin-page.php:1641
-
 msgid "Files removed: %d"
 msgstr "Bestanden verwijderd: %d"
 
 #: includes/admin-page.php:1642
-
 msgid "Remaining files: %d"
 msgstr "Resterende bestanden: %d"
 
 #: includes/admin-page.php:1652
-
 msgid "No cache files found for language %s."
 msgstr "Cachebestand"
 
 #: includes/admin-page.php:1661
 #, fuzzy
-
 msgid "Error clearing cache for language %s: %s"
 msgstr "Fout bij wissen cache:"
 
 #: includes/admin-page.php:1677
-
 msgid "General"
 msgstr "Algemeen"
 
 #: includes/admin-page.php:1678
-
 msgid "Cache"
 msgstr "Cache"
 
 #: includes/admin-page.php:1696
-
 msgid "Cache Management"
 msgstr "Cachebeheer"
 
 #: includes/admin-page.php:1700 includes/admin-page.php:1723
-
 msgid "Clear all language caches"
 msgstr "Wis alle taalcaches"
 
 #: includes/admin-page.php:1701
-
 msgid "Clear all language caches."
 msgstr "Wis alle taalcaches."
 
 #: includes/admin-page.php:1701
-
 msgid "Menu and slug cache are preserved to maintain URL stability."
 msgstr "Menu- en slugcache worden behouden om URL-stabiliteit te behouden."
 
 #: includes/admin-page.php:1718
-
-msgid ""
-"All language caches and translation transients cleared. Menu and slug cache "
-"preserved."
-msgstr ""
-"Alle taalcaches en vertaaltransients gewist. Menu- en slugcache behouden."
+msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
+msgstr "Alle taalcaches en vertaaltransients gewist. Menu- en slugcache behouden."
 
 #: includes/admin-page.php:1729 includes/admin-page.php:1757
-
 msgid "Clear menu cache"
 msgstr "Wis menucache"
 
 #: includes/admin-page.php:1730
-
-msgid ""
-"Clear menu caches including all menu-item translations. This will force "
-"fresh translations for all menu items. Languages and Slug map are not "
-"affected."
-msgstr ""
-"Wis menucaches inclusief alle menu-itemvertalingen. Dit dwingt nieuwe "
-"vertalingen af voor alle menu-items. Talen en Slug-kaart worden niet "
-"beïnvloed."
+msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
+msgstr "Wis menucaches inclusief alle menu-itemvertalingen. Dit dwingt nieuwe vertalingen af voor alle menu-items. Talen en Slug-kaart worden niet beïnvloed."
 
 #: includes/admin-page.php:1734 includes/admin-page.php:1768
 #: includes/admin-page.php:2148 includes/admin-page.php:2235
 #: includes/admin-page.php:2247
 #, fuzzy
-
 msgid "Insufficient permissions."
 msgstr "Onvoldoende rechten om deze actie uit te voeren."
 
 #: includes/admin-page.php:1743
-
 msgid "Menu cache cleared"
 msgstr "Menucache gewist"
 
 #: includes/admin-page.php:1745
-
 msgid "%d menu-item translation removed"
 msgid_plural "%d menu-item translations removed"
 msgstr[0] "%d menu-itemvertaling verwijderd"
 msgstr[1] "%d menu-itemvertalingen verwijderd"
 
 #: includes/admin-page.php:1749
-
 msgid "and tables truncated: %s"
 msgstr "en tabellen afgekapt: %s"
 
 #: includes/admin-page.php:1763 includes/admin-page.php:1785
-
 msgid "Clear slug cache"
 msgstr "Wis slugcache"
 
 #: includes/admin-page.php:1764
-
-msgid ""
-"Clear the slug table used for translated URLs. Language and menu caches are "
-"not affected."
-msgstr ""
-"Wis de slugtabel gebruikt voor vertaalde URL's. Taal- en menucaches worden "
-"niet beïnvloed."
+msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
+msgstr "Wis de slugtabel gebruikt voor vertaalde URL's. Taal- en menucaches worden niet beïnvloed."
 
 #: includes/admin-page.php:1775
-
 msgid "Slug cache cleared. Rows removed: %d."
 msgstr "Slugcache gewist. Rijen verwijderd: %d."
 
 #: includes/admin-page.php:1778
-
 msgid "Failed to clear slug cache: %s."
 msgstr "Wissen van slugcache mislukt: %s."
 
 #: includes/admin-page.php:1791
-
 msgid "Clear cache per language"
 msgstr "Wis cache per taal"
 
 #: includes/admin-page.php:1807
-
 msgid "Cache overview per language"
 msgstr "Cacheoverzicht per taal"
 
 #: includes/admin-page.php:1844
-
 msgid "Cache directory:"
 msgstr "Cache-directory:"
 
 #: includes/admin-page.php:1858
-
 msgid "Unknown"
 msgstr "Onbekend"
 
 #: includes/admin-page.php:1863
-
 msgid "Total number of files:"
 msgstr "Totaal aantal bestanden:"
 
 #: includes/admin-page.php:1866
-
 msgid "Total size:"
 msgstr "Totale grootte:"
 
 #: includes/admin-page.php:1869
-
 msgid "Expired files:"
 msgstr "Verlopen bestanden:"
 
 #: includes/admin-page.php:1872
-
 msgid "Last update:"
 msgstr "Laatste update:"
 
 #: includes/admin-page.php:1880
-
 msgid "Language"
 msgstr "Taal"
 
 #: includes/admin-page.php:1884
-
 msgid "Cache files"
 msgstr "Cachebestanden"
 
 #: includes/admin-page.php:1888
-
 msgid "Size"
 msgstr "Grootte"
 
 #: includes/admin-page.php:1892
-
 msgid "Expired"
 msgstr "Verlopen"
 
 #: includes/admin-page.php:1896
-
 msgid "Last update"
 msgstr "Laatste update"
 
 #: includes/admin-page.php:1899
-
 msgid "Action"
 msgstr "Actie"
 
 #: includes/admin-page.php:1926 includes/admin-page.php:1950
-
 msgid "files"
 msgstr "bestanden"
 
 #: includes/admin-page.php:1933
-
 msgid "Cache clear"
 msgstr "Cache wissen"
 
 #: includes/admin-page.php:1936
-
 msgid "No cache files"
 msgstr "Geen cachebestanden"
 
 #: includes/admin-page.php:1949
-
 msgid "Total"
 msgstr "Totaal"
 
 #: includes/admin-page.php:1964
-
 msgid "Translated Pages Overview"
 msgstr "Vertaalde Pagina's Overzicht"
 
 #: includes/admin-page.php:1965
-
-msgid ""
-"Manage cache per page or blog. Delete cache to retranslate, or warm cache to "
-"proactively generate translations."
-msgstr ""
-"Beheer cache per pagina of blog. Verwijder cache om opnieuw te vertalen, of "
-"warm cache om proactief vertalingen te genereren."
+msgid "Manage cache per page or blog. Delete cache to retranslate, or warm cache to proactively generate translations."
+msgstr "Beheer cache per pagina of blog. Verwijder cache om opnieuw te vertalen, of warm cache om proactief vertalingen te genereren."
 
 #: includes/admin-page.php:1973
-
 msgid "Cache metadata rescanned: %d cache records added or updated."
 msgstr "Cache metadata opnieuw gescand: %d cache records toegevoegd of bijgewerkt."
 
 #: includes/admin-page.php:1977
-
 msgid "No cache records added. There are currently no cache files available."
 msgstr "Geen cache records toegevoegd; er zijn momenteel geen cachebestanden beschikbaar."
 
 #: includes/admin-page.php:1994
-
 msgid "Cache metadata initialized: %d existing cache records added."
 msgstr "Cache metadata geïnitialiseerd: %d bestaande cache records toegevoegd."
 
 #: includes/admin-page.php:2025
-
-msgid ""
-"Cache directory found but no metadata. Click \"Scan Cache Files\" to "
-"generate metadata."
-msgstr ""
-"Cache directory gevonden maar geen metadata. Klik op \"Scan Cache "
-"Bestanden\" om de metadata te genereren."
+msgid "Cache directory found but no metadata. Click \"Scan Cache Files\" to generate metadata."
+msgstr "Cache directory gevonden maar geen metadata. Klik op \"Scan Cache Bestanden\" om de metadata te genereren."
 
 #: includes/admin-page.php:2089
-
 msgid "Scan Cache Files"
 msgstr "Scan Cache Bestanden"
 
 #: includes/admin-page.php:2039
-
 msgid "Scan the filesystem for cache files and add metadata to the database."
-msgstr "Cachebestand"
-"Scan het bestandssysteem voor cache bestanden en voeg metadata toe aan de "
-"database."
+msgstr "CachebestandScan het bestandssysteem voor cache bestanden en voeg metadata toe aan de database."
 
 #: includes/admin-page.php:2047
-
 msgid "Type"
 msgstr "Type"
 
 #: includes/admin-page.php:2048
-
 msgid "Title"
 msgstr "Titel"
 
 #: includes/admin-page.php:2049
-
 msgid "URL"
 msgstr "URL"
 
 #: includes/admin-page.php:2050
-
 msgid "Status"
 msgstr "Status"
 
 #: includes/admin-page.php:2051
-
 msgid "Actions"
 msgstr "Acties"
 
 #: includes/admin-page.php:2058
-
 msgid "No published pages or posts found."
 msgstr "Geen gepubliceerde pagina's of posts gevonden."
 
 #: includes/admin-page.php:2101
-
 msgid "Delete cache for this page in all languages"
 msgstr "Verwijder cache voor deze pagina in alle talen"
 
 #: includes/admin-page.php:2103
-
 msgid "Delete Cache"
 msgstr "Verwijder Cache"
 
 #: includes/admin-page.php:2111
-
 msgid "Generate translations for all enabled languages"
 msgstr "Genereer vertalingen voor alle enabled talen"
 
 #: includes/admin-page.php:2113
-
 msgid "Warm Cache"
 msgstr "Warm Cache"
 
 #: includes/admin-page.php:2129
-
 msgid "&laquo; Previous"
 msgstr "&laquo; Vorige"
 
 #: includes/admin-page.php:2130
-
 msgid "Next &raquo;"
 msgstr "Volgende &raquo;"
 
 #: includes/admin-page.php:2180
-
 msgid "API Provider, API Key or Custom API URL is missing or invalid."
-msgstr "API-provider, API-sleutel of aangepaste API-URL ontbreekt of is ongeldig."
-"API-provider, API-sleutel of aangepaste API URL ontbreekt of is ongeldig."
+msgstr "API-provider, API-sleutel of aangepaste API-URL ontbreekt of is ongeldig.API-provider, API-sleutel of aangepaste API URL ontbreekt of is ongeldig."
 
 #: includes/admin-page.php:2210
-
 msgid "API error:"
 msgstr "API-fout:"
 
 #: includes/admin-page.php:2216
-
 msgid "Invalid response from API"
 msgstr "Ongeldig antwoord van API"
 
 #: includes/admin-page.php:2339
-
 msgid "API and model are working. API settings have been saved."
 msgstr "API en model werken. API-instellingen zijn opgeslagen."
 
 #: includes/admin-page.php:2342
-
 msgid "API validation failed:"
 msgstr "API-validatie mislukt:"
 
 #: includes/class-ai-cache-meta.php:401 includes/class-ai-cache-meta.php:567
-
 msgid "Homepage"
 msgstr "Homepage"
 
 #: includes/class-ai-cache-meta.php:569
-
 msgid "Post %d"
 msgstr "Post %d"
 
 #: includes/class-ai-cache-meta.php:631
-
 msgid "Unknown (not in DB)"
 msgstr "Onbekend (niet in DB)"
 
 #: includes/class-ai-cache-meta.php:636
-
 msgid "Homepage (not in DB)"
 msgstr "Homepage (niet in DB)"
 
 #: includes/class-ai-cache-meta.php:645
-
 msgid "not in DB"
 msgstr "niet in DB"
 
 #: includes/class-ai-cache-meta.php:667
-
 msgid "... and %d more files not in database (use rescan to add them)"
-msgstr "... en %d meer bestanden niet in database (gebruik herscannen om ze toe te voegen)"
-"... en %d meer bestanden niet in database (gebruik herscan om toe te voegen)"
+msgstr "... en %d meer bestanden niet in database (gebruik herscannen om ze toe te voegen)... en %d meer bestanden niet in database (gebruik herscan om toe te voegen)"
+
+#: includes/admin-page.php:899
+msgid "Request Key"
+msgstr "Sleutel aanvragen"
+
+#~ msgid "lang directory missing"
+#~ msgstr "taalmap ontbreekt"
+
+#~ msgid "no write occurred"
+#~ msgstr "geen schrijfactie uitgevoerd"
+
+#~ msgid "not writable"
+#~ msgstr "niet beschrijfbaar"
+
+#~ msgid "check logs"
+#~ msgstr "controleer logbestanden"
+
+#~ msgid "Error page (404/500)"
+#~ msgstr "Foutpagina (404/500)"
 
 #~ msgid "Bottom Left"
 #~ msgstr "Linksonder"
@@ -1248,14 +904,8 @@ msgstr "... en %d meer bestanden niet in database (gebruik herscannen om ze toe 
 #~ msgstr "Rechtsboven"
 
 #, fuzzy
-#~ msgid ""
-#~ "Choose where the language switcher appears on your website. The menu will "
-#~ "open upward for bottom positions and downward for top positions."
-#~ msgstr ""
-#~ "Kies waar de taalschakelaar op uw website verschijnt. Navigatiemenu "
-#~ "posities voegen de schakelaar toe aan uw hoofdmenu. Zwevende posities "
-#~ "tonen een vaste schakelaar in de hoek. Het menu opent omhoog voor "
-#~ "onderste posities en omlaag voor bovenste posities."
+#~ msgid "Choose where the language switcher appears on your website. The menu will open upward for bottom positions and downward for top positions."
+#~ msgstr "Kies waar de taalschakelaar op uw website verschijnt. Navigatiemenu posities voegen de schakelaar toe aan uw hoofdmenu. Zwevende posities tonen een vaste schakelaar in de hoek. Het menu opent omhoog voor onderste posities en omlaag voor bovenste posities."
 
 #, fuzzy
 #~ msgid "Acties"
@@ -1285,14 +935,8 @@ msgstr "... en %d meer bestanden niet in database (gebruik herscannen om ze toe 
 #~ msgid "Stop translation of archive pages"
 #~ msgstr "Stop vertaling van archief pagina's"
 
-#~ msgid ""
-#~ "When enabled, archive pages (categories, tags, date archives, etc.) will "
-#~ "not be translated. Singular pages (posts, pages, custom post types) will "
-#~ "still be translated."
-#~ msgstr ""
-#~ "Wanneer ingeschakeld, worden archief pagina's (categorieën, tags, datum-"
-#~ "archieven, etc.) niet vertaald. Enkele pagina's (berichten, pagina's, "
-#~ "aangepaste berichttypes) worden nog steeds vertaald."
+#~ msgid "When enabled, archive pages (categories, tags, date archives, etc.) will not be translated. Singular pages (posts, pages, custom post types) will still be translated."
+#~ msgstr "Wanneer ingeschakeld, worden archief pagina's (categorieën, tags, datum-archieven, etc.) niet vertaald. Enkele pagina's (berichten, pagina's, aangepaste berichttypes) worden nog steeds vertaald."
 
 #~ msgid "Cache files found: %d"
 #~ msgstr "Cachebestanden gevonden: %d"
@@ -1377,7 +1021,3 @@ msgstr "... en %d meer bestanden niet in database (gebruik herscannen om ze toe 
 
 #~ msgid "Select all visible pages"
 #~ msgstr "Selecteer alle zichtbare pagina's"
-
-#: includes/admin-page.php:899
-msgid "Request Key"
-msgstr "Sleutel aanvragen"
