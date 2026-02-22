@@ -585,7 +585,7 @@ final class AI_OB
             } else {
                 $retries = (int) get_transient($retryKey);
                 $retries++;
-                set_transient($retryKey, $retries, 7 * DAY_IN_SECONDS);
+                set_transient($retryKey, $retries, 14 * DAY_IN_SECONDS);
                 if ($retries >= 3) {
                     AI_Cache::set($key, $html3);
                 }
