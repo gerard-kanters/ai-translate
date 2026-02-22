@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.2.8
+ * Version: 2.2.9
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0
@@ -2724,9 +2724,11 @@ add_action('wp_update_nav_menu', function($menu_id, $menu_data = null) {
 });
 
 add_action('wp_update_nav_menu_item', function($menu_id, $menu_item_db_id, $args) {
-    // Check if this is our language switcher item
-    if (isset($args['menu-item-classes']) && in_array('ai-language-switcher', $args['menu-item-classes'])) {
-        // Mark it as a language switcher
+    $classes = isset($args['menu-item-classes']) ? $args['menu-item-classes'] : '';
+    if (is_string($classes)) {
+        $classes = explode(' ', $classes);
+    }
+    if (is_array($classes) && in_array('ai-language-switcher', $classes, true)) {
         update_post_meta($menu_item_db_id, '_menu_item_is_language_switcher', '1');
         update_post_meta($menu_item_db_id, '_menu_item_switcher_type', 'dropdown');
         update_post_meta($menu_item_db_id, '_menu_item_show_flags', 'true');
@@ -2750,6 +2752,13 @@ add_action('admin_head-nav-menus.php', function() {
  */
 add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $args) {
     $is_language_switcher = get_post_meta($item_id, '_menu_item_is_language_switcher', true);
+    if ($is_language_switcher !== '1') {
+        $item_classes = is_array($item->classes) ? $item->classes : array();
+        if (in_array('ai-language-switcher', $item_classes, true) || $item->object === 'ai_language_switcher') {
+            $is_language_switcher = '1';
+            update_post_meta($item_id, '_menu_item_is_language_switcher', '1');
+        }
+    }
     $switcher_type = get_post_meta($item_id, '_menu_item_switcher_type', true) ?: 'dropdown';
     $show_flags = get_post_meta($item_id, '_menu_item_show_flags', true) !== 'false'; // Default true
     $show_codes = get_post_meta($item_id, '_menu_item_show_codes', true) !== 'false'; // Default true
@@ -2864,6 +2873,33 @@ add_action('admin_init', function() {
 });
 
 // Success message removed per user request - interface should be self-explanatory
+
+/**
+ * Normalize language switcher CSS classes so detection works regardless of how
+ * the menu item was added (meta box sets 'ai-language-switcher', auto-add sets
+ * 'menu-item-language-switcher'). Also adds 'menu-item-has-children' for themes
+ * that need it for dropdown styling.
+ */
+add_filter('nav_menu_css_class', function($classes, $item) {
+    $is_switcher = in_array('ai-language-switcher', $classes, true)
+        || in_array('menu-item-language-switcher', $classes, true)
+        || $item->object === 'ai_language_switcher'
+        || get_post_meta($item->ID, '_menu_item_is_language_switcher', true) === '1';
+
+    if ($is_switcher) {
+        if (!in_array('ai-language-switcher', $classes, true)) {
+            $classes[] = 'ai-language-switcher';
+        }
+        if (!in_array('menu-item-language-switcher', $classes, true)) {
+            $classes[] = 'menu-item-language-switcher';
+        }
+        if (!in_array('menu-item-has-children', $classes, true)) {
+            $classes[] = 'menu-item-has-children';
+        }
+    }
+
+    return $classes;
+}, 10, 2);
 
 /**
  * Force custom walker when menu contains language switcher items
@@ -3135,7 +3171,7 @@ add_action('wp_footer', function() {
 
             // Find language switcher items by stable classes/object markers (not translated text).
             const candidates = document.querySelectorAll(
-                'li.menu-item-language-switcher > a[href="#"], li[class*="menu-item-object-ai_language_switcher"] > a[href="#"], a.ai-menu-language-current[href="#"]'
+                'li.menu-item-language-switcher > a[href="#"], li.ai-language-switcher > a[href="#"], li[class*="menu-item-object-ai_language_switcher"] > a[href="#"], a.ai-menu-language-current[href="#"]'
             );
 
             candidates.forEach(function(link) {
@@ -3197,35 +3233,100 @@ add_action('wp_footer', function() {
 });
 
 /**
- * Save custom menu item fields
+ * Save custom menu item fields.
+ * Guard: only process when the menu editor custom fields were actually rendered
+ * for this item. The switcher-type <select> is always submitted (even when its
+ * parent div is hidden), so its presence proves the form was rendered. On the
+ * initial add via the meta box, custom fields are not yet rendered, and we must
+ * not overwrite the defaults set by the meta-box save handler.
  */
 add_action('wp_update_nav_menu_item', function($menu_id, $menu_item_db_id) {
-    // Save language switcher checkbox
+    if (!isset($_POST['menu-item-switcher-type'][$menu_item_db_id])) {
+        return;
+    }
+
     if (isset($_POST['menu-item-is-language-switcher'][$menu_item_db_id])) {
         update_post_meta($menu_item_db_id, '_menu_item_is_language_switcher', '1');
+        update_post_meta($menu_item_db_id, '_menu_item_switcher_type',
+            sanitize_text_field($_POST['menu-item-switcher-type'][$menu_item_db_id]));
+        update_post_meta($menu_item_db_id, '_menu_item_show_flags',
+            isset($_POST['menu-item-show-flags'][$menu_item_db_id]) ? 'true' : 'false');
+        update_post_meta($menu_item_db_id, '_menu_item_show_codes',
+            isset($_POST['menu-item-show-codes'][$menu_item_db_id]) ? 'true' : 'false');
     } else {
         delete_post_meta($menu_item_db_id, '_menu_item_is_language_switcher');
-    }
-
-    // Save switcher type
-    if (isset($_POST['menu-item-switcher-type'][$menu_item_db_id])) {
-        update_post_meta($menu_item_db_id, '_menu_item_switcher_type', sanitize_text_field($_POST['menu-item-switcher-type'][$menu_item_db_id]));
-    }
-
-    // Save show flags
-    if (isset($_POST['menu-item-show-flags'][$menu_item_db_id])) {
-        update_post_meta($menu_item_db_id, '_menu_item_show_flags', 'true');
-    } else {
-        update_post_meta($menu_item_db_id, '_menu_item_show_flags', 'false');
-    }
-
-    // Save show codes
-    if (isset($_POST['menu-item-show-codes'][$menu_item_db_id])) {
-        update_post_meta($menu_item_db_id, '_menu_item_show_codes', 'true');
-    } else {
-        update_post_meta($menu_item_db_id, '_menu_item_show_codes', 'false');
+        delete_post_meta($menu_item_db_id, '_menu_item_switcher_type');
+        delete_post_meta($menu_item_db_id, '_menu_item_show_flags');
+        delete_post_meta($menu_item_db_id, '_menu_item_show_codes');
     }
 }, 10, 2);
+
+/**
+ * Render language switcher via walker_nav_menu_start_el filter.
+ * This fires for ANY walker (including Elementor Pro, Astra, etc.) so the
+ * switcher is rendered server-side even when the custom walker is bypassed.
+ * Our own AI_Translate_Menu_Walker returns early before parent::start_el(),
+ * so this filter never fires for items already handled by the custom walker.
+ */
+add_filter('walker_nav_menu_start_el', function($item_output, $item, $depth, $args) {
+    $classes = is_array($item->classes) ? $item->classes : array();
+    $is_switcher = in_array('ai-language-switcher', $classes, true)
+        || in_array('menu-item-language-switcher', $classes, true)
+        || $item->object === 'ai_language_switcher'
+        || get_post_meta($item->ID, '_menu_item_is_language_switcher', true) === '1';
+
+    if (!$is_switcher) {
+        return $item_output;
+    }
+
+    $settings       = get_option('ai_translate_settings', array());
+    $enabled_langs  = isset($settings['enabled_languages']) && is_array($settings['enabled_languages'])
+        ? array_values($settings['enabled_languages']) : array();
+    $default_lang   = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
+    if ($default_lang !== '' && !in_array($default_lang, $enabled_langs, true)) {
+        $enabled_langs[] = $default_lang;
+    }
+    if (empty($enabled_langs) || $default_lang === '') {
+        return $item_output;
+    }
+
+    $req_uri      = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+    $path         = (string) parse_url($req_uri, PHP_URL_PATH);
+    if ($path === '') { $path = '/'; }
+    $current_lang = $default_lang;
+    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) {
+        $current_lang = strtolower($m[1]);
+    }
+    $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
+    if ($path_no_lang === '') { $path_no_lang = '/'; }
+    if (function_exists('ai_translate_canonical_path')) {
+        $path_no_lang = ai_translate_canonical_path($path_no_lang);
+    }
+
+    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
+
+    $out  = '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
+    $out .= '<img src="' . esc_url($flags_url . sanitize_key($current_lang) . '.png') . '" alt="' . esc_attr(strtoupper($current_lang)) . '" class="ai-menu-language-flag" />';
+    $out .= '<span class="ai-menu-language-code">' . esc_html(strtoupper($current_lang)) . '</span>';
+    $out .= '</a>';
+
+    $out .= '<ul class="sub-menu children">';
+    foreach ($enabled_langs as $lc) {
+        $lc = sanitize_key($lc);
+        if ($lc === $current_lang) { continue; }
+        $lang_url = ($lc === $default_lang)
+            ? esc_url($path_no_lang)
+            : esc_url('/' . $lc . $path_no_lang);
+        $out .= '<li class="menu-item ai-menu-language-item">';
+        $out .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lc) . '" data-ai-trans-skip="1">';
+        $out .= '<img src="' . esc_url($flags_url . $lc . '.png') . '" alt="' . esc_attr(strtoupper($lc)) . '" class="ai-menu-language-flag" />';
+        $out .= '<span class="ai-menu-language-code">' . esc_html(strtoupper($lc)) . '</span>';
+        $out .= '</a></li>';
+    }
+    $out .= '</ul>';
+
+    return $out;
+}, 10, 4);
 
 /**
  * Custom menu walker to render language switcher items

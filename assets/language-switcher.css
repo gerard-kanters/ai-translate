@@ -3,7 +3,11 @@
 /* Menu integration - ensure proper positioning in nav menus */
 .menu-item-language-switcher {
     position: relative;
-    padding-top: 16px;
+}
+
+/* Desktop: keep switcher inline with siblings, no layout override */
+.menu-item-language-switcher > .ai-menu-language-current {
+    white-space: nowrap;
 }
 
 /* Force black text only on submenu elements for contrast */
@@ -26,23 +30,23 @@
 
 /* Menu-specific language switcher styling */
 .ai-menu-language-current {
-    display: flex !important;
+    display: inline-flex !important;
     align-items: center;
     gap: 4px;
     text-decoration: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
     background: none !important;
     border: none !important;
     cursor: pointer;
     font-size: inherit;
     color: inherit;
+    line-height: inherit;
 }
 
 .ai-menu-language-current:hover,
 .ai-menu-language-current:focus {
     text-decoration: none !important;
 }
+
 
 /* Inline language switcher in menu */
 .menu-item-language-switcher .ai-language-switcher-inline {
@@ -82,10 +86,9 @@
 .ai-menu-language-flag {
     width: 16px;
     height: 12px;
-    border-radius: 3px;
-    margin-right: 3px;
-    margin-left: 3px;
+    border-radius: 2px;
     vertical-align: middle;
+    flex-shrink: 0;
 }
 
 .ai-menu-language-code {
@@ -319,9 +322,9 @@
     color: inherit !important;
 }
 
-/* Main menu language codes match menu link color */
+/* Main menu language codes inherit parent color */
 .menu-item-language-switcher .ai-menu-language-current .ai-menu-language-code {
-    color: #fff !important; /* Match typical menu link color */
+    color: inherit !important;
 }
 
 /* Submenu language codes are black for contrast */
