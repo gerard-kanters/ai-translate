@@ -215,13 +215,30 @@ final class AI_Lang
     /**
      * Default language.
      *
-     * @return string|null
+     * Falls back to WordPress site language and persists the choice
+     * so the plugin works immediately after activation.
+     *
+     * @return string
      */
     public static function default()
     {
         $settings = get_option('ai_translate_settings', []);
         $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
-        return $default !== '' ? $default : null;
+
+        if ($default !== '') {
+            return $default;
+        }
+
+        $locale = get_locale();
+        $default = substr($locale, 0, 2);
+
+        if (!is_array($settings)) {
+            $settings = [];
+        }
+        $settings['default_language'] = $default;
+        update_option('ai_translate_settings', $settings);
+
+        return $default;
     }
 
     /**

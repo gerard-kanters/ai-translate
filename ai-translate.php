@@ -2763,6 +2763,38 @@ add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $
     $show_flags = get_post_meta($item_id, '_menu_item_show_flags', true) !== 'false'; // Default true
     $show_codes = get_post_meta($item_id, '_menu_item_show_codes', true) !== 'false'; // Default true
     ?>
+    <?php
+    if ($is_language_switcher === '1') {
+        $settings = get_option('ai_translate_settings', array());
+        $sw_position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+        if ($sw_position !== 'none') {
+            $settings_url = admin_url('admin.php?page=ai-translate');
+            ?>
+            <div class="ai-switcher-warning" style="background:#fef2f2;border:1px solid #dc2626;border-radius:4px;padding:8px 12px;margin:8px 0;">
+                <p style="color:#dc2626;margin:0;font-weight:600;">
+                    <?php printf(
+                        esc_html__('This menu item is inactive. The language switcher is set to "%s" in %splugin settings%s. Set it to "Hidden" to use the menu switcher.', 'ai-translate'),
+                        esc_html(ucwords(str_replace('-', ' ', $sw_position))),
+                        '<a href="' . esc_url($settings_url) . '#switcher_position" style="color:#dc2626;">',
+                        '</a>'
+                    ); ?>
+                </p>
+            </div>
+            <script type="text/javascript">
+            (function(){
+                var el = document.getElementById('menu-item-<?php echo (int) $item_id; ?>');
+                if (el) {
+                    var handle = el.querySelector('.menu-item-handle');
+                    if (handle) { handle.style.borderLeft = '4px solid #dc2626'; }
+                    var title = el.querySelector('.menu-item-title');
+                    if (title) { title.style.color = '#dc2626'; }
+                }
+            })();
+            </script>
+            <?php
+        }
+    }
+    ?>
     <p class="field-menu-item-is-language-switcher description description-wide">
         <label for="edit-menu-item-is-language-switcher-<?php echo $item_id; ?>">
             <input type="checkbox" id="edit-menu-item-is-language-switcher-<?php echo $item_id; ?>"
@@ -3332,17 +3364,34 @@ add_filter('walker_nav_menu_start_el', function($item_output, $item, $depth, $ar
  * Custom menu walker to render language switcher items
  */
 class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
-    public function start_el(&$output, $item, $depth = 0, $args = null, $id = 0) {
-        // Check for language switcher menu items
-        $is_language_switcher = $item->object === 'ai_language_switcher' ||
-                               get_post_meta($item->ID, '_menu_item_is_language_switcher', true) === '1';
+    private $skip_item_id = 0;
 
-        if ($is_language_switcher) {
+    private function is_switcher_item($item) {
+        return $item->object === 'ai_language_switcher' ||
+               get_post_meta($item->ID, '_menu_item_is_language_switcher', true) === '1';
+    }
+
+    public function start_el(&$output, $item, $depth = 0, $args = null, $id = 0) {
+        if ($this->is_switcher_item($item)) {
+            $settings = get_option('ai_translate_settings', array());
+            $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+            if ($position !== 'none') {
+                $this->skip_item_id = $item->ID;
+                return;
+            }
             $this->render_language_switcher_menu_item($output, $item, $depth, $args, $id);
             return;
         }
 
         parent::start_el($output, $item, $depth, $args, $id);
+    }
+
+    public function end_el(&$output, $item, $depth = 0, $args = null) {
+        if ($this->skip_item_id === $item->ID) {
+            $this->skip_item_id = 0;
+            return;
+        }
+        parent::end_el($output, $item, $depth, $args);
     }
 
     /**

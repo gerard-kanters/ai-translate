@@ -1633,7 +1633,7 @@ add_action('admin_init', function () {
                 echo '</label>';
             }
             echo '</fieldset>';
-            echo '<p class="description">' . esc_html(__('Choose where the language switcher appears on your website. "Hidden - Add manually via Appearance > Menus" means the switcher will not be visible in corners - add it manually to your navigation menu instead. Corner positions show a floating switcher. The menu will open upward for bottom positions and downward for top positions.', 'ai-translate')) . '</p>';
+            echo '<p class="description">' . esc_html(__('Choose where the language switcher appears on your website. A corner position shows a floating switcher; the "Hidden" option disables the floating switcher so you can add a language switcher to your navigation menu instead. Only one method is active at a time.', 'ai-translate')) . '</p>';
             echo '<p><a href="' . esc_url(admin_url('nav-menus.php')) . '" target="_blank" class="button button-secondary">' . esc_html(__('Open Menu Editor', 'ai-translate')) . '</a> ' . esc_html(__('Add language switcher to your navigation menus', 'ai-translate')) . '</p>';
         },
         'ai-translate',
