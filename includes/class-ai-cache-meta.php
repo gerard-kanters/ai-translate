@@ -213,6 +213,16 @@ class AI_Cache_Meta
     {
         global $wpdb;
         
+        $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
+        if ($site_dir !== '') {
+            $site_like = '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%';
+            $sql = $wpdb->prepare("DELETE FROM " . self::get_table_name() . " WHERE post_id = %d AND cache_file LIKE %s", $post_id, $site_like);
+            if ($language_code !== null) {
+                $sql = $wpdb->prepare("DELETE FROM " . self::get_table_name() . " WHERE post_id = %d AND language_code = %s AND cache_file LIKE %s", $post_id, $language_code, $site_like);
+            }
+            return (int) $wpdb->query($sql);
+        }
+        
         $where = array('post_id' => $post_id);
         $where_format = array('%d');
         
@@ -350,8 +360,14 @@ class AI_Cache_Meta
         // Ensure table exists before querying
         self::ensure_table_exists();
         
+        $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
+        $site_filter = '';
+        if ($site_dir !== '') {
+            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
+        }
+        
         $results = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM " . self::get_table_name() . " WHERE post_id = %d",
+            "SELECT * FROM " . self::get_table_name() . " WHERE post_id = %d" . $site_filter,
             $post_id
         ));
         
@@ -414,7 +430,7 @@ class AI_Cache_Meta
         $site_join_condition = '';
         $site_filter = '';
         if ($site_dir !== '') {
-            $site_like = '%/' . $wpdb->esc_like($site_dir) . '/%';
+            $site_like = '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%';
             $site_join_condition = $wpdb->prepare(" AND c.cache_file LIKE %s", $site_like);
             $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", $site_like);
         }
@@ -1378,7 +1394,7 @@ class AI_Cache_Meta
         $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
         $site_filter = '';
         if ($site_dir !== '') {
-            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/' . $wpdb->esc_like($site_dir) . '/%');
+            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
         }
         
         $results = $wpdb->get_col($wpdb->prepare(
@@ -1406,7 +1422,7 @@ class AI_Cache_Meta
         $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
         $site_filter = '';
         if ($site_dir !== '') {
-            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/' . $wpdb->esc_like($site_dir) . '/%');
+            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
         }
         
         $exists = $wpdb->get_var($wpdb->prepare(
