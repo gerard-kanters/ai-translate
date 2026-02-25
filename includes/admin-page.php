@@ -489,7 +489,9 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                     }
 
                     // Fallback: take the HTML response we just fetched and write it to cache directly
-                    if (!empty($response_body)) {
+                    // Only if it looks like valid translated HTML — a page caching plugin
+                    // may have intercepted the request and served compressed or untranslated content
+                    if (!empty($response_body) && stripos($response_body, '<html') !== false) {
                         \AITranslate\AI_Cache::set($cache_key, $response_body);
                         if ($cache_file && file_exists($cache_file)) {
                             $cache_hash = md5($cache_key);
