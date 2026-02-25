@@ -503,11 +503,23 @@ final class AI_OB
         // Protect script/style tags from DOMDocument corruption in SEO/URL pass.
         // DOMDocument::saveHTML() can encode & as &amp; inside <script>/<style>,
         // breaking JavaScript operators like && and CSS syntax.
+        // CRITICAL: Only extract from <body>, never from <head>. Using <div> placeholders
+        // in <head> causes DOMDocument to implicitly close <head> and move ALL subsequent
+        // head elements (meta, link, style, script) into <body>, breaking page rendering.
         $seoPlaceholders = [];
         $seoPlaceholderCounter = 0;
-        $html2Protected = $html2;
-        $html2Protected = AI_DOM::extractAndReplace($html2Protected, 'script', $seoPlaceholders, $seoPlaceholderCounter);
-        $html2Protected = AI_DOM::extractAndReplace($html2Protected, 'style', $seoPlaceholders, $seoPlaceholderCounter);
+        $headEndPos = stripos($html2, '</head>');
+        if ($headEndPos !== false) {
+            $headPart = substr($html2, 0, $headEndPos + 7);
+            $bodyPart = substr($html2, $headEndPos + 7);
+            $bodyPart = AI_DOM::extractAndReplace($bodyPart, 'script', $seoPlaceholders, $seoPlaceholderCounter);
+            $bodyPart = AI_DOM::extractAndReplace($bodyPart, 'style', $seoPlaceholders, $seoPlaceholderCounter);
+            $html2Protected = $headPart . $bodyPart;
+        } else {
+            $html2Protected = $html2;
+            $html2Protected = AI_DOM::extractAndReplace($html2Protected, 'script', $seoPlaceholders, $seoPlaceholderCounter);
+            $html2Protected = AI_DOM::extractAndReplace($html2Protected, 'style', $seoPlaceholders, $seoPlaceholderCounter);
+        }
 
         // Combined SEO + URL pass: single DOM parse instead of two separate ones
         $doc = new \DOMDocument();

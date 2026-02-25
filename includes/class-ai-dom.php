@@ -21,14 +21,23 @@ final class AI_DOM
         $html = preg_replace('/<script\s+type=["\']?speculationrules["\']?[^>]*>[\s\S]*?<\/script>/i', '', $html);
         
         // Extract and preserve other script/style tags to prevent DOMDocument from corrupting them
+        // CRITICAL: Only extract from <body>, never from <head>. Using <div> placeholders
+        // in <head> causes DOMDocument to implicitly close <head> and move ALL subsequent
+        // head elements (meta, link, style, script) into <body>, breaking page rendering.
         $placeholders = [];
         $placeholder_counter = 0;
         
-        // Extract <script> tags (except speculationrules which is already removed)
-        $html = self::extractAndReplace($html, 'script', $placeholders, $placeholder_counter);
-        
-        // Extract <style> tags
-        $html = self::extractAndReplace($html, 'style', $placeholders, $placeholder_counter);
+        $headEndPos = stripos($html, '</head>');
+        if ($headEndPos !== false) {
+            $headPart = substr($html, 0, $headEndPos + 7);
+            $bodyPart = substr($html, $headEndPos + 7);
+            $bodyPart = self::extractAndReplace($bodyPart, 'script', $placeholders, $placeholder_counter);
+            $bodyPart = self::extractAndReplace($bodyPart, 'style', $placeholders, $placeholder_counter);
+            $html = $headPart . $bodyPart;
+        } else {
+            $html = self::extractAndReplace($html, 'script', $placeholders, $placeholder_counter);
+            $html = self::extractAndReplace($html, 'style', $placeholders, $placeholder_counter);
+        }
 
         $doc = new \DOMDocument();
         $internalErrors = libxml_use_internal_errors(true);
