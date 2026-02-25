@@ -1762,7 +1762,7 @@ final class AI_OB
         $bodyHtml = $m[1];
         $bodyHtml = preg_replace('/<script[^>]*>.*?<\/script>/si', '', $bodyHtml);
         $bodyHtml = preg_replace('/<style[^>]*>.*?<\/style>/si', '', $bodyHtml);
-        $bodyText = trim(strip_tags($bodyHtml));
+        $bodyText = html_entity_decode(trim(strip_tags($bodyHtml)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         if (mb_strlen($bodyText) < 100) {
             return true;
