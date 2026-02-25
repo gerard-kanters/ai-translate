@@ -1738,7 +1738,7 @@ final class AI_OB
      * @param string|null $targetLang  Target language code
      * @return bool True if content looks correct for the target language
      */
-    public function content_matches_target_lang($html, $targetLang)
+    private function content_matches_target_lang($html, $targetLang)
     {
         if ($targetLang === null) {
             return true;

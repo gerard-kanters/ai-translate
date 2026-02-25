@@ -409,6 +409,16 @@ class AI_Cache_Meta
         }
         $post_types_placeholders = implode(', ', array_fill(0, count($public_post_types), '%s'));
         
+        // Filter by current site when multi-domain caching is enabled
+        $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
+        $site_join_condition = '';
+        $site_filter = '';
+        if ($site_dir !== '') {
+            $site_like = '%/' . $wpdb->esc_like($site_dir) . '/%';
+            $site_join_condition = $wpdb->prepare(" AND c.cache_file LIKE %s", $site_like);
+            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", $site_like);
+        }
+
         // Try to execute query with JOIN first
         $query = $wpdb->prepare(
             "SELECT 
@@ -419,7 +429,7 @@ class AI_Cache_Meta
             FROM 
                 {$wpdb->posts} p
             LEFT JOIN 
-                " . $table_name . " c ON p.ID = c.post_id
+                " . $table_name . " c ON p.ID = c.post_id" . $site_join_condition . "
             WHERE 
                 p.post_status = 'publish'
                 AND p.post_type IN ($post_types_placeholders)
@@ -467,7 +477,7 @@ class AI_Cache_Meta
         // Always show homepage in list when show_on_front = posts, even if no metadata records exist yet
         if ($offset === 0 && get_option('show_on_front') === 'posts') {
             $homepage_cached = (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d",
+                "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d" . $site_filter,
                 0
             ));
 
@@ -489,7 +499,7 @@ class AI_Cache_Meta
         // Add 404 page row (always show on first page, even if no cache yet - similar to homepage)
         if ($offset === 0) {
             $error404_cached = (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d",
+                "SELECT COUNT(DISTINCT language_code) FROM " . $table_name . " WHERE post_id = %d" . $site_filter,
                 -1
             ));
             $error404_obj = new \stdClass();
@@ -1365,8 +1375,14 @@ class AI_Cache_Meta
         // Ensure table exists before querying
         self::ensure_table_exists();
         
+        $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
+        $site_filter = '';
+        if ($site_dir !== '') {
+            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/' . $wpdb->esc_like($site_dir) . '/%');
+        }
+        
         $results = $wpdb->get_col($wpdb->prepare(
-            "SELECT language_code FROM " . self::get_table_name() . " WHERE post_id = %d",
+            "SELECT language_code FROM " . self::get_table_name() . " WHERE post_id = %d" . $site_filter,
             $post_id
         ));
         
@@ -1387,9 +1403,15 @@ class AI_Cache_Meta
         // Ensure table exists before querying
         self::ensure_table_exists();
         
+        $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
+        $site_filter = '';
+        if ($site_dir !== '') {
+            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/' . $wpdb->esc_like($site_dir) . '/%');
+        }
+        
         $exists = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM " . self::get_table_name() . " 
-            WHERE post_id = %d AND language_code = %s",
+            WHERE post_id = %d AND language_code = %s" . $site_filter,
             $post_id,
             $language_code
         ));

@@ -489,20 +489,12 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                     }
 
                     // Fallback: take the HTML response we just fetched and write it to cache directly
-                    // Only if it looks like a valid, complete, translated HTML document.
-                    // A page caching plugin may have intercepted the request and served
-                    // compressed, truncated, or untranslated content.
-                    $fallback_ok = false;
+                    // Only if it looks like valid, complete HTML (not binary/gzip/truncated).
+                    // CURLOPT_ENCODING already handles gzip decompression.
                     if (!empty($response_body)
                         && stripos($response_body, '<html') !== false
                         && stripos($response_body, '</body>') !== false
                     ) {
-                        $ob = \AITranslate\AI_OB::instance();
-                        if ($ob->content_matches_target_lang($response_body, $lang_code)) {
-                            $fallback_ok = true;
-                        }
-                    }
-                    if ($fallback_ok) {
                         \AITranslate\AI_Cache::set($cache_key, $response_body);
                         if ($cache_file && file_exists($cache_file)) {
                             $cache_hash = md5($cache_key);
