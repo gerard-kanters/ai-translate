@@ -1055,7 +1055,7 @@ function ai_translate_get_nav_switcher_html() {
     $menu_id = 'ai-trans-menu-' . uniqid();
     
     // Build switcher HTML (compact nav version)
-    $switcher_html = '<li class="menu-item ai-trans-nav-container"><div class="ai-trans ai-trans-nav">';
+    $switcher_html = '<li class="menu-item ai-trans-nav-container"><div class="ai-trans ai-trans-nav" data-ai-trans-skip="1">';
     // Use <a> instead of <button> so themes that style <a> elements keep the item visible.
     $switcher_html .= '<a href="#" class="ai-trans-btn" role="button" aria-haspopup="true" aria-expanded="false" aria-controls="' . esc_attr($menu_id) . '" title="' . esc_attr(strtoupper($currentLang)) . '">';
     $switcher_html .= '<img src="' . $currentFlag . '" alt="' . esc_attr($currentLang) . '"><span class="ai-trans-code">' . esc_html(strtoupper($currentLang)) . '</span>';
@@ -1165,7 +1165,7 @@ add_action('wp_footer', function () {
     }
     $currentFlag = esc_url($flags_url . sanitize_key($currentLang) . '.png');
 
-    echo '<div id="ai-trans" class="ai-trans">';
+    echo '<div id="ai-trans" class="ai-trans" data-ai-trans-skip="1">';
     // Show current language flag with code label
     echo '<button type="button" class="ai-trans-btn" aria-haspopup="true" aria-expanded="false" aria-controls="ai-trans-menu" title="' . esc_attr(strtoupper($currentLang)) . '"><img src="' . $currentFlag . '" alt="' . esc_attr($currentLang) . '"><span>' . esc_html(strtoupper($currentLang)) . '</span></button>';
     echo '<div id="ai-trans-menu" class="ai-trans-menu" role="menu">';

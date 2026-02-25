@@ -66,6 +66,9 @@ final class AI_DOM
                 if (self::isExcluded($node, $exclusions)) {
                     continue;
                 }
+                if ($node instanceof \DOMElement && $node->hasAttribute('data-ai-trans-skip')) {
+                    continue;
+                }
                 // Collect descendant text nodes (preserve inline markup and cover <p>, <strong>, etc.)
                 $textNodes = self::collectTextNodes($node, $exclusions, $visitedTextNodes);
                 if (!empty($textNodes)) {
@@ -504,6 +507,9 @@ final class AI_DOM
                 if ($id === 'wpadminbar' || $id === 'wp-toolbar') {
                     return true;
                 }
+                if ($n->hasAttribute('data-ai-trans-skip')) {
+                    return true;
+                }
                 $classAttr = ' ' . strtolower((string) $n->getAttribute('class')) . ' ';
                 if (strpos($classAttr, ' wp-admin ') !== false || strpos($classAttr, ' no-translate ') !== false || strpos($classAttr, ' notranslate ') !== false) {
                     return true;
@@ -537,6 +543,9 @@ final class AI_DOM
             if ($n instanceof \DOMElement) {
                 $tag = strtolower($n->tagName);
                 if (in_array($tag, $exclusions, true)) {
+                    continue;
+                }
+                if ($n->hasAttribute('data-ai-trans-skip')) {
                     continue;
                 }
             }
