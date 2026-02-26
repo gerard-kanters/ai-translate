@@ -925,7 +925,8 @@ add_action('template_redirect', function () {
     }
 
     \AITranslate\AI_OB::instance()->start();
-}, 0); // Priority 0 to run BEFORE other template_redirect hooks
+}, 5); // Priority 5 to run AFTER preloader plugins (e.g. Safelayout Cute Preloader at 2).
+// Preloader must ob_start first so it injects into AI-Translate output, not vice versa.
 
 /**
  * Ensure that when viewing the posts index (translated posts page) with ?blogpage=N,
