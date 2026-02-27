@@ -255,6 +255,12 @@ final class AI_Batch
                             $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
                             if (is_wp_error($resp)) { continue; }
                             $code = (int) wp_remote_retrieve_response_code($resp);
+                            if ($code === 429) {
+                                $wait = self::get_retry_after_seconds($resp);
+                                if ($wait > 0) { sleep(min($wait, 90)); }
+                                $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
+                                if (!is_wp_error($resp)) { $code = (int) wp_remote_retrieve_response_code($resp); }
+                            }
                             if ($code !== 200) { continue; }
                             $respBody = (string) wp_remote_retrieve_body($resp);
                             $data = json_decode($respBody, true);
@@ -268,13 +274,13 @@ final class AI_Batch
                     }
                     continue;
                 }
-                // Process responses; retry failures once
+                // Process responses; retry failures (429 with Retry-After backoff)
                 $failedIndexes = [];
                 foreach ($responses as $idx => $resp) {
                     $ok = is_object($resp) && property_exists($resp, 'status_code') ? ((int)$resp->status_code === 200) : false;
-                    if (!$ok) { 
-                        $failedIndexes[] = (int)$idx; 
-                        continue; 
+                    if (!$ok) {
+                        $failedIndexes[] = (int)$idx;
+                        continue;
                     }
                     $content = '';
                     if (is_object($resp) && property_exists($resp, 'body')) { $content = (string) $resp->body; }
@@ -304,27 +310,63 @@ final class AI_Batch
                 if (!empty($failedIndexes)) {
                     $retryReqs = [];
                     $retryMetas = [];
-                    foreach ($failedIndexes as $fi) { $retryReqs[] = $requests[$fi]; $retryMetas[] = $metas[$fi]; }
-                    $retryRes = $doAttempt($retryReqs);
-                    if (!($retryRes instanceof \Throwable)) {
+                    foreach ($failedIndexes as $fi) {
+                        $retryReqs[] = $requests[$fi];
+                        $retryMetas[] = $metas[$fi];
+                    }
+                    $max429Retries = 3;
+                    $retryRound = 0;
+                    while ($retryRound < $max429Retries) {
+                        $retryRes = $doAttempt($retryReqs);
+                        if ($retryRes instanceof \Throwable) {
+                            break;
+                        }
+                        $stillFailed = [];
                         foreach ($retryRes as $rIdx => $resp) {
                             $ok = is_object($resp) && property_exists($resp, 'status_code') ? ((int)$resp->status_code === 200) : false;
-                            if (!$ok) { continue; }
-                            $content = is_object($resp) && property_exists($resp, 'body') ? (string)$resp->body : '';
-                            $data = json_decode($content, true);
-                            $msg = AI_Translate_Core::extract_message_content($data);
-                            if ($msg === null) { continue; }
-                            $translations = self::parseTranslationResponse($msg);
-                            if (is_array($translations)) {
-                                foreach ($translations as $k => $v) {
-                                    $translated = trim((string) $v);
-                                    if ($translated !== '') {
-                                        $translationsPrimary[(string)$k] = $translated;
+                            if ($ok) {
+                                $content = is_object($resp) && property_exists($resp, 'body') ? (string)$resp->body : '';
+                                $data = json_decode($content, true);
+                                $msg = AI_Translate_Core::extract_message_content($data);
+                                if ($msg !== null) {
+                                    $translations = self::parseTranslationResponse($msg);
+                                    if (is_array($translations)) {
+                                        foreach ($translations as $k => $v) {
+                                            $translated = trim((string) $v);
+                                            if ($translated !== '') {
+                                                $translationsPrimary[(string)$k] = $translated;
+                                            }
+                                        }
+                                        self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
                                     }
                                 }
-                                self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
+                            } else {
+                                $stillFailed[] = ['idx' => $rIdx, 'resp' => $resp, 'origIdx' => $failedIndexes[$rIdx]];
                             }
                         }
+                        if (empty($stillFailed)) {
+                            break;
+                        }
+                        $has429 = false;
+                        $maxWait = 0;
+                        foreach ($stillFailed as $sf) {
+                            $sc = is_object($sf['resp']) && property_exists($sf['resp'], 'status_code') ? (int)$sf['resp']->status_code : 0;
+                            if ($sc === 429) {
+                                $has429 = true;
+                                $maxWait = max($maxWait, self::get_retry_after_seconds($sf['resp']));
+                            }
+                        }
+                        if (!$has429 || $retryRound >= $max429Retries - 1) {
+                            break;
+                        }
+                        sleep(min($maxWait, 120));
+                        $retryReqs = [];
+                        $retryMetas = [];
+                        foreach ($stillFailed as $sf) {
+                            $retryReqs[] = $requests[$sf['origIdx']];
+                            $retryMetas[] = $metas[$sf['origIdx']];
+                        }
+                        $retryRound++;
                     }
                 }
             }
@@ -413,7 +455,26 @@ final class AI_Batch
                 }
             }
             if ($code !== 200) {
-                break;
+                if ($code === 429) {
+                    $wait = self::get_retry_after_seconds($response);
+                    $elapsed = microtime(true) - $requestTime;
+                    if ($timeLimit > 0 && $elapsed < $timeLimit - 15 && $wait > 0) {
+                        sleep(min($wait, 90));
+                        $response = wp_remote_post($endpoint, [
+                            'headers' => $headers,
+                            'timeout' => $safeTimeout,
+                            'connect_timeout' => 10,
+                            'sslverify' => true,
+                            'body' => wp_json_encode($body),
+                        ]);
+                        if (!is_wp_error($response)) {
+                            $code = (int) wp_remote_retrieve_response_code($response);
+                        }
+                    }
+                }
+                if ($code !== 200) {
+                    break;
+                }
             }
 
             $respBody = (string) wp_remote_retrieve_body($response);
@@ -688,6 +749,16 @@ final class AI_Batch
                 continue;
             }
             $code = (int) wp_remote_retrieve_response_code($resp);
+            if ($code === 429) {
+                $wait = self::get_retry_after_seconds($resp);
+                if ($wait > 0) {
+                    sleep(min($wait, 90));
+                    $resp = wp_remote_post($endpoint, ['headers' => $headers, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body)]);
+                    if (!is_wp_error($resp)) {
+                        $code = (int) wp_remote_retrieve_response_code($resp);
+                    }
+                }
+            }
             if ($code !== 200) {
                 continue;
             }
@@ -708,6 +779,34 @@ final class AI_Batch
             }
         }
         return $result;
+    }
+
+    /**
+     * Get Retry-After delay in seconds from a 429 response.
+     * Works with both Requests library Response and wp_remote_* response.
+     *
+     * @param object|array $response HTTP response (Requests Response or WP_HTTP_Response)
+     * @return int Seconds to wait (default 60 if header missing or invalid)
+     */
+    private static function get_retry_after_seconds($response): int
+    {
+        $val = null;
+        if (is_array($response) && function_exists('wp_remote_retrieve_header')) {
+            $val = wp_remote_retrieve_header($response, 'retry-after');
+        }
+        if (($val === null || $val === '') && is_object($response) && isset($response->headers)) {
+            $h = $response->headers;
+            if (is_object($h)) {
+                $val = isset($h['retry-after']) ? $h['retry-after'] : (isset($h['Retry-After']) ? $h['Retry-After'] : null);
+            } elseif (is_array($h) && isset($h['retry-after'])) {
+                $val = is_array($h['retry-after']) ? ($h['retry-after'][0] ?? null) : $h['retry-after'];
+            }
+        }
+        if ($val === null || $val === '') {
+            return 60;
+        }
+        $sec = (int) $val;
+        return $sec > 0 ? min($sec, 120) : 60;
     }
 
     /**

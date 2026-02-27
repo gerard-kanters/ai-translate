@@ -485,8 +485,35 @@ add_filter('request', function ($vars) {
                     $vars['post_type'] = $post->post_type;
                 }
             }
+            unset($vars['ai_translate_path']);
+        } else {
+            // Path did not resolve to a post; try taxonomy (category, tag, custom tax).
+            $term_slug = (strpos($path, '/') !== false) ? basename($path) : $path;
+            $term = null;
+            if ($term_slug !== '') {
+                $term = get_term_by('slug', $term_slug, 'category');
+                if (!$term || is_wp_error($term)) {
+                    $term = get_term_by('slug', $term_slug, 'post_tag');
+                }
+                if (!$term || is_wp_error($term)) {
+                    $parts = array_values(array_filter(explode('/', trim($path, '/'))));
+                    if (count($parts) >= 2 && taxonomy_exists($parts[0])) {
+                        $term = get_term_by('slug', $parts[1], $parts[0]);
+                    }
+                }
+            }
+            if ($term && !is_wp_error($term)) {
+                $tax = $term->taxonomy;
+                if ($tax === 'category') {
+                    $vars['category_name'] = $term->slug;
+                } elseif ($tax === 'post_tag') {
+                    $vars['tag'] = $term->slug;
+                } else {
+                    $vars[$tax] = $term->slug;
+                }
+                unset($vars['ai_translate_path']);
+            }
         }
-        unset($vars['ai_translate_path']);
     }
     // Handle 'lang' query var: map translated slug back to source for both pages and singles
     if (isset($vars['lang'])) {
@@ -2039,6 +2066,35 @@ add_action('parse_request', function ($wp) {
             }
         } else {
             $post = get_page_by_path($rest, OBJECT, $public_types);
+        }
+        if (!$post) {
+            $term_slug = (strpos($rest, '/') !== false) ? basename($rest) : $rest;
+            $term = null;
+            if ($term_slug !== '') {
+                $term = get_term_by('slug', $term_slug, 'category');
+                if (!$term || is_wp_error($term)) {
+                    $term = get_term_by('slug', $term_slug, 'post_tag');
+                }
+                if (!$term || is_wp_error($term)) {
+                    $parts = array_values(array_filter(explode('/', trim($rest, '/'))));
+                    if (count($parts) >= 2 && taxonomy_exists($parts[0])) {
+                        $term = get_term_by('slug', $parts[1], $parts[0]);
+                    }
+                }
+            }
+            if ($term && !is_wp_error($term)) {
+                $tax = $term->taxonomy;
+                $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
+                if ($tax === 'category') {
+                    $wp->query_vars['category_name'] = $term->slug;
+                } elseif ($tax === 'post_tag') {
+                    $wp->query_vars['tag'] = $term->slug;
+                } else {
+                    $wp->query_vars[$tax] = $term->slug;
+                }
+                $wp->is_404 = false;
+                return;
+            }
         }
         if ($post && isset($post->ID) && isset($post->post_type) && $post->post_type !== 'attachment') {
             $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);

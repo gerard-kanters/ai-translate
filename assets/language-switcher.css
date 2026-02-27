@@ -130,6 +130,7 @@
 /* Force show submenu when JavaScript sets ai-force-show class */
 .menu-item-language-switcher .sub-menu.ai-force-show {
     display: block !important;
+    max-height: 500px !important;
     opacity: 1 !important;
     visibility: visible !important;
     z-index: 999999 !important;

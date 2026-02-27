@@ -242,22 +242,25 @@ function initMobileMenuSupport() {
                     // Prevent hash-jumps and theme anchor handlers from hijacking this toggle.
                     event.preventDefault();
 
-                    // Only handle click on mobile/tablet (screen width <= 768px)
-                    if (window.innerWidth <= 768) {
+                    // Use click-to-expand when: (a) touch device (no hover) or (b) narrow viewport (no hover rule <769px).
+                    var needsClick = window.matchMedia('(hover: none)').matches || window.innerWidth <= 768;
+                    if (needsClick) {
                         event.stopPropagation();
 
                         // Toggle submenu visibility
-                        const isVisible = submenu.style.display === 'block';
+                        const isVisible = submenu.classList.contains('ai-force-show');
 
                         if (isVisible) {
-                            submenu.style.display = 'none';
+                            submenu.style.display = '';
+                            submenu.style.removeProperty('max-height');
                             submenu.classList.remove('ai-force-show');
                             link.setAttribute('aria-expanded', 'false');
                         } else {
                             // Close other language switcher submenus first
                             document.querySelectorAll('.menu-item-language-switcher .sub-menu').forEach(function(otherSubmenu) {
                                 if (otherSubmenu !== submenu) {
-                                    otherSubmenu.style.display = 'none';
+                                    otherSubmenu.style.display = '';
+                                    otherSubmenu.style.removeProperty('max-height');
                                     otherSubmenu.classList.remove('ai-force-show');
                                     const otherLink = otherSubmenu.closest('.menu-item-language-switcher').querySelector('.ai-menu-language-current');
                                     if (otherLink) {
@@ -266,10 +269,11 @@ function initMobileMenuSupport() {
                                 }
                             });
 
-                            // Force show submenu with both inline style and CSS class
                             submenu.style.display = 'block';
                             submenu.classList.add('ai-force-show');
                             link.setAttribute('aria-expanded', 'true');
+                            // Override theme's max-height:0 on submenus (many mobile themes use inline max-height:0 !important)
+                            submenu.style.setProperty('max-height', '500px', 'important');
                         }
                     }
                 });
