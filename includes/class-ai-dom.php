@@ -411,6 +411,37 @@ final class AI_DOM
     }
 
     /**
+     * Restore a placeholder div with the original script/style tag.
+     * Uses multiple patterns to handle DOMDocument output variations (attribute order,
+     * xmlns, self-closing, whitespace) that can cause preloader/Elementor conflicts.
+     *
+     * @param string $html          HTML containing placeholder divs
+     * @param string $placeholderId Placeholder ID (e.g. SCRIPT_PLACEHOLDER_1)
+     * @param string $original_tag  Original script or style tag to restore
+     * @return string HTML with placeholder replaced
+     */
+    public static function restorePlaceholder($html, $placeholderId, $original_tag)
+    {
+        $escapedId = preg_quote($placeholderId, '/');
+        $patterns = [
+            // Primary: standard <div ...></div>, any attribute order
+            '/<div\s+[^>]*\bdata-ai-placeholder\s*=\s*["\']' . $escapedId . '["\'][^>]*>\s*<\/div>/is',
+            // Fallback: data-ai-placeholder first (common DOMDocument output)
+            '/<div\s+data-ai-placeholder=["\']' . $escapedId . '["\'][^>]*>\s*<\/div>/is',
+            // Fallback: self-closing <div ... /> (some parsers)
+            '/<div\s+[^>]*\bdata-ai-placeholder\s*=\s*["\']' . $escapedId . '["\'][^>]*\/>/is',
+            // Fallback: loose match for edge cases
+            '/<div[^>]*data-ai-placeholder=["\']' . $escapedId . '["\'][^>]*>[\s\S]*?<\/div>/is',
+        ];
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $html)) {
+                return preg_replace($pattern, $original_tag, $html, 1);
+            }
+        }
+        return $html;
+    }
+
+    /**
      * Merge translated segments into the DOM and return final HTML.
      *
      * @param array $plan
@@ -479,15 +510,7 @@ final class AI_DOM
         // Div placeholders are reliably preserved by DOMDocument
         if (isset($plan['placeholders']) && is_array($plan['placeholders'])) {
             foreach ($plan['placeholders'] as $placeholderId => $original_tag) {
-                // Escape special regex characters in placeholderId for safety
-                $escapedId = preg_quote($placeholderId, '/');
-                
-                // Match div placeholder with data-ai-placeholder attribute
-                // Handle various attribute orderings and whitespace variations
-                $pattern = '/<div\s+[^>]*data-ai-placeholder=["\']' . $escapedId . '["\'][^>]*><\/div>/is';
-                if (preg_match($pattern, $result)) {
-                    $result = preg_replace($pattern, $original_tag, $result, 1);
-                }
+                $result = self::restorePlaceholder($result, $placeholderId, $original_tag);
             }
         }
         

@@ -548,11 +548,7 @@ final class AI_OB
         // Restore script/style tags from placeholders
         if (!empty($seoPlaceholders)) {
             foreach ($seoPlaceholders as $placeholderId => $original_tag) {
-                $escapedId = preg_quote($placeholderId, '/');
-                $pattern = '/<div\s+[^>]*data-ai-placeholder=["\']' . $escapedId . '["\'][^>]*><\/div>/is';
-                if (preg_match($pattern, $html3)) {
-                    $html3 = preg_replace($pattern, $original_tag, $html3, 1);
-                }
+                $html3 = AI_DOM::restorePlaceholder($html3, $placeholderId, $original_tag);
             }
         }
 
