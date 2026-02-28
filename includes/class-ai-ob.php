@@ -135,7 +135,34 @@ final class AI_OB
         // Update internal permalinks to use current translated slugs
         $html = $this->update_cached_permalinks($html);
 
+        // Replace WordPress site_url host with current request host to prevent cross-origin AJAX issues
+        $html = $this->fix_cached_domain($html);
+
         return $html;
+    }
+
+    /**
+     * Replace the WordPress site_url host with the current request host in cached HTML.
+     * Prevents cross-origin AJAX failures when a site is accessed via an alias domain.
+     */
+    private function fix_cached_domain($html)
+    {
+        $request_host = isset($_SERVER['HTTP_HOST']) ? strtok((string) $_SERVER['HTTP_HOST'], ':') : '';
+        if ($request_host === '') {
+            return $html;
+        }
+
+        // Extract the domain baked into cached HTML from WordPress URL patterns
+        if (!preg_match('#https?://([a-z0-9.-]+)/wp-(?:content|admin|includes)/#i', $html, $m)) {
+            return $html;
+        }
+        $cached_host = $m[1];
+
+        if (strcasecmp($cached_host, $request_host) === 0) {
+            return $html;
+        }
+
+        return str_replace($cached_host, $request_host, $html);
     }
 
     /**
@@ -306,6 +333,15 @@ final class AI_OB
                 }
             }
 
+            // Reject truncated cache (from bot visits): missing closing tags breaks chat/greeting
+            if ($cached !== false) {
+                $hasClosingTags = (stripos($cached, '</body>') !== false && stripos($cached, '</html>') !== false);
+                if (!$hasClosingTags) {
+                    AI_Cache::delete($key);
+                    $cached = false;
+                }
+            }
+
             if ($cached !== false) {
                 $processing = false;
                 return $this->post_process_cached_content($cached);
@@ -367,7 +403,7 @@ final class AI_OB
         $htmlLen = strlen($html);
         $hasHtml = (stripos($html, '<html') !== false || stripos($html, '<!DOCTYPE') !== false);
         $hasBody = (stripos($html, '<body') !== false);
-        
+
         if ($htmlLen < 500 || !$hasHtml || !$hasBody) {
             if ($lockAcquired) {
                 delete_transient($lockKey);
@@ -569,8 +605,9 @@ final class AI_OB
         $html3Len = strlen($html3);
         $html3HasHtml = (stripos($html3, '<html') !== false || stripos($html3, '<!DOCTYPE') !== false);
         $html3HasBody = (stripos($html3, '<body') !== false);
-        
-        if ($html3Len < 500 || !$html3HasHtml || !$html3HasBody) {
+        $html3HasClosingTags = (stripos($html3, '</body>') !== false && stripos($html3, '</html>') !== false);
+
+        if ($html3Len < 500 || !$html3HasHtml || !$html3HasBody || !$html3HasClosingTags) {
             if ($lockAcquired) {
                 delete_transient($lockKey);
             }
