@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: AI Translate 2.2.3\n"
+"Project-Id-Version: AI Translate 2.2.8\n"
 "Report-Msgid-Bugs-To: https://netcare.nl/\n"
 "POT-Creation-Date: 2025-01-02 12:00+0000\n"
 "PO-Revision-Date: 2025-01-02 12:00+0000\n"
@@ -28,6 +28,9 @@ msgstr "Plugin alimenté par l'IA pour la traduction automatique de sites web en
 #. Short Description
 msgid "AI-powered translation for WordPress & WooCommerce. Automatically translate your site in 35+ languages with your brand's unique tone of voice. Fast caching, SEO-friendly, and cost-effective."
 msgstr "Traduction par IA pour WordPress et WooCommerce. Traduisez automatiquement votre site en 35+ langues avec le ton unique de votre marque. Cache rapide, optimisé SEO et économique."
+
+msgid "AI Translate for WordPress &amp; WooCommerce. Multilingual SEO with translated slugs &amp; 35+ languages. Fast caching, unique Tone of Voice &amp; low AI costs."
+msgstr "AI Translate pour WordPress et WooCommerce. SEO multilingue avec slugs traduits et 35+ langues. Cache rapide, ton unique et faibles coûts IA."
 
 #. Description
 msgid "AI Translate automatically makes your WordPress website available in 35+ languages. Increase your reach and improve your SEO without manual work."
@@ -68,6 +71,12 @@ msgstr "<strong>⚡ Cache rapide</strong> - Cache intelligent pour de meilleures
 
 msgid "<strong>🔄 Automatic Updates</strong> - Translations are automatically updated when content changes."
 msgstr "<strong>🔄 Mises à jour automatiques</strong> - Les traductions sont automatiquement mises à jour lorsque le contenu change."
+
+msgid "<strong>🔄 Automatic Updates</strong> - Cache expires immediately of content when the original page changes ."
+msgstr "<strong>🔄 Mises à jour automatiques</strong> - Le cache expire immédiatement lorsque la page d'origine change."
+
+msgid "<strong>🔥 Cache-Warming</strong> - Have all pages pre-translated so they are immediately available to visitors."
+msgstr "<strong>🔥 Préchargement du cache</strong> - Faites pré-traduire toutes les pages pour qu'elles soient immédiatement disponibles aux visiteurs."
 
 msgid "<strong>🍪 Remembers Preferences</strong> - Saves each visitor's language preference (via cookies)."
 msgstr "<strong>🍪 Mémorise les préférences</strong> - Enregistre la préférence linguistique de chaque visiteur (via les cookies)."
@@ -192,7 +201,7 @@ msgstr "Toutes les langues ne peuvent pas être traduites avec tous les modèles
 msgid "Can I customize the AI prompts?"
 msgstr "Puis-je personnaliser les invites de l'IA ?"
 
-msgid "The AI prompts are optimized for the best translations by analyzing your website and adjusting the tone. You can add extra context about your site in the admin settings, but this is usually not necessary."
+msgid "The AI prompts are optimized for the best translations by analyzing your website and adjusting the tone. You can add extra context about your site in the admin settings, but this should not be necessary."
 msgstr "Les invites de l'IA sont optimisées pour les meilleures traductions en analysant votre site web et en ajustant le ton. Vous pouvez ajouter un contexte supplémentaire sur votre site dans les paramètres d'administration, mais ce n'est généralement pas nécessaire."
 
 msgid "What's the difference between \"Enabled Languages\" and \"Detectable Languages\"?"
@@ -258,7 +267,7 @@ msgstr "<strong>🔄 Invalidation automatique du cache</strong> - Le cache n'est
 msgid "Advanced Settings"
 msgstr "Paramètres avancés"
 
-msgid "<strong>📄 Homepage Meta Description</strong> - Set a custom meta description that is automatically translated"
+msgid "<strong>📄 Homepage Meta Description</strong> - Set a custom meta description that will be automatically translated."
 msgstr "<strong>📄 Meta description de la page d'accueil</strong> - Définir une meta description personnalisée qui est automatiquement traduite"
 
 msgid "<strong>✨ Auto-generate site context</strong> - Let the AI automatically analyze your site for better translations"
@@ -291,10 +300,10 @@ msgstr "Sélection de modèle recommandée"
 msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code> - Do not use GPT 5.1 for translations (slow, expensive, and unnecessarily complex)"
 msgstr "<strong>💡 OpenAI</strong> : <code>gpt-4.1-mini</code> - N'utilisez pas GPT 5.1 pour les traductions (lent, coûteux et inutilement complexe)"
 
-msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code\>"
+msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code>"
 msgstr "<strong>💡 OpenAI</strong> : <code>gpt-4.1-mini</code>"
 
-msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code\> "
+msgid "<strong>💡 OpenAI</strong>: <code>gpt-4.1-mini</code> "
 msgstr "<strong>💡 OpenAI</strong> : <code>gpt-4.1-mini</code> "
 
 msgid "<strong>💰 Deepseek</strong>: <code>deepseek-chat</code> - Slower, but cost-effective"
@@ -305,6 +314,9 @@ msgstr "<strong>🔧 Personnalisé</strong> : Utilisez OpenRouter et sélectionn
 
 msgid "<strong>🔧 OpenRouter</strong>: Select google/gemini-2.5-flash-lite which has the best price/performance"
 msgstr "<strong>🔧 OpenRouter</strong> : Sélectionnez google/gemini-2.5-flash-lite qui offre le meilleur rapport prix/performance"
+
+msgid "<strong>💡 Groq</strong>: Select openai/gpt-oss-120b  which is fast and the cheapest option. "
+msgstr "<strong>💡 Groq</strong> : Sélectionnez openai/gpt-oss-120b, rapide et l'option la moins chère."
 
 msgid "Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing."
 msgstr "Gemini flash est le meilleur modèle rapport qualité-prix disponible actuellement. Il est rapide, prend en charge toutes les langues et a des prix bas."
@@ -382,6 +394,42 @@ msgstr "wget --spider --no-directories --delete-after --recursive --level=10 \\\
 
 msgid "Changelog"
 msgstr "Journal des modifications"
+
+msgid "2.2.8"
+msgstr "2.2.8"
+
+msgid "Fix menu issue with elementor theme"
+msgstr "Problème de menu avec le thème Elementor corrigé."
+
+msgid "Improve system prompt (role, what and how)."
+msgstr "Amélioration du prompt système (rôle, quoi et comment)."
+
+msgid "Improve website context generator (what is the website about)."
+msgstr "Amélioration du générateur de contexte du site (de quoi parle le site)."
+
+msgid "Improve admin UX."
+msgstr "Amélioration de l'UX admin."
+
+msgid "Fix issue with language switcher in some specific themes."
+msgstr "Problème du sélecteur de langue dans certains thèmes corrigé."
+
+msgid "All enabled and detectable languages added to Wordpress sitemap (/wp-sitemap.xml) "
+msgstr "Toutes les langues activées et détectables ajoutées au plan du site WordPress (/wp-sitemap.xml)."
+
+msgid "Adviced models on top per API provider."
+msgstr "Modèles conseillés en tête par fournisseur d'API."
+
+msgid "Code base refactoring. Improve performance and security, thighening code."
+msgstr "Refactorisation du code. Amélioration des performances et de la sécurité."
+
+msgid "Better detect usable models from OpenAI.  "
+msgstr "Meilleure détection des modèles OpenAI utilisables."
+
+msgid "Change language switcher url to fixed urls instead of query param."
+msgstr "URL du sélecteur de langue passée en URLs fixes au lieu du paramètre de requête."
+
+msgid "2.2.4"
+msgstr "2.2.4"
 
 msgid "2.2.0"
 msgstr "2.2.0"
@@ -473,13 +521,13 @@ msgstr "Correction du paramètre d'administration pour sélectionner la langue p
 msgid "Set permalink structure on initialization to post-name"
 msgstr "Définir la structure de permalien lors de l'initialisation sur nom de publication"
 
-msgid "Fixed issue with existing meta tags in default language"
+msgid "Fixed issue with existing meta tags in default language."
 msgstr "Problème avec les balises meta existantes dans la langue par défaut corrigé"
 
 msgid "Exclude xml files from processing"
 msgstr "Exclure les fichiers xml du traitement"
 
-msgid "Added 10 languages"
+msgid "Added 10 languages."
 msgstr "10 langues ajoutées"
 
 msgid "2.0.4"

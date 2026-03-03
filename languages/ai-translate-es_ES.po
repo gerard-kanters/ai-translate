@@ -761,15 +761,15 @@ msgstr "Metadatos de caché inicializados: %d registros de caché existentes añ
 
 #: includes/admin-page.php:2025
 msgid "Cache directory found but no metadata. Click \"Scan Cache Files\" to generate metadata."
-msgstr "Directorio de caché encontrado pero sin metadatos. Haz clic en \"Escanear archivos de caché\" para generar metadatos."
+msgstr "Directorio de caché encontrado pero sin metadatos. Haz clic en \"Analizar archivos de caché\" para generar metadatos."
 
 #: includes/admin-page.php:2089
 msgid "Scan Cache Files"
-msgstr "Escanear archivos de caché"
+msgstr "Analizar archivos de caché"
 
 #: includes/admin-page.php:2039
 msgid "Scan the filesystem for cache files and add metadata to the database."
-msgstr "Escanear el sistema de archivos en busca de archivos de caché y añadir metadatos a la base de datos."
+msgstr "Analizar el sistema de archivos en busca de archivos de caché y añadir metadatos a la base de datos."
 
 #: includes/admin-page.php:2047
 msgid "Type"
@@ -861,9 +861,74 @@ msgstr "no está en la BD"
 
 #: includes/class-ai-cache-meta.php:667
 msgid "... and %d more files not in database (use rescan to add them)"
-msgstr "... y %d archivos más no están en la base de datos (use «Escanear archivos de caché» para añadirlos)"
+msgstr "... y %d archivos más no están en la base de datos (use «Analizar archivos de caché» para añadirlos)"
 
 #: includes/admin-page.php:899
 msgid "Request Key"
 msgstr "Solicitar clave"
+
+msgid "Choose where the language switcher appears on your website. A corner position shows a floating switcher; the \"Hidden\" option disables the floating switcher so you can add a language switcher to your navigation menu instead. Only one method is active at a time."
+msgstr "Elige dónde aparece el selector de idioma en tu sitio web. Una posición en la esquina muestra un selector flotante; la opción \"Oculto\" desactiva el selector flotante para que puedas añadir un selector de idioma a tu menú de navegación en su lugar. Solo un método está activo a la vez."
+
+msgid "This menu item is inactive. The language switcher is set to \"%s\" in %splugin settings%s. Set it to \"Hidden\" to use the menu switcher."
+msgstr "Este elemento de menú está inactivo. El selector de idioma está configurado en \"%s\" en los %sajustes del plugin%s. Configúralo en \"Oculto\" para usar el selector de menú."
+
+msgid "Selected model \"%s\" is not supported for chat-based translations. Choose a chat/completions model instead."
+msgstr "El modelo seleccionado \"%s\" no es compatible con traducciones basadas en chat. Elige un modelo de chat/completions en su lugar."
+
+msgid "Selected model \"%s\" is not a chat/completions model and cannot be used for translations. Choose a text chat model (for example: gpt-4o-mini, gpt-4.1-mini, deepseek-chat)."
+msgstr "El modelo seleccionado \"%s\" no es un modelo de chat/completions y no se puede usar para traducciones. Elige un modelo de chat de texto (por ejemplo: gpt-4o-mini, gpt-4.1-mini, deepseek-chat)."
+
+msgid "404 Page"
+msgstr "Página 404"
+
+msgid "Language settings saved."
+msgstr "Ajustes de idioma guardados."
+
+msgid "Invalid section: "
+msgstr "Sección inválida: "
+
+msgid "Section parameter missing."
+msgstr "Falta el parámetro de sección."
+
+msgid "Security check failed. Please refresh the page."
+msgstr "La verificación de seguridad falló. Por favor, actualiza la página."
+
+msgid "Disable all"
+msgstr "Desactivar todo"
+
+msgid "Enable all"
+msgstr "Activar todo"
+
+msgid "Instant save"
+msgstr "Guardado instantáneo"
+
+msgid "Validation AJAX Error"
+msgstr "Error de validación AJAX"
+
+msgid "Validation failed"
+msgstr "Validación fallida"
+
+msgid "Connection and model OK. API settings saved."
+msgstr "Conexión y modelo OK. Ajustes de API guardados."
+
+msgid "Validating API settings..."
+msgstr "Validando ajustes de API..."
+
+msgid "Failed to save language settings"
+msgstr "Error al guardar los ajustes de idioma"
+
+msgid "Languages saved"
+msgstr "Idiomas guardados"
+
+msgid "Saving language settings..."
+msgstr "Guardando ajustes de idioma..."
+
+#: includes/admin-page.php:474
+msgid "lang directory missing"
+msgstr "Falta el directorio de idiomas"
+
+#: includes/admin-page.php:482
+msgid "not writable"
+msgstr "No se puede escribir"
 
