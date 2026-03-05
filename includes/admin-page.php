@@ -1379,7 +1379,7 @@ add_action('admin_init', function () {
         'api_provider',
         __('API Provider', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $providers = AI_Translate_Core::get_api_providers();
 
@@ -1424,7 +1424,7 @@ add_action('admin_init', function () {
         'api_key',
         __('API Key', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             // Haal de API-sleutel op uit de nieuwe 'api_keys' array
             $api_keys = $settings['api_keys'] ?? [];
@@ -1439,7 +1439,7 @@ add_action('admin_init', function () {
         'selected_model',
         __('Translation Model', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $models = isset($settings['models']) ? $settings['models'] : [];
             $selected_model = $current_provider !== '' ? ($models[$current_provider] ?? '') : '';
@@ -1477,7 +1477,7 @@ add_action('admin_init', function () {
         'default_language',
         __('Default Language', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $value = isset($settings['default_language']) ? $settings['default_language'] : '';
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Get all available languages
@@ -1499,7 +1499,7 @@ add_action('admin_init', function () {
         'enabled_languages',
         __('Enabled Languages (in Switcher)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $enabled = isset($settings['enabled_languages']) ? (array)$settings['enabled_languages'] : [];
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Use all available languages
@@ -1556,7 +1556,7 @@ add_action('admin_init', function () {
         'detectable_languages',
         __('Detectable Languages (Auto-Translate)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : [];
 
             $core = AI_Translate_Core::get_instance();
@@ -1621,7 +1621,7 @@ add_action('admin_init', function () {
         'switcher_position',
         __('Language Switcher Position', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
             $positions = array(
                 'bottom-left' => __('Bottom Left Corner', 'ai-translate'),
@@ -1656,7 +1656,7 @@ add_action('admin_init', function () {
         'cache_expiration',
         __('Cache Duration (days)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $raw = $settings['cache_expiration'] ?? null;
             $days = 14;
 
@@ -1685,7 +1685,7 @@ add_action('admin_init', function () {
         'keep_slugs_in_english',
         __('Keep URL Slugs in English', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $value = isset($settings['keep_slugs_in_english']) ? (bool)$settings['keep_slugs_in_english'] : false;
             echo '<input type="checkbox" name="ai_translate_settings[keep_slugs_in_english]" value="1" ' . checked($value, true, false) . '> ';
             echo '<label>' . esc_html__('Keep URL slugs in English instead of translating them to target languages', 'ai-translate') . '</label>';
@@ -1698,7 +1698,7 @@ add_action('admin_init', function () {
         'auto_clear_pages_on_menu_update',
         __('Auto-Clear Pages on Menu Update', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $raw = $settings['auto_clear_pages_on_menu_update'] ?? true;
             $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
@@ -1723,7 +1723,7 @@ add_action('admin_init', function () {
         'multi_domain_caching',
         __('Multi-Domain Caching', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $raw = $settings['multi_domain_caching'] ?? false;
             $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
@@ -1741,7 +1741,7 @@ add_action('admin_init', function () {
         'stop_translations_except_cache_invalidation',
         __('Stop translations (except cache invalidation)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $raw = $settings['stop_translations_except_cache_invalidation'] ?? false;
             $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
@@ -1769,7 +1769,7 @@ add_action('admin_init', function () {
         'homepage_meta_description',
         __('Homepage Meta Description', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
             
             // Determine active domain
@@ -1820,7 +1820,7 @@ add_action('admin_init', function () {
         'website_context',
         __('Website Context', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings');
+            $settings = get_option('ai_translate_settings', []);
             $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
             
             // Determine active domain
@@ -2112,12 +2112,24 @@ function render_admin_page()
                 }
                 $core = \AITranslate\AI_Translate_Core::get_instance();
                 $languages = $core->get_available_languages();
-                
+
                 // Sort languages alphabetically by name (ascending)
                 asort($languages);
 
-                // Haal cache statistieken op
-                $cache_stats = $core->get_cache_statistics();
+                // Cache statistics are expensive (RecursiveIterator over all files) - only run when Cache tab is active
+                // Avoids HTTP 500 / "upstream prematurely closed connection" on sites with large caches
+                if ($active_tab === 'cache') {
+                    $cache_stats = $core->get_cache_statistics();
+                } else {
+                    $cache_stats = [
+                        'total_files' => 0,
+                        'total_size' => 0,
+                        'expired_files' => 0,
+                        'last_modified' => 0,
+                        'languages' => [],
+                        'languages_details' => [],
+                    ];
+                }
                 $language_counts = $cache_stats['languages'] ?? [];
                 ?>
                 <div class="cache-stats-section">
@@ -2282,53 +2294,63 @@ function render_admin_page()
                 <p><?php echo esc_html__('Manage cache per page or blog. Delete cache to retranslate, or warm cache to proactively generate translations.', 'ai-translate'); ?></p>
                 
                 <?php
-                // Handle manual rescan request
-                if (isset($_POST['rescan_cache_meta']) && check_admin_referer('rescan_cache_meta_action', 'rescan_cache_meta_nonce')) {
-                    AI_Cache_Meta::sync_from_filesystem();
-                    $count = AI_Cache_Meta::populate_existing_cache(true);
-                    if ($count > 0) {
-                        echo '<div class="notice notice-success is-dismissible"><p>';
-                        echo safe_sprintf(__('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
+                // Heavy AI_Cache_Meta operations only when Cache tab is active (avoids HTTP 500 on large caches)
+                if ($active_tab === 'cache') {
+                    // Handle manual rescan request
+                    if (isset($_POST['rescan_cache_meta']) && check_admin_referer('rescan_cache_meta_action', 'rescan_cache_meta_nonce')) {
+                        AI_Cache_Meta::sync_from_filesystem();
+                        $count = AI_Cache_Meta::populate_existing_cache(true);
+                        if ($count > 0) {
+                            echo '<div class="notice notice-success is-dismissible"><p>';
+                            echo safe_sprintf(__('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
+                            echo '</p></div>';
+                        } else {
+                        echo '<div class="notice notice-warning is-dismissible"><p>';
+                        echo __('No cache records added. There are currently no cache files available.', 'ai-translate');
                         echo '</p></div>';
-                    } else {
-                    echo '<div class="notice notice-warning is-dismissible"><p>';
-                    echo __('No cache records added. There are currently no cache files available.', 'ai-translate');
-                    echo '</p></div>';
+                        }
                     }
-                }
-                
-                // One-time population of existing cache metadata (if not done yet)
-                $populated = get_option('ai_translate_cache_meta_populated', false);
-                if ($populated === false) {
-                    $count = AI_Cache_Meta::populate_existing_cache();
-                    update_option('ai_translate_cache_meta_populated', true);
-                    if ($count > 0) {
-                        echo '<div class="notice notice-info is-dismissible"><p>';
-                        echo sprintf(__('Cache metadata initialized: %d existing cache records added.', 'ai-translate'), $count);
-                        echo '</p></div>';
+
+                    // One-time population of existing cache metadata (if not done yet)
+                    $populated = get_option('ai_translate_cache_meta_populated', false);
+                    if ($populated === false) {
+                        $count = AI_Cache_Meta::populate_existing_cache();
+                        update_option('ai_translate_cache_meta_populated', true);
+                        if ($count > 0) {
+                            echo '<div class="notice notice-info is-dismissible"><p>';
+                            echo sprintf(__('Cache metadata initialized: %d existing cache records added.', 'ai-translate'), $count);
+                            echo '</p></div>';
+                        }
                     }
+
+                    // Clean up orphaned cache metadata records (cache files that no longer exist)
+                    // Only run cleanup once per hour to avoid performance impact
+                    $last_cleanup = get_transient('ai_translate_cache_meta_last_cleanup');
+                    if ($last_cleanup === false) {
+                        AI_Cache_Meta::sync_from_filesystem();
+                        set_transient('ai_translate_cache_meta_last_cleanup', time(), HOUR_IN_SECONDS);
+                    }
+
+                    // Get posts with cache stats
+                    $paged = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+                    $per_page = 50;
+                    $offset = ($paged - 1) * $per_page;
+
+                    $posts = AI_Cache_Meta::get_posts_with_cache_stats($offset, $per_page);
+                    $total_posts = AI_Cache_Meta::get_total_posts_count();
+                    $total_pages = ceil($total_posts / $per_page);
+
+                    // Check if table is empty but cache files might exist
+                    $cache_meta_count = AI_Cache_Meta::get_total_cache_meta_count();
+                } else {
+                    $posts = [];
+                    $total_posts = 0;
+                    $total_pages = 0;
+                    $paged = 1;
+                    $cache_meta_count = 0;
                 }
-                
-                // Clean up orphaned cache metadata records (cache files that no longer exist)
-                // Only run cleanup once per hour to avoid performance impact
-                $last_cleanup = get_transient('ai_translate_cache_meta_last_cleanup');
-                if ($last_cleanup === false) {
-                    AI_Cache_Meta::sync_from_filesystem();
-                    set_transient('ai_translate_cache_meta_last_cleanup', time(), HOUR_IN_SECONDS);
-                }
-                
-                // Get posts with cache stats
-                $paged = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
-                $per_page = 50;
-                $offset = ($paged - 1) * $per_page;
-                
-                $posts = AI_Cache_Meta::get_posts_with_cache_stats($offset, $per_page);
-                $total_posts = AI_Cache_Meta::get_total_posts_count();
-                $total_pages = ceil($total_posts / $per_page);
-                
-                // Check if table is empty but cache files might exist
-                $cache_meta_count = AI_Cache_Meta::get_total_cache_meta_count();
-                if ($cache_meta_count === 0 && !empty($posts)) {
+
+                if ($active_tab === 'cache' && $cache_meta_count === 0 && !empty($posts)) {
                     // Check if cache directory exists (indicates cache files might exist)
                     $uploads = wp_upload_dir();
                     $cache_dir = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
@@ -2465,7 +2487,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
 
     if (!$provider_key) { // Als provider niet in POST zit, haal uit settings (zonder default)
-        $settings = get_option('ai_translate_settings');
+        $settings = get_option('ai_translate_settings', []);
         $provider_key = $settings['api_provider'] ?? '';
         if (empty($api_key) && $provider_key !== '') { // Als API key ook niet in POST zat, haal uit settings voor de gekozen provider
             $api_keys = $settings['api_keys'] ?? [];
@@ -2482,7 +2504,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         if (isset($_POST['custom_api_url_value'])) {
             $api_url = esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value']))));
         } else {
-            $settings = isset($settings) ? $settings : get_option('ai_translate_settings');
+            $settings = isset($settings) && is_array($settings) ? $settings : get_option('ai_translate_settings', []);
             if (empty($api_url)) {
                 $api_url = esc_url_raw(trim((string) ($settings['custom_api_url'] ?? '')));
             }
@@ -2614,7 +2636,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
 
     // Als provider niet in POST zit, haal uit settings
     if (!$provider_key) {
-        $settings = get_option('ai_translate_settings');
+        $settings = get_option('ai_translate_settings', []);
         $provider_key = $settings['api_provider'] ?? '';
         if ($provider_key !== '') {
             if (empty($api_key)) {

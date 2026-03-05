@@ -941,7 +941,8 @@ final class AI_Translate_Core
         ];
         // Respect admin setting (cache_expiration in hours)
         // Admin validation ensures minimum 14 days, so we respect the setting directly
-        $expiry_hours = (int) (get_option('ai_translate_settings')['cache_expiration'] ?? (14 * 24));
+        $settings = get_option('ai_translate_settings', []);
+        $expiry_hours = (int) (isset($settings['cache_expiration']) ? $settings['cache_expiration'] : (14 * 24));
         $expiry_seconds = $expiry_hours * HOUR_IN_SECONDS;
         $now = time();
         $roots = [];
