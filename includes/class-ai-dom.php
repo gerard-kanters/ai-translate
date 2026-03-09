@@ -502,6 +502,15 @@ final class AI_DOM
         return $result;
     }
 
+    /**
+     * Return true when $node or any of its ancestors should be excluded from translation.
+     * Excludes nodes inside excluded tag names, WordPress admin bar, data-ai-trans-skip elements,
+     * wp-admin/no-translate/notranslate classes, and ACF field wrappers.
+     *
+     * @param \DOMNode $node
+     * @param string[] $exclusions Tag names that block translation (e.g. 'script', 'style').
+     * @return bool
+     */
     private static function isExcluded(\DOMNode $node, array $exclusions)
     {
         for ($n = $node; $n; $n = $n->parentNode) {
@@ -572,6 +581,14 @@ final class AI_DOM
         return $result;
     }
 
+    /**
+     * Replace all direct text-node children of $node with a single new text node.
+     * Non-text child nodes (e.g. inline elements) are left in place.
+     *
+     * @param \DOMNode $node
+     * @param string   $text Replacement text.
+     * @return void
+     */
     private static function replaceNodeText(\DOMNode $node, $text)
     {
         // Remove existing text nodes

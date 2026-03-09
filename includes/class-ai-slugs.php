@@ -575,6 +575,12 @@ final class AI_Slugs
         return null;
     }
 
+    /**
+     * Return the post_name (slug) of a post as stored in the database.
+     *
+     * @param int $post_id
+     * @return string Empty string when the post does not exist.
+     */
     private static function get_source_slug($post_id)
     {
         $post = get_post($post_id);
@@ -583,6 +589,15 @@ final class AI_Slugs
         return (string) $post->post_name;
     }
 
+    /**
+     * Fetch a single slug-map row for the given post and language.
+     * Returns a normalised associative array with at least 'source_slug', 'translated_slug',
+     * and 'source_version' keys regardless of the underlying schema version.
+     *
+     * @param int    $post_id
+     * @param string $lang
+     * @return array<string,mixed>|null Null when no row exists.
+     */
     private static function get_row($post_id, $lang)
     {
         global $wpdb;
@@ -605,6 +620,16 @@ final class AI_Slugs
         return $row;
     }
 
+    /**
+     * Insert or replace a slug-map row. Removes orphaned rows when the source slug has changed.
+     *
+     * @param int    $post_id
+     * @param string $lang            Target language code.
+     * @param string $source_slug     Original (default-language) slug.
+     * @param string $translated_slug Translated slug to store.
+     * @param string $version         MD5 of the source slug used for staleness detection.
+     * @return void
+     */
     private static function upsert_row($post_id, $lang, $source_slug, $translated_slug, $version)
     {
         global $wpdb;
@@ -655,6 +680,11 @@ final class AI_Slugs
         }
     }
 
+    /**
+     * Return the fully-qualified slug-map table name.
+     *
+     * @return string
+     */
     private static function table_name()
     {
         global $wpdb;

@@ -67,6 +67,9 @@ final class AI_OB
     /**
      * Replace the WordPress site_url host with the current request host in cached HTML.
      * Prevents cross-origin AJAX failures when a site is accessed via an alias domain.
+     *
+     * @param string $html
+     * @return string
      */
     private function fix_cached_domain($html)
     {
@@ -406,43 +409,11 @@ final class AI_OB
         if ($stop_translations && !$is_search_page) {
             // Only allow translation if cache exists and is expired (cache invalidation)
             // Block new translations for pages that don't have a cache yet
-            // Use reflection or direct file check to determine if cache exists and is expired
-            $uploads = wp_upload_dir();
-            $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
-            $site_dir = '';
-            if (AI_Translate_Core::is_multi_domain()) {
-                $active_domain = '';
-                if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-                    if (strpos($active_domain, ':') !== false) {
-                        $active_domain = strtok($active_domain, ':');
-                    }
-                }
-                if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-                    $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-                }
-                if (empty($active_domain)) {
-                    $active_domain = 'default';
-                }
-                $site_dir = sanitize_file_name($active_domain);
-                if (empty($site_dir)) {
-                    $site_dir = 'default';
-                }
-            }
-            if (!empty($site_dir)) {
-                $base = trailingslashit($base) . $site_dir . '/';
-            }
-            $parts = explode(':', (string) $key);
-            $lang_part = isset($parts[3]) ? sanitize_key($parts[3]) : 'xx';
-            $dir = $base . $lang_part . '/pages/';
-            $hash = md5($key);
-            $cache_file = $dir . substr($hash, 0, 2) . '/' . $hash . '.html';
-            
+            $cache_file = AI_Cache::get_file_path($key);
             $cache_exists = is_file($cache_file);
             $cache_is_expired = false;
             if ($cache_exists) {
-                $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
-                $expiry_seconds = $expiry_hours * HOUR_IN_SECONDS;
+                $expiry_seconds = AI_Translate_Core::cache_expiration_hours() * HOUR_IN_SECONDS;
                 $mtime = @filemtime($cache_file);
                 if ($mtime) {
                     $age_seconds = time() - (int) $mtime;
@@ -999,8 +970,10 @@ final class AI_OB
     }
 
     /**
-     * PHASE 1: Basic environment checks
-     * Skip processing for admin pages, etc.
+     * PHASE 1: Basic environment checks.
+     * Returns true when the request originates from wp-admin and should not be processed.
+     *
+     * @return bool
      */
     private function should_skip_basic_checks()
     {
@@ -1013,8 +986,11 @@ final class AI_OB
     }
 
     /**
-     * PHASE 2: Content type validation
-     * Skip processing for 404s, attachments, archives, etc.
+     * PHASE 2: Content type validation.
+     * Returns true for 404 pages on the default language, redirect responses, attachments, and archives.
+     *
+     * @param string $html Raw output buffer content used for fallback HTML-based detection.
+     * @return bool
      */
     private function should_skip_content_type($html)
     {
@@ -1047,8 +1023,10 @@ final class AI_OB
     }
 
     /**
-     * PHASE 3: Page structure validation
-     * Ensure we only process appropriate page types
+     * PHASE 3: Page structure validation.
+     * Returns true when the current page is not a singular post/page, search result, front page, or 404.
+     *
+     * @return bool
      */
     private function should_skip_page_structure()
     {
@@ -1066,8 +1044,11 @@ final class AI_OB
     }
 
     /**
-     * PHASE 4: File type checks
-     * Skip XML files, sitemaps, etc.
+     * PHASE 4: File type checks.
+     * Returns true for XML files, sitemap URLs, and responses whose body starts with an XML declaration.
+     *
+     * @param string $html Raw output buffer content.
+     * @return bool
      */
     private function should_skip_file_types($html)
     {
@@ -1095,8 +1076,10 @@ final class AI_OB
     }
 
     /**
-     * PHASE 5: Language and user validation
-     * Handle language settings and user-specific bypasses
+     * PHASE 5: Language and user validation.
+     * Returns true when no translatable language is active or when the request is for the default language.
+     *
+     * @return bool
      */
     private function should_skip_language_or_user()
     {
@@ -1121,7 +1104,11 @@ final class AI_OB
     }
 
     /**
-     * Check if current page is a 404 error page
+     * Check if the current page is a 404 error page.
+     * Uses wp_query first, then falls back to HTML content heuristics.
+     *
+     * @param string $html Raw output buffer content.
+     * @return bool
      */
     private function is_404_page($html)
     {
@@ -1202,7 +1189,9 @@ final class AI_OB
     }
 
     /**
-     * Check if current page is an attachment page
+     * Check if the current page is a media attachment page.
+     *
+     * @return bool
      */
     private function is_attachment_page()
     {
@@ -1231,7 +1220,9 @@ final class AI_OB
 
 
     /**
-     * Check if current page is an archive page
+     * Check if the current page is a taxonomy, author, date, or post-type archive.
+     *
+     * @return bool
      */
     private function is_archive_page()
     {
@@ -1722,6 +1713,11 @@ final class AI_OB
      * Simple heuristic to detect if a text already matches the target language script.
      * For non-Latin targets: accept when Latin char ratio < 0.30.
      * For Latin targets: accept when Latin char ratio >= 0.30 and Cyrillic/Arabic/etc. are minimal.
+     *
+     * @param string $text
+     * @param string $targetLang Target language code.
+     * @param string $sourceLang Source language code.
+     * @return bool
      */
     private function looks_like_target_lang($text, $targetLang, $sourceLang)
     {

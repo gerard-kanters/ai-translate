@@ -158,6 +158,14 @@ final class AI_URL
         return self::rewriteHref($href, $lang, $default);
     }
 
+    /**
+     * Return true when a href value should never be rewritten.
+     * Skips anchors, mailto/tel/javascript schemes, and WordPress system paths
+     * such as /wp-admin/, /wp-content/, wp-login.php, /wp-json/, and admin-ajax.php.
+     *
+     * @param string $href
+     * @return bool
+     */
     private static function isSkippableHref($href)
     {
         $href = ltrim($href);
@@ -399,6 +407,14 @@ final class AI_URL
         return $path . $query . $frag; // relative site-path keeps site portable
     }
 
+    /**
+     * Normalize a URL path to a site-relative path.
+     * Ensures a leading slash and strips the WordPress installation subdirectory prefix when present.
+     *
+     * @param string               $path
+     * @param array<string,string> $homeParts Parsed components of home_url('/').
+     * @return string
+     */
     private static function normalizePath($path, $homeParts)
     {
         if ($path === '') return '/';
@@ -415,6 +431,17 @@ final class AI_URL
         return $path;
     }
 
+    /**
+     * Rewrite a singular post/page href to its translated equivalent using the slug map.
+     * Resolves the source post via url_to_postid() or a direct DB lookup, retrieves or
+     * generates the translated slug, and returns the language-prefixed path.
+     * Returns null when the href is external, unresolvable, or translation is unavailable.
+     *
+     * @param string      $href
+     * @param string      $lang    Target language code.
+     * @param string|null $default Default language code.
+     * @return string|null
+     */
     private static function rewriteSingularWithSlugMap($href, $lang, $default)
     {
         // Only apply when on non-default target language

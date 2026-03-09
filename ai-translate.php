@@ -20,7 +20,9 @@ if (!defined('ABSPATH')) {
 
 
 /**
+ * Load the plugin text domain with locale fallback chain.
  *
+ * @param bool $force_user_locale When true, forces the logged-in user's locale instead of the site locale.
  * @return void
  */
 function ai_translate_load_textdomain($force_user_locale = false)
@@ -236,8 +238,12 @@ function ai_translate_delete_attr_transient($key)
     return $memcached_result;
 }
 
-// Add original-style language-prefixed rewrite rules using 'lang' query var to ensure WP resolves pages via pagename
-// Priority 999: runs AFTER custom post types are registered (default priority 10)
+/**
+ * Register language-prefixed rewrite rules so WordPress can resolve translated URLs via the 'lang' query var.
+ * Runs at priority 999 to ensure custom post types are registered first.
+ *
+ * @return void
+ */
 function ai_translate_register_rewrite_rules()
 {
     $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
