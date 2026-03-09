@@ -47,9 +47,7 @@ final class AI_Cache
 
         // Backward compatibility: in shared-cache mode, older installs may still have
         // files under /cache/{domain}/{lang}/pages/ while current path is /cache/{lang}/pages/.
-        $settings = get_option('ai_translate_settings', []);
-        $multi_domain = !empty($settings['multi_domain_caching']);
-        if (!$multi_domain) {
+        if (!AI_Translate_Core::is_multi_domain()) {
             $parts = explode(':', (string) $key);
             $lang = isset($parts[3]) ? sanitize_key($parts[3]) : '';
             if ($lang !== '') {
@@ -84,9 +82,7 @@ final class AI_Cache
             return false; // File doesn't exist, so not expired
         }
         
-        $settings = get_option('ai_translate_settings', []);
-        $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
-        $expiry_seconds = $expiry_hours * HOUR_IN_SECONDS;
+        $expiry_seconds = AI_Translate_Core::cache_expiration_hours() * HOUR_IN_SECONDS;
         $mtime = @filemtime($file);
         if ($mtime) {
             $age_seconds = time() - (int) $mtime;
@@ -122,9 +118,7 @@ final class AI_Cache
     {
         // Revalidate based on admin setting (cache_expiration in hours)
         // Admin validation ensures minimum 14 days, so we respect the setting directly
-        $settings = get_option('ai_translate_settings', []);
-        $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
-        $expiry_seconds = $expiry_hours * HOUR_IN_SECONDS;
+        $expiry_seconds = AI_Translate_Core::cache_expiration_hours() * HOUR_IN_SECONDS;
         $mtime = @filemtime($file);
         if ($mtime) {
             $age_seconds = time() - (int) $mtime;

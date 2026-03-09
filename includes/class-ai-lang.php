@@ -21,11 +21,9 @@ final class AI_Lang
             return self::$current;
         }
 
-        $settings = get_option('ai_translate_settings', []);
-        $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
-
-        $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_map('strval', $settings['enabled_languages']) : [];
-        $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? array_map('strval', $settings['detectable_languages']) : [];
+        $default = AI_Translate_Core::default_language();
+        $enabled = array_map('strval', AI_Translate_Core::enabled_languages());
+        $detectable = array_map('strval', AI_Translate_Core::detectable_languages());
         // Allow any supported language in URL (not only enabled/detectable)
         $available = [];
         if (class_exists('AITranslate\\AI_Translate_Core')) {
@@ -222,8 +220,7 @@ final class AI_Lang
      */
     public static function default()
     {
-        $settings = get_option('ai_translate_settings', []);
-        $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+        $default = AI_Translate_Core::default_language();
 
         if ($default !== '') {
             return $default;
@@ -232,6 +229,7 @@ final class AI_Lang
         $locale = get_locale();
         $default = substr($locale, 0, 2);
 
+        $settings = AI_Translate_Core::settings();
         if (!is_array($settings)) {
             $settings = [];
         }
@@ -294,8 +292,7 @@ final class AI_Lang
      */
     public static function enabled()
     {
-        $settings = get_option('ai_translate_settings', []);
-        return isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_values(array_unique(array_map('strval', $settings['enabled_languages']))) : [];
+        return array_values(array_unique(array_map('strval', AI_Translate_Core::enabled_languages())));
     }
 
     /**
@@ -305,8 +302,7 @@ final class AI_Lang
      */
     public static function detectable()
     {
-        $settings = get_option('ai_translate_settings', []);
-        return isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? array_values(array_unique(array_map('strval', $settings['detectable_languages']))) : [];
+        return array_values(array_unique(array_map('strval', AI_Translate_Core::detectable_languages())));
     }
 }
 

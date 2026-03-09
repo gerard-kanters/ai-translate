@@ -457,9 +457,8 @@ final class AI_SEO
      */
     private static function generateHreflangTags($lang, $default)
     {
-        $settings = get_option('ai_translate_settings', []);
-        $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : [];
-        $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : [];
+        $enabled = AI_Translate_Core::enabled_languages();
+        $detectable = AI_Translate_Core::detectable_languages();
         $langs = array_values(array_unique(array_merge($enabled, $detectable)));
         if (is_string($default) && $default !== '' && !in_array($default, $langs, true)) {
             $langs[] = $default;
@@ -619,9 +618,8 @@ final class AI_SEO
             }
         }
 
-        $settings = get_option('ai_translate_settings', []);
-        $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : [];
-        $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : [];
+        $enabled = AI_Translate_Core::enabled_languages();
+        $detectable = AI_Translate_Core::detectable_languages();
         $langs = array_values(array_unique(array_merge($enabled, $detectable)));
         if (is_string($default) && $default !== '' && !in_array($default, $langs, true)) {
             $langs[] = $default;

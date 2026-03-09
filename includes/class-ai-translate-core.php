@@ -39,6 +39,73 @@ final class AI_Translate_Core
     }
 
     /**
+     * Get a single setting value from the cached settings array.
+     *
+     * @param string $key
+     * @param mixed  $default
+     * @return mixed
+     */
+    public static function get_setting(string $key, $default = null)
+    {
+        $s = self::settings();
+        return isset($s[$key]) ? $s[$key] : $default;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function enabled_languages(): array
+    {
+        $v = self::settings()['enabled_languages'] ?? [];
+        return is_array($v) ? array_values($v) : [];
+    }
+
+    /**
+     * @return string
+     */
+    public static function default_language(): string
+    {
+        return (string) (self::settings()['default_language'] ?? '');
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function detectable_languages(): array
+    {
+        $v = self::settings()['detectable_languages'] ?? [];
+        return is_array($v) ? array_values($v) : [];
+    }
+
+    /**
+     * @return bool
+     */
+    public static function is_multi_domain(): bool
+    {
+        return !empty(self::settings()['multi_domain_caching']);
+    }
+
+    /**
+     * Cache expiration in hours. Minimum value is 14 days (336 h).
+     *
+     * @return int
+     */
+    public static function cache_expiration_hours(): int
+    {
+        return (int) (self::settings()['cache_expiration'] ?? (14 * 24));
+    }
+
+    /**
+     * Language switcher position.
+     *
+     * @return string
+     */
+    public static function switcher_position(): string
+    {
+        return (string) (self::settings()['switcher_position'] ?? 'bottom-left');
+    }
+
+    /**
      * Resolve the active domain from the current HTTP request.
      * Falls back to SERVER_NAME and home_url() host.
      *
@@ -941,8 +1008,7 @@ final class AI_Translate_Core
         ];
         // Respect admin setting (cache_expiration in hours)
         // Admin validation ensures minimum 14 days, so we respect the setting directly
-        $settings = get_option('ai_translate_settings', []);
-        $expiry_hours = (int) (isset($settings['cache_expiration']) ? $settings['cache_expiration'] : (14 * 24));
+        $expiry_hours = self::cache_expiration_hours();
         $expiry_seconds = $expiry_hours * HOUR_IN_SECONDS;
         $now = time();
         $roots = [];
@@ -1142,7 +1208,7 @@ final class AI_Translate_Core
     public function generate_website_context_suggestion($domain = '')
     {
         // 1. Get settings
-        $settings = get_option('ai_translate_settings', []);
+        $settings = self::settings();
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
         $model = $provider !== '' ? ($models[$provider] ?? '') : '';
@@ -1291,7 +1357,7 @@ final class AI_Translate_Core
     public function generate_homepage_meta_description($domain = '')
     {
         // 1. Get settings
-        $settings = get_option('ai_translate_settings', []);
+        $settings = self::settings();
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
         $model = $provider !== '' ? ($models[$provider] ?? '') : '';

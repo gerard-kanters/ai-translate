@@ -240,10 +240,9 @@ function ai_translate_delete_attr_transient($key)
 // Priority 999: runs AFTER custom post types are registered (default priority 10)
 function ai_translate_register_rewrite_rules()
 {
-    $settings = get_option('ai_translate_settings', array());
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
-    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
-    $default = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
+    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
+    $detectable = \AITranslate\AI_Translate_Core::detectable_languages();
+    $default = \AITranslate\AI_Translate_Core::default_language();
     $langs = array_values(array_unique(array_merge($enabled, $detectable)));
     if ($default !== '') {
         $langs = array_diff($langs, array($default));
@@ -967,8 +966,7 @@ add_action('wp_enqueue_scripts', function () {
         return;
     }
     
-    $settings = get_option('ai_translate_settings', array());
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
+    $position = \AITranslate\AI_Translate_Core::switcher_position();
     
     // Only enqueue switcher assets for nav menu positions (not floating positions)
     if ($position === 'nav-start' || $position === 'nav-end') {
@@ -1040,16 +1038,15 @@ function ai_translate_get_nav_switcher_html() {
         return '';
     }
     
-    $settings = get_option('ai_translate_settings', array());
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'none';
+    $position = \AITranslate\AI_Translate_Core::switcher_position();
     
     // Only generate if nav-start or nav-end is selected
     if ($position !== 'nav-start' && $position !== 'nav-end') {
         return '';
     }
     
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_values($settings['enabled_languages']) : array();
-    $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
+    $default = \AITranslate\AI_Translate_Core::default_language();
     if ($default !== '' && !in_array($default, $enabled, true)) {
         $enabled[] = $default;
     }
@@ -1118,9 +1115,8 @@ function ai_translate_get_nav_switcher_html() {
  * Minimal server-side language switcher (no JS): renders links to current path in other languages.
  */
 add_action('wp_footer', function () {
-    $settings = get_option('ai_translate_settings', array());
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? array_values($settings['enabled_languages']) : array();
-    $default = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
+    $default = \AITranslate\AI_Translate_Core::default_language();
     if ($default !== '' && !in_array($default, $enabled, true)) {
         $enabled[] = $default;
     }
@@ -1143,7 +1139,7 @@ add_action('wp_footer', function () {
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
     // Get switcher position from settings (default: bottom-left)
-    $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+    $position = \AITranslate\AI_Translate_Core::switcher_position();
     $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right', 'none');
     if (!in_array($position, $valid_positions, true)) {
         $position = 'bottom-left';
@@ -1228,70 +1224,6 @@ function cS(r){function n(t){return t?t.trim().replace(/\s+/g," "):""}var s=new 
 document.addEventListener("DOMContentLoaded",function(){var checkPage=function(){if(document.readyState==="complete"){setTimeout(function(){tA(document);},1500);}else{setTimeout(checkPage,100);}};checkPage();var moT=null,sel="input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text";if(typeof MutationObserver!=="undefined"&&gL()){var mo=new MutationObserver(function(muts){for(var f=false,i=0;i<muts.length&&!f;i++){var a=muts[i].addedNodes;for(var j=0;j<a.length&&!f;j++){var n=a[j];if(n.nodeType===1){if(n.matches&&n.matches(sel))f=true;else if(n.querySelector&&n.querySelector(sel))f=true;}}}if(f){clearTimeout(moT);moT=setTimeout(function(){tA(document);},500);}});mo.observe(document.body||document.documentElement,{childList:true,subtree:true});}});
 })();</script>';
 });
-
-/**
- * Ensure rewrite rules contain our language prefix rules; flush once if missing.
- * Also verifies that all configured languages are present in rewrite rules.
- */
-add_action('init', function () {
-    if (is_admin()) {
-        return;
-    }
-    
-    $rules = get_option('rewrite_rules');
-    $has_lang_rule = false;
-    if (is_array($rules)) {
-        foreach ($rules as $regex => $target) {
-            if (is_string($target) && (strpos($target, 'ai_lang=') !== false || strpos($target, 'lang=') !== false)) {
-                $has_lang_rule = true;
-                break;
-            }
-        }
-    }
-    
-    // Verify that all configured languages are in rewrite rules
-    // This check runs on every request (not cached) to catch language changes immediately
-    $settings = get_option('ai_translate_settings', array());
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
-    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
-    $default = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
-    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
-    if ($default !== '') {
-        $langs = array_diff($langs, array($default));
-    }
-    $langs = array_filter(array_map('sanitize_key', $langs));
-    
-    // Check if rewrite rules contain all languages
-    $rules_need_flush = false;
-    if (!empty($langs) && is_array($rules)) {
-        // Find a rewrite rule that should contain our languages
-        foreach ($rules as $regex => $target) {
-            if (is_string($target) && strpos($target, 'lang=') !== false) {
-                // Extract language codes from regex pattern: ^(lang1|lang2|lang3|...)
-                if (preg_match('/^\^\(([^)]+)\)/', $regex, $matches)) {
-                    $rule_langs = array_map('trim', explode('|', $matches[1]));
-                    // Check if any configured language is missing from rewrite rules
-                    $missing = array_diff($langs, $rule_langs);
-                    if (!empty($missing)) {
-                        $rules_need_flush = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    
-    // Only check basic rule existence once per day (performance optimization)
-    // But always check language completeness (catches new languages immediately)
-    if ($rules_need_flush) {
-        flush_rewrite_rules(false);
-    } elseif (!$has_lang_rule) {
-        if (!get_transient('ai_translate_rules_checked')) {
-            set_transient('ai_translate_rules_checked', 1, DAY_IN_SECONDS);
-            flush_rewrite_rules(false);
-        }
-    }
-}, 99);
 /**
  * REST endpoint for dynamic UI attribute translation.
  */
@@ -1428,15 +1360,13 @@ add_action('rest_api_init', function () {
                 }
                 return new \WP_REST_Response(['success' => true, 'data' => ['map' => $map]], 200);
             }
-            $settings = get_option('ai_translate_settings', array());
-            $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
-            $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
+            $expiry = max(1, \AITranslate\AI_Translate_Core::cache_expiration_hours()) * HOUR_IN_SECONDS;
             
             // Check if translations are stopped (except for cache invalidation)
             // For batch-strings, we block ALL new translations when stop_translations is enabled
             // This is different from page translations where we allow cache invalidation
             // Batch-strings are UI attributes that should not be translated if stop_translations is enabled
-            $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
+            $stop_translations = (bool) \AITranslate\AI_Translate_Core::get_setting('stop_translations_except_cache_invalidation', false);
             // Bots get cached translations but no API calls (same as stop_translations)
             $skip_api = $stop_translations || $is_bot_request;
             
@@ -2201,9 +2131,8 @@ add_action('save_post', function ($post_id, $post, $update) {
     $processing = true;
     update_post_meta($post_id, '_ai_translate_original_slug', $current_slug);
     $default = \AITranslate\AI_Lang::default();
-    $settings = get_option('ai_translate_settings', array());
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
-    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
+    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
+    $detectable = \AITranslate\AI_Translate_Core::detectable_languages();
     $core = \AITranslate\AI_Translate_Core::get_instance();
     $available = array_keys($core->get_available_languages());
     $langs = array_values(array_unique(array_merge($enabled, $detectable, $available)));
@@ -2257,14 +2186,13 @@ add_action('init', function () {
     if (is_admin()) {
         return;
     }
-    $settings = get_option('ai_translate_settings', array());
     $default = \AITranslate\AI_Lang::default();
     if ($default === null) {
         update_option('ai_translate_slug_warmup_done', 1);
         return;
     }
-    $enabled = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ? $settings['enabled_languages'] : array();
-    $detectable = isset($settings['detectable_languages']) && is_array($settings['detectable_languages']) ? $settings['detectable_languages'] : array();
+    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
+    $detectable = \AITranslate\AI_Translate_Core::detectable_languages();
     $langs = array_values(array_unique(array_merge($enabled, $detectable)));
     if (empty($langs)) {
         update_option('ai_translate_slug_warmup_done', 1);
@@ -2562,9 +2490,8 @@ add_action('pre_get_posts', function ($query) {
     }
     set_transient($rate_key, $rate_count + 1, 60);
 
-    $settings = get_option('ai_translate_settings', array());
     $ctx = array(
-        'website_context' => isset($settings['website_context']) ? (string) $settings['website_context'] : '',
+        'website_context' => (string) \AITranslate\AI_Translate_Core::get_setting('website_context', ''),
     );
     $plan = array('segments' => array(
         array('id' => 'q1', 'text' => $original, 'type' => 'meta'),
@@ -2626,10 +2553,8 @@ add_action('admin_notices', function () {
  */
 function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = true, $show_codes = true, $class = '') {
     // Get plugin settings
-    $settings = get_option('ai_translate_settings', array());
-    $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
-        array_values($settings['enabled_languages']) : array();
-    $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    $enabled_languages = \AITranslate\AI_Translate_Core::enabled_languages();
+    $default_language = \AITranslate\AI_Translate_Core::default_language();
     if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
         $enabled_languages[] = $default_language;
     }
@@ -2822,8 +2747,7 @@ add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $
     ?>
     <?php
     if ($is_language_switcher === '1') {
-        $settings = get_option('ai_translate_settings', array());
-        $sw_position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+        $sw_position = \AITranslate\AI_Translate_Core::switcher_position();
         if ($sw_position !== 'none') {
             $settings_url = admin_url('admin.php?page=ai-translate');
             ?>
@@ -3027,10 +2951,8 @@ add_shortcode('ai_menu_language_switcher', function($atts) {
         'show_codes' => 'true',
     ), $atts);
 
-    $settings = get_option('ai_translate_settings', array());
-    $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
-        array_values($settings['enabled_languages']) : array();
-    $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    $enabled_languages = \AITranslate\AI_Translate_Core::enabled_languages();
+    $default_language = \AITranslate\AI_Translate_Core::default_language();
     if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
         $enabled_languages[] = $default_language;
     }
@@ -3171,10 +3093,8 @@ add_filter('wp_nav_menu_args', function($args) {
 // Add JavaScript to replace language switcher menu items on frontend
 add_action('wp_footer', function() {
     // Only run if we have language switcher menu items
-    $settings = get_option('ai_translate_settings', array());
-    $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
-        array_values($settings['enabled_languages']) : array();
-    $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+    $enabled_languages = \AITranslate\AI_Translate_Core::enabled_languages();
+    $default_language = \AITranslate\AI_Translate_Core::default_language();
     if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
         $enabled_languages[] = $default_language;
     }
@@ -3368,10 +3288,8 @@ add_filter('walker_nav_menu_start_el', function($item_output, $item, $depth, $ar
         return $item_output;
     }
 
-    $settings       = get_option('ai_translate_settings', array());
-    $enabled_langs  = isset($settings['enabled_languages']) && is_array($settings['enabled_languages'])
-        ? array_values($settings['enabled_languages']) : array();
-    $default_lang   = isset($settings['default_language']) ? (string) $settings['default_language'] : '';
+    $enabled_langs = \AITranslate\AI_Translate_Core::enabled_languages();
+    $default_lang  = \AITranslate\AI_Translate_Core::default_language();
     if ($default_lang !== '' && !in_array($default_lang, $enabled_langs, true)) {
         $enabled_langs[] = $default_lang;
     }
@@ -3430,8 +3348,7 @@ class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
 
     public function start_el(&$output, $item, $depth = 0, $args = null, $id = 0) {
         if ($this->is_switcher_item($item)) {
-            $settings = get_option('ai_translate_settings', array());
-            $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
+            $position = \AITranslate\AI_Translate_Core::switcher_position();
             if ($position !== 'none') {
                 $this->skip_item_id = $item->ID;
                 return;
@@ -3456,10 +3373,8 @@ class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
      */
     private function render_language_switcher_menu_item(&$output, $item, $depth, $args, $id) {
         // Get plugin settings
-        $settings = get_option('ai_translate_settings', array());
-        $enabled_languages = isset($settings['enabled_languages']) && is_array($settings['enabled_languages']) ?
-            array_values($settings['enabled_languages']) : array();
-        $default_language = isset($settings['default_language']) ? (string)$settings['default_language'] : '';
+        $enabled_languages = \AITranslate\AI_Translate_Core::enabled_languages();
+        $default_language = \AITranslate\AI_Translate_Core::default_language();
         if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
             $enabled_languages[] = $default_language;
         }

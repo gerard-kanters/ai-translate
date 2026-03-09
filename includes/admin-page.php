@@ -841,7 +841,7 @@ function ajax_generate_website_context()
     
     // Als domain niet is meegestuurd maar multi-domain caching aan staat, bepaal actieve domain
     if (empty($requested_domain)) {
-        $settings = get_option('ai_translate_settings', []);
+        $settings = AI_Translate_Core::settings();
         $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
         if ($multi_domain) {
             // Bepaal actieve domain op dezelfde manier als in de UI
@@ -907,7 +907,7 @@ function ajax_generate_homepage_meta()
     
     // Als domain niet is meegestuurd maar multi-domain caching aan staat, bepaal actieve domain
     if (empty($requested_domain)) {
-        $settings = get_option('ai_translate_settings', []);
+        $settings = AI_Translate_Core::settings();
         $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
         if ($multi_domain) {
             // Bepaal actieve domain op dezelfde manier als in de UI
@@ -1013,7 +1013,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
     );
 
     // Localize script with data needed by JavaScript
-    $settings = get_option('ai_translate_settings', []);
+    $settings = AI_Translate_Core::settings();
     wp_localize_script('ai-translate-admin-js', 'aiTranslateAdmin', array(
         'adminUrl' => esc_url(admin_url('admin.php?page=ai-translate')),
         'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -1077,7 +1077,7 @@ add_action('admin_init', function () {
     register_setting('ai_translate', 'ai_translate_settings', [
         'sanitize_callback' => function ($input) {
             // Start from existing settings to avoid accidental defaults.
-            $current_settings = get_option('ai_translate_settings', []);
+            $current_settings = AI_Translate_Core::settings();
             $sanitized = is_array($current_settings) ? $current_settings : [];
 
             // Detecteer of dit een volledige formulier-submit is (niet AJAX)
@@ -1380,7 +1380,7 @@ add_action('admin_init', function () {
         'api_provider',
         __('API Provider', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $providers = AI_Translate_Core::get_api_providers();
 
@@ -1425,7 +1425,7 @@ add_action('admin_init', function () {
         'api_key',
         __('API Key', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             // Haal de API-sleutel op uit de nieuwe 'api_keys' array
             $api_keys = $settings['api_keys'] ?? [];
@@ -1440,7 +1440,7 @@ add_action('admin_init', function () {
         'selected_model',
         __('Translation Model', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $models = isset($settings['models']) ? $settings['models'] : [];
             $selected_model = $current_provider !== '' ? ($models[$current_provider] ?? '') : '';
@@ -1478,7 +1478,7 @@ add_action('admin_init', function () {
         'default_language',
         __('Default Language', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $value = isset($settings['default_language']) ? $settings['default_language'] : '';
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Get all available languages
@@ -1500,7 +1500,7 @@ add_action('admin_init', function () {
         'enabled_languages',
         __('Enabled Languages (in Switcher)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $enabled = isset($settings['enabled_languages']) ? (array)$settings['enabled_languages'] : [];
             $core = AI_Translate_Core::get_instance();
             $languages = $core->get_available_languages(); // Use all available languages
@@ -1557,7 +1557,7 @@ add_action('admin_init', function () {
         'detectable_languages',
         __('Detectable Languages (Auto-Translate)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $detected_enabled = isset($settings['detectable_languages']) ? (array)$settings['detectable_languages'] : [];
 
             $core = AI_Translate_Core::get_instance();
@@ -1622,7 +1622,7 @@ add_action('admin_init', function () {
         'switcher_position',
         __('Language Switcher Position', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $position = isset($settings['switcher_position']) ? $settings['switcher_position'] : 'bottom-left';
             $positions = array(
                 'bottom-left' => __('Bottom Left Corner', 'ai-translate'),
@@ -1657,7 +1657,7 @@ add_action('admin_init', function () {
         'cache_expiration',
         __('Cache Duration (days)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $raw = $settings['cache_expiration'] ?? null;
             $days = 14;
 
@@ -1686,7 +1686,7 @@ add_action('admin_init', function () {
         'keep_slugs_in_english',
         __('Keep URL Slugs in English', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $value = isset($settings['keep_slugs_in_english']) ? (bool)$settings['keep_slugs_in_english'] : false;
             echo '<input type="checkbox" name="ai_translate_settings[keep_slugs_in_english]" value="1" ' . checked($value, true, false) . '> ';
             echo '<label>' . esc_html__('Keep URL slugs in English instead of translating them to target languages', 'ai-translate') . '</label>';
@@ -1699,7 +1699,7 @@ add_action('admin_init', function () {
         'auto_clear_pages_on_menu_update',
         __('Auto-Clear Pages on Menu Update', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $raw = $settings['auto_clear_pages_on_menu_update'] ?? true;
             $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
@@ -1724,7 +1724,7 @@ add_action('admin_init', function () {
         'multi_domain_caching',
         __('Multi-Domain Caching', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $raw = $settings['multi_domain_caching'] ?? false;
             $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
@@ -1742,7 +1742,7 @@ add_action('admin_init', function () {
         'stop_translations_except_cache_invalidation',
         __('Stop translations (except cache invalidation)', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $raw = $settings['stop_translations_except_cache_invalidation'] ?? false;
             $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
             echo '<label>';
@@ -1770,7 +1770,7 @@ add_action('admin_init', function () {
         'homepage_meta_description',
         __('Homepage Meta Description', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
             
             // Determine active domain
@@ -1821,7 +1821,7 @@ add_action('admin_init', function () {
         'website_context',
         __('Website Context', 'ai-translate'),
         function () {
-            $settings = get_option('ai_translate_settings', []);
+            $settings = AI_Translate_Core::settings();
             $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
             
             // Determine active domain
@@ -2137,7 +2137,7 @@ function render_admin_page()
                     <h4><?php echo esc_html__('Cache overview per language', 'ai-translate'); ?></h4>
                     <?php
                     // Show cache directory info
-                    $settings = get_option('ai_translate_settings', []);
+                    $settings = AI_Translate_Core::settings();
                     $multi_domain = isset($settings['multi_domain_caching']) ? (bool) $settings['multi_domain_caching'] : false;
                     if ($multi_domain) {
                         // Use the active domain from HTTP_HOST (the domain the user is actually visiting)
@@ -2488,7 +2488,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
 
     if (!$provider_key) { // Als provider niet in POST zit, haal uit settings (zonder default)
-        $settings = get_option('ai_translate_settings', []);
+        $settings = AI_Translate_Core::settings();
         $provider_key = $settings['api_provider'] ?? '';
         if (empty($api_key) && $provider_key !== '') { // Als API key ook niet in POST zat, haal uit settings voor de gekozen provider
             $api_keys = $settings['api_keys'] ?? [];
@@ -2505,7 +2505,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         if (isset($_POST['custom_api_url_value'])) {
             $api_url = esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value']))));
         } else {
-            $settings = isset($settings) && is_array($settings) ? $settings : get_option('ai_translate_settings', []);
+            $settings = isset($settings) && is_array($settings) ? $settings : AI_Translate_Core::settings();
             if (empty($api_url)) {
                 $api_url = esc_url_raw(trim((string) ($settings['custom_api_url'] ?? '')));
             }
@@ -2617,7 +2617,7 @@ add_action('wp_ajax_ai_translate_get_custom_url', function () {
         wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
     }
 
-    $settings = get_option('ai_translate_settings', []);
+    $settings = AI_Translate_Core::settings();
     wp_send_json_success(['settings' => $settings]);
 });
 
@@ -2637,7 +2637,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
 
     // Als provider niet in POST zit, haal uit settings
     if (!$provider_key) {
-        $settings = get_option('ai_translate_settings', []);
+        $settings = AI_Translate_Core::settings();
         $provider_key = $settings['api_provider'] ?? '';
         if ($provider_key !== '') {
             if (empty($api_key)) {
@@ -2669,7 +2669,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
             // Zorg dat we de meest recente settings uit de database lezen
             wp_cache_delete('ai_translate_settings', 'options');
             wp_cache_delete('alloptions', 'options');
-            $current_settings = get_option('ai_translate_settings', []);
+            $current_settings = AI_Translate_Core::settings();
             if (!is_array($current_settings)) {
                 $current_settings = [];
             }
@@ -2859,7 +2859,7 @@ add_action('wp_ajax_ai_translate_update_language_settings', function () {
     $values = isset($_POST[$field_name]) ? (array)$_POST[$field_name] : [];
     $values = array_map('sanitize_text_field', $values);
 
-    $settings = get_option('ai_translate_settings', []);
+    $settings = AI_Translate_Core::settings();
     $settings[$field_name] = $values;
     update_option('ai_translate_settings', $settings);
 

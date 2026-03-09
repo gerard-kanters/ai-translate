@@ -164,13 +164,14 @@ final class AI_Slugs
         }
         
         // Fuzzy fallback: handle truncated prefixes (e.g., 'kketten' vs 'pakketten')
-        // Only match if translated_slug is a prefix of the requested slug (truncated prefix case)
-        // This prevents matching "学生音乐会" when requesting "学生音乐会3"
-        // We need to check all translated slugs and see if any is a prefix of the requested slug
-        // Prefer the longest matching prefix (most specific match)
+        // Only match if translated_slug is a prefix of the requested slug (truncated prefix case).
+        // A valid prefix is strictly shorter than the requested slug, so filter by CHAR_LENGTH upfront.
+        // This avoids fetching the entire language partition — only prefix candidates are returned.
+        $slug_char_len = mb_strlen($slug);
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, {$colTrans} FROM {$table} WHERE {$colLang} = %s ORDER BY LENGTH({$colTrans}) DESC",
-            $lang
+            "SELECT post_id, {$colTrans} FROM {$table} WHERE {$colLang} = %s AND CHAR_LENGTH({$colTrans}) < %d ORDER BY CHAR_LENGTH({$colTrans}) DESC LIMIT 100",
+            $lang,
+            $slug_char_len
         ), ARRAY_A);
         $best_match = null;
         $best_match_length = 0;
@@ -412,8 +413,7 @@ final class AI_Slugs
         $plan = [
             'segments' => [ ['id' => 'slug', 'text' => $source_slug, 'type' => 'meta'] ],
         ];
-        $settings = get_option('ai_translate_settings', []);
-        $keep_slugs_english = isset($settings['keep_slugs_in_english']) ? (bool) $settings['keep_slugs_in_english'] : false;
+        $keep_slugs_english = (bool) AI_Translate_Core::get_setting('keep_slugs_in_english', false);
 
         // If slugs should be kept in English, return source slug directly
         if ($keep_slugs_english) {

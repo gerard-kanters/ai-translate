@@ -276,9 +276,7 @@ final class AI_OB
         }
 
         // Get user cache bypass setting (already determined in PHASE 5)
-        $settings = get_option('ai_translate_settings', array());
-        $stopTranslations = isset($settings['stop_translations_except_cache_invalidation']) &&
-                           $settings['stop_translations_except_cache_invalidation'];
+        $stopTranslations = (bool) AI_Translate_Core::get_setting('stop_translations_except_cache_invalidation', false);
 
         // PERFORMANCE FIX: Disable cache bypass completely for all users
         // This ensures optimal performance for everyone, including admins
@@ -403,9 +401,8 @@ final class AI_OB
 
         // Check if translations are stopped (except for cache invalidation)
         // Exception: search pages should always be translated even if stop_translations is enabled
-        $settings = get_option('ai_translate_settings', []);
         $is_search_page = function_exists('is_search') && is_search();
-        $stop_translations = isset($settings['stop_translations_except_cache_invalidation']) ? (bool) $settings['stop_translations_except_cache_invalidation'] : false;
+        $stop_translations = (bool) AI_Translate_Core::get_setting('stop_translations_except_cache_invalidation', false);
         if ($stop_translations && !$is_search_page) {
             // Only allow translation if cache exists and is expired (cache invalidation)
             // Block new translations for pages that don't have a cache yet
@@ -413,7 +410,7 @@ final class AI_OB
             $uploads = wp_upload_dir();
             $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
             $site_dir = '';
-            if (isset($settings['multi_domain_caching']) && (bool) $settings['multi_domain_caching']) {
+            if (AI_Translate_Core::is_multi_domain()) {
                 $active_domain = '';
                 if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
                     $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
