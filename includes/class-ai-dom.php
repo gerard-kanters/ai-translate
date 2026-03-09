@@ -102,21 +102,6 @@ final class AI_DOM
                             }
                         }
                     }
-                    // Include aria-labels on anchors and buttons explicitly
-                    if (in_array(strtolower($node->tagName), ['a','button'], true)) {
-                        foreach (['aria-label','title'] as $extra) {
-                            if ($node->hasAttribute($extra)) {
-                                $val = trim($node->getAttribute($extra));
-                                if ($val !== '') {
-                                    // Normalize: replace multiple spaces with single space (matches JavaScript behavior)
-                                    $normalized = preg_replace('/\s+/u', ' ', $val);
-                                    $id = 'a' . (++$counter);
-                                    $segments[] = ['id' => $id, 'text' => $normalized, 'type' => 'attr', 'attr' => $extra];
-                                    $nodeIndex[$id] = $node;
-                                }
-                            }
-                        }
-                    }
                     foreach ($attrNames as $an) {
                         if ($node->hasAttribute($an)) {
                             $val = trim($node->getAttribute($an));

@@ -69,11 +69,11 @@ final class AI_Slugs
             return;
         }
 
-        // Get existing indexes
+        // Get existing indexes – column 2 of SHOW INDEX is Key_name
         $existing_indexes_result = $wpdb->get_col($wpdb->prepare(
             "SHOW INDEX FROM %i WHERE Key_name != 'PRIMARY'",
             $table
-        ));
+        ), 2);
 
         $indexes_to_check = [
             'lang_slug',
@@ -144,7 +144,7 @@ final class AI_Slugs
         $rows_encoded = $wpdb->get_results($wpdb->prepare(
             "SELECT post_id, {$colTrans} FROM {$table} WHERE {$colLang} = %s AND {$colTrans} LIKE %s",
             $lang,
-            '%' . $wpdb->esc_like('%', '\\') . '%'
+            '%' . $wpdb->esc_like('%') . '%'
         ), ARRAY_A);
         if (is_array($rows_encoded)) {
             foreach ($rows_encoded as $row) {
@@ -243,7 +243,7 @@ final class AI_Slugs
         if ($slug_normalized !== $slug && !mb_check_encoding($slug_normalized, 'UTF-8')) {
             $slug_normalized = $slug;
         }
-        $encoded_like = '%' . $wpdb->esc_like('%', '\\') . '%';
+        $encoded_like = '%' . $wpdb->esc_like('%') . '%';
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT post_id, translated_slug FROM {$table} WHERE {$colLang} = %s AND translated_slug LIKE %s",
             $lang,
@@ -336,7 +336,7 @@ final class AI_Slugs
         if ($source) return (string) $source;
 
         // Fallback: match URL-encoded stored slug (e.g. Hungarian)
-        $encoded_like = '%' . $wpdb->esc_like('%', '\\') . '%';
+        $encoded_like = '%' . $wpdb->esc_like('%') . '%';
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT post_id, {$colSource}, translated_slug FROM {$table} WHERE translated_slug LIKE %s",
             $encoded_like
@@ -538,7 +538,7 @@ final class AI_Slugs
             if ($slug_norm !== $translated_slug && !mb_check_encoding($slug_norm, 'UTF-8')) {
                 $slug_norm = $translated_slug;
             }
-            $encoded_like = '%' . $wpdb->esc_like('%', '\\') . '%';
+            $encoded_like = '%' . $wpdb->esc_like('%') . '%';
             $rows_enc = $wpdb->get_results($wpdb->prepare(
                 "SELECT post_id, translated_slug FROM {$table} WHERE {$colLang} = %s AND translated_slug LIKE %s",
                 $lang,

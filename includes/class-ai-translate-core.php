@@ -1213,16 +1213,7 @@ final class AI_Translate_Core
                 ];
                 
                 if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
-                    // Use the domain-specific URL if provided
-                    if (!empty($domain)) {
-                        $protocol = is_ssl() ? 'https' : 'http';
-                        if (isset($_SERVER['REQUEST_SCHEME'])) {
-                            $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
-                        }
-                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-                    } else {
-                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-                    }
+                    $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
                     $headers['X-Title'] = 'AI Translate';
                 }
 
@@ -1397,16 +1388,7 @@ final class AI_Translate_Core
                 ];
                 
                 if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
-                    // Use the domain-specific URL if provided
-                    if (!empty($domain)) {
-                        $protocol = is_ssl() ? 'https' : 'http';
-                        if (isset($_SERVER['REQUEST_SCHEME'])) {
-                            $protocol = sanitize_text_field(wp_unslash($_SERVER['REQUEST_SCHEME']));
-                        }
-                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-                    } else {
-                        $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-                    }
+                    $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
                     $headers['X-Title'] = 'AI Translate';
                 }
 

@@ -86,7 +86,7 @@ final class AI_URL
                 if ($href === '' || self::isSkippableHref($href)) {
                     continue;
                 }
-                
+
                 $isLogo = self::isLogoLink($a);
                 $new = self::rewriteHref($href, $lang, $default, $isLogo);
                 if ($new !== null) {
@@ -95,10 +95,10 @@ final class AI_URL
             }
         }
 
-        // Rewrite singular permalinks using slug map when possible
-        $permalinks = $xpath->query('//a[@href]');
-        if ($permalinks) {
-            foreach ($permalinks as $a) {
+        // Second pass: translate slugs via slug map + handle blog pagination rewrites.
+        // Reuses the same DOMNodeList (live, reflects href changes made in the first pass).
+        if ($links) {
+            foreach ($links as $a) {
                 /** @var \DOMElement $a */
                 if (self::hasSkipFlag($a)) {
                     continue;

@@ -84,7 +84,8 @@ function ajax_clear_cache_language()
     // Clear the cache for this language
     $translator = AI_Translate_Core::get_instance();
     try {
-        $count = $translator->clear_cache_for_language($lang_code);
+        $result = $translator->clear_cache_for_language($lang_code);
+        $count  = isset($result['count']) ? (int) $result['count'] : 0;
         wp_send_json_success([
             'message' => safe_sprintf(__('Cache for language "%s" cleared. %d files removed.', 'ai-translate'), $lang_code, $count),
             'count' => $count

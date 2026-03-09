@@ -45,91 +45,14 @@ final class AI_OB
 
 
         if ($should_show_admin_bar && !$has_admin_bar) {
-            // Admin should see admin bar but it's not in cached content
-            // Add simple admin bar HTML
+            // Admin should see admin bar but it's not in cached content – add it.
             $admin_bar_html = $this->get_simple_admin_bar_html();
             $html = preg_replace('/(<body[^>]*>)/', '$1' . $admin_bar_html, $html, 1);
         } elseif (!$should_show_admin_bar && $has_admin_bar) {
-            // Regular user should NOT see admin bar but it's in cached content
-            // Remove admin bar robustly via DOM (regex breaks on nested toolbar markup).
-            $doc = new \DOMDocument();
-            $internalErrors = libxml_use_internal_errors(true);
-            $htmlToLoad = AI_DOM::ensureUtf8((string) $html);
-            $doc->loadHTML('<?xml encoding="utf-8" ?>' . $htmlToLoad, LIBXML_HTML_NODEFDTD);
-            libxml_clear_errors();
-            libxml_use_internal_errors($internalErrors);
-
-            $xpath = new \DOMXPath($doc);
-            $adminNodes = $xpath->query('//*[@id="wpadminbar" or @id="wp-toolbar"]');
-            if ($adminNodes !== false) {
-                foreach ($adminNodes as $adminNode) {
-                    if ($adminNode->parentNode) {
-                        $adminNode->parentNode->removeChild($adminNode);
-                    }
-                }
-            }
-
-            // Remove inline adminbar style blocks from old cached variants.
-            $styleNodes = $xpath->query('//style');
-            if ($styleNodes !== false) {
-                foreach ($styleNodes as $styleNode) {
-                    $styleText = strtolower((string) $styleNode->textContent);
-                    if (strpos($styleText, '#wpadminbar') !== false ||
-                        strpos($styleText, 'body{margin-top:32px') !== false ||
-                        strpos($styleText, 'body {margin-top:32px') !== false) {
-                        if ($styleNode->parentNode) {
-                            $styleNode->parentNode->removeChild($styleNode);
-                        }
-                    }
-                }
-            }
-
-            // Also remove body/html "admin-bar" class to avoid layout offsets.
-            $bodyNodes = $xpath->query('//body');
-            if ($bodyNodes !== false) {
-                foreach ($bodyNodes as $bodyNode) {
-                    if ($bodyNode instanceof \DOMElement) {
-                        $classAttr = trim((string) $bodyNode->getAttribute('class'));
-                        if ($classAttr !== '') {
-                            $classes = preg_split('/\s+/', $classAttr);
-                            if (is_array($classes)) {
-                                $classes = array_values(array_filter($classes, function ($className) {
-                                    return $className !== 'admin-bar';
-                                }));
-                                if (!empty($classes)) {
-                                    $bodyNode->setAttribute('class', implode(' ', $classes));
-                                } else {
-                                    $bodyNode->removeAttribute('class');
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            $htmlNodes = $xpath->query('//html');
-            if ($htmlNodes !== false) {
-                foreach ($htmlNodes as $htmlNode) {
-                    if ($htmlNode instanceof \DOMElement) {
-                        $classAttr = trim((string) $htmlNode->getAttribute('class'));
-                        if ($classAttr !== '') {
-                            $classes = preg_split('/\s+/', $classAttr);
-                            if (is_array($classes)) {
-                                $classes = array_values(array_filter($classes, function ($className) {
-                                    return $className !== 'admin-bar';
-                                }));
-                                if (!empty($classes)) {
-                                    $htmlNode->setAttribute('class', implode(' ', $classes));
-                                } else {
-                                    $htmlNode->removeAttribute('class');
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            $html = $doc->saveHTML();
-            $html = preg_replace('/<\?xml[^?]*\?>\s*/i', '', $html);
+            // Regular user should NOT see admin bar but it's in cached content – strip it.
+            // Uses a depth-counting string traversal instead of DOMDocument to avoid a
+            // third DOM parse (pipeline already uses exactly two DOMDocument passes).
+            $html = self::strip_admin_bar($html);
         }
 
         // Update internal permalinks to use current translated slugs
@@ -174,41 +97,109 @@ final class AI_OB
      */
     private function update_cached_permalinks($html)
     {
-        $lang = \AITranslate\AI_Lang::current();
+        $lang    = \AITranslate\AI_Lang::current();
         $default = \AITranslate\AI_Lang::default();
-        
+
         if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
             return $html;
         }
 
-        // Find all internal links: href="/xx/service/slug/" or href="/service/slug/"
-        // Pattern matches: /{lang}/service/{slug}/ or /service/{slug}/
-        $pattern = '#href="(/(?:' . preg_quote($lang, '#') . '/)?service/([^/"]+)/?)"#i';
-        
+        // Match all internal links that already carry the language prefix:
+        //   href="/{lang}/slug/"  or  href="/{lang}/base/slug/"
+        // Group 1 = full path (e.g. /de/diensten/pakket/)
+        // Group 2 = everything after the language segment (e.g. diensten/pakket)
+        $lang_re = preg_quote($lang, '#');
+        $pattern = '#href="(/' . $lang_re . '/([^"?\#\s]+)/?)"#i';
+
         $html = preg_replace_callback($pattern, function ($matches) use ($lang) {
-            $full_href = $matches[1];
-            $old_slug = $matches[2];
-            
-            // Try to find the post by this slug (could be source or old translated slug)
+            $path     = trim($matches[2], '/'); // e.g. "diensten/pakket"
+            $parts    = explode('/', $path);
+            $old_slug = array_pop($parts);      // last segment is the slug
+
+            if ($old_slug === '') {
+                return $matches[0];
+            }
+
+            // Try to find the post by translated slug, then by source slug.
             $post_id = \AITranslate\AI_Slugs::resolve_translated_slug_to_post($old_slug, $lang);
             if (!$post_id) {
-                // Try resolving as source slug
                 $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $old_slug);
             }
-            
+
             if ($post_id) {
-                // Only use existing slug (no translation): we are serving from page cache and must not trigger segment cache writes
+                // No-generate: serving from cache must not trigger new segment-cache writes.
                 $correct_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang, false);
                 if ($correct_slug !== null && $correct_slug !== '' && $correct_slug !== $old_slug) {
-                    // Replace with correct slug
-                    $new_href = '/' . $lang . '/service/' . trim($correct_slug, '/') . '/';
+                    $parts[]  = trim($correct_slug, '/');
+                    $new_href = '/' . $lang . '/' . implode('/', $parts) . '/';
                     return 'href="' . $new_href . '"';
                 }
             }
-            
-            // No change needed or couldn't resolve
+
             return $matches[0];
         }, $html);
+
+        return $html;
+    }
+
+    /**
+     * Strip the WordPress admin bar from HTML without using DOMDocument.
+     *
+     * Uses a depth-counting character scan to find the matching </div> for the
+     * wpadminbar container, plus regex for the associated inline <style> blocks
+     * and the admin-bar CSS class on <html>/<body>.
+     *
+     * @param string $html
+     * @return string
+     */
+    private static function strip_admin_bar(string $html): string
+    {
+        // Locate the opening <div tag that carries id="wpadminbar"
+        if (!preg_match('/<div\b[^>]*\bid=["\']wpadminbar["\'][^>]*>/i', $html, $m, PREG_OFFSET_CAPTURE)) {
+            return $html;
+        }
+        $div_start  = (int) $m[0][1];
+        $after_open = $div_start + strlen($m[0][0]);
+
+        // Walk the string counting <div>…</div> depth to find the matching closing tag.
+        $depth   = 1;
+        $pos     = $after_open;
+        $len     = strlen($html);
+        $div_end = null;
+        while ($pos < $len && $depth > 0) {
+            if (substr_compare($html, '<div', $pos, 4, true) === 0) {
+                $c = $pos + 4 < $len ? $html[$pos + 4] : ' ';
+                if ($c === ' ' || $c === '>' || $c === "\n" || $c === "\r" || $c === "\t" || $c === '/') {
+                    $depth++;
+                    $pos += 4;
+                    continue;
+                }
+            }
+            if (substr_compare($html, '</div>', $pos, 6, true) === 0) {
+                $depth--;
+                if ($depth === 0) {
+                    $div_end = $pos + 6;
+                    break;
+                }
+                $pos += 6;
+                continue;
+            }
+            $pos++;
+        }
+
+        if ($div_end !== null) {
+            $html = substr($html, 0, $div_start) . substr($html, $div_end);
+        }
+
+        // Remove inline <style> blocks that belong to the admin bar.
+        $html = preg_replace(
+            '/<style\b[^>]*>[\s\S]*?(?:#wpadminbar\b|body\s*\{[^}]*margin-top\s*:\s*32px)[\s\S]*?<\/style>/i',
+            '',
+            $html
+        );
+
+        // Remove admin-bar class from <html> and <body> opening tags.
+        $html = preg_replace('/(<(?:html|body)\b[^>]*?)\s*\badmin-bar\b([^>]*>)/i', '$1$2', $html, 2);
 
         return $html;
     }
@@ -346,8 +337,6 @@ final class AI_OB
                 $processing = false;
                 return $this->post_process_cached_content($cached);
             }
-        } else {
-            $bypassReason = $bypassUserCache ? 'logged_in_user' : ($nocache ? 'nocache_param' : 'unknown');
         }
         
         // Implement cache locking to prevent race conditions from concurrent requests
@@ -373,7 +362,7 @@ final class AI_OB
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
                     $processing = false;
-                    return $cached;
+                    return $this->post_process_cached_content($cached);
                 }
             }
             
