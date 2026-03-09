@@ -703,8 +703,6 @@ add_action('template_redirect', function () {
     }
 
     // Check if we just switched languages - switcher has HIGHEST priority!
-    // Block removed because it ignored URL language. Standard logic below handles it.
-
 
     // Extract language from URL
     $langFromUrl = null;
@@ -964,7 +962,6 @@ add_action('template_redirect', function () {
  * Ensure that when viewing the posts index (translated posts page) with ?blogpage=N,
  * the main query uses paged=N so page 2+ actually render page 2+ instead of page 1.
  */
-// Removed pagination forcing; theme handles pagination
 
 // Enqueue switcher CSS and JS only for nav menu integration (not for floating positions)
 add_action('wp_enqueue_scripts', function () {
@@ -1777,7 +1774,6 @@ add_action('parse_request', function ($wp) {
  * Ensure /{lang}/?blogpage={n} resolves to the posts index with pagination.
  * Some themes use a custom query var (?blogpage). Map this early and point to posts page slug.
  */
-// Removed parse_request handler for language root pagination (?blogpage / paged)
 
 // Map translated paths like /{lang}/{translated-slug} to the original content (page or post)
 add_action('parse_request', function ($wp) {
@@ -1816,8 +1812,6 @@ add_action('parse_request', function ($wp) {
     if (preg_match('#^page/[0-9]+/?$#i', $rest)) {
         return;
     }
-
-    // Removed handlers for translated posts index pagination
 
     // Try exact mapping from translated path to post ID via slug map
     $post_id = null;
@@ -2551,8 +2545,6 @@ add_action('admin_notices', function () {
         echo '</div>';
     }
 });
-
-// Admin notice removed per user request - the interface should be self-explanatory
 
 /**
  * Generate language switcher HTML (shared between shortcode and menu)
