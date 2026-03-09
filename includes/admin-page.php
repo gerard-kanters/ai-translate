@@ -1390,9 +1390,8 @@ add_action('admin_init', function () {
                 echo '<option value="' . esc_attr($key) . '" ' . selected($current_provider_key, $key, false) . '>' . esc_html($provider_details['name']) . '</option>';
             }
             echo '</select>';
-            // Note for OpenAI: GPT-5 uses minimal reasoning for speed; o1/o3 not supported
             echo '<div id="openai_gpt5_warning" class="ai-translate-provider-note" style="margin-top:10px; display:none;">';
-            echo '<p class="description"><strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ' . esc_html__('GPT-5 models use minimal reasoning for fast translations. O1 and O3 models are not supported.', 'ai-translate') . '</p>';
+            echo '<p class="description"><strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ' . esc_html__('Reasoning models (O-series, GPT-5+) are supported but use more tokens. Reasoning effort is automatically minimized for translations.', 'ai-translate') . '</p>';
             echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
@@ -2551,22 +2550,45 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     if (!isset($data['data']) || !is_array($data['data'])) {
         wp_send_json_error(['message' => __('Invalid response from API', 'ai-translate')]);
     }
+    $raw_models = $data['data'];
+
+    // Modality filter: use API metadata to keep only text-in / text-out models.
+    // OpenRouter: architecture.output_modalities / input_modalities arrays.
+    // Deepinfra: models without metadata.context_length are non-text (image gen, embeddings).
+    $raw_models = array_filter($raw_models, function ($m) use ($provider_key) {
+        if (!is_array($m)) {
+            return true;
+        }
+        $arch = isset($m['architecture']) && is_array($m['architecture']) ? $m['architecture'] : null;
+        if ($arch !== null) {
+            $output = isset($arch['output_modalities']) && is_array($arch['output_modalities']) ? $arch['output_modalities'] : null;
+            $input  = isset($arch['input_modalities']) && is_array($arch['input_modalities']) ? $arch['input_modalities'] : null;
+            if ($output !== null && !in_array('text', $output, true)) {
+                return false;
+            }
+            if ($input !== null && !in_array('text', $input, true)) {
+                return false;
+            }
+        }
+        if ($provider_key === 'deepinfra' && array_key_exists('metadata', $m)) {
+            $meta = is_array($m['metadata']) ? $m['metadata'] : null;
+            if ($meta === null || empty($meta['context_length'])) {
+                return false;
+            }
+        }
+        return true;
+    });
+
     $models = array_map(function ($m) {
         return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
-    }, $data['data']);
+    }, $raw_models);
     $models = array_filter($models);
-    // Filter model families known to be incompatible with text translation chat/completions.
-    // Keep only models that are likely usable for this plugin's translation pipeline.
+    // Secondary regex filter for model families known to be incompatible with text translation.
     $models = array_filter($models, function ($model) {
-        if (preg_match('/^(o1-|o3-)/i', $model)) {
+        if (preg_match('/^(babbage-|davinci-)/i', $model)) {
             return false;
         }
-        // Legacy non-chat model family; incompatible with chat/completions translations.
-        if (preg_match('/^babbage-/i', $model)) {
-            return false;
-        }
-        // Block non-chat capabilities and known image-generation families.
-        return !preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria)/i', $model);
+        return !preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria|sora|computer-use|deep-research)/i', $model);
     });
     sort($models);
 

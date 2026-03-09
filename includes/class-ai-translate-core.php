@@ -260,7 +260,10 @@ final class AI_Translate_Core
      */
     public static function is_responses_api_error(string $body): bool
     {
-        return strpos($body, 'v1/responses') !== false;
+        if (strpos($body, 'v1/responses') !== false) {
+            return true;
+        }
+        return strpos(strtolower($body), 'not a chat model') !== false;
     }
 
     /**
@@ -287,7 +290,47 @@ final class AI_Translate_Core
         if (isset($body['temperature'])) {
             $result['temperature'] = $body['temperature'];
         }
+        if (isset($body['reasoning_effort'])) {
+            $result['reasoning'] = ['effort' => $body['reasoning_effort']];
+        } elseif (isset($body['reasoning'])) {
+            $result['reasoning'] = $body['reasoning'];
+        }
         return $result;
+    }
+
+    /**
+     * Adjust an API request body for model-specific requirements.
+     *
+     * Handles reasoning models (o-series, gpt-5+) that need different
+     * parameters than standard chat models (temperature, reasoning_effort).
+     *
+     * @param array  $body     Request body with 'model' and 'messages'.
+     * @param string $model    Model ID.
+     * @param string $provider Provider key (openai, openrouter, deepinfra, …).
+     * @return array Adjusted body.
+     */
+    public static function adjust_body_for_model(array $body, string $model, string $provider): array
+    {
+        $isOSeries = (bool) preg_match('/^o\d/i', $model);
+        $isGpt5    = stripos($model, 'gpt-5') !== false;
+        $isPro     = stripos($model, '-pro') !== false;
+
+        // Reasoning models reject temperature=0; remove explicit value.
+        if ($isOSeries || $isGpt5) {
+            unset($body['temperature']);
+        }
+
+        // Set reasoning_effort to minimize cost/latency for translation tasks.
+        if (($isOSeries || $isGpt5) && !isset($body['reasoning_effort']) && !isset($body['reasoning'])) {
+            $effort = $isPro ? 'medium' : 'low';
+            if ($provider === 'openai') {
+                $body['reasoning_effort'] = $effort;
+            } else {
+                $body['reasoning'] = ['effort' => $effort];
+            }
+        }
+
+        return $body;
     }
 
     /**
@@ -1266,6 +1309,7 @@ final class AI_Translate_Core
                         ['role' => 'user', 'content' => $prompt],
                     ],
                 ];
+                $body = self::adjust_body_for_model($body, $model, $provider);
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
                     $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
                 }
@@ -1296,13 +1340,15 @@ final class AI_Translate_Core
                     if (self::is_responses_api_error($errBody)) {
                         self::mark_model_responses_api($model);
                         $endpoint = rtrim($baseUrl, '/') . '/responses';
-                        $body = self::convert_body_to_responses([
+                        $retryBody = [
                             'model' => $model,
                             'messages' => [
                                 ['role' => 'system', 'content' => 'You are a helpful assistant that summarizes website content.'],
                                 ['role' => 'user', 'content' => $prompt],
                             ],
-                        ]);
+                        ];
+                        $retryBody = self::adjust_body_for_model($retryBody, $model, $provider);
+                        $body = self::convert_body_to_responses($retryBody);
                         $response = wp_remote_post($endpoint, [
                             'headers' => $headers,
                             'timeout' => 30,
@@ -1423,7 +1469,8 @@ final class AI_Translate_Core
                           "9. Output ONLY the meta description text. No quotes, no HTML tags, no explanations.\n\n" .
                           "Website Content:\n" . $content . $context_section;
 
-                $metaModel = (stripos($model, 'gpt-5') !== false) ? 'gpt-4.1-mini' : $model;
+                // Use cheaper model for meta descriptions when a reasoning model is selected.
+                $metaModel = (stripos($model, 'gpt-5') !== false || preg_match('/^o\d/i', $model)) ? 'gpt-4.1-mini' : $model;
                 $endpointPath = self::get_model_endpoint_path($metaModel);
                 $endpoint = rtrim($baseUrl, '/') . $endpointPath;
                 $body = [
@@ -1433,14 +1480,7 @@ final class AI_Translate_Core
                         ['role' => 'user', 'content' => $prompt],
                     ],
                 ];
-                $m = strtolower((string) $model);
-                if ($m !== '' && strpos($m, 'gpt-5') === false) {
-                    if (strpos($m, 'o1-') === 0 || strpos($m, 'o3-') === 0) {
-                        $body['thinking'] = false;
-                    } elseif (strpos($m, 'deepseek-r1') !== false || strpos($m, 'deepseek-reasoner') !== false) {
-                        $body['thinking'] = array('type' => 'disabled');
-                    }
-                }
+                $body = self::adjust_body_for_model($body, $metaModel, $provider);
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
                     $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
                 }
@@ -1458,7 +1498,6 @@ final class AI_Translate_Core
                     $headers['X-Title'] = 'AI Translate';
                 }
 
-                // Shorter timeout for meta descriptions (simple task; reasoning minimized above).
                 $response = wp_remote_post($endpoint, [
                     'headers' => $headers,
                     'timeout' => 60,
@@ -1472,13 +1511,15 @@ final class AI_Translate_Core
                     if (self::is_responses_api_error($errBody)) {
                         self::mark_model_responses_api($metaModel);
                         $endpoint = rtrim($baseUrl, '/') . '/responses';
-                        $body = self::convert_body_to_responses([
+                        $retryBody = [
                             'model' => $metaModel,
                             'messages' => [
                                 ['role' => 'system', 'content' => 'You are an expert SEO copywriter specializing in writing compelling, keyword-rich meta descriptions that drive click-through rates. You understand that generic descriptions hurt SEO performance.'],
                                 ['role' => 'user', 'content' => $prompt],
                             ],
-                        ]);
+                        ];
+                        $retryBody = self::adjust_body_for_model($retryBody, $metaModel, $provider);
+                        $body = self::convert_body_to_responses($retryBody);
                         $response = wp_remote_post($endpoint, [
                             'headers' => $headers,
                             'timeout' => 60,

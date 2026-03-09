@@ -186,6 +186,7 @@ AI Translate requires an API key from one of the supported providers:
 
 ### 2.2.9
 - Fix potential 500 error in clean installations. 
+- Improve filtering non text transformer models
 - Load cache settings only when cache tab is open.
 - Fix CORS issue with multiple domains.
 - Reduce placeholder tag restore time.

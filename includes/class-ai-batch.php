@@ -627,17 +627,9 @@ final class AI_Batch
                 ['role' => 'system', 'content' => $system],
                 ['role' => 'user', 'content' => $userPayload],
             ],
+            'temperature' => 0,
         ];
-        if (!preg_match('/^(o1-|o3-)/i', $model) && stripos($model, 'gpt-5') === false) {
-            $body['temperature'] = 0;
-        }
-        if (stripos($model, 'gpt-5') !== false) {
-            if ($provider === 'openai') {
-                $body['reasoning_effort'] = 'minimal';
-            } else {
-                $body['reasoning'] = ['effort' => 'minimal'];
-            }
-        }
+        $body = AI_Translate_Core::adjust_body_for_model($body, $model, $provider);
         if ($isResponses) {
             $body = AI_Translate_Core::convert_body_to_responses($body);
         }
