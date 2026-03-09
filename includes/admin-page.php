@@ -2596,7 +2596,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     // Existing saved selections are kept by the UI; this only controls default-first ordering.
     $preferred_model_patterns = [
         'openai' => [
-            '/^gpt-4\.1-mini$/i',
+            '/^gpt-5-mini$/i',
         ],
         'openrouter' => [
             '/gemini[-\s_.]*2\.5[-\s_.]*flash[-\s_.]*lite/i',
