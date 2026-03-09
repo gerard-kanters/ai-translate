@@ -53,7 +53,7 @@ final class AI_DOM
         $counter = 0;
         $visitedTextNodes = new \SplObjectStorage();
 
-        $exclusions = ['script','style','code','pre','noscript','img'];
+        $exclusions = ['script','style','code','pre','noscript','img','video','audio','source','track'];
         $translatableTags = ['title','p','h1','h2','h3','h4','h5','h6','li','td','th','caption','figcaption','span','label','a','button','input','textarea','select','div'];
         $attrNames = ['title','alt','placeholder','aria-label','value'];
 

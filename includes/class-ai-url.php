@@ -166,8 +166,9 @@ final class AI_URL
         if (str_starts_with($lower, 'mailto:')) return true;
         if (str_starts_with($lower, 'tel:')) return true;
         if (str_starts_with($lower, 'javascript:')) return true;
-        // Never rewrite admin/auth/REST endpoints
+        // Never rewrite admin/auth/REST endpoints or static asset paths
         if (strpos($lower, '/wp-admin/') !== false) return true;
+        if (strpos($lower, '/wp-content/') !== false) return true;
         if (strpos($lower, 'wp-login.php') !== false) return true;
         if (strpos($lower, '/wp-json/') !== false) return true;
         if (strpos($lower, 'admin-ajax.php') !== false) return true;
