@@ -7,6 +7,8 @@ namespace AITranslate;
  */
 final class AI_SEO
 {
+    /** @var array<string,string> In-request translation cache keyed by "{lang}|{md5(text)}". */
+    private static $metaTranslationCache = [];
     /**
      * Inject hreflang tags as plain text without DOM parsing.
      * This prevents JavaScript and other scripts from being corrupted.
@@ -141,6 +143,10 @@ final class AI_SEO
         }
 
         $isTranslatedLang = strtolower((string)$lang) !== strtolower((string)$default);
+
+        if ($isTranslatedLang) {
+            self::batchTranslateMeta(self::collectMetaTexts($doc, $xpath), $default, $lang);
+        }
 
         // Translate <title> content for non-default languages
         try {
@@ -573,18 +579,18 @@ final class AI_SEO
         if (!is_string($text) || $text === '') {
             return '';
         }
-        // If default or lang is missing, or already in default language, do not translate
         if (!$default || !$lang || strtolower((string)$lang) === strtolower((string)$default)) {
             return $text;
         }
-        
-        // Skip translating slug-like strings (menu items, generated slugs)
-        // Heuristic: single line with hyphens but no spaces (e.g., "vioolles-eindhoven", "lezioni-violino-eindhoven")
         if (preg_match('/^[a-z0-9\-]+$/i', trim($text)) && strpos($text, ' ') === false && strpos($text, '-') !== false) {
-            // This looks like a slug/menu-item, not real content - return as-is
             return $text;
         }
-        
+
+        $cacheKey = $lang . '|' . md5($text);
+        if (isset(self::$metaTranslationCache[$cacheKey])) {
+            return self::$metaTranslationCache[$cacheKey];
+        }
+
         $plan = ['segments' => [ ['id' => 'm', 'text' => (string)$text, 'type' => 'node'] ]];
         $ctx = [
             'website_context' => self::get_website_context(),
@@ -592,7 +598,134 @@ final class AI_SEO
         $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);
         $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : [];
         $translated = isset($segs['m']) ? (string) $segs['m'] : $text;
+
+        self::$metaTranslationCache[$cacheKey] = $translated;
         return $translated;
+    }
+
+    /**
+     * Pre-translate multiple meta texts in a single API call.
+     * Results are stored in $metaTranslationCache so subsequent
+     * maybeTranslateMeta() calls return instantly from cache.
+     *
+     * @param string[] $texts  Raw texts to translate.
+     * @param string   $default Source language.
+     * @param string   $lang    Target language.
+     */
+    private static function batchTranslateMeta(array $texts, $default, $lang): void
+    {
+        if (empty($texts) || !is_string($default) || !is_string($lang)
+            || $default === '' || $lang === '' || strtolower($lang) === strtolower($default)) {
+            return;
+        }
+
+        $segments = [];
+        $seen = [];
+        $idx = 0;
+        foreach ($texts as $text) {
+            if (!is_string($text) || trim($text) === '') {
+                continue;
+            }
+            if (preg_match('/^[a-z0-9\-]+$/i', trim($text)) && strpos($text, ' ') === false && strpos($text, '-') !== false) {
+                continue;
+            }
+            $dedupKey = md5($text);
+            if (isset($seen[$dedupKey]) || isset(self::$metaTranslationCache[$lang . '|' . $dedupKey])) {
+                continue;
+            }
+            $seen[$dedupKey] = true;
+            $segments[] = ['id' => 's' . $idx, 'text' => $text, 'type' => 'node'];
+            $idx++;
+        }
+
+        if (empty($segments)) {
+            return;
+        }
+
+        $plan = ['segments' => $segments];
+        $ctx = ['website_context' => self::get_website_context()];
+        $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);
+        $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : [];
+
+        foreach ($segments as $seg) {
+            $id = $seg['id'];
+            $origText = $seg['text'];
+            $translated = isset($segs[$id]) ? trim((string) $segs[$id]) : '';
+            if ($translated !== '') {
+                self::$metaTranslationCache[$lang . '|' . md5($origText)] = $translated;
+            }
+        }
+    }
+
+    /**
+     * Gather all meta/SEO texts from the DOM that may need translation.
+     * Used to pre-populate the translation cache in a single batch call.
+     *
+     * @param \DOMDocument $doc
+     * @param \DOMXPath    $xpath
+     * @return string[]
+     */
+    private static function collectMetaTexts(\DOMDocument $doc, \DOMXPath $xpath): array
+    {
+        $texts = [];
+
+        $titleNode = $doc->getElementsByTagName('title')->item(0);
+        if ($titleNode) {
+            $t = trim((string) $titleNode->textContent);
+            if ($t !== '') {
+                $texts[] = $t;
+            }
+        }
+
+        $desc = self::computeMetaDescription();
+        if ($desc !== '') {
+            $texts[] = $desc;
+        }
+
+        $metaDescNodes = $xpath->query('//head/meta[translate(@name, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="description"]');
+        if ($metaDescNodes && $metaDescNodes->length > 0) {
+            $item = $metaDescNodes->item(0);
+            if ($item instanceof \DOMElement) {
+                $c = trim((string) $item->getAttribute('content'));
+                if ($c !== '') {
+                    $texts[] = $c;
+                }
+            }
+        }
+
+        $ogDescNodes = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description"]');
+        if ($ogDescNodes && $ogDescNodes->length > 0) {
+            $item = $ogDescNodes->item(0);
+            if ($item instanceof \DOMElement) {
+                $c = trim((string) $item->getAttribute('content'));
+                if ($c !== '') {
+                    $texts[] = $c;
+                }
+            }
+        }
+
+        $ogAltNodes = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
+        if ($ogAltNodes && $ogAltNodes->length > 0) {
+            $item = $ogAltNodes->item(0);
+            if ($item instanceof \DOMElement) {
+                $c = trim((string) $item->getAttribute('content'));
+                if ($c !== '') {
+                    $texts[] = $c;
+                }
+            }
+        }
+
+        if (function_exists('is_singular') && is_singular()) {
+            $postId = get_queried_object_id();
+            if ($postId) {
+                $postTitle = (string) get_the_title($postId);
+                if ($postTitle !== '') {
+                    $texts[] = $postTitle;
+                }
+            }
+        }
+
+        return $texts;
     }
 
     /**
@@ -864,6 +997,17 @@ final class AI_SEO
         $names = implode('|', array_map(function ($n) { return preg_quote($n, '#'); }, $twitterNames));
         $pattern = '#(<meta\s+name="(?:' . $names . ')"\s+content=")([^"]+)("[^>]*>)#i';
 
+        if (preg_match_all($pattern, $html, $allMatches) && !empty($allMatches[2])) {
+            $texts = [];
+            foreach ($allMatches[2] as $raw) {
+                $decoded = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
+                if (trim($decoded) !== '') {
+                    $texts[] = $decoded;
+                }
+            }
+            self::batchTranslateMeta($texts, $default, $lang);
+        }
+
         return preg_replace_callback($pattern, function ($m) use ($default, $lang) {
             $original = html_entity_decode($m[2], ENT_QUOTES, 'UTF-8');
             if (trim($original) === '') {
@@ -890,6 +1034,19 @@ final class AI_SEO
         $default = AI_Lang::default();
         if ($default === null || strtolower((string) $lang) === strtolower((string) $default)) {
             return $html;
+        }
+
+        if (preg_match_all('#<script\b[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>#is', $html, $allBlocks) && !empty($allBlocks[1])) {
+            $texts = [];
+            foreach ($allBlocks[1] as $raw) {
+                $json = json_decode($raw, true);
+                if (is_array($json)) {
+                    self::collectJsonLdTexts($json, $texts);
+                }
+            }
+            if (!empty($texts)) {
+                self::batchTranslateMeta($texts, $default, $lang);
+            }
         }
 
         return preg_replace_callback(
@@ -921,6 +1078,31 @@ final class AI_SEO
      * @param string $lang    Target language.
      * @return bool Whether any field was translated.
      */
+    /**
+     * Recursively collect translatable text values from a JSON-LD structure.
+     *
+     * @param array    $node   JSON-LD node.
+     * @param string[] &$texts Collected texts (appended in place).
+     */
+    private static function collectJsonLdTexts(array $node, array &$texts): void
+    {
+        $type = $node['@type'] ?? '';
+        if ($type === 'BreadcrumbList' && isset($node['itemListElement']) && is_array($node['itemListElement'])) {
+            foreach ($node['itemListElement'] as $item) {
+                if (isset($item['name']) && is_string($item['name']) && trim($item['name']) !== '') {
+                    $texts[] = $item['name'];
+                }
+            }
+        }
+        if (isset($node['@graph']) && is_array($node['@graph'])) {
+            foreach ($node['@graph'] as $graphNode) {
+                if (is_array($graphNode)) {
+                    self::collectJsonLdTexts($graphNode, $texts);
+                }
+            }
+        }
+    }
+
     private static function translateJsonLdNode(array &$node, $default, $lang)
     {
         $type = $node['@type'] ?? '';
