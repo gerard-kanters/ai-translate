@@ -7,3 +7,6 @@
 agent.md
 ai-translate.code-workspace
 update_readme_translations.py
+/vendor/
+.phpunit.cache/
+composer.lock

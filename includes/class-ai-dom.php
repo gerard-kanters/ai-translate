@@ -309,6 +309,24 @@ final class AI_DOM
             }
         }
 
+        // Collect alt attributes from <img> elements
+        // img is excluded from text node extraction (void element) but alt text IS translatable
+        $imgAltExclusions = array_values(array_diff($exclusions, ['img']));
+        $imgElements = $xpath->query('//img[@alt]');
+        if ($imgElements) {
+            foreach ($imgElements as $img) {
+                if (!$img instanceof \DOMElement) continue;
+                if (self::isExcluded($img, $imgAltExclusions)) continue;
+                $alt = trim($img->getAttribute('alt'));
+                if ($alt !== '' && mb_strlen($alt) >= 2) {
+                    $normalized = preg_replace('/\s+/u', ' ', $alt);
+                    $id = 'a' . (++$counter);
+                    $segments[] = ['id' => $id, 'text' => $normalized, 'type' => 'attr', 'attr' => 'alt'];
+                    $nodeIndex[$id] = $img;
+                }
+            }
+        }
+
         // OG title/description/image:alt (but skip meta name="description" - handled by AI_SEO::inject())
         // AI_SEO handles meta description separately to ensure admin setting is used
         $metaDesc = $xpath->query('//meta[translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:title" or translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:description" or translate(@property, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="og:image:alt"]');
