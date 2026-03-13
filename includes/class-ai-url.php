@@ -90,7 +90,7 @@ final class AI_URL
                 $isLogo = self::isLogoLink($a);
                 $new = self::rewriteHref($href, $lang, $default, $isLogo);
                 if ($new !== null) {
-                    $a->setAttribute('href', $new);
+                    $a->setAttribute('href', self::addSitePrefix($new));
                 }
             }
         }
@@ -126,13 +126,13 @@ final class AI_URL
                         $params['blogpage'] = $n;
                         $q = '?' . http_build_query($params);
                         $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
-                        $a->setAttribute('href', $base . $q . $frag);
+                        $a->setAttribute('href', self::addSitePrefix($base . $q . $frag));
                         continue;
                     }
                 }
                 $translated = self::rewriteSingularWithSlugMap($href, $lang, $default);
                 if ($translated) {
-                    $a->setAttribute('href', $translated);
+                    $a->setAttribute('href', self::addSitePrefix($translated));
                 }
             }
         }
@@ -274,7 +274,8 @@ final class AI_URL
 
     private static function rewriteHref($href, $lang, $default, $isLogo = false)
     {
-        $home = home_url('/');
+        // Use unfiltered home URL to avoid language-prefix injection from the home_url filter.
+        $home = trailingslashit((string) get_option('home', get_option('siteurl', '')));
         $homeParts = wp_parse_url($home);
         $hrefParts = wp_parse_url($href);
 
@@ -448,7 +449,8 @@ final class AI_URL
         if ($lang === null || $default === null) return null;
         if (strtolower($lang) === strtolower($default)) return null;
 
-        $home = home_url('/');
+        // Use unfiltered home URL to avoid language-prefix injection from the home_url filter.
+        $home = trailingslashit((string) get_option('home', get_option('siteurl', '')));
         $homeParts = wp_parse_url($home);
         $hrefParts = wp_parse_url($href);
         $isRelative = !isset($hrefParts['host']) && !isset($hrefParts['scheme']);
@@ -516,6 +518,25 @@ final class AI_URL
         $query = isset($hrefParts['query']) ? ('?' . $hrefParts['query']) : '';
         $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
         return $newPath . $query . $frag;
+    }
+
+    /**
+     * Prepend the WordPress sub-directory prefix to a site-relative path.
+     * No-op on root installations where the prefix is empty.
+     *
+     * @param string $path  Site-relative path (e.g. '/en/contact/').
+     * @return string       Path with subfolder prefix (e.g. '/moretti/en/contact/').
+     */
+    private static function addSitePrefix(string $path): string
+    {
+        if (strpos($path, '://') !== false || !function_exists('ai_translate_site_path')) {
+            return $path;
+        }
+        $prefix = ai_translate_site_path();
+        if ($prefix === '' || str_starts_with($path, $prefix . '/')) {
+            return $path;
+        }
+        return $prefix . $path;
     }
 }
 

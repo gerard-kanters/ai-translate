@@ -2847,6 +2847,8 @@ function maybe_flush_rules_on_settings_update($old, $new)
         $old_v = isset($old[$k]) ? $old[$k] : null;
         $new_v = isset($new[$k]) ? $new[$k] : null;
         if ($old_v !== $new_v) {
+            AI_Translate_Core::settings(true);
+            ai_translate_register_rewrite_rules();
             flush_rewrite_rules();
             return;
         }

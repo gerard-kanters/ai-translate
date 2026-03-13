@@ -29,10 +29,10 @@ final class AI_Translate_Core
      *
      * @return array
      */
-    public static function settings(): array
+    public static function settings(bool $refresh = false): array
     {
         static $s = null;
-        if ($s === null) {
+        if ($s === null || $refresh) {
             $s = get_option('ai_translate_settings', []);
         }
         return is_array($s) ? $s : [];
