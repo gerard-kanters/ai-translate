@@ -1,0 +1,16 @@
+vendor/
+tests/
+.git/
+.cursor/
+.claude/
+.vscode/
+.phpunit.cache/
+.github/
+composer.json
+composer.lock
+phpunit.xml.dist
+.gitignore
+.syncignore
+agent.md
+*.code-workspace
+update_readme_translations.py

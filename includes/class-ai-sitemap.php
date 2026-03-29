@@ -4,7 +4,7 @@ namespace AITranslate;
 
 /**
  * Sitemap integration for AI Translate.
- * Supports WordPress native sitemaps (WP 5.5+) and Google XML Sitemaps plugin.
+ * Supports WordPress native sitemaps (WP 5.5+), Yoast SEO and Google XML Sitemaps plugin.
  */
 final class AI_Sitemap
 {
@@ -20,6 +20,9 @@ final class AI_Sitemap
 
         // Google XML Sitemaps plugin: hook only after plugins loaded and when that plugin is active
         add_action('plugins_loaded', [__CLASS__, 'maybe_register_google_sitemap_hooks'], 20);
+
+        // Yoast SEO sitemaps: register after Yoast has initialised (init priority 1)
+        add_action('init', [__CLASS__, 'maybe_register_yoast_hooks'], 20);
     }
 
     /**
@@ -217,6 +220,118 @@ final class AI_Sitemap
     {
         $schema = get_transient('ai_tr_slugs_schema');
         return ($schema === 'original') ? 'language_code' : 'lang';
+    }
+
+    /**
+     * Build a standard sitemap XML string from entry arrays.
+     *
+     * @param array[] $entries Each entry has 'loc' (string) and optional 'lastmod' (int unix timestamp).
+     * @return string Complete XML document.
+     */
+    private static function build_sitemap_xml(array $entries)
+    {
+        $xml = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+
+        foreach ($entries as $entry) {
+            $xml .= "\t<url>\n";
+            $xml .= "\t\t<loc>" . esc_url($entry['loc']) . "</loc>\n";
+            if (!empty($entry['lastmod'])) {
+                $xml .= "\t\t<lastmod>" . wp_date('c', (int) $entry['lastmod']) . "</lastmod>\n";
+            }
+            $xml .= "\t</url>\n";
+        }
+
+        $xml .= '</urlset>';
+        return $xml;
+    }
+
+    // ──────────────────────────────────────────────
+    //  Yoast SEO sitemap integration
+    // ──────────────────────────────────────────────
+
+    /**
+     * Register hooks for Yoast SEO sitemaps when that plugin is active.
+     */
+    public static function maybe_register_yoast_hooks()
+    {
+        global $wpseo_sitemaps;
+
+        if (!isset($wpseo_sitemaps) || !is_object($wpseo_sitemaps)
+            || !method_exists($wpseo_sitemaps, 'register_sitemap')) {
+            return;
+        }
+
+        $wpseo_sitemaps->register_sitemap(
+            'ai-translate-languages',
+            [__CLASS__, 'yoast_render_languages']
+        );
+
+        foreach (self::get_sitemap_languages() as $lang) {
+            $wpseo_sitemaps->register_sitemap(
+                'translated-' . $lang,
+                [__CLASS__, 'yoast_render_translated']
+            );
+        }
+
+        add_filter('wpseo_sitemap_index', [__CLASS__, 'yoast_sitemap_index']);
+    }
+
+    /**
+     * Filter: wpseo_sitemap_index – add translated sitemaps to the Yoast index.
+     *
+     * @param string $index Existing sitemap index XML.
+     * @return string
+     */
+    public static function yoast_sitemap_index($index)
+    {
+        $home = rtrim(home_url('/'), '/');
+
+        if (!empty(self::get_language_entries())) {
+            $index .= "\t<sitemap>\n";
+            $index .= "\t\t<loc>" . esc_url($home . '/ai-translate-languages-sitemap.xml') . "</loc>\n";
+            $index .= "\t</sitemap>\n";
+        }
+
+        foreach (self::get_sitemap_languages() as $lang) {
+            if (self::count_translated_entries($lang) > 0) {
+                $index .= "\t<sitemap>\n";
+                $index .= "\t\t<loc>" . esc_url($home . '/translated-' . $lang . '-sitemap.xml') . "</loc>\n";
+                $index .= "\t</sitemap>\n";
+            }
+        }
+
+        return $index;
+    }
+
+    /**
+     * Yoast callback: render language homepages sitemap.
+     */
+    public static function yoast_render_languages()
+    {
+        global $wpseo_sitemaps;
+        $wpseo_sitemaps->set_sitemap(self::build_sitemap_xml(self::get_language_entries()));
+    }
+
+    /**
+     * Yoast callback: render translated posts sitemap.
+     *
+     * The target language is derived from the current action name
+     * (wpseo_do_sitemap_translated-{lang}).
+     */
+    public static function yoast_render_translated()
+    {
+        global $wpseo_sitemaps;
+
+        $lang = str_replace('wpseo_do_sitemap_translated-', '', current_action());
+        $lang = sanitize_key($lang);
+
+        if ($lang === '') {
+            $wpseo_sitemaps->set_sitemap(self::build_sitemap_xml([]));
+            return;
+        }
+
+        $entries = self::get_translated_entries($lang, 50000, 0);
+        $wpseo_sitemaps->set_sitemap(self::build_sitemap_xml($entries));
     }
 
     // ──────────────────────────────────────────────
