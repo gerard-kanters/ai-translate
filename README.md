@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.2.9
+Stable tag: 2.3.0
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -183,6 +183,10 @@ AI Translate requires an API key from one of the supported providers:
 - 🔑 API key for OpenAI, Deepseek, or compatible service
 
 ## Changelog
+
+### 2.3.0
+- 404 error detectie on older URL redirecting to current URL
+- 
 
 ### 2.2.9
 - Fix potential 500 error in clean installations. 
