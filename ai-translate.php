@@ -174,6 +174,7 @@ require_once __DIR__ . '/includes/class-ai-seo.php';
 require_once __DIR__ . '/includes/class-ai-url.php';
 require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
+require_once __DIR__ . '/includes/class-ai-404-recovery.php';
 require_once __DIR__ . '/includes/class-ai-sitemap.php';
 
 // Initialize sitemap integration
@@ -345,9 +346,9 @@ function ai_translate_register_rewrite_rules()
 
 add_action('init', 'ai_translate_register_rewrite_rules', 999); // Priority 999: runs AFTER custom post types are registered (default priority 10)
 
-// Ensure slug map table exists — only run dbDelta when schema version changes
+// Ensure slug map and history tables exist — only run dbDelta when schema version changes
 add_action('init', function () {
-    $current_version = '2.2.5';
+    $current_version = '2.2.6';
     $stored_version = get_option('ai_translate_slugs_schema_version', '');
     if ($stored_version !== $current_version) {
         \AITranslate\AI_Slugs::install_table();
@@ -703,6 +704,42 @@ add_action('template_redirect', function () {
         exit;
     }
 }, 1);
+
+/**
+ * Conservative 404 recovery: when a request would otherwise serve a 404, look
+ * up the basename in the slug map (any language) and redirect to the canonical
+ * translated URL when there is exactly one safe match. Only acts on
+ * /{lang}/... paths and never triggers a new translation. See
+ * docs/404-herstelplan-op-basis-van-url.md (Fase 1).
+ *
+ * Runs at priority 999 so it executes after all other template_redirect
+ * callbacks have had a chance to resolve or fix the request.
+ */
+add_action('template_redirect', function () {
+    if (!is_404()) {
+        return;
+    }
+    if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed() || ai_translate_is_xml_request()) {
+        return;
+    }
+    if (!isset($_SERVER['REQUEST_URI'])) {
+        return;
+    }
+    $reqUriRaw = (string) $_SERVER['REQUEST_URI'];
+    if (strpos($reqUriRaw, '%25') !== false) {
+        $reqUriRaw = urldecode($reqUriRaw);
+    }
+    $request_path = ai_translate_strip_site_path((string) (wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/'));
+
+    $target_url = \AITranslate\AI_404_Recovery::resolve($request_path);
+    if (!is_string($target_url) || $target_url === '') {
+        return;
+    }
+
+    nocache_headers();
+    wp_safe_redirect(esc_url_raw($target_url), 301);
+    exit;
+}, 999);
 
 add_action('template_redirect', function () {
     // Handle ai_translate_path query var for custom URL resolution

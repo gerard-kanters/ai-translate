@@ -34,6 +34,21 @@ final class AI_Slugs
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
 
+        // Slug history: previous translated slugs per post+lang, used by 404-recovery
+        // to redirect visitors who follow an outdated translated URL.
+        $history = self::history_table_name();
+        $sql_history = "CREATE TABLE IF NOT EXISTS {$history} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            post_id BIGINT(20) UNSIGNED NOT NULL,
+            lang VARCHAR(10) NOT NULL,
+            translated_slug VARCHAR(200) NOT NULL,
+            replaced_gmt DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY lang_slug (lang, translated_slug),
+            KEY post_lang (post_id, lang)
+        ) {$charset_collate};";
+        dbDelta($sql_history);
+
         // Invalidate cached schema detection so detect_schema() re-checks after table change
         delete_transient('ai_tr_slugs_schema');
 
@@ -519,6 +534,261 @@ final class AI_Slugs
     }
 
     /**
+     * Find all post IDs whose translated slug equals the given value, in any language.
+     * Used by 404-recovery to recognise URLs that were typed/linked with a translated
+     * slug from a different language (e.g. /en/over-ons/ where 'over-ons' is the NL slug)
+     * or with a previously valid translated slug (e.g. an outdated translation).
+     * Excludes attachments via the post_type check performed by the caller.
+     *
+     * @param string $translated_slug The translated slug to search for.
+     * @return array<int> De-duplicated list of post IDs (empty when no match).
+     */
+    public static function find_post_ids_by_translated_slug($translated_slug)
+    {
+        global $wpdb;
+        $slug = trim((string) $translated_slug, '/');
+        if ($slug === '') return [];
+        if (strpos($slug, '%') !== false) {
+            $decoded = rawurldecode($slug);
+            if (mb_check_encoding($decoded, 'UTF-8')) {
+                $slug = $decoded;
+            }
+        }
+        $ids = [];
+
+        // Current slug map.
+        $table = self::table_name();
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT DISTINCT post_id FROM {$table} WHERE translated_slug = %s",
+            $slug
+        ), ARRAY_A);
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $pid = isset($row['post_id']) ? (int) $row['post_id'] : 0;
+                if ($pid > 0) {
+                    $ids[$pid] = true;
+                }
+            }
+        }
+
+        // History: previously stored translated slugs (from before re-translation).
+        $history = self::history_table_name();
+        $hist_rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT DISTINCT post_id FROM {$history} WHERE translated_slug = %s",
+            $slug
+        ), ARRAY_A);
+        if (is_array($hist_rows)) {
+            foreach ($hist_rows as $row) {
+                $pid = isset($row['post_id']) ? (int) $row['post_id'] : 0;
+                if ($pid > 0) {
+                    $ids[$pid] = true;
+                }
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * Auto-discover the intended post ID for a 404 slug using fallback strategies.
+     *
+     * Order:
+     *  1. Exact match on source_slug in any language (handles source-slug requests on a translated path).
+     *  2. Exact match on translated_slug in any language (handles cross-language slug typed on wrong /lang/).
+     *  3. Fuzzy similarity scoring across translated_slug AND source_slug in ALL languages,
+     *     combining Jaccard with an overlap-coefficient bonus so a slug fully contained in
+     *     another (e.g. "ai-sahayak" inside "ai-sahayak-gyan-pranali") matches as well.
+     *
+     * @param string $slug The 404 slug (basename, language and CPT prefix already stripped).
+     * @param string $lang The requested language code.
+     * @return int|null The discovered post ID, or null if ambiguous/not found.
+     */
+    public static function discover_post_id_for_404_slug($slug, $lang)
+    {
+        global $wpdb;
+        $slug = trim((string) $slug, '/');
+        if ($slug === '') return null;
+
+        $table = self::table_name();
+        $schema = self::detect_schema();
+        $colLang = $schema === 'original' ? 'language_code' : 'lang';
+        $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
+
+        // Strategy 1: Exact match on source_slug (any language row, source slug is identical across rows for the same post).
+        $rows = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT post_id FROM {$table} WHERE {$colSource} = %s",
+            $slug
+        ));
+        if (is_array($rows)) {
+            $rows = array_values(array_unique(array_map('intval', $rows)));
+            if (count($rows) === 1) {
+                return (int) $rows[0];
+            }
+        }
+
+        // Strategy 2: Exact match on translated_slug in ANY language.
+        $rows = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT post_id FROM {$table} WHERE translated_slug = %s",
+            $slug
+        ));
+        if (is_array($rows)) {
+            $rows = array_values(array_unique(array_map('intval', $rows)));
+            if (count($rows) === 1) {
+                return (int) $rows[0];
+            }
+        }
+
+        // Strategy 3: Fuzzy scoring across translated_slug AND source_slug in ALL languages.
+        // Both Jaccard and Overlap-coefficient (containment) are used so a strict subset of words
+        // (e.g. shortened slug, slug with one extra leading word) is still recognised.
+        $all_rows = $wpdb->get_results(
+            "SELECT post_id, {$colSource} AS src, translated_slug AS tsl FROM {$table}",
+            ARRAY_A
+        );
+        if (!is_array($all_rows) || empty($all_rows)) {
+            return null;
+        }
+
+        $best_score = 0.0;
+        $best_pid = null;
+        $ambiguous_pids = [];
+
+        // Score every distinct candidate slug once per post.
+        $seen = [];
+        foreach ($all_rows as $row) {
+            $pid = (int) ($row['post_id'] ?? 0);
+            if ($pid <= 0) continue;
+            $candidates = [
+                (string) ($row['src'] ?? ''),
+                (string) ($row['tsl'] ?? ''),
+            ];
+            foreach ($candidates as $cand) {
+                $cand = trim($cand);
+                if ($cand === '' || $cand === $slug) {
+                    // Exact matches were handled above; skip to avoid skewing the score.
+                    continue;
+                }
+                $key = $pid . '|' . $cand;
+                if (isset($seen[$key])) continue;
+                $seen[$key] = true;
+
+                $score = self::similarity_score($slug, $cand);
+                if ($score <= 0.0) continue;
+
+                if ($score > $best_score + 0.01) {
+                    $best_score = $score;
+                    $best_pid = $pid;
+                    $ambiguous_pids = [$pid => true];
+                } elseif (abs($score - $best_score) < 0.01) {
+                    $ambiguous_pids[$pid] = true;
+                }
+            }
+        }
+
+        // Acceptable when one unique post wins above the threshold. Multiple candidate slugs
+        // for the SAME post stay unambiguous; only different posts at the same top score block.
+        if ($best_score >= 0.55 && $best_pid > 0 && count($ambiguous_pids) === 1) {
+            return (int) $best_pid;
+        }
+
+        return null;
+    }
+
+    /**
+     * Combined similarity score for two slugs.
+     *
+     * Returns max(jaccard, discounted overlap coefficient). The overlap coefficient
+     * (|A ∩ B| / min(|A|,|B|)) catches the "subset of words" case that Jaccard penalises,
+     * but is only used when the smaller side has at least 2 words to avoid false positives
+     * from a single common short token (e.g. "ai", "de").
+     *
+     * @param string $a
+     * @param string $b
+     * @return float Score in [0.0, 1.0].
+     */
+    private static function similarity_score($a, $b)
+    {
+        $words_a = self::slug_words($a);
+        $words_b = self::slug_words($b);
+        if (empty($words_a) || empty($words_b)) return 0.0;
+
+        $intersection = array_intersect($words_a, $words_b);
+        $union = array_unique(array_merge($words_a, $words_b));
+        $jaccard = count($union) > 0 ? count($intersection) / count($union) : 0.0;
+
+        $min_size = min(count($words_a), count($words_b));
+        $overlap = 0.0;
+        if ($min_size >= 2 && count($intersection) >= 2) {
+            // Discount factor 0.85 keeps the overlap signal strong but not as strong as a perfect Jaccard.
+            $overlap = (count($intersection) / $min_size) * 0.85;
+        }
+
+        return max($jaccard, $overlap);
+    }
+
+    /**
+     * Tokenise a slug into a unique, lowercased word set.
+     *
+     * @param string $slug
+     * @return array<int,string>
+     */
+    private static function slug_words($slug)
+    {
+        $slug = strtolower((string) $slug);
+        $words = preg_split('/[-_\s]+/u', $slug, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($words)) return [];
+        return array_values(array_unique($words));
+    }
+
+    /**
+     * Backwards-compatible Jaccard wrapper (kept for tests/external callers).
+     *
+     * @param string $a
+     * @param string $b
+     * @return float
+     */
+    private static function jaccard_similarity($a, $b)
+    {
+        $words_a = self::slug_words($a);
+        $words_b = self::slug_words($b);
+        if (empty($words_a) || empty($words_b)) return 0.0;
+        $intersection = array_intersect($words_a, $words_b);
+        $union = array_unique(array_merge($words_a, $words_b));
+        if (count($union) === 0) return 0.0;
+        return count($intersection) / count($union);
+    }
+
+    /**
+     * Append a previously stored translated slug to the history table so 404-recovery
+     * can map outdated translated URLs back to their post.
+     *
+     * @param int    $post_id
+     * @param string $lang
+     * @param string $old_translated_slug Previous translated slug (must be non-empty).
+     * @return void
+     */
+    public static function record_history($post_id, $lang, $old_translated_slug)
+    {
+        $old = trim((string) $old_translated_slug, '/');
+        if ($post_id <= 0 || $lang === '' || $old === '') {
+            return;
+        }
+        global $wpdb;
+        $history = self::history_table_name();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $wpdb->insert(
+            $history,
+            [
+                'post_id'         => (int) $post_id,
+                'lang'            => (string) $lang,
+                'translated_slug' => (string) $old,
+                'replaced_gmt'    => gmdate('Y-m-d H:i:s'),
+            ],
+            ['%d', '%s', '%s', '%s']
+        );
+    }
+
+    /**
      * Resolve translated slug to post ID, filtered by post_type to handle slug conflicts.
      *
      * @param string $translated_slug The translated slug
@@ -644,9 +914,15 @@ final class AI_Slugs
         $table = self::table_name();
         $schema = self::detect_schema();
         $now = gmdate('Y-m-d H:i:s');
-        
-        // First, check if source_slug changed - if so, delete old row to avoid orphaned mappings
+
+        // Look at the existing row so we can (a) record outdated translated slugs in
+        // history and (b) clean up orphaned mappings when source_slug changed.
         $existing = self::get_row($post_id, $lang);
+        $existing_translated = ($existing && isset($existing['translated_slug'])) ? (string) $existing['translated_slug'] : '';
+        if ($existing_translated !== '' && $existing_translated !== (string) $translated_slug) {
+            self::record_history((int) $post_id, (string) $lang, $existing_translated);
+        }
+
         if ($existing && isset($existing['source_slug']) && $existing['source_slug'] !== '' && $existing['source_slug'] !== $source_slug) {
             // Source slug changed - delete the old mapping
             if ($schema === 'original') {
@@ -698,6 +974,17 @@ final class AI_Slugs
         global $wpdb;
         // Align with original plugin table name for compatibility
         return $wpdb->prefix . 'ai_translate_slugs';
+    }
+
+    /**
+     * Return the fully-qualified slug-history table name.
+     *
+     * @return string
+     */
+    private static function history_table_name()
+    {
+        global $wpdb;
+        return $wpdb->prefix . 'ai_translate_slug_history';
     }
 
     /**

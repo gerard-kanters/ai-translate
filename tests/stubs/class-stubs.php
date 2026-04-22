@@ -70,16 +70,45 @@ if (!class_exists('AITranslate\\AI_Lang')) {
     class AI_Lang
     {
         private static $default = 'nl';
+        private static $enabled = ['nl', 'en', 'de', 'fr'];
+        private static $detectable = [];
 
         public static function default()
         {
             return self::$default;
         }
 
+        public static function enabled()
+        {
+            return self::$enabled;
+        }
+
+        public static function detectable()
+        {
+            return self::$detectable;
+        }
+
         /** Test helper */
         public static function _setDefault($lang)
         {
             self::$default = $lang;
+        }
+
+        public static function _setEnabled(array $langs)
+        {
+            self::$enabled = $langs;
+        }
+
+        public static function _setDetectable(array $langs)
+        {
+            self::$detectable = $langs;
+        }
+
+        public static function _reset()
+        {
+            self::$default = 'nl';
+            self::$enabled = ['nl', 'en', 'de', 'fr'];
+            self::$detectable = [];
         }
     }
 }

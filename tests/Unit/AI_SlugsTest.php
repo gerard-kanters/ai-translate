@@ -170,4 +170,124 @@ final class AI_SlugsTest extends TestCase
         $result = AI_Slugs::resolve_path_to_post('de', '/mijn-bericht/');
         $this->assertSame(7, $result);
     }
+
+    // ---------------------------------------------------------------
+    //  find_post_ids_by_translated_slug()
+    // ---------------------------------------------------------------
+
+    public function test_find_post_ids_returns_unique_ids(): void
+    {
+        $this->stubPrepare();
+
+        // Two get_results calls: first the slug-map lookup, second the history lookup.
+        $this->wpdb->shouldReceive('get_results')
+            ->andReturn(
+                [['post_id' => '12'], ['post_id' => '34'], ['post_id' => '12']],
+                []
+            );
+
+        $result = AI_Slugs::find_post_ids_by_translated_slug('over-ons');
+        $this->assertSame([12, 34], $result);
+    }
+
+    public function test_find_post_ids_empty_when_nothing_matches(): void
+    {
+        $this->stubPrepare();
+        $this->wpdb->shouldReceive('get_results')->andReturn([], []);
+
+        $result = AI_Slugs::find_post_ids_by_translated_slug('onbekend');
+        $this->assertSame([], $result);
+    }
+
+    // ---------------------------------------------------------------
+    //  discover_post_id_for_404_slug() – fuzzy fallback strategies
+    // ---------------------------------------------------------------
+
+    /**
+     * Helper: stub the three calls discover_post_id_for_404_slug performs:
+     *  1. get_col() — exact source_slug match
+     *  2. get_col() — exact translated_slug match in any language
+     *  3. get_results() — full list for fuzzy scoring
+     *
+     * @param array<int> $exactSourceIds
+     * @param array<int> $exactTranslatedIds
+     * @param array<array{post_id:int|string,src:string,tsl:string}> $allRows
+     */
+    private function stubDiscover(array $exactSourceIds, array $exactTranslatedIds, array $allRows): void
+    {
+        $this->stubPrepare();
+        $this->wpdb->shouldReceive('get_col')
+            ->andReturn(
+                array_map('strval', $exactSourceIds),
+                array_map('strval', $exactTranslatedIds)
+            );
+        $this->wpdb->shouldReceive('get_results')->andReturn($allRows);
+    }
+
+    public function test_discover_returns_unique_source_slug_match(): void
+    {
+        $this->stubDiscover([861], [], []);
+        $this->assertSame(861, AI_Slugs::discover_post_id_for_404_slug('air-je-beste-collega', 'ka'));
+    }
+
+    public function test_discover_returns_unique_translated_slug_match_in_other_language(): void
+    {
+        $this->stubDiscover([], [836], []);
+        $this->assertSame(836, AI_Slugs::discover_post_id_for_404_slug('dernieres-avancees-en-ia-generative', 'ro'));
+    }
+
+    public function test_discover_fuzzy_with_extra_leading_word_matches_via_jaccard(): void
+    {
+        // Visitor: /ro/les-dernieres-avancees-en-ia-generative/
+        // Existing fr translated_slug for post 836: 'dernieres-avancees-en-ia-generative'
+        $this->stubDiscover([], [], [
+            ['post_id' => '836', 'src' => 'de-laatste-ontwikkelingen-in-generatieve-ai', 'tsl' => 'dernieres-avancees-en-ia-generative'],
+            ['post_id' => '500', 'src' => 'iets-anders', 'tsl' => 'iets-anders'],
+        ]);
+        $result = AI_Slugs::discover_post_id_for_404_slug('les-dernieres-avancees-en-ia-generative', 'ro');
+        $this->assertSame(836, $result);
+    }
+
+    public function test_discover_fuzzy_with_subset_slug_matches_via_containment(): void
+    {
+        // Visitor: /hi/product/ai-sahayak/
+        // Existing hi translated_slug for post 1514: 'ai-sahayak-gyan-pranali'
+        $this->stubDiscover([], [], [
+            ['post_id' => '1514', 'src' => 'een-intern-kennissysteem-met-ai', 'tsl' => 'ai-sahayak-gyan-pranali'],
+        ]);
+        $result = AI_Slugs::discover_post_id_for_404_slug('ai-sahayak', 'hi');
+        $this->assertSame(1514, $result);
+    }
+
+    public function test_discover_fuzzy_with_partial_source_overlap_matches(): void
+    {
+        // Visitor: /ka/product/ai-beste-collega/
+        // source_slug is 'air-je-beste-collega' (typo in original); 2/3 word overlap with discount = 0.567 ≥ 0.55
+        $this->stubDiscover([], [], [
+            ['post_id' => '861', 'src' => 'air-je-beste-collega', 'tsl' => 'ai-sheni-sauketeso-megobari'],
+        ]);
+        $result = AI_Slugs::discover_post_id_for_404_slug('ai-beste-collega', 'ka');
+        $this->assertSame(861, $result);
+    }
+
+    public function test_discover_fuzzy_below_threshold_returns_null(): void
+    {
+        // Single-word overlap on a short common token must NOT match.
+        $this->stubDiscover([], [], [
+            ['post_id' => '1', 'src' => 'totaal-iets-anders', 'tsl' => 'volkomen-onbekend'],
+        ]);
+        $result = AI_Slugs::discover_post_id_for_404_slug('ai-sahayak', 'hi');
+        $this->assertNull($result);
+    }
+
+    public function test_discover_returns_null_when_two_different_posts_tie(): void
+    {
+        // Two different posts share the same top score → ambiguous → null.
+        $this->stubDiscover([], [], [
+            ['post_id' => '10', 'src' => 'foo-bar-baz', 'tsl' => 'foo-bar-baz'],
+            ['post_id' => '20', 'src' => 'foo-bar-baz', 'tsl' => 'foo-bar-baz'],
+        ]);
+        $result = AI_Slugs::discover_post_id_for_404_slug('foo-bar-qux', 'en');
+        $this->assertNull($result);
+    }
 }

@@ -20,7 +20,7 @@ abstract class TestCase extends PHPUnitTestCase
 
         \AITranslate\AI_Translate_Core::_reset();
         \AITranslate\AI_Batch::_reset();
-        \AITranslate\AI_Lang::_setDefault('nl');
+        \AITranslate\AI_Lang::_reset();
     }
 
     protected function tearDown(): void
