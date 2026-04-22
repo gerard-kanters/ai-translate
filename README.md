@@ -185,8 +185,9 @@ AI Translate requires an API key from one of the supported providers:
 ## Changelog
 
 ### 2.3.0
-- 404 error detectie on older URL redirecting to current URL
-- 
+- 404 error detectie on older URL redirecting to current URL.
+- Support URL title translation for Jetpack related posts.
+- More unit tests to improve stability.
 
 ### 2.2.9
 - Fix potential 500 error in clean installations. 
@@ -207,7 +208,6 @@ AI Translate requires an API key from one of the supported providers:
 - Code base refactoring. Improve performance and security, thighening code.
 - Better detect usable models from OpenAI.  
 - Change language switcher url to fixed urls instead of query param.
-
 
 ### 2.2.4
 
