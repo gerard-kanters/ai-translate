@@ -4,7 +4,7 @@ namespace AITranslate;
 
 /**
  * Sitemap integration for AI Translate.
- * Supports WordPress native sitemaps (WP 5.5+), Yoast SEO and Google XML Sitemaps plugin.
+ * Supports WordPress native sitemaps (WP 5.5+), Yoast SEO, Rank Math and Google XML Sitemaps plugin.
  */
 final class AI_Sitemap
 {
@@ -23,6 +23,9 @@ final class AI_Sitemap
 
         // Yoast SEO sitemaps: register after Yoast has initialised (init priority 1)
         add_action('init', [__CLASS__, 'maybe_register_yoast_hooks'], 20);
+
+        // Rank Math sitemaps: register after plugins are loaded so its sitemap classes are available
+        add_action('plugins_loaded', [__CLASS__, 'maybe_register_rank_math_hooks'], 20);
     }
 
     /**
@@ -303,6 +306,38 @@ final class AI_Sitemap
         return $index;
     }
 
+    // ──────────────────────────────────────────────
+    //  Rank Math sitemap integration
+    // ──────────────────────────────────────────────
+
+    /**
+     * Register hooks for Rank Math sitemaps when that plugin is active.
+     */
+    public static function maybe_register_rank_math_hooks()
+    {
+        if (!class_exists('\RankMath\Sitemap\Router')) {
+            return;
+        }
+
+        add_filter('rank_math/sitemap/providers', [__CLASS__, 'rank_math_sitemap_providers']);
+    }
+
+    /**
+     * Filter: rank_math/sitemap/providers – add the AI Translate provider.
+     *
+     * @param array $providers Existing Rank Math sitemap providers.
+     * @return array
+     */
+    public static function rank_math_sitemap_providers($providers)
+    {
+        if (!is_array($providers)) {
+            $providers = [];
+        }
+
+        $providers['ai-translate'] = new AI_RankMath_Sitemap_Provider();
+        return $providers;
+    }
+
     /**
      * Yoast callback: render language homepages sitemap.
      */
@@ -524,5 +559,160 @@ class AI_Sitemap_Provider_Translated extends \WP_Sitemaps_Provider
         $max_urls = wp_sitemaps_get_max_urls($this->object_type);
 
         return (int) ceil($count / $max_urls);
+    }
+}
+
+/**
+ * Rank Math sitemap provider for translated language homepages and posts.
+ */
+class AI_RankMath_Sitemap_Provider
+{
+    const TYPE_LANGUAGES         = 'ai-translate-languages';
+    const TYPE_TRANSLATED_PREFIX = 'translated-';
+
+    /**
+     * @param string $type Requested sitemap type.
+     * @return bool
+     */
+    public function handles_type($type)
+    {
+        $type = sanitize_key((string) $type);
+
+        if ($type === self::TYPE_LANGUAGES) {
+            return true;
+        }
+
+        if (strpos($type, self::TYPE_TRANSLATED_PREFIX) !== 0) {
+            return false;
+        }
+
+        $lang = substr($type, strlen(self::TYPE_TRANSLATED_PREFIX));
+        return $lang !== '' && in_array($lang, AI_Sitemap::get_sitemap_languages(), true);
+    }
+
+    /**
+     * Return custom sitemap links for the Rank Math sitemap index.
+     *
+     * @param int $max_entries Rank Math max URLs per sitemap.
+     * @return array[]
+     */
+    public function get_index_links($max_entries)
+    {
+        $links = [];
+
+        $language_entries = AI_Sitemap::get_language_entries();
+        if (!empty($language_entries)) {
+            $links[] = [
+                'loc'     => $this->base_url(self::TYPE_LANGUAGES . '-sitemap.xml'),
+                'lastmod' => $this->latest_lastmod($language_entries),
+            ];
+        }
+
+        foreach (AI_Sitemap::get_sitemap_languages() as $lang) {
+            if (AI_Sitemap::count_translated_entries($lang) < 1) {
+                continue;
+            }
+
+            $entries = AI_Sitemap::get_translated_entries($lang, 1, 0);
+            $links[] = [
+                'loc'     => $this->base_url(self::TYPE_TRANSLATED_PREFIX . $lang . '-sitemap.xml'),
+                'lastmod' => $this->latest_lastmod($entries),
+            ];
+        }
+
+        return $links;
+    }
+
+    /**
+     * Return URL entries for a specific Rank Math sitemap.
+     *
+     * @param string $type         Requested sitemap type.
+     * @param int    $max_entries  Rank Math max URLs per sitemap.
+     * @param int    $current_page Current sitemap page.
+     * @return array[]
+     */
+    public function get_sitemap_links($type, $max_entries, $current_page)
+    {
+        $type         = sanitize_key((string) $type);
+        $max_entries  = max(1, (int) $max_entries);
+        $current_page = max(1, (int) $current_page);
+
+        if ($type === self::TYPE_LANGUAGES) {
+            if ($current_page > 1) {
+                return [];
+            }
+            return $this->format_sitemap_links(AI_Sitemap::get_language_entries());
+        }
+
+        if (strpos($type, self::TYPE_TRANSLATED_PREFIX) !== 0) {
+            return [];
+        }
+
+        $lang = substr($type, strlen(self::TYPE_TRANSLATED_PREFIX));
+        if ($lang === '' || !in_array($lang, AI_Sitemap::get_sitemap_languages(), true)) {
+            return [];
+        }
+
+        $offset  = ($current_page - 1) * $max_entries;
+        $entries = AI_Sitemap::get_translated_entries($lang, $max_entries, $offset);
+
+        return $this->format_sitemap_links($entries);
+    }
+
+    /**
+     * @param string $file Sitemap file name.
+     * @return string
+     */
+    private function base_url($file)
+    {
+        if (class_exists('\RankMath\Sitemap\Router') && method_exists('\RankMath\Sitemap\Router', 'get_base_url')) {
+            return \RankMath\Sitemap\Router::get_base_url($file);
+        }
+
+        return home_url('/' . ltrim($file, '/'));
+    }
+
+    /**
+     * @param array[] $entries AI Translate sitemap entries.
+     * @return array[]
+     */
+    private function format_sitemap_links(array $entries)
+    {
+        $links = [];
+
+        foreach ($entries as $entry) {
+            if (empty($entry['loc'])) {
+                continue;
+            }
+
+            $link = [
+                'loc' => $entry['loc'],
+            ];
+
+            if (!empty($entry['lastmod'])) {
+                $link['mod'] = wp_date('c', (int) $entry['lastmod']);
+            }
+
+            $links[] = $link;
+        }
+
+        return $links;
+    }
+
+    /**
+     * @param array[] $entries AI Translate sitemap entries.
+     * @return string
+     */
+    private function latest_lastmod(array $entries)
+    {
+        $latest = 0;
+
+        foreach ($entries as $entry) {
+            if (!empty($entry['lastmod']) && (int) $entry['lastmod'] > $latest) {
+                $latest = (int) $entry['lastmod'];
+            }
+        }
+
+        return $latest > 0 ? wp_date('c', $latest) : '';
     }
 }
