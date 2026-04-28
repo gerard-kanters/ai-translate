@@ -1130,7 +1130,22 @@ add_action('admin_init', function () {
 
             // Custom API URL
             if (isset($input['custom_api_url'])) {
-                $sanitized['custom_api_url'] = esc_url_raw(trim($input['custom_api_url']));
+                $raw_url = esc_url_raw(trim($input['custom_api_url']));
+                // Auto-correct: strip common endpoint paths the plugin appends automatically.
+                $stripped = preg_replace('#/(chat/completions|responses)/?$#i', '', $raw_url);
+                if ($stripped !== $raw_url) {
+                    add_settings_error(
+                        'ai_translate_settings',
+                        'custom_url_auto_corrected',
+                        sprintf(
+                            /* translators: %s: corrected base URL */
+                            __('The custom API URL was automatically corrected to the base URL: %s (the plugin appends /chat/completions automatically).', 'ai-translate'),
+                            esc_html($stripped)
+                        ),
+                        'updated'
+                    );
+                }
+                $sanitized['custom_api_url'] = $stripped;
             }
             if (($sanitized['api_provider'] ?? null) === 'custom') {
                 if (empty($sanitized['custom_api_url'])) {
@@ -1395,8 +1410,8 @@ add_action('admin_init', function () {
             echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
-            echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://your-custom-api.com/v1/" class="regular-text">';
-            $description_text = esc_html__('Enter the endpoint URL for your custom API provider. Example: %s', 'ai-translate');
+            echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://api.perplexity.ai" class="regular-text">';
+            $description_text = esc_html__('Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s', 'ai-translate');
             $url_link = '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>';
 
             // Count %s placeholders in the translated string to prevent sprintf errors
@@ -2541,10 +2556,17 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         $isInvalidKey = ($code === 401 || $code === 403);
         if ($isInvalidKey) {
             $errorMessage = __('Invalid key', 'ai-translate') . ': ' . $body;
+            wp_send_json_error(['message' => $errorMessage]);
+        } elseif ($provider_key === 'custom') {
+            // Custom providers may not support the /models endpoint.
+            // This does not mean the API itself is broken — translation via /chat/completions may still work.
+            wp_send_json_error([
+                'message' => __('This provider does not support automatic model listing. Enter the model name manually.', 'ai-translate'),
+                'no_models_endpoint' => true,
+            ]);
         } else {
-            $errorMessage = __('API error:', 'ai-translate') . ' ' . $body;
+            wp_send_json_error(['message' => __('API error:', 'ai-translate') . ' ' . $body]);
         }
-        wp_send_json_error(['message' => $errorMessage]);
     }
     $data = json_decode($body, true);
     if (!isset($data['data']) || !is_array($data['data'])) {

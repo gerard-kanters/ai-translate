@@ -188,6 +188,7 @@ AI Translate requires an API key from one of the supported providers:
 - 404 error detectie on older URL redirecting to current URL.
 - Support URL title translation for Jetpack related posts.
 - More unit tests to improve stability.
+- Fix for customa API providers that do not use /models 
 
 ### 2.2.9
 - Fix potential 500 error in clean installations. 

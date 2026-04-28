@@ -289,6 +289,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     } else {
                         // Check if error is due to invalid API key (401, 403, or unauthorized message)
                         var isInvalidKey = false;
+                        var noModelsEndpoint = !!(resp.data && resp.data.no_models_endpoint);
                         var errorMessage = '';
                         if (resp.data && resp.data.message) {
                             errorMessage = resp.data.message;
@@ -305,37 +306,51 @@ document.addEventListener('DOMContentLoaded', function () {
                                 isInvalidKey = true;
                             }
                         }
-                        
-                        if (selectedModel) {
-                            selectedModel.innerHTML = '';
-                            var errorOpt = document.createElement('option');
-                            errorOpt.value = '';
-                            errorOpt.textContent = isInvalidKey ? (strings.invalidKey || 'Invalid key') : (strings.noModelsFound || 'No models found');
-                            errorOpt.disabled = true;
-                            errorOpt.selected = true;
-                            selectedModel.appendChild(errorOpt);
-                        }
-                        var statusMessage;
-                        if (isInvalidKey) {
-                            // If errorMessage already contains "Invalid key", use it directly
-                            var errorLower = errorMessage.toLowerCase();
-                            if (errorLower.indexOf('invalid key') === 0 || errorLower.indexOf('onjuiste key') === 0) {
-                                statusMessage = errorMessage;
+
+                        if (noModelsEndpoint) {
+                            // Provider does not support /models — show manual input directly.
+                            if (selectedModel) {
+                                selectedModel.innerHTML = '';
+                                var manualOpt = document.createElement('option');
+                                manualOpt.value = 'custom';
+                                manualOpt.textContent = strings.enterModelManually || 'Enter model name manually';
+                                manualOpt.selected = true;
+                                selectedModel.appendChild(manualOpt);
+                            }
+                            if (customModelDiv) customModelDiv.style.display = '';
+                            if (apiStatusSpan) apiStatusSpan.textContent = errorMessage || (strings.enterModelManually || 'Enter model name manually');
+                        } else {
+                            if (selectedModel) {
+                                selectedModel.innerHTML = '';
+                                var errorOpt = document.createElement('option');
+                                errorOpt.value = '';
+                                errorOpt.textContent = isInvalidKey ? (strings.invalidKey || 'Invalid key') : (strings.noModelsFound || 'No models found');
+                                errorOpt.disabled = true;
+                                errorOpt.selected = true;
+                                selectedModel.appendChild(errorOpt);
+                            }
+                            var statusMessage;
+                            if (isInvalidKey) {
+                                // If errorMessage already contains "Invalid key", use it directly
+                                var errorLower = errorMessage.toLowerCase();
+                                if (errorLower.indexOf('invalid key') === 0 || errorLower.indexOf('onjuiste key') === 0) {
+                                    statusMessage = errorMessage;
+                                } else {
+                                    statusMessage = (strings.invalidKey || 'Invalid key');
+                                    if (errorMessage) {
+                                        statusMessage += ': ' + errorMessage;
+                                    }
+                                }
                             } else {
-                                statusMessage = (strings.invalidKey || 'Invalid key');
+                                statusMessage = (strings.noModelsFound || 'No models found');
                                 if (errorMessage) {
                                     statusMessage += ': ' + errorMessage;
+                                } else {
+                                    statusMessage += ': ' + (strings.unknownError || 'Unknown error');
                                 }
                             }
-                        } else {
-                            statusMessage = (strings.noModelsFound || 'No models found');
-                            if (errorMessage) {
-                                statusMessage += ': ' + errorMessage;
-                            } else {
-                                statusMessage += ': ' + (strings.unknownError || 'Unknown error');
-                            }
+                            if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                         }
-                        if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                     }
                 }
             })
@@ -484,6 +499,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     } else {
                         // Check if error is due to invalid API key
                         var isInvalidKey = false;
+                        var noModelsEndpoint2 = !!(resp.data && resp.data.no_models_endpoint);
                         var errorMessage = '';
                         if (resp.data && resp.data.message) {
                             errorMessage = resp.data.message;
@@ -500,27 +516,41 @@ document.addEventListener('DOMContentLoaded', function () {
                                 isInvalidKey = true;
                             }
                         }
-                        var statusMessage;
-                        if (isInvalidKey) {
-                            // If errorMessage already contains "Invalid key", use it directly
-                            var errorLower = errorMessage.toLowerCase();
-                            if (errorLower.indexOf('invalid key') === 0 || errorLower.indexOf('onjuiste key') === 0) {
-                                statusMessage = errorMessage;
+
+                        if (noModelsEndpoint2) {
+                            if (selectedModel) {
+                                selectedModel.innerHTML = '';
+                                var manualOpt2 = document.createElement('option');
+                                manualOpt2.value = 'custom';
+                                manualOpt2.textContent = strings.enterModelManually || 'Enter model name manually';
+                                manualOpt2.selected = true;
+                                selectedModel.appendChild(manualOpt2);
+                            }
+                            if (customModelDiv) customModelDiv.style.display = '';
+                            if (apiStatusSpan) apiStatusSpan.textContent = errorMessage || (strings.enterModelManually || 'Enter model name manually');
+                        } else {
+                            var statusMessage;
+                            if (isInvalidKey) {
+                                // If errorMessage already contains "Invalid key", use it directly
+                                var errorLower = errorMessage.toLowerCase();
+                                if (errorLower.indexOf('invalid key') === 0 || errorLower.indexOf('onjuiste key') === 0) {
+                                    statusMessage = errorMessage;
+                                } else {
+                                    statusMessage = (strings.invalidKey || 'Invalid key');
+                                    if (errorMessage) {
+                                        statusMessage += ': ' + errorMessage;
+                                    }
+                                }
                             } else {
-                                statusMessage = (strings.invalidKey || 'Invalid key');
+                                statusMessage = (strings.noModelsFound || 'No models found');
                                 if (errorMessage) {
                                     statusMessage += ': ' + errorMessage;
+                                } else {
+                                    statusMessage += ': ' + (strings.unknownError || 'Unknown error');
                                 }
                             }
-                        } else {
-                            statusMessage = (strings.noModelsFound || 'No models found');
-                            if (errorMessage) {
-                                statusMessage += ': ' + errorMessage;
-                            } else {
-                                statusMessage += ': ' + (strings.unknownError || 'Unknown error');
-                            }
+                            if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                         }
-                        if (apiStatusSpan) apiStatusSpan.textContent = statusMessage;
                     }
                 }
             })
