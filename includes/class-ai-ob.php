@@ -1024,18 +1024,20 @@ final class AI_OB
 
     /**
      * PHASE 3: Page structure validation.
-     * Returns true when the current page is not a singular post/page, search result, front page, or 404.
+     * Returns true when the current page is not a singular post/page, search result, front page, 404,
+     * or post-type archive (CPT listing pages, WooCommerce shop).
      *
      * @return bool
      */
     private function should_skip_page_structure()
     {
-        // Only translate singular posts/pages, with exceptions for search/homepage/404
+        // Only translate singular posts/pages, with exceptions for search/homepage/404/CPT-archives
         if (function_exists('is_singular') && !is_singular()) {
-            $is_search = function_exists('is_search') && is_search();
-            $is_front_page = function_exists('is_front_page') && is_front_page();
-            $is_404 = function_exists('is_404') && is_404();
-            if (!$is_search && !$is_front_page && !$is_404) {
+            $is_search           = function_exists('is_search') && is_search();
+            $is_front_page       = function_exists('is_front_page') && is_front_page();
+            $is_404              = function_exists('is_404') && is_404();
+            $is_post_type_archive = function_exists('is_post_type_archive') && is_post_type_archive();
+            if (!$is_search && !$is_front_page && !$is_404 && !$is_post_type_archive) {
                 return true;
             }
         }
@@ -1221,17 +1223,24 @@ final class AI_OB
 
     /**
      * Check if the current page is a taxonomy, author, date, or post-type archive.
+     * Post-type archives are NOT skipped — they contain translatable content (titles, excerpts).
+     * Taxonomy/author/date archives are skipped because they are too dynamic to cache reliably.
      *
      * @return bool
      */
     private function is_archive_page()
     {
-        // Primary archive check
+        // Post-type archives (CPT listing pages, WooCommerce shop) must be translated.
+        if (function_exists('is_post_type_archive') && is_post_type_archive()) {
+            return false;
+        }
+
+        // Primary archive check (covers category, tag, author, date, taxonomy archives)
         if (function_exists('is_archive') && is_archive()) {
             return true;
         }
 
-        // Specific archive types
+        // Specific archive types (belt-and-suspenders for themes that bypass is_archive)
         $archive_functions = ['is_category', 'is_tag', 'is_author', 'is_date', 'is_tax'];
         foreach ($archive_functions as $function) {
             if (function_exists($function) && $function()) {

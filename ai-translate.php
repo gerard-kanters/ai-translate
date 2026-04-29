@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.0
+ * Version: 2.3.1
  * Requires at least: 5.0
  * Tested up to: 6.9
  * Requires PHP: 8.0.0
@@ -1886,6 +1886,38 @@ add_action('parse_request', function ($wp) {
  * Some themes use a custom query var (?blogpage). Map this early and point to posts page slug.
  */
 
+/**
+ * Check if a URL path segment matches a public CPT archive.
+ * Returns the post type name when the segment equals the post type name,
+ * the has_archive slug, or the rewrite slug of a CPT that has an archive.
+ * Returns null when no match is found.
+ *
+ * @param string $segment URL segment to test (single, no slashes).
+ * @return string|null Post type name or null.
+ */
+function ai_translate_detect_cpt_archive($segment)
+{
+    if ($segment === '') {
+        return null;
+    }
+    $post_types = get_post_types(['public' => true, '_builtin' => false], 'objects');
+    foreach ($post_types as $pt) {
+        if (!$pt->has_archive) {
+            continue;
+        }
+        if ($pt->name === $segment) {
+            return $pt->name;
+        }
+        if (is_string($pt->has_archive) && $pt->has_archive === $segment) {
+            return $pt->name;
+        }
+        if (!empty($pt->rewrite['slug']) && $pt->rewrite['slug'] === $segment) {
+            return $pt->name;
+        }
+    }
+    return null;
+}
+
 // Map translated paths like /{lang}/{translated-slug} to the original content (page or post)
 add_action('parse_request', function ($wp) {
     if (is_admin() || wp_doing_ajax()) {
@@ -1941,8 +1973,17 @@ add_action('parse_request', function ($wp) {
             // Check if this is a registered post type
             if (post_type_exists($potential_post_type)) {
                 $detected_post_type = $potential_post_type;
-                // If slug is empty (only post type, e.g., /it/service/), redirect to language root
+                // If slug is empty (only post type, e.g., /it/service/), route to archive or redirect
                 if ($potential_slug === '') {
+                    $cpt_obj = get_post_type_object($potential_post_type);
+                    if ($cpt_obj && $cpt_obj->has_archive) {
+                        $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
+                        $wp->query_vars['post_type'] = $potential_post_type;
+                        $wp->is_archive  = true;
+                        $wp->is_singular = false;
+                        $wp->is_404      = false;
+                        return;
+                    }
                     nocache_headers();
                     wp_redirect(home_url('/' . $lang . '/'), 301);
                     exit;
@@ -1963,7 +2004,17 @@ add_action('parse_request', function ($wp) {
         // Single segment: check if it's a post type without slug (e.g., /it/service)
         if (post_type_exists($rest)) {
             $detected_post_type = $rest;
-            // Post type without slug, redirect to language root
+            $cpt_obj = get_post_type_object($rest);
+            if ($cpt_obj && $cpt_obj->has_archive) {
+                // Route to CPT archive (e.g. /de/service/ → service archive)
+                $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
+                $wp->query_vars['post_type'] = $rest;
+                $wp->is_archive   = true;
+                $wp->is_singular  = false;
+                $wp->is_404       = false;
+                return;
+            }
+            // Post type without archive, redirect to language root
             nocache_headers();
             wp_redirect(home_url('/' . $lang . '/'), 301);
             exit;
@@ -1974,6 +2025,21 @@ add_action('parse_request', function ($wp) {
     if (!$post_id) {
         $slug_used_for_lookup = $rest;
         $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
+    }
+
+    // CPT archive fallback: check if the segment matches an archive slug that differs from the
+    // post type name (e.g. post type 'service' with has_archive/rewrite slug 'services').
+    // Only a single-segment path can be a CPT archive root.
+    if (!$post_id && strpos($rest, '/') === false) {
+        $cpt_archive_type = ai_translate_detect_cpt_archive($rest);
+        if ($cpt_archive_type) {
+            $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
+            $wp->query_vars['post_type'] = $cpt_archive_type;
+            $wp->is_archive  = true;
+            $wp->is_singular = false;
+            $wp->is_404      = false;
+            return;
+        }
     }
 
     if ($post_id) {
