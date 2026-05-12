@@ -977,7 +977,7 @@ final class AI_Translate_Core
         SEGMENT-SPECIFIC GUIDELINES:
         - Menu items (segment.type = "menu"): Translate accurately and concisely (1-3 words). Preserve exact meaning. Translate the actual words provided, not generic substitutes. Make clear, concise, and natural in %s.
         - Navigational text, headings, buttons, calls to action, form labels: Ensure clarity, conciseness, and natural flow in %s.
-        - URL slugs (segment.type = "meta"): Keep SHORT and URL-friendly - maximum 2-3 words (ideally one compound word) for Latin-based languages, 2-4 characters for UTF-8 languages. Use hyphens (-) to separate words if needed. Never use full sentences or long phrases. Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH).%s
+        - URL slugs (segment.type = "meta"): Keep SHORT and URL-friendly - maximum 2-3 words (ideally one compound word) for Latin-based languages, 2-4 characters for UTF-8 languages. Use hyphens (-) to separate words if needed. Never use full sentences or long phrases. CRITICAL SCRIPT RULES: Arabic (AR) → Arabic script أ-ي, Bulgarian (BG) → Cyrillic script а-я, Greek (EL) → Greek script α-ω, Hebrew (HE) → Hebrew script א-ת, Hindi (HI) → Devanagari script अ-ह, Japanese (JA) → Kanji/Kana, Korean (KO) → Hangul 가-힣, Russian (RU) → Cyrillic а-я, Thai (TH) → Thai script ก-ฮ, Ukrainian (UK) → Cyrillic а-я. NEVER use Latin characters for these languages. Example: "ai-consultancy" → "ai-beratung" (DE), "ai-conseil" (FR), "ai咨询" (ZH), "استشارات-ذكاء" (AR), "ייעוץ-בינה" (HE), "ai-консалтинг" (BG/RU/UK), "ai-συμβουλευτική" (EL).%s
         
         OUTPUT FORMAT:
         - Return ONLY valid JSON: {"translations": {"<id>": "<translated_text>"}}

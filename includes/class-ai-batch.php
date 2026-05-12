@@ -120,15 +120,20 @@ final class AI_Batch
                         $cacheInvalid = true;
                     }
                     
-                    // For non-Latin target languages: additional check for Latin characters
-                    // Only for longer texts to avoid false positives with brand names
-                    if (!$cacheInvalid && $cachedLen > 100) {
-                        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'];
+                    // For non-Latin target languages the result must contain non-ASCII characters
+                    // in the target script. If the response is pure Latin (transliteration), invalidate.
+                    if (!$cacheInvalid) {
+                        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'bg', 'el', 'hi', 'uk', 'ru', 'kk', 'mk', 'sr'];
                         if (in_array($targetLang, $nonLatinLangs, true)) {
-                            $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
-                            $latinRatio = $cachedLen > 0 ? ($latinCount / $cachedLen) : 0;
-                            if ($latinRatio > 0.4) {
+                            $hasNonAscii = preg_match('/[^\x00-\x7F]/', $cachedText) === 1;
+                            if (!$hasNonAscii && mb_strlen(trim($cachedText)) > 0 && !$containsWhitelisted) {
                                 $cacheInvalid = true;
+                            } elseif ($cachedLen > 100) {
+                                $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
+                                $latinRatio = $cachedLen > 0 ? ($latinCount / $cachedLen) : 0;
+                                if ($latinRatio > 0.4) {
+                                    $cacheInvalid = true;
+                                }
                             }
                         }
                     }
@@ -682,11 +687,22 @@ final class AI_Batch
         if ($srcLen > 15 && trim($tr) === trim($src) && !$containsWhitelisted) {
             return true;
         }
-        if ($trLen > 100 && in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'], true)) {
-            $latinChars = preg_match_all('/[A-Za-z]/', $tr);
-            $latinRatio = $trLen > 0 ? ($latinChars / $trLen) : 0;
-            if ($latinRatio > 0.4) {
-                return true;
+        // For non-Latin target languages the translation must contain non-ASCII characters
+        // (script of the target language). Pure-Latin responses are transliterations and need retry.
+        if (in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'bg', 'el', 'hi', 'uk', 'ru', 'kk', 'mk', 'sr'], true)) {
+            $trimmedTr = trim($tr);
+            if ($trimmedTr !== '' && !$containsWhitelisted) {
+                $hasNonAscii = preg_match('/[^\x00-\x7F]/', $trimmedTr) === 1;
+                if (!$hasNonAscii) {
+                    return true;
+                }
+            }
+            if ($trLen > 100) {
+                $latinChars = preg_match_all('/[A-Za-z]/', $tr);
+                $latinRatio = $trLen > 0 ? ($latinChars / $trLen) : 0;
+                if ($latinRatio > 0.4) {
+                    return true;
+                }
             }
         }
         return false;

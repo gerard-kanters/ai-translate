@@ -432,10 +432,6 @@ final class AI_Slugs
             return null;
         }
 
-        // Translate once via provider (batch-providers), using AI_Batch::translate_plan
-        $plan = [
-            'segments' => [ ['id' => 'slug', 'text' => $source_slug, 'type' => 'meta'] ],
-        ];
         $keep_slugs_english = (bool) AI_Translate_Core::get_setting('keep_slugs_in_english', false);
 
         // If slugs should be kept in English, return source slug directly
@@ -444,7 +440,22 @@ final class AI_Slugs
             return $source_slug;
         }
 
-        $ctx = [ 'website_context' => AI_Translate_Core::get_website_context() ];
+        // Translate the post TITLE (natural language) instead of the slug-string itself.
+        // LLMs handle real prose far better than slug-fragments and the result is then
+        // converted to a URL-safe slug locally via sanitize_title()/Unicode fallback.
+        $post_obj = get_post($post_id);
+        $source_title = ($post_obj && isset($post_obj->post_title)) ? (string) $post_obj->post_title : '';
+        $source_for_translation = ($source_title !== '') ? $source_title : $source_slug;
+        $segment_type = ($source_title !== '') ? 'title' : 'meta';
+
+        $plan = [
+            'segments' => [ ['id' => 'slug', 'text' => $source_for_translation, 'type' => $segment_type] ],
+        ];
+
+        $ctx = [
+            'website_context' => AI_Translate_Core::get_website_context(),
+            'is_title' => ($segment_type === 'title'),
+        ];
         // Always translate from original default language to target
         $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);
         $translations = is_array($res['segments'] ?? null) ? $res['segments'] : [];
@@ -453,26 +464,38 @@ final class AI_Slugs
         if ($translated === '') {
             $translated = $source_slug;
         }
-        // Normalize slug with Unicode support (allow letters/numbers across scripts)
-        // First try WordPress sanitize_title; if it strips to empty (e.g., CJK), fallback to Unicode cleaning
-        $translated_slug = sanitize_title($translated);
-        if ($translated_slug === '' || $translated_slug === '-') {
-            $tmp = preg_replace('/[^\p{L}\p{N}\s\-]+/u', '', $translated); // keep letters, numbers, spaces, hyphens
-            $tmp = preg_replace('/[\s_]+/u', '-', (string) $tmp);            // spaces/underscores to hyphen
-            $tmp = trim(preg_replace('/-+/u', '-', (string) $tmp), '-');      // collapse hyphens
+        // Build slug. For non-ASCII translations (Arabic, Cyrillic, Greek, etc.) skip
+        // sanitize_title() because it urlencodes the result; we want readable native
+        // characters in the database. Use a Unicode-aware cleaner instead.
+        $hasNonAscii = preg_match('/[^\x00-\x7F]/', $translated) === 1;
+        if ($hasNonAscii) {
+            $tmp = mb_strtolower((string) $translated);
+            $tmp = preg_replace('/[^\p{L}\p{N}\s\-]+/u', '', $tmp);
+            $tmp = preg_replace('/[\s_]+/u', '-', (string) $tmp);
+            $tmp = trim(preg_replace('/-+/u', '-', (string) $tmp), '-');
             $translated_slug = (string) $tmp;
         } else {
-            // Ensure consistency on ASCII path as well
-            $translated_slug = preg_replace('/-+/u', '-', (string) $translated_slug);
-            $translated_slug = trim((string) $translated_slug, '-');
+            $translated_slug = sanitize_title($translated);
+            if ($translated_slug === '' || $translated_slug === '-') {
+                $tmp = preg_replace('/[^\p{L}\p{N}\s\-]+/u', '', $translated);
+                $tmp = preg_replace('/[\s_]+/u', '-', (string) $tmp);
+                $tmp = trim(preg_replace('/-+/u', '-', (string) $tmp), '-');
+                $translated_slug = (string) $tmp;
+            } else {
+                $translated_slug = preg_replace('/-+/u', '-', (string) $translated_slug);
+                $translated_slug = trim((string) $translated_slug, '-');
+            }
         }
         
-        // Validate slug length: reject translations that are too long (likely full sentences)
-        $maxLength = 60; // Maximum characters for a slug
-        $charCount = mb_strlen($translated_slug);
-        if ($charCount > $maxLength) {
-            // Translation is too long (probably a sentence instead of a slug), use source slug as fallback
-            $translated_slug = $source_slug;
+        // Cap slug length on a word boundary; we now translate full titles so trim instead of reject.
+        $maxLength = 60;
+        if (mb_strlen($translated_slug) > $maxLength) {
+            $cut = mb_substr($translated_slug, 0, $maxLength);
+            $lastHyphen = mb_strrpos($cut, '-');
+            if ($lastHyphen !== false && $lastHyphen >= 20) {
+                $cut = mb_substr($cut, 0, $lastHyphen);
+            }
+            $translated_slug = trim($cut, '-');
         }
         
         // Guard: if translation looks like a suffix of the source (lost leading chars), fallback to source slug
@@ -641,11 +664,21 @@ final class AI_Slugs
         // Strategy 3: Fuzzy scoring across translated_slug AND source_slug in ALL languages.
         // Both Jaccard and Overlap-coefficient (containment) are used so a strict subset of words
         // (e.g. shortened slug, slug with one extra leading word) is still recognised.
-        $all_rows = $wpdb->get_results(
+        // Includes history rows so previously-stored translations also count as candidates.
+        $current_rows = $wpdb->get_results(
             "SELECT post_id, {$colSource} AS src, translated_slug AS tsl FROM {$table}",
             ARRAY_A
         );
-        if (!is_array($all_rows) || empty($all_rows)) {
+        $history = self::history_table_name();
+        $history_rows = $wpdb->get_results(
+            "SELECT post_id, '' AS src, translated_slug AS tsl FROM {$history}",
+            ARRAY_A
+        );
+        $all_rows = array_merge(
+            is_array($current_rows) ? $current_rows : [],
+            is_array($history_rows) ? $history_rows : []
+        );
+        if (empty($all_rows)) {
             return null;
         }
 

@@ -379,8 +379,8 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                 CURLOPT_MAXREDIRS => 5,
                 CURLOPT_TIMEOUT => 90,
                 CURLOPT_CONNECTTIMEOUT => 10,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
                 CURLOPT_ENCODING => '',
                 CURLOPT_COOKIE => 'ai_translate_lang=' . urlencode($lang_code),
                 CURLOPT_HTTPHEADER => array(
@@ -1022,7 +1022,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'getCustomUrlNonce' => wp_create_nonce('ai_translate_get_custom_url_nonce'),
         'generateContextNonce' => wp_create_nonce('generate_website_context_nonce'),
         'generateMetaNonce' => wp_create_nonce('generate_homepage_meta_nonce'),
-        'apiKeys' => isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [],
+        'getApiKeyNonce' => wp_create_nonce('ai_translate_get_api_key_nonce'),
         'models' => isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [],
         'customModel' => isset($settings['custom_model']) ? $settings['custom_model'] : '',
         'languageSettingsNonce' => wp_create_nonce('ai_translate_language_settings_nonce'),
@@ -2490,6 +2490,22 @@ function render_admin_page()
     </div>
     <?php
 }
+
+// --- AJAX handler voor ophalen van API key per provider (nooit via page source) ---
+add_action('wp_ajax_ai_translate_get_api_key', function () {
+    check_ajax_referer('ai_translate_get_api_key_nonce', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
+    }
+    $provider = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : '';
+    if ($provider === '') {
+        wp_send_json_error(['message' => __('Provider missing.', 'ai-translate')]);
+    }
+    $settings = AI_Translate_Core::settings();
+    $api_keys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
+    $key = isset($api_keys[$provider]) ? (string) $api_keys[$provider] : '';
+    wp_send_json_success(['api_key' => $key]);
+});
 
 // --- AJAX handler voor dynamisch ophalen van modellen ---
 add_action('wp_ajax_ai_translate_get_models', function () {

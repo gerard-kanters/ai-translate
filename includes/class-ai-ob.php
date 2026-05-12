@@ -291,8 +291,8 @@ final class AI_OB
         if (strpos($url, '%25') !== false) {
             $url = urldecode($url);
         }
-        // Allow cache bypass via nocache parameter for testing
-        $nocache = isset($_GET['nocache']) || isset($_GET['no_cache']);
+        // Allow cache bypass via nocache parameter for authenticated admins only
+        $nocache = (isset($_GET['nocache']) || isset($_GET['no_cache'])) && current_user_can('manage_options');
         
         // Check for dynamic query parameters that indicate the page should be translated but not cached
         // Examples: WooCommerce add-to-cart, form submissions, AJAX actions, etc.

@@ -191,6 +191,7 @@ AI Translate requires an API key from one of the supported providers:
 - Fix for customa API providers that do not use /models. 
 - Support Rank Math sitemap. Adding languages specific sitemap folders.
 - Fix for CPT and WooCommerce pages (archives).
+- Security fixes SSL verification and ajax vulnerability.
 
 ### 2.2.9
 - Fix potential 500 error in clean installations. 

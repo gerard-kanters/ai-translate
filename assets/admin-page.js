@@ -46,8 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var languageSettingsNonceElement = document.getElementById('ai-translate-language-settings-nonce');
     var languageSettingsNonceValue = aiTranslateAdmin.languageSettingsNonce || '';
     
-    // Get stored API keys from WordPress admin localization
-    var apiKeys = aiTranslateAdmin.apiKeys || {};
+    var apiKeys = {}; // Runtime cache; populated via AJAX on provider switch (keys never in page source)
 
     /**
      * API Provider Configuration Data
@@ -411,7 +410,32 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateApiKeyField() {
         if (apiProviderSelect && apiKeyInput) {
             var selectedProvider = apiProviderSelect.value;
-            apiKeyInput.value = apiKeys[selectedProvider] || ''; // Update field with stored key
+            if (apiKeys[selectedProvider] !== undefined) {
+                // Use runtime cache if already fetched this session
+                apiKeyInput.value = apiKeys[selectedProvider];
+            } else {
+                // Fetch from server via AJAX (key never in page source)
+                var data = new FormData();
+                data.append('action', 'ai_translate_get_api_key');
+                data.append('nonce', aiTranslateAdmin.getApiKeyNonce || '');
+                data.append('provider', selectedProvider);
+                fetch(aiTranslateAdmin.ajaxUrl || ajaxurl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: data
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (resp) {
+                        var key = (resp.success && resp.data && resp.data.api_key) ? resp.data.api_key : '';
+                        apiKeys[selectedProvider] = key;
+                        if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
+                            apiKeyInput.value = key;
+                        }
+                    })
+                    .catch(function () {
+                        apiKeyInput.value = '';
+                    });
+            }
         }
         if (apiStatusSpan) {
             apiStatusSpan.textContent = ''; // Clear API status message

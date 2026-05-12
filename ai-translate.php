@@ -1648,7 +1648,7 @@ add_action('rest_api_init', function () {
                             // Fetch page HTML
                             $response = wp_remote_get($referer, array(
                                 'timeout' => 5,
-                                'sslverify' => false,
+                                'sslverify' => true,
                                 'headers' => array(
                                     'User-Agent' => 'AI-Translate-Validator/1.0'
                                 )
@@ -2025,6 +2025,32 @@ add_action('parse_request', function ($wp) {
     if (!$post_id) {
         $slug_used_for_lookup = $rest;
         $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $rest);
+    }
+
+    // Cross-language fallback: a slug that exists as translated_slug for OTHER languages
+    // (e.g. /uk/kontakt/ where 'kontakt' is the cs/de/da/etc slug for the same Contact page)
+    // resolves to the correct post. The redirect block below (line ~2050) will then 301
+    // to the canonical URL for the current language.
+    if (!$post_id && strpos($rest, '/') === false) {
+        $candidate_ids = \AITranslate\AI_Slugs::find_post_ids_by_translated_slug($rest);
+        if (!empty($candidate_ids)) {
+            $unique_target = null;
+            foreach ($candidate_ids as $cid) {
+                $cp = get_post((int) $cid);
+                if ($cp && $cp->post_status === 'publish' && $cp->post_type !== 'attachment') {
+                    if ($unique_target === null) {
+                        $unique_target = (int) $cid;
+                    } elseif ($unique_target !== (int) $cid) {
+                        $unique_target = null;
+                        break;
+                    }
+                }
+            }
+            if ($unique_target !== null) {
+                $post_id = $unique_target;
+                $slug_used_for_lookup = $rest;
+            }
+        }
     }
 
     // CPT archive fallback: check if the segment matches an archive slug that differs from the
