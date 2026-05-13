@@ -415,6 +415,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 apiKeyInput.value = apiKeys[selectedProvider];
             } else {
                 // Fetch from server via AJAX (key never in page source)
+                apiKeyInput.value = '';
+                apiKeyInput.placeholder = '...';
                 var data = new FormData();
                 data.append('action', 'ai_translate_get_api_key');
                 data.append('nonce', aiTranslateAdmin.getApiKeyNonce || '');
@@ -426,14 +428,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                     .then(function (r) { return r.json(); })
                     .then(function (resp) {
-                        var key = (resp.success && resp.data && resp.data.api_key) ? resp.data.api_key : '';
-                        apiKeys[selectedProvider] = key;
-                        if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
-                            apiKeyInput.value = key;
+                        apiKeyInput.placeholder = '';
+                        if (resp && resp.success && resp.data && resp.data.api_key !== undefined) {
+                            var key = resp.data.api_key;
+                            apiKeys[selectedProvider] = key;
+                            if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
+                                apiKeyInput.value = key;
+                            }
+                        } else {
+                            apiKeys[selectedProvider] = '';
+                            if (apiStatusSpan && resp && resp.data && resp.data.message) {
+                                apiStatusSpan.textContent = resp.data.message;
+                            }
                         }
                     })
                     .catch(function () {
-                        apiKeyInput.value = '';
+                        apiKeyInput.placeholder = '';
+                        // Do not clear the field on network error
                     });
             }
         }

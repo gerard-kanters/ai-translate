@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 5.0  
 Tested up to: 6.9  
-Stable tag: 2.3.1
+Stable tag: 2.3.2
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -153,9 +153,9 @@ Each visitor's language preference is remembered for future visits.
 
 ## Recommended Model Selection
 
-- **💡 OpenAI**: `gpt-5.1-mini` Pretty good for most languages and reasonably priced.
+- **💡 OpenAI**: `gpt-5.4-mini` Pretty good for most languages and reasonably priced.
 - **💰 Deepseek**: `deepseek-chat` - Slower, but more cost-effective.
-- **🔧 OpenRouter**: Select google/gemini-2.5-flash-lite which has a very good price/performance ratio.
+- **🔧 OpenRouter**: Select google/gemini-3.1-flash-lite which has a very good price/performance ratio.
 - **💡 Groq**: Select openai/gpt-oss-120b  Extremely fast, pretty cheap and very good in translating. 
   
 

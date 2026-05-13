@@ -999,7 +999,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-admin-js',
         plugin_dir_url(__DIR__) . 'assets/admin-page.js',
         array('jquery'),
-        '1.0.3',
+        '1.0.4',
         true
     );
 
@@ -2493,9 +2493,12 @@ function render_admin_page()
 
 // --- AJAX handler voor ophalen van API key per provider (nooit via page source) ---
 add_action('wp_ajax_ai_translate_get_api_key', function () {
-    check_ajax_referer('ai_translate_get_api_key_nonce', 'nonce');
     if (!current_user_can('manage_options')) {
         wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
+    }
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
+    if (!wp_verify_nonce($nonce, 'ai_translate_get_api_key_nonce')) {
+        wp_send_json_error(['message' => __('Security check failed.', 'ai-translate')]);
     }
     $provider = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : '';
     if ($provider === '') {
@@ -2634,10 +2637,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     // Existing saved selections are kept by the UI; this only controls default-first ordering.
     $preferred_model_patterns = [
         'openai' => [
-            '/^gpt-5-mini$/i',
+            '/^gpt-5\.4-mini$/i',
         ],
         'openrouter' => [
-            '/gemini[-\s_.]*2\.5[-\s_.]*flash[-\s_.]*lite/i',
+            '/gemini[-\s_.]*3\.1[-\s_.]*flash[-\s_.]*lite/i',
         ],
         'deepinfra' => [
             '/gemini[-\s_.]*2\.5[-\s_.]*flash(?![-\s_.]*lite)/i',
