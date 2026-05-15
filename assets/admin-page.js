@@ -413,10 +413,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (apiKeys[selectedProvider] !== undefined) {
                 // Use runtime cache if already fetched this session
                 apiKeyInput.value = apiKeys[selectedProvider];
+                updateModelField();
             } else {
                 // Fetch from server via AJAX (key never in page source)
-                apiKeyInput.value = '';
-                apiKeyInput.placeholder = '...';
+                // Do NOT clear the input yet – keep previous value visible while loading
                 var data = new FormData();
                 data.append('action', 'ai_translate_get_api_key');
                 data.append('nonce', aiTranslateAdmin.getApiKeyNonce || '');
@@ -428,23 +428,26 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                     .then(function (r) { return r.json(); })
                     .then(function (resp) {
-                        apiKeyInput.placeholder = '';
                         if (resp && resp.success && resp.data && resp.data.api_key !== undefined) {
                             var key = resp.data.api_key;
                             apiKeys[selectedProvider] = key;
                             if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
                                 apiKeyInput.value = key;
+                                // Reload models now that the key is available
+                                updateModelField();
                             }
                         } else {
                             apiKeys[selectedProvider] = '';
+                            if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
+                                apiKeyInput.value = '';
+                            }
                             if (apiStatusSpan && resp && resp.data && resp.data.message) {
                                 apiStatusSpan.textContent = resp.data.message;
                             }
                         }
                     })
                     .catch(function () {
-                        apiKeyInput.placeholder = '';
-                        // Do not clear the field on network error
+                        // Network error: leave the field unchanged
                     });
             }
         }

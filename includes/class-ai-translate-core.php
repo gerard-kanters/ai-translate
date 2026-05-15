@@ -416,8 +416,8 @@ final class AI_Translate_Core
             'Authorization' => 'Bearer ' . $api_key,
             'Content-Type'  => 'application/json',
         ];
-        // OpenRouter requires Referer header
-        if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
+        // OpenRouter requires Referer header (both built-in 'openrouter' and custom OpenRouter URL)
+        if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
             $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
             $headers['X-Title'] = 'AI Translate';
         }
@@ -477,8 +477,8 @@ final class AI_Translate_Core
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type'  => 'application/json',
             ];
-            // OpenRouter requires Referer header
-            if ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false) {
+            // OpenRouter requires Referer header (both built-in 'openrouter' and custom OpenRouter URL)
+            if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
                 $chatHeaders['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
                 $chatHeaders['X-Title'] = 'AI Translate';
             }
