@@ -329,6 +329,7 @@ final class AI_SEO
             $ogImage = '';
             if ($ogImageMissing || $shouldReplaceOgImage) {
                 if ($shouldReplaceOgImage) {
+                    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- hook prefixed with plugin slug equivalent (ai_translate)
                     $logoId = apply_filters('ai_translate_homepage_logo_id', null);
                     if ($logoId && $logoId > 0) {
                         $url = wp_get_attachment_image_url($logoId, 'large');
@@ -966,7 +967,7 @@ final class AI_SEO
         if (is_front_page() || is_home()) {
             return home_url('/');
         }
-        $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
         // URL decode only if double-encoded (contains %25)
         if (strpos($req_uri, '%25') !== false) {
             $req_uri = urldecode($req_uri);

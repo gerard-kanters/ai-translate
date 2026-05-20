@@ -9,6 +9,7 @@ tests/
 composer.json
 composer.lock
 phpunit.xml.dist
+phpcs.xml.dist
 .gitignore
 .syncignore
 agent.md

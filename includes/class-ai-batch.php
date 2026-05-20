@@ -22,7 +22,7 @@ final class AI_Batch
         $segments = $plan['segments'] ?? [];
 
         $timeLimit = (int) ini_get('max_execution_time');
-        $requestTime = isset($_SERVER['REQUEST_TIME_FLOAT']) ? $_SERVER['REQUEST_TIME_FLOAT'] : microtime(true);
+        $requestTime = isset($_SERVER['REQUEST_TIME_FLOAT']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_TIME_FLOAT'])) : microtime(true);
         $elapsed = microtime(true) - $requestTime;
         $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 60;
         if ($remaining < 15) {
@@ -184,7 +184,7 @@ final class AI_Batch
         if ($canMulti) {
             $apiStart = microtime(true);
             // Detect cache-warming requests (reduce concurrency to prevent server overload)
-            $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? (string)$_SERVER['HTTP_USER_AGENT'] : '';
+            $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_USER_AGENT'])) : '';
             $isCacheWarming = stripos($userAgent, 'CacheWarmer') !== false;
             // Normal: 6 parallel requests; Cache-warming: 2 parallel requests (prevents 8×6=48 concurrent API calls)
             $concurrency = $isCacheWarming ? 2 : 6;
@@ -423,7 +423,7 @@ final class AI_Batch
             $body = self::buildApiBody($model, $system, $userPayload, $provider, $isResponses);
             $headers = self::buildApiHeaders($apiKey, $provider, $settings);
 
-            $requestTime = isset($_SERVER['REQUEST_TIME_FLOAT']) ? $_SERVER['REQUEST_TIME_FLOAT'] : microtime(true);
+            $requestTime = isset($_SERVER['REQUEST_TIME_FLOAT']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_TIME_FLOAT'])) : microtime(true);
             $timeRemaining = $timeLimit > 0 ? ($timeLimit - (microtime(true) - $requestTime)) : 60;
             $safeTimeout = min($timeoutSeconds, max(10, (int)($timeRemaining - 10)));
 

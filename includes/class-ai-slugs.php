@@ -109,9 +109,10 @@ final class AI_Slugs
                     'post_id_updated' => "ADD KEY post_id_updated (post_id, updated_gmt)"
                 ];
 
-                // Use raw query to avoid prepare issues with complex syntax
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $result = $wpdb->query("ALTER TABLE {$table} " . $index_definitions[$index_name]);
+                // $table is plugin-owned table name from $wpdb->prefix; $index_definitions is a hardcoded
+                // ADD KEY clause whitelisted by $index_name (already constrained by foreach over fixed list).
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
+                $result = $wpdb->query("ALTER TABLE `{$table}` " . $index_definitions[$index_name]);
                 if ($result === false) {
                     // Silently ignore errors - indexes might already exist or table might be locked
                     // Don't log errors to avoid spam in debug logs
@@ -146,7 +147,7 @@ final class AI_Slugs
         $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
         
         // Exact match first (support both schemas), but exclude attachments
-        $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM {$table} WHERE {$colLang} = %s AND {$colTrans} = %s LIMIT 1", $lang, $slug));
+        $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM %i WHERE %i = %s AND translated_slug = %s LIMIT 1", $table, $colLang, $lang, $slug));
         if ($post_id) {
             // Verify it's not an attachment
             $post = get_post((int) $post_id);
@@ -157,7 +158,9 @@ final class AI_Slugs
         
         // Also try exact match with URL-encoded slugs in database
         $rows_encoded = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, {$colTrans} FROM {$table} WHERE {$colLang} = %s AND {$colTrans} LIKE %s",
+            "SELECT post_id, translated_slug FROM %i WHERE %i = %s AND translated_slug LIKE %s",
+            $table,
+            $colLang,
             $lang,
             '%' . $wpdb->esc_like('%') . '%'
         ), ARRAY_A);
@@ -184,7 +187,9 @@ final class AI_Slugs
         // This avoids fetching the entire language partition — only prefix candidates are returned.
         $slug_char_len = mb_strlen($slug);
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, {$colTrans} FROM {$table} WHERE {$colLang} = %s AND CHAR_LENGTH({$colTrans}) < %d ORDER BY CHAR_LENGTH({$colTrans}) DESC LIMIT 100",
+            "SELECT post_id, translated_slug FROM %i WHERE %i = %s AND CHAR_LENGTH(translated_slug) < %d ORDER BY CHAR_LENGTH(translated_slug) DESC LIMIT 100",
+            $table,
+            $colLang,
             $lang,
             $slug_char_len
         ), ARRAY_A);
@@ -239,15 +244,20 @@ final class AI_Slugs
         // This handles cases where the URL still uses the original slug (e.g., /it/blogs/ when translated slug is /it/blog/)
         // Prefer posts that already have a translation entry for this language (even if slug differs)
         $post_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT post_id FROM {$table} WHERE {$colSource} = %s AND {$colLang} = %s LIMIT 1",
+            "SELECT post_id FROM %i WHERE %i = %s AND %i = %s LIMIT 1",
+            $table,
+            $colSource,
             $slug,
+            $colLang,
             $lang
         ));
         if ($post_id) return (int) $post_id;
         
         // Final fallback: match source slug regardless of language (for posts that might not have translation entry yet)
         $post_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT post_id FROM {$table} WHERE {$colSource} = %s LIMIT 1",
+            "SELECT post_id FROM %i WHERE %i = %s LIMIT 1",
+            $table,
+            $colSource,
             $slug
         ));
         if ($post_id) return (int) $post_id;
@@ -269,7 +279,9 @@ final class AI_Slugs
         }
         $encoded_like = '%' . $wpdb->esc_like('%') . '%';
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, translated_slug FROM {$table} WHERE {$colLang} = %s AND translated_slug LIKE %s",
+            "SELECT post_id, translated_slug FROM %i WHERE %i = %s AND translated_slug LIKE %s",
+            $table,
+            $colLang,
             $lang,
             $encoded_like
         ), ARRAY_A);
@@ -307,8 +319,11 @@ final class AI_Slugs
         $colLang = $schema === 'original' ? 'language_code' : 'lang';
         $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
         $row = $wpdb->get_row($wpdb->prepare(
-            "SELECT {$colSource} FROM {$table} WHERE post_id = %d AND {$colLang} = %s",
+            "SELECT %i FROM %i WHERE post_id = %d AND %i = %s",
+            $colSource,
+            $table,
             $post_id,
+            $colLang,
             $lang
         ), ARRAY_A);
         if (!is_array($row) || empty($row[$colSource])) {
@@ -340,7 +355,9 @@ final class AI_Slugs
         if ($post_type !== null) {
             // Get all posts with this translated slug, then filter by post_type
             $rows = $wpdb->get_results($wpdb->prepare(
-                "SELECT post_id, {$colSource} FROM {$table} WHERE translated_slug = %s",
+                "SELECT post_id, %i FROM %i WHERE translated_slug = %s",
+                $colSource,
+                $table,
                 $slug
             ), ARRAY_A);
             
@@ -356,13 +373,15 @@ final class AI_Slugs
         }
         
         // Default behavior: return first match (for backward compatibility)
-        $source = $wpdb->get_var($wpdb->prepare("SELECT {$colSource} FROM {$table} WHERE translated_slug = %s LIMIT 1", $slug));
+        $source = $wpdb->get_var($wpdb->prepare("SELECT %i FROM %i WHERE translated_slug = %s LIMIT 1", $colSource, $table, $slug));
         if ($source) return (string) $source;
 
         // Fallback: match URL-encoded stored slug (e.g. Hungarian)
         $encoded_like = '%' . $wpdb->esc_like('%') . '%';
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, {$colSource}, translated_slug FROM {$table} WHERE translated_slug LIKE %s",
+            "SELECT post_id, %i, translated_slug FROM %i WHERE translated_slug LIKE %s",
+            $colSource,
+            $table,
             $encoded_like
         ), ARRAY_A);
         if (is_array($rows)) {
@@ -526,8 +545,10 @@ final class AI_Slugs
         
         // Find all posts with this translated slug
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id FROM {$table} WHERE translated_slug = %s AND {$colLang} = %s",
+            "SELECT post_id FROM %i WHERE translated_slug = %s AND %i = %s",
+            $table,
             $translated_slug,
+            $colLang,
             $lang
         ), ARRAY_A);
         
@@ -582,7 +603,8 @@ final class AI_Slugs
         // Current slug map.
         $table = self::table_name();
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT DISTINCT post_id FROM {$table} WHERE translated_slug = %s",
+            "SELECT DISTINCT post_id FROM %i WHERE translated_slug = %s",
+            $table,
             $slug
         ), ARRAY_A);
         if (is_array($rows)) {
@@ -597,7 +619,8 @@ final class AI_Slugs
         // History: previously stored translated slugs (from before re-translation).
         $history = self::history_table_name();
         $hist_rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT DISTINCT post_id FROM {$history} WHERE translated_slug = %s",
+            "SELECT DISTINCT post_id FROM %i WHERE translated_slug = %s",
+            $history,
             $slug
         ), ARRAY_A);
         if (is_array($hist_rows)) {
@@ -639,7 +662,9 @@ final class AI_Slugs
 
         // Strategy 1: Exact match on source_slug (any language row, source slug is identical across rows for the same post).
         $rows = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT post_id FROM {$table} WHERE {$colSource} = %s",
+            "SELECT DISTINCT post_id FROM %i WHERE %i = %s",
+            $table,
+            $colSource,
             $slug
         ));
         if (is_array($rows)) {
@@ -651,7 +676,8 @@ final class AI_Slugs
 
         // Strategy 2: Exact match on translated_slug in ANY language.
         $rows = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT post_id FROM {$table} WHERE translated_slug = %s",
+            "SELECT DISTINCT post_id FROM %i WHERE translated_slug = %s",
+            $table,
             $slug
         ));
         if (is_array($rows)) {
@@ -665,15 +691,16 @@ final class AI_Slugs
         // Both Jaccard and Overlap-coefficient (containment) are used so a strict subset of words
         // (e.g. shortened slug, slug with one extra leading word) is still recognised.
         // Includes history rows so previously-stored translations also count as candidates.
-        $current_rows = $wpdb->get_results(
-            "SELECT post_id, {$colSource} AS src, translated_slug AS tsl FROM {$table}",
-            ARRAY_A
-        );
+        $current_rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, %i AS src, translated_slug AS tsl FROM %i",
+            $colSource,
+            $table
+        ), ARRAY_A);
         $history = self::history_table_name();
-        $history_rows = $wpdb->get_results(
-            "SELECT post_id, '' AS src, translated_slug AS tsl FROM {$history}",
-            ARRAY_A
-        );
+        $history_rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, '' AS src, translated_slug AS tsl FROM %i",
+            $history
+        ), ARRAY_A);
         $all_rows = array_merge(
             is_array($current_rows) ? $current_rows : [],
             is_array($history_rows) ? $history_rows : []
@@ -838,8 +865,10 @@ final class AI_Slugs
         
         // Find all posts with this translated slug
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, translated_slug FROM {$table} WHERE translated_slug = %s AND {$colLang} = %s",
+            "SELECT post_id, translated_slug FROM %i WHERE translated_slug = %s AND %i = %s",
+            $table,
             $translated_slug,
+            $colLang,
             $lang
         ), ARRAY_A);
 
@@ -851,7 +880,9 @@ final class AI_Slugs
             }
             $encoded_like = '%' . $wpdb->esc_like('%') . '%';
             $rows_enc = $wpdb->get_results($wpdb->prepare(
-                "SELECT post_id, translated_slug FROM {$table} WHERE {$colLang} = %s AND translated_slug LIKE %s",
+                "SELECT post_id, translated_slug FROM %i WHERE %i = %s AND translated_slug LIKE %s",
+                $table,
+                $colLang,
                 $lang,
                 $encoded_like
             ), ARRAY_A);
@@ -915,7 +946,7 @@ final class AI_Slugs
         $table = self::table_name();
         $schema = self::detect_schema();
         $colLang = $schema === 'original' ? 'language_code' : 'lang';
-        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE post_id = %d AND {$colLang} = %s", $post_id, $lang), ARRAY_A);
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM %i WHERE post_id = %d AND %i = %s", $table, $post_id, $colLang, $lang), ARRAY_A);
         if (!is_array($row)) {
             return null;
         }

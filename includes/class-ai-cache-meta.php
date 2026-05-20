@@ -153,12 +153,13 @@ class AI_Cache_Meta
             }
 
             // Index doesn't exist, create it
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQLPlaceholders.UnquotedComplexPlaceholder
             $result = $wpdb->query($wpdb->prepare(
                 "ALTER TABLE %i ADD %1s",
                 $table_name,
                 $index_definition
             ));
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQLPlaceholders.UnquotedComplexPlaceholder
 
             if ($result === false && stripos($wpdb->last_error, 'Duplicate key name') !== false) {
                 $wpdb->flush();
@@ -269,7 +270,8 @@ class AI_Cache_Meta
             if (substr($cache_file, -5) !== '.html') {
                 continue;
             }
-            if (@unlink($cache_file)) {
+            wp_delete_file($cache_file);
+            if (!file_exists($cache_file)) {
                 ++$deleted;
             } else {
                 $errors[] = basename($cache_file);
@@ -334,10 +336,10 @@ class AI_Cache_Meta
 
         $normalized = wp_normalize_path($path_prefix);
         $pattern = $wpdb->esc_like($normalized) . '%';
-        $table = self::get_table_name();
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $deleted = (int) $wpdb->query($wpdb->prepare(
-            "DELETE FROM {$table} WHERE cache_file LIKE %s",
+            "DELETE FROM %i WHERE cache_file LIKE %s",
+            self::get_table_name(),
             $pattern
         ));
 
@@ -367,11 +369,13 @@ class AI_Cache_Meta
             $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
         }
         
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
         $results = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM %i WHERE post_id = %d" . $site_filter,
             self::get_table_name(),
             $post_id
         ));
+        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
         
         return is_array($results) ? $results : array();
     }
@@ -438,6 +442,7 @@ class AI_Cache_Meta
         }
 
         // Try to execute query with JOIN first
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $site_join_condition is prepared above; $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args (count is dynamic so sniff cannot verify)
         $query = $wpdb->prepare(
             "SELECT 
                 p.ID,
@@ -458,14 +463,16 @@ class AI_Cache_Meta
             LIMIT %d OFFSET %d",
             array_merge(array($table_name), array_values($public_post_types), array($limit, $offset))
         );
+        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
         
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $query is already prepared above.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $query is already prepared above via $wpdb->prepare()
         $results = $wpdb->get_results($query);
         
         // If query failed (e.g., table doesn't exist), use fallback query
         if (!is_array($results) || !empty($wpdb->last_error)) {
             $wpdb->last_error = ''; // Clear error
             // Fallback query without JOIN
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args (count is dynamic so sniff cannot verify)
             $query = $wpdb->prepare(
                 "SELECT 
                     p.ID,
@@ -481,7 +488,8 @@ class AI_Cache_Meta
                 LIMIT %d OFFSET %d",
                 array_merge(array_values($public_post_types), array($limit, $offset))
             );
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $query is already prepared above.
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $query is already prepared above via $wpdb->prepare()
             $results = $wpdb->get_results($query);
             if (!is_array($results)) {
                 $results = array();
@@ -496,11 +504,13 @@ class AI_Cache_Meta
         // For a static front page, the homepage is already a regular page post and is included via the posts query.
         // Always show homepage in list when show_on_front = posts, even if no metadata records exist yet
         if ($offset === 0 && get_option('show_on_front') === 'posts') {
+            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
             $homepage_cached = (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(DISTINCT language_code) FROM %i WHERE post_id = %d" . $site_filter,
                 $table_name,
                 0
             ));
+            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
 
             $homepage_obj = new \stdClass();
             $homepage_obj->ID = 0;
@@ -519,11 +529,13 @@ class AI_Cache_Meta
 
         // Add 404 page row (always show on first page, even if no cache yet - similar to homepage)
         if ($offset === 0) {
+            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
             $error404_cached = (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(DISTINCT language_code) FROM %i WHERE post_id = %d" . $site_filter,
                 $table_name,
                 -1
             ));
+            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
             $error404_obj = new \stdClass();
             $error404_obj->ID = -1;
             $error404_obj->post_type = '404';
@@ -583,6 +595,7 @@ class AI_Cache_Meta
         }
         $post_types_placeholders = implode(', ', array_fill(0, count($public_post_types), '%s'));
         
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared -- $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args
         $count = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT COUNT(*)
@@ -592,6 +605,7 @@ class AI_Cache_Meta
                 array_merge(array('publish'), array_values($public_post_types))
             )
         );
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
 
         // Add 1 for homepage row when the front page is a posts listing.
         // (Static front page is already included as a regular page post.)
@@ -700,13 +714,15 @@ class AI_Cache_Meta
         
         // Total in database for truncated flag
         $db_count = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table} WHERE language_code = %s",
+            "SELECT COUNT(*) FROM %i WHERE language_code = %s",
+            $table,
             $lang
         ));
         
         $buildItems = function() use ($wpdb, $table, $lang, $limit) {
             $rows = $wpdb->get_results($wpdb->prepare(
-                "SELECT post_id, cache_file, file_size, created_at FROM {$table} WHERE language_code = %s ORDER BY created_at DESC LIMIT %d",
+                "SELECT post_id, cache_file, file_size, created_at FROM %i WHERE language_code = %s ORDER BY created_at DESC LIMIT %d",
+                $table,
                 $lang,
                 $limit
             ));
@@ -801,7 +817,7 @@ class AI_Cache_Meta
                                 // Probeer alleen eerste paar bytes te lezen voor title
                                 $content = @file_get_contents($file_path, false, null, 0, 2000);
                                 if ($content !== false && preg_match('/<title[^>]*>([^<]+)<\/title>/i', $content, $matches)) {
-                                    $title_text = trim(strip_tags($matches[1]));
+                                    $title_text = trim(wp_strip_all_tags($matches[1]));
                                     // Decode HTML entities to normal characters
                                     $title_text = html_entity_decode($title_text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                                     $title = $title_text . ' (' . __('not in DB', 'ai-translate') . ')';
@@ -922,8 +938,10 @@ class AI_Cache_Meta
         
         $lang_col = $schema['lang_col'];
         $translated_slug = (string) $wpdb->get_var($wpdb->prepare(
-            "SELECT translated_slug FROM {$table} WHERE post_id = %d AND {$lang_col} = %s LIMIT 1",
+            "SELECT translated_slug FROM %i WHERE post_id = %d AND %i = %s LIMIT 1",
+            $table,
             $post_id,
+            $lang_col,
             $lang
         ));
         
@@ -1404,11 +1422,13 @@ class AI_Cache_Meta
             $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
         }
         
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
         $results = $wpdb->get_col($wpdb->prepare(
             "SELECT language_code FROM %i WHERE post_id = %d" . $site_filter,
             self::get_table_name(),
             $post_id
         ));
+        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
         
         return is_array($results) ? $results : array();
     }
@@ -1433,6 +1453,7 @@ class AI_Cache_Meta
             $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
         }
         
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
         $exists = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM %i 
             WHERE post_id = %d AND language_code = %s" . $site_filter,
@@ -1440,6 +1461,7 @@ class AI_Cache_Meta
             $post_id,
             $language_code
         ));
+        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
         
         return (int) $exists > 0;
     }

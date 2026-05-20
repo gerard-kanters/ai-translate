@@ -2,6 +2,11 @@
 
 namespace AITranslate;
 
+// Output-buffer logic only reads $_GET / $_SERVER to decide which cache file to serve and which
+// language to render. No state is mutated in those branches; nonce verification would be
+// inappropriate here. State-changing handlers live in admin-page.php and verify nonces explicitly.
+// phpcs:disable WordPress.Security.NonceVerification.Recommended
+
 /**
  * Output Buffer manager.
  */
@@ -73,7 +78,7 @@ final class AI_OB
      */
     private function fix_cached_domain($html)
     {
-        $request_host = isset($_SERVER['HTTP_HOST']) ? strtok((string) $_SERVER['HTTP_HOST'], ':') : '';
+        $request_host = isset($_SERVER['HTTP_HOST']) ? strtok(sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_HOST'])), ':') : '';
         if ($request_host === '') {
             return $html;
         }
@@ -226,7 +231,7 @@ final class AI_OB
     public function callback($html)
     {
         // Detect warm cache requests (bypass static processing check)
-        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
+        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_USER_AGENT'])) : '';
         $is_warm_cache_request = (strpos($user_agent, 'AITranslateCacheWarmer') !== false);
         
         static $processing = false;
@@ -286,7 +291,7 @@ final class AI_OB
         $bypassUserCache = false;
 
         $route = $this->current_route_id();
-        $url = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $url = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
         // URL decode only if double-encoded (contains %25)
         if (strpos($url, '%25') !== false) {
             $url = urldecode($url);
@@ -373,7 +378,7 @@ final class AI_OB
         }
         
         $timeLimit = (int) ini_get('max_execution_time');
-        $elapsed = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+        $elapsed = microtime(true) - (float) (isset($_SERVER['REQUEST_TIME_FLOAT']) ? sanitize_text_field(wp_unslash((string) $_SERVER['REQUEST_TIME_FLOAT'])) : microtime(true));
         $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 120;
         if ($remaining < 20) {
             if ($lockAcquired) {
@@ -383,8 +388,9 @@ final class AI_OB
             return $html;
         }
         
-        // Extend execution time for large pages
+        // Extend execution time for large pages (translation pipeline can exceed default 30s on big HTML).
         if ($timeLimit > 0 && $timeLimit < 120) {
+            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- required for large-page translation that exceeds default execution time
             @set_time_limit(120);
         }
 
@@ -753,7 +759,7 @@ final class AI_OB
     {
         // Check for search pages first - these need query parameters in route_id
         if (function_exists('is_search') && is_search()) {
-            $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
             // URL decode only if double-encoded (contains %25)
             if (strpos($req, '%25') !== false) {
                 $req = urldecode($req);
@@ -766,7 +772,7 @@ final class AI_OB
                 $req = '/';
             }
             // Include query string for search to differentiate search terms
-            $query_string = isset($_SERVER['QUERY_STRING']) ? (string) $_SERVER['QUERY_STRING'] : '';
+            $query_string = isset($_SERVER['QUERY_STRING']) ? sanitize_text_field(wp_unslash((string) $_SERVER['QUERY_STRING'])) : '';
             if ($query_string !== '') {
                 // Only include relevant query parameters (s, paged, etc.)
                 parse_str($query_string, $query_params);
@@ -793,7 +799,7 @@ final class AI_OB
         // CRITICAL: For warm cache requests and translated URLs, resolve the post ID from the URL FIRST
         // This is needed because WordPress query functions (is_singular, get_queried_object_id) 
         // may not work correctly during warm cache internal requests
-        $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+        $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
         if ($req_uri !== '' && preg_match('#^/([a-z]{2})/([^/?]+)/?#i', $req_uri, $url_match)) {
             $url_lang = strtolower($url_match[1]);
             $url_slug = $url_match[2];
@@ -860,7 +866,7 @@ final class AI_OB
         
         // Fallback: Try to find post by URL path for edge cases where is_singular() fails
         // This prevents duplicate caches for the same page
-        $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
         // URL decode only if double-encoded (contains %25)
         if (strpos($req, '%25') !== false) {
             $req = urldecode($req);
@@ -921,7 +927,7 @@ final class AI_OB
         
         // Final fallback: use path-based route_id for archives, etc.
         // Remove language code prefix from URI to prevent cache duplication across languages
-        $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
         if ($req === '') {
             $req = '/';
         }
@@ -1055,7 +1061,7 @@ final class AI_OB
     private function should_skip_file_types($html)
     {
         // Skip XML files and sitemaps
-        $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+        $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
         // URL decode only if double-encoded (contains %25)
         if (strpos($req_uri, '%25') !== false) {
             $req_uri = urldecode($req_uri);
@@ -1185,7 +1191,7 @@ final class AI_OB
 
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-        $uri = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI']));
+        $uri = esc_url_raw(wp_unslash($_SERVER['REQUEST_URI']));
 
         return $protocol . '://' . $host . $uri;
     }
@@ -1297,7 +1303,7 @@ final class AI_OB
             }
             if (function_exists('is_search') && is_search()) {
                 // Don't translate empty search queries - they produce no meaningful results
-                $search_query = isset($_GET['s']) ? trim($_GET['s']) : '';
+                $search_query = isset($_GET['s']) ? trim(sanitize_text_field(wp_unslash((string) $_GET['s']))) : '';
                 if (empty($search_query)) {
                     return false; // Skip empty search queries
                 }
@@ -1786,7 +1792,7 @@ final class AI_OB
         $bodyHtml = $m[1];
         $bodyHtml = preg_replace('/<script[^>]*>.*?<\/script>/si', '', $bodyHtml);
         $bodyHtml = preg_replace('/<style[^>]*>.*?<\/style>/si', '', $bodyHtml);
-        $bodyText = html_entity_decode(trim(strip_tags($bodyHtml)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $bodyText = html_entity_decode(trim(wp_strip_all_tags($bodyHtml)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         if (mb_strlen($bodyText) < 100) {
             return true;

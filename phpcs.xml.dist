@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<ruleset name="AI Translate Plugin">
+    <description>PHP_CodeSniffer ruleset for the AI Translate plugin.</description>
+
+    <!--
+        Declare the prefixes used by this plugin so the
+        WordPress.NamingConventions.PrefixAllGlobals sniff (used by Plugin Check)
+        recognises functions, variables, hooks, classes and constants that start
+        with one of these prefixes as properly prefixed.
+
+        - ai_translate / ai-translate  : main plugin slug + function/variable prefix
+        - AITranslate                  : PHP namespace + class prefix
+        - AI_TRANSLATE                 : constant prefix
+    -->
+    <config name="prefixes" value="ai_translate,ai-translate,AITranslate,AI_TRANSLATE"/>
+
+    <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+        <properties>
+            <property name="prefixes" type="array">
+                <element value="ai_translate"/>
+                <element value="ai-translate"/>
+                <element value="AITranslate"/>
+                <element value="AI_TRANSLATE"/>
+            </property>
+        </properties>
+    </rule>
+</ruleset>

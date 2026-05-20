@@ -126,18 +126,20 @@ final class AI_Sitemap
         }
         $placeholders = implode(', ', array_fill(0, count($public_types), '%s'));
 
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a server-built '%s, %s, ...' string for IN(); $table/$col_lang are passed via %i below
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT s.translated_slug, p.post_modified_gmt
-             FROM `{$table}` s
-             JOIN `{$wpdb->posts}` p ON p.ID = s.post_id
-             WHERE s.`{$col_lang}` = %s
+             FROM %i s
+             JOIN {$wpdb->posts} p ON p.ID = s.post_id
+             WHERE s.%i = %s
                AND p.post_status = 'publish'
                AND p.post_type IN ({$placeholders})
                AND s.translated_slug != ''
              ORDER BY s.post_id ASC
              LIMIT %d OFFSET %d",
-            array_merge([$lang], array_values($public_types), [$limit, $offset])
+            array_merge([$table, $col_lang, $lang], array_values($public_types), [$limit, $offset])
         ), ARRAY_A);
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
         if (!is_array($rows) || empty($rows)) {
             return [];
@@ -181,16 +183,19 @@ final class AI_Sitemap
         }
         $placeholders = implode(', ', array_fill(0, count($public_types), '%s'));
 
-        return (int) $wpdb->get_var($wpdb->prepare(
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a server-built '%s, %s, ...' string for IN(); $table/$col_lang are passed via %i below
+        $count = (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*)
-             FROM `{$table}` s
-             JOIN `{$wpdb->posts}` p ON p.ID = s.post_id
-             WHERE s.`{$col_lang}` = %s
+             FROM %i s
+             JOIN {$wpdb->posts} p ON p.ID = s.post_id
+             WHERE s.%i = %s
                AND p.post_status = 'publish'
                AND p.post_type IN ({$placeholders})
                AND s.translated_slug != ''",
-            array_merge([$lang], array_values($public_types))
+            array_merge([$table, $col_lang, $lang], array_values($public_types))
         ));
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+        return $count;
     }
 
     /**

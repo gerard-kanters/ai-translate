@@ -102,7 +102,8 @@ final class AI_Cache
     {
         $file = self::file_path($key);
         if (is_file($file)) {
-            return @unlink($file);
+            wp_delete_file($file);
+            return !file_exists($file);
         }
         return false;
     }

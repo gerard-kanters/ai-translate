@@ -47,7 +47,7 @@ final class AI_Lang
             $hasLangInUrl = true;
         } else {
             // Fallback: parse leading /xx/ from request URI if present
-            $req = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
             // URL decode only if double-encoded (contains %25)
             if (strpos($req, '%25') !== false) {
                 $req = urldecode($req);
@@ -63,7 +63,7 @@ final class AI_Lang
         // Cookie is only used for redirects from root, not for language detection
         if ($lang === null || $lang === '') {
             // 1) Browser Accept-Language (first 2-letter match)
-            $browser = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? (string) $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
+            $browser = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_ACCEPT_LANGUAGE'])) : '';
             $picked = '';
             if ($browser !== '') {
                 $parts = explode(',', $browser);
@@ -132,7 +132,7 @@ final class AI_Lang
         if (defined('COOKIE_DOMAIN') && COOKIE_DOMAIN !== '') {
             $domain = COOKIE_DOMAIN;
         } else {
-            $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+            $host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_HOST'])) : '';
             if ($host !== '') {
                 // Remove port if present
                 if (strpos($host, ':') !== false) {

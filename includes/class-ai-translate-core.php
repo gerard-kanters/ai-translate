@@ -408,7 +408,7 @@ final class AI_Translate_Core
 
         // Custom API: reject Google API URL (not OpenAI-compatible)
         if ($provider_key === 'custom' && strpos($custom_api_url, 'googleapis.com') !== false) {
-            throw new \Exception(__('Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini.', 'ai-translate'));
+            throw new \Exception(esc_html__('Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini.', 'ai-translate'));
         }
 
         $endpoint = rtrim($base, '/') . '/models';
@@ -427,12 +427,12 @@ final class AI_Translate_Core
             'sslverify' => true,
         ]);
         if (is_wp_error($resp)) {
-            throw new \Exception($resp->get_error_message());
+            throw new \Exception(esc_html($resp->get_error_message()));
         }
         $code = (int) wp_remote_retrieve_response_code($resp);
         if ($code !== 200) {
             $body = (string) wp_remote_retrieve_body($resp);
-            throw new \Exception('HTTP ' . $code . ' ' . $body);
+            throw new \Exception(esc_html('HTTP ' . $code . ' ' . $body));
         }
         $body = (string) wp_remote_retrieve_body($resp);
         $data = json_decode($body, true);
@@ -454,7 +454,7 @@ final class AI_Translate_Core
                 }
             }
             if (!$modelFound) {
-                throw new \Exception('Model "' . $model . '" not found in available models list. Please check the model name.');
+                throw new \Exception(esc_html('Model "' . $model . '" not found in available models list. Please check the model name.'));
             }
         }
 
@@ -463,11 +463,11 @@ final class AI_Translate_Core
             // Early guard for model families that are known to be non-chat/non-translation models.
             if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria)/i', $model)) {
                 throw new \Exception(
-                    sprintf(
+                    esc_html(sprintf(
                         /* translators: %s is the selected model ID */
                         __('Selected model "%s" is not a chat/completions model and cannot be used for translations. Choose a text chat model (for example: gpt-4o-mini, gpt-4.1-mini, deepseek-chat).', 'ai-translate'),
                         $model
-                    )
+                    ))
                 );
             }
 
@@ -498,7 +498,7 @@ final class AI_Translate_Core
                 'body' => wp_json_encode($chatBody),
             ]);
             if (is_wp_error($chatResp)) {
-                throw new \Exception('Chat test failed: ' . $chatResp->get_error_message());
+                throw new \Exception(esc_html('Chat test failed: ' . $chatResp->get_error_message()));
             }
             $chatCode = (int) wp_remote_retrieve_response_code($chatResp);
             if ($chatCode !== 200) {
@@ -530,11 +530,11 @@ final class AI_Translate_Core
                 );
                 if ($nonChatModelError) {
                     throw new \Exception(
-                        sprintf(
+                        esc_html(sprintf(
                             /* translators: %s is the selected model ID */
                             __('Selected model "%s" is not supported for chat-based translations. Choose a chat/completions model instead.', 'ai-translate'),
                             $model
-                        )
+                        ))
                     );
                 }
                 // Auto-detect /responses API requirement and retry once
@@ -552,15 +552,15 @@ final class AI_Translate_Core
                         'body' => wp_json_encode($chatBody),
                     ]);
                     if (is_wp_error($chatResp)) {
-                        throw new \Exception('Chat test failed: ' . $chatResp->get_error_message());
+                        throw new \Exception(esc_html('Chat test failed: ' . $chatResp->get_error_message()));
                     }
                     $chatCode = (int) wp_remote_retrieve_response_code($chatResp);
                     if ($chatCode !== 200) {
                         $chatBodyText = (string) wp_remote_retrieve_body($chatResp);
-                        throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
+                        throw new \Exception(esc_html('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500)));
                     }
                 } else {
-                    throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500));
+                    throw new \Exception(esc_html('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500)));
                 }
             }
         }
@@ -649,13 +649,15 @@ final class AI_Translate_Core
             foreach ($rii as $file) {
                 /** @var \SplFileInfo $file */
                 if ($file->isFile()) {
-                    @unlink($file->getPathname());
+                    wp_delete_file($file->getPathname());
                     $count++;
                 }
             }
-            // Remove empty directories
+            // Remove empty directories. Plugin-owned cache subdirectories under uploads/ai-translate/cache/;
+            // WP_Filesystem would require admin-side credential init and is overkill for local cleanup.
             foreach ($rii as $file) {
                 if ($file->isDir()) {
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- plugin-owned cache directory cleanup
                     @rmdir($file->getPathname());
                 }
             }
@@ -732,9 +734,10 @@ final class AI_Translate_Core
             foreach ($rii as $file) {
                 /** @var \SplFileInfo $file */
                 if ($file->isDir()) {
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- plugin-owned cache directory cleanup
                     @rmdir($file->getPathname());
                 } else {
-                    @unlink($file->getPathname());
+                    wp_delete_file($file->getPathname());
                 }
             }
         }
@@ -771,9 +774,10 @@ final class AI_Translate_Core
         foreach ($rii as $file) {
             /** @var \SplFileInfo $file */
             if ($file->isDir()) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- plugin-owned cache directory cleanup
                 @rmdir($file->getPathname());
             } else {
-                @unlink($file->getPathname());
+                wp_delete_file($file->getPathname());
             }
         }
         \AITranslate\AI_Cache_Meta::delete_by_path_prefix($root);
@@ -908,8 +912,8 @@ final class AI_Translate_Core
             return ['success' => false, 'cleared' => 0, 'message' => 'Slug table not found'];
         }
         // Count rows for reporting
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-        $count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+        $count = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $table));
         // Truncate the table
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
         $wpdb->query($wpdb->prepare("TRUNCATE TABLE %i", $table));
@@ -1193,6 +1197,7 @@ final class AI_Translate_Core
                 if (!empty($post->post_excerpt)) {
                     $raw_content .= $post->post_excerpt . "\n";
                 }
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- intentional: run WordPress core 'the_content' filter chain
                 $rendered = apply_filters('the_content', $post->post_content);
                 if (is_string($rendered) && $rendered !== '') {
                     $raw_content .= $rendered;
@@ -1221,6 +1226,7 @@ final class AI_Translate_Core
                 if ($title !== '') {
                     $raw_content .= $title . "\n";
                 }
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- intentional: run WordPress core 'the_content' filter chain
                 $rendered = apply_filters('the_content', $post->post_content);
                 if (is_string($rendered) && $rendered !== '') {
                     $raw_content .= $rendered . "\n";
@@ -1366,7 +1372,7 @@ final class AI_Translate_Core
                         // Remove markdown code blocks if present
                         $ai_context = str_replace(["```json", "```JSON", "```"], '', $ai_context);
                         // Final cleanup
-                        $ai_context = strip_tags($ai_context);
+                        $ai_context = wp_strip_all_tags($ai_context);
                         return $ai_context;
                     }
                 }
@@ -1530,13 +1536,13 @@ final class AI_Translate_Core
                 }
 
                 if (is_wp_error($response)) {
-                    throw new \Exception('API request failed: ' . $response->get_error_message());
+                    throw new \Exception(esc_html('API request failed: ' . $response->get_error_message()));
                 }
                 
                 $response_code = wp_remote_retrieve_response_code($response);
                 if ($response_code !== 200) {
                     $response_body = wp_remote_retrieve_body($response);
-                    throw new \Exception('API returned error code ' . $response_code . ': ' . $response_body);
+                    throw new \Exception(esc_html('API returned error code ' . $response_code . ': ' . $response_body));
                 }
                 
                 $response_body = wp_remote_retrieve_body($response);
@@ -1549,7 +1555,7 @@ final class AI_Translate_Core
                 
                 $meta = trim($meta);
                 $meta = str_replace(["```json", "```JSON", "```"], '', $meta);
-                $meta = strip_tags($meta);
+                $meta = wp_strip_all_tags($meta);
                 $meta = trim($meta);
                 
                 if (empty($meta)) {
