@@ -128,7 +128,7 @@ final class AI_Translate_Core
             $domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
         }
         if (empty($domain)) {
-            $domain = parse_url(home_url(), PHP_URL_HOST);
+            $domain = wp_parse_url(home_url(), PHP_URL_HOST);
             if (empty($domain)) {
                 $domain = 'default';
             }
@@ -791,7 +791,7 @@ final class AI_Translate_Core
         if (empty($settings['multi_domain_caching'])) {
             return '';
         }
-        $host = parse_url(home_url(), PHP_URL_HOST);
+        $host = wp_parse_url(home_url(), PHP_URL_HOST);
         if (empty($host)) {
             return 'default';
         }
@@ -1311,7 +1311,7 @@ final class AI_Translate_Core
                 ];
                 $body = self::adjust_body_for_model($body, $model, $provider);
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
-                    $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
+                    $body['user'] = !empty($domain) ? $domain : wp_parse_url(home_url(), PHP_URL_HOST);
                 }
                 if ($endpointPath === '/responses') {
                     $body = self::convert_body_to_responses($body);
@@ -1482,7 +1482,7 @@ final class AI_Translate_Core
                 ];
                 $body = self::adjust_body_for_model($body, $metaModel, $provider);
                 if ($provider === 'openrouter' || ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false)) {
-                    $body['user'] = !empty($domain) ? $domain : parse_url(home_url(), PHP_URL_HOST);
+                    $body['user'] = !empty($domain) ? $domain : wp_parse_url(home_url(), PHP_URL_HOST);
                 }
                 if ($endpointPath === '/responses') {
                     $body = self::convert_body_to_responses($body);

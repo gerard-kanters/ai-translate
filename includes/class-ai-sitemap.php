@@ -2,6 +2,10 @@
 
 namespace AITranslate;
 
+if (! defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Sitemap integration for AI Translate.
  * Supports WordPress native sitemaps (WP 5.5+), Yoast SEO, Rank Math and Google XML Sitemaps plugin.

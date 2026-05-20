@@ -2,6 +2,10 @@
 
 namespace AITranslate;
 
+if (! defined('ABSPATH')) {
+    exit;
+}
+
 // Load the core class if it doesn't exist yet.
 // Since this file is in the "includes" folder, the core class is at the same level.
 if (! \class_exists('AI_Translate_Core')) {
@@ -87,7 +91,7 @@ function ajax_clear_cache_language()
         $result = $translator->clear_cache_for_language($lang_code);
         $count  = isset($result['count']) ? (int) $result['count'] : 0;
         wp_send_json_success([
-            'message' => safe_sprintf(__('Cache for language "%s" cleared. %d files removed.', 'ai-translate'), $lang_code, $count),
+            'message' => safe_sprintf(/* translators: %1$s: string value, %2$s: number value */ __('Cache for language "%1$s" cleared. %2$d files removed.', 'ai-translate'), $lang_code, $count),
             'count' => $count
         ]);
     } catch (\Exception $e) {
@@ -168,7 +172,7 @@ function ajax_delete_post_cache()
             
             // Security: Ensure file is within allowed cache directory (prevent path traversal)
             if (strpos($cache_file, $allowed_base) !== 0) {
-                $errors[] = safe_sprintf(__('Invalid file path: %s', 'ai-translate'), basename($cache_file));
+                $errors[] = safe_sprintf(/* translators: %s: string value */ __('Invalid file path: %s', 'ai-translate'), basename($cache_file));
                 continue;
             }
             
@@ -179,14 +183,14 @@ function ajax_delete_post_cache()
             
             // Security: Additional check - file must have .html extension
             if (substr($cache_file, -5) !== '.html') {
-                $errors[] = safe_sprintf(__('Invalid file type: %s', 'ai-translate'), basename($cache_file));
+                $errors[] = safe_sprintf(/* translators: %s: string value */ __('Invalid file type: %s', 'ai-translate'), basename($cache_file));
                 continue;
             }
             
             if (@unlink($cache_file)) {
                 $deleted++;
             } else {
-                $errors[] = safe_sprintf(__('Could not delete file: %s', 'ai-translate'), basename($cache_file));
+                $errors[] = safe_sprintf(/* translators: %s: string value */ __('Could not delete file: %s', 'ai-translate'), basename($cache_file));
             }
         }
     }
@@ -197,7 +201,7 @@ function ajax_delete_post_cache()
     // Clear any transients
     delete_transient('ai_translate_cache_table_data');
     
-    $message = safe_sprintf(__('Cache deleted for %d languages', 'ai-translate'), $deleted);
+    $message = safe_sprintf(/* translators: %d: number value */ __('Cache deleted for %d languages', 'ai-translate'), $deleted);
     if (!empty($errors)) {
         $message .= '. ' . __('Warnings:', 'ai-translate') . ' ' . implode(', ', $errors);
     }
@@ -352,7 +356,7 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
     }
     
     // Parse URL to get host
-    $parsed = parse_url(home_url());
+    $parsed = wp_parse_url(home_url());
     $host = isset($parsed['host']) ? $parsed['host'] : '';
     if (isset($parsed['port'])) {
         $host .= ':' . $parsed['port'];
@@ -521,10 +525,10 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                 AI_Cache_Meta::insert($post_id, $lang_code, $cache_file, $cache_hash);
                 $results[$lang_code] = array('success' => true, 'error' => '');
             } else {
-                $results[$lang_code] = array('success' => false, 'error' => safe_sprintf(__('HTTP %d (redirect)', 'ai-translate'), $http_code));
+                $results[$lang_code] = array('success' => false, 'error' => safe_sprintf(/* translators: %d: number value */ __('HTTP %d (redirect)', 'ai-translate'), $http_code));
             }
         } else {
-            $results[$lang_code] = array('success' => false, 'error' => safe_sprintf(__('HTTP %d', 'ai-translate'), $http_code));
+            $results[$lang_code] = array('success' => false, 'error' => safe_sprintf(/* translators: %d: number value */ __('HTTP %d', 'ai-translate'), $http_code));
         }
     }
     
@@ -554,7 +558,7 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
     }
 
     // Parse URL to get host and path
-    $parsed = parse_url($translated_url);
+    $parsed = wp_parse_url($translated_url);
     $host = isset($parsed['host']) ? $parsed['host'] : '';
     if (isset($parsed['port'])) {
         $host .= ':' . $parsed['port'];
@@ -631,11 +635,11 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
         if ($location) {
             // Try following the redirect
             $redirect_url = (strpos($location, 'http') === 0) ? $location : home_url($location);
-            return warm_cache_internal_request($post_id, parse_url($redirect_url, PHP_URL_PATH), $lang_code);
+            return warm_cache_internal_request($post_id, wp_parse_url($redirect_url, PHP_URL_PATH), $lang_code);
         }
     }
     
-    return array('success' => false, 'error' => safe_sprintf(__('HTTP %d', 'ai-translate'), $response_code));
+    return array('success' => false, 'error' => safe_sprintf(/* translators: %d: number value */ __('HTTP %d', 'ai-translate'), $response_code));
 }
 
 /**
@@ -716,8 +720,8 @@ function ajax_warm_post_cache()
     }
     
     // Security: Validate URL is from same site (prevent SSRF)
-    $parsed_url = parse_url($post_url);
-    $site_url = parse_url(home_url());
+    $parsed_url = wp_parse_url($post_url);
+    $site_url = wp_parse_url(home_url());
     if (!isset($parsed_url['host']) || !isset($site_url['host']) || $parsed_url['host'] !== $site_url['host']) {
         wp_send_json_error(['message' => __('Invalid post URL.', 'ai-translate')]);
         return;
@@ -751,7 +755,7 @@ function ajax_warm_post_cache()
     
     // Process languages in parallel batches of 5
     $batch_size = 5;
-    $path = parse_url($post_url, PHP_URL_PATH);
+    $path = wp_parse_url($post_url, PHP_URL_PATH);
     
     for ($i = 0; $i < count($languages_to_warm); $i += $batch_size) {
         $batch = array_slice($languages_to_warm, $i, $batch_size);
@@ -761,12 +765,12 @@ function ajax_warm_post_cache()
                 if ($result['success']) {
                     $warmed++;
                 } else {
-                    $errors[] = sprintf(__('Error for %s: %s', 'ai-translate'), $lang_code, $result['error']);
+                    $errors[] = sprintf(/* translators: %1$s: string value, %2$s: string value */ __('Error for %1$s: %2$s', 'ai-translate'), $lang_code, $result['error']);
                 }
             }
         } catch (\Throwable $e) {
             foreach ($batch as $lang_code) {
-                $errors[] = sprintf(__('Error for %s: %s', 'ai-translate'), $lang_code, $e->getMessage());
+                $errors[] = sprintf(/* translators: %1$s: string value, %2$s: string value */ __('Error for %1$s: %2$s', 'ai-translate'), $lang_code, $e->getMessage());
             }
         }
     }
@@ -794,14 +798,14 @@ function ajax_warm_post_cache()
         }
     }
     
-    $message = sprintf(__('Cache warmed for %d languages', 'ai-translate'), $warmed);
+    $message = sprintf(/* translators: %d: number value */ __('Cache warmed for %d languages', 'ai-translate'), $warmed);
     if ($skipped > 0) {
-        $message .= sprintf(__(' (%d skipped)', 'ai-translate'), $skipped);
+        $message .= sprintf(/* translators: %d: number value */ __(' (%d skipped)', 'ai-translate'), $skipped);
     }
     if (!empty($errors)) {
         $message .= '. ' . __('Warnings:', 'ai-translate') . ' ' . implode(', ', array_slice($errors, 0, 3));
         if (count($errors) > 3) {
-            $message .= sprintf(__(' and %d more', 'ai-translate'), count($errors) - 3);
+            $message .= sprintf(/* translators: %d: number value */ __(' and %d more', 'ai-translate'), count($errors) - 3);
         }
     }
     
@@ -855,7 +859,7 @@ function ajax_generate_website_context()
                 $requested_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
             }
             if (empty($requested_domain)) {
-                $requested_domain = parse_url(home_url(), PHP_URL_HOST);
+                $requested_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                 if (empty($requested_domain)) {
                     $requested_domain = 'default';
                 }
@@ -921,7 +925,7 @@ function ajax_generate_homepage_meta()
                 $requested_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
             }
             if (empty($requested_domain)) {
-                $requested_domain = parse_url(home_url(), PHP_URL_HOST);
+                $requested_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                 if (empty($requested_domain)) {
                     $requested_domain = 'default';
                 }
@@ -1063,7 +1067,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'empty' => __('No cached pages for this language.', 'ai-translate'),
             'show' => __('Show cached URLs', 'ai-translate'),
             'hide' => __('Hide cached URLs', 'ai-translate'),
-            'truncated' => __('Showing first %1$s of %2$s entries', 'ai-translate'),
+            'truncated' => /* translators: %1$s: number of shown entries, %2$s: total number of entries */ __('Showing first %1$s of %2$s entries', 'ai-translate'),
             'delete_file' => __('Delete file', 'ai-translate'),
             'deleting' => __('Deleting...', 'ai-translate'),
             'confirm_delete' => __('Are you sure you want to delete this cache file?', 'ai-translate'),
@@ -1288,7 +1292,7 @@ add_action('admin_init', function () {
                         $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                     }
                     if (empty($active_domain)) {
-                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                         if (empty($active_domain)) {
                             $active_domain = 'default';
                         }
@@ -1333,7 +1337,7 @@ add_action('admin_init', function () {
                         $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                     }
                     if (empty($active_domain)) {
-                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                         if (empty($active_domain)) {
                             $active_domain = 'default';
                         }
@@ -1411,7 +1415,7 @@ add_action('admin_init', function () {
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
             echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://api.perplexity.ai" class="regular-text">';
-            $description_text = esc_html__('Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s', 'ai-translate');
+            $description_text = /* translators: %s: string value */ esc_html__('Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s', 'ai-translate');
             $url_link = '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>';
 
             // Count %s placeholders in the translated string to prevent sprintf errors
@@ -1799,7 +1803,7 @@ add_action('admin_init', function () {
                 $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
             }
             if (empty($active_domain)) {
-                $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                 if (empty($active_domain)) {
                     $active_domain = 'default';
                 }
@@ -1850,7 +1854,7 @@ add_action('admin_init', function () {
                 $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
             }
             if (empty($active_domain)) {
-                $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                 if (empty($active_domain)) {
                     $active_domain = 'default';
                 }
@@ -1967,11 +1971,11 @@ function render_admin_page()
                 $notice_class = isset($result['warning']) ? 'notice-warning' : 'notice-success';
                 $cache_language_message = '<div class="notice ' . esc_attr($notice_class) . '" id="cache-cleared-message">
                     <p>' . sprintf(
-                        __('Cache for language %s cleared.', 'ai-translate'),
+                        /* translators: %s: string value */ __('Cache for language %s cleared.', 'ai-translate'),
                         '<strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>'
                     ) . ' 
-                    <br>' . sprintf(__('Files removed: %d', 'ai-translate'), intval($result['count'])) . ' 
-                    <br>' . sprintf(__('Remaining files: %d', 'ai-translate'), intval($after_count)) . '</p>';
+                    <br>' . sprintf(/* translators: %d: number value */ __('Files removed: %d', 'ai-translate'), intval($result['count'])) . ' 
+                    <br>' . sprintf(/* translators: %d: number value */ __('Remaining files: %d', 'ai-translate'), intval($after_count)) . '</p>';
 
                 if (isset($result['warning'])) {
                     $cache_language_message .= '<p class="error-message">' . esc_html__('Note:', 'ai-translate') . ' ' . esc_html($result['warning']) . '</p>';
@@ -1981,7 +1985,7 @@ function render_admin_page()
             } else {
                 $cache_language_message = '<div class="notice notice-info" id="cache-cleared-message">
                     <p>' . sprintf(
-                        __('No cache files found for language %s.', 'ai-translate'),
+                        /* translators: %s: string value */ __('No cache files found for language %s.', 'ai-translate'),
                         '<strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>'
                     ) . '</p>
                 </div>';
@@ -1990,7 +1994,7 @@ function render_admin_page()
             $error_message = isset($result['error']) ? $result['error'] : __('Unknown error', 'ai-translate');
             $cache_language_message = '<div class="notice notice-error" id="cache-cleared-message">
                 <p>' . sprintf(
-                    __('Error clearing cache for language %s: %s', 'ai-translate'),
+                    /* translators: %1$s: string value, %2$s: string value */ __('Error clearing cache for language %1$s: %2$s', 'ai-translate'),
                     '<strong>' . esc_html($lang_name) . ' (' . esc_html($lang_code) . ')</strong>',
                     esc_html($error_message)
                 ) . '</p>
@@ -2074,11 +2078,11 @@ function render_admin_page()
                         $transients = isset($res['transients_cleared']) ? (int) $res['transients_cleared'] : 0;
                         $msg = __('Menu cache cleared', 'ai-translate');
                         if ($transients > 0) {
-                            $msg .= ' (' . sprintf(_n('%d menu-item translation removed', '%d menu-item translations removed', $transients, 'ai-translate'), $transients) . ')';
+                            $msg .= ' (' . sprintf(/* translators: %d: number of removed menu-item translations */ _n('%d menu-item translation removed', '%d menu-item translations removed', $transients, 'ai-translate'), $transients) . ')';
                         }
                         if (!empty($tables)) {
                             $safe = array_map('esc_html', $tables);
-                            $msg .= ' ' . sprintf(__('and tables truncated: %s', 'ai-translate'), implode(', ', $safe));
+                            $msg .= ' ' . sprintf(/* translators: %s: string value */ __('and tables truncated: %s', 'ai-translate'), implode(', ', $safe));
                         }
                         echo '<div class="notice notice-success"><p>' . esc_html($msg) . '.</p></div>';
                     }
@@ -2104,10 +2108,10 @@ function render_admin_page()
                         $res = $core->clear_slug_map();
                         if (!empty($res['success'])) {
                             $num = isset($res['cleared']) ? (int) $res['cleared'] : 0;
-                            echo '<div class="notice notice-success"><p>' . sprintf(__('Slug cache cleared. Rows removed: %d.', 'ai-translate'), intval($num)) . '</p></div>';
+                            echo '<div class="notice notice-success"><p>' . sprintf(/* translators: %d: number value */ __('Slug cache cleared. Rows removed: %d.', 'ai-translate'), intval($num)) . '</p></div>';
                         } else {
                             $msg = isset($res['message']) ? $res['message'] : __('Unknown error', 'ai-translate');
-                            echo '<div class="notice notice-error"><p>' . sprintf(__('Failed to clear slug cache: %s.', 'ai-translate'), esc_html($msg)) . '</p></div>';
+                            echo '<div class="notice notice-error"><p>' . sprintf(/* translators: %s: string value */ __('Failed to clear slug cache: %s.', 'ai-translate'), esc_html($msg)) . '</p></div>';
                         }
                     }
                 }
@@ -2172,7 +2176,7 @@ function render_admin_page()
                         
                         // Final fallback to home_url() host (should rarely be needed)
                         if (empty($active_domain)) {
-                            $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                            $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                             if (empty($active_domain)) {
                                 $active_domain = 'default';
                             }
@@ -2317,7 +2321,7 @@ function render_admin_page()
                         $count = AI_Cache_Meta::populate_existing_cache(true);
                         if ($count > 0) {
                             echo '<div class="notice notice-success is-dismissible"><p>';
-                            echo safe_sprintf(__('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
+                            echo safe_sprintf(/* translators: %d: number value */ __('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count);
                             echo '</p></div>';
                         } else {
                         echo '<div class="notice notice-warning is-dismissible"><p>';
@@ -2333,7 +2337,7 @@ function render_admin_page()
                         update_option('ai_translate_cache_meta_populated', true);
                         if ($count > 0) {
                             echo '<div class="notice notice-info is-dismissible"><p>';
-                            echo sprintf(__('Cache metadata initialized: %d existing cache records added.', 'ai-translate'), $count);
+                            echo sprintf(/* translators: %d: number value */ __('Cache metadata initialized: %d existing cache records added.', 'ai-translate'), $count);
                             echo '</p></div>';
                         }
                     }
@@ -2418,7 +2422,7 @@ function render_admin_page()
                                 <td>
                                     <a href="<?php echo esc_url($post->url); ?>" target="_blank" rel="noopener">
                                         <?php 
-                                        $url_display = parse_url($post->url, PHP_URL_PATH);
+                                        $url_display = wp_parse_url($post->url, PHP_URL_PATH);
                                         if (strlen($url_display) > 40) {
                                             $url_display = substr($url_display, 0, 37) . '...';
                                         }
@@ -2795,7 +2799,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                         $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                     }
                     if (empty($active_domain)) {
-                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                         if (empty($active_domain)) {
                             $active_domain = 'default';
                         }
@@ -2840,7 +2844,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                         $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                     }
                     if (empty($active_domain)) {
-                        $active_domain = parse_url(home_url(), PHP_URL_HOST);
+                        $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
                         if (empty($active_domain)) {
                             $active_domain = 'default';
                         }

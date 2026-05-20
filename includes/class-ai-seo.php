@@ -971,7 +971,7 @@ final class AI_SEO
         if (strpos($req_uri, '%25') !== false) {
             $req_uri = urldecode($req_uri);
         }
-        $path = (string) parse_url($req_uri, PHP_URL_PATH);
+        $path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
         if ($path === '') { $path = '/'; }
         return home_url($path);
     }

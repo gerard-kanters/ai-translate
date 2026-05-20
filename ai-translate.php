@@ -5,10 +5,12 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.2
- * Requires at least: 5.0
- * Tested up to: 6.9
- * Requires PHP: 8.0.0
+ * Version: 2.3.3
+ * Requires at least: 6.2
+ * Tested up to: 7.0
+ * Requires PHP: 8.0
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: ai-translate
  * Domain Path: /languages
  */
@@ -32,7 +34,7 @@ function ai_translate_site_path(): string
         // Use get_option('home') directly to bypass any home_url filters (e.g. the language-prefix
         // filter registered by this plugin), so we always get the real installation path.
         $raw = trailingslashit((string) get_option('home', get_option('siteurl', '')));
-        $p   = rtrim((string) parse_url($raw, PHP_URL_PATH), '/');
+        $p   = rtrim((string) wp_parse_url($raw, PHP_URL_PATH), '/');
     }
     return $p;
 }
@@ -419,7 +421,7 @@ add_filter('do_redirect_guess_404_permalink', function ($do_redirect) {
     if (strpos($reqPathRaw, '%25') !== false) {
         $reqPathRaw = urldecode($reqPathRaw);
     }
-    $reqPath = ai_translate_strip_site_path((string) parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
     $defaultLang = \AITranslate\AI_Lang::default();
     
     if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
@@ -445,7 +447,7 @@ add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
         return false;
     }
     $req = (string) $requested_url;
-    $path = ai_translate_strip_site_path((string) parse_url($req, PHP_URL_PATH));
+    $path = ai_translate_strip_site_path((string) wp_parse_url($req, PHP_URL_PATH));
     if ($path !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $path, $m)) {
         $langFromUrl = strtolower(sanitize_key($m[1]));
         $defaultLang = \AITranslate\AI_Lang::default();
@@ -525,7 +527,7 @@ add_filter('request', function ($vars) {
     }
     // Fallback: if rewrite did not set ai_translate_path (e.g. URL with %), extract path from REQUEST_URI
     if (empty($vars['ai_translate_path']) && !empty($req) && preg_match('#^/([a-z]{2})/([^?]+)#i', $req, $m)) {
-        $path_from_uri = ai_translate_strip_site_path((string) parse_url($req, PHP_URL_PATH));
+        $path_from_uri = ai_translate_strip_site_path((string) wp_parse_url($req, PHP_URL_PATH));
         if ($path_from_uri !== '' && preg_match('#^/([a-z]{2})(?:/(.*))?$#i', $path_from_uri, $path_m)) {
             $vars['lang'] = strtolower($path_m[1]);
             $vars['ai_translate_path'] = isset($path_m[2]) ? trim($path_m[2], '/') : '';
@@ -640,7 +642,7 @@ function ai_translate_is_xml_request()
     if (strpos($reqPathRaw, '%25') !== false) {
         $reqPathRaw = urldecode($reqPathRaw);
     }
-    $reqPath = ai_translate_strip_site_path((string) parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
 
     // Check if path ends with .xml
     if (preg_match('/\.xml$/i', $reqPath)) {
@@ -672,7 +674,7 @@ add_action('template_redirect', function () {
         return;
     }
     $request_uri = (string) $_SERVER['REQUEST_URI'];
-    $request_path = ai_translate_strip_site_path((string) parse_url($request_uri, PHP_URL_PATH));
+    $request_path = ai_translate_strip_site_path((string) wp_parse_url($request_uri, PHP_URL_PATH));
     if (!is_string($request_path) || $request_path === '' || $request_path === '/') {
         return;
     }
@@ -773,7 +775,7 @@ add_action('template_redirect', function () {
     if (strpos($reqPathRaw, '%25') !== false) {
         $reqPathRaw = urldecode($reqPathRaw);
     }
-    $reqPath = ai_translate_strip_site_path((string) parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
     $defaultLang = \AITranslate\AI_Lang::default();
     
     // CRITICAL: If we're on /{default}/ and cookie doesn't match, render page FIRST
@@ -904,7 +906,7 @@ add_action('template_redirect', function () {
             if (strpos($reqUriRaw, '%25') !== false) {
                 $reqUriRaw = urldecode($reqUriRaw);
             }
-            $pathNow = ai_translate_strip_site_path((string) parse_url($reqUriRaw, PHP_URL_PATH));
+            $pathNow = ai_translate_strip_site_path((string) wp_parse_url($reqUriRaw, PHP_URL_PATH));
             if ($pathNow === '' || $pathNow === '/' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
                 $base = home_url('/' . $searchLang . '/');
                 $target = add_query_arg($_GET, $base);
@@ -1044,7 +1046,7 @@ add_action('template_redirect', function () {
     if (function_exists('is_search') && is_search()) {
         $cur = \AITranslate\AI_Lang::current();
         $def = \AITranslate\AI_Lang::default();
-        $pathNow = ai_translate_strip_site_path((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
+        $pathNow = ai_translate_strip_site_path((string) wp_parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
         if ($cur && $def && strtolower($cur) !== strtolower($def)) {
             if ($pathNow === '' || $pathNow === '/' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
                 $base = home_url('/' . $cur . '/');
@@ -1125,13 +1127,13 @@ function ai_translate_canonical_path($fallback) {
         // ai-translate has no term_link filter, safe to use
         $p = get_term_link($obj);
         if ($p && !is_wp_error($p)) {
-            $tp = (string) parse_url($p, PHP_URL_PATH);
+            $tp = (string) wp_parse_url($p, PHP_URL_PATH);
             if ($tp && $tp !== '/') { $path = trailingslashit($tp); }
         }
     } elseif ($obj instanceof WP_Post_Type && isset($obj->name)) {
         $p = get_post_type_archive_link($obj->name);
         if ($p) {
-            $tp = (string) parse_url($p, PHP_URL_PATH);
+            $tp = (string) wp_parse_url($p, PHP_URL_PATH);
             if ($tp && $tp !== '/') { $path = trailingslashit($tp); }
         }
     }
@@ -1169,7 +1171,7 @@ function ai_translate_get_nav_switcher_html() {
     
     // Determine current path and strip any leading /xx/
     $reqUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-    $path = (string) parse_url($reqUri, PHP_URL_PATH);
+    $path = (string) wp_parse_url($reqUri, PHP_URL_PATH);
     if ($path === '') {
         $path = '/';
     }
@@ -1238,7 +1240,7 @@ add_action('wp_footer', function () {
 
     // Determine current path and strip any leading /xx/
     $reqUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-    $path = (string) parse_url($reqUri, PHP_URL_PATH);
+    $path = (string) wp_parse_url($reqUri, PHP_URL_PATH);
     if ($path === '') {
         $path = '/';
     }
@@ -1433,7 +1435,7 @@ add_action('rest_api_init', function () {
                 $referer = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
                 // Normalize referrer: remove double slashes in path (e.g., /de// -> /de/)
                 if ($referer !== '') {
-                    $refererParsed = parse_url($referer);
+                    $refererParsed = wp_parse_url($referer);
                     if (isset($refererParsed['path'])) {
                         $refererParsed['path'] = preg_replace('#/+#', '/', $refererParsed['path']);
                         $referer = '';
@@ -1455,7 +1457,7 @@ add_action('rest_api_init', function () {
                         }
                     }
                 }
-                if ($referer !== '' && preg_match('#/([a-z]{2})(?:/|$)#i', parse_url($referer, PHP_URL_PATH) ?: '', $m)) {
+                if ($referer !== '' && preg_match('#/([a-z]{2})(?:/|$)#i', wp_parse_url($referer, PHP_URL_PATH) ?: '', $m)) {
                     $lang = strtolower($m[1]);
                 } else {
                     $lang = \AITranslate\AI_Lang::current();
@@ -1618,7 +1620,7 @@ add_action('rest_api_init', function () {
                     $referer = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
                     // Normalize referrer: remove double slashes in path (e.g., /de// -> /de/)
                     if ($referer !== '') {
-                        $refererParsed = parse_url($referer);
+                        $refererParsed = wp_parse_url($referer);
                         if (isset($refererParsed['path'])) {
                             $refererParsed['path'] = preg_replace('#/+#', '/', $refererParsed['path']);
                             $referer = '';
@@ -2450,7 +2452,7 @@ add_filter('pre_handle_404', function ($preempt, $wp_query) {
     if (strpos($reqPathRaw, '%25') !== false) {
         $reqPathRaw = urldecode($reqPathRaw);
     }
-    $reqPath = ai_translate_strip_site_path((string) parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
     if ($reqPath === '' || !preg_match('#^/([a-z]{2})(?:/(.*))?$#i', $reqPath, $m)) {
         return $preempt;
     }
@@ -2598,7 +2600,7 @@ add_filter('home_url', function ($url, $path, $scheme) {
     if (strpos($reqPathRaw, '%25') !== false) {
         $reqPathRaw = urldecode($reqPathRaw);
     }
-    $reqPath = ai_translate_strip_site_path((string) parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
     $langFromUrl = null;
     if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
         $langFromUrl = strtolower(sanitize_key($m[1]));
@@ -2614,10 +2616,10 @@ add_filter('home_url', function ($url, $path, $scheme) {
     // Only add language prefix if it's not the default language
     if ($langFromUrl !== '' && $defaultLang && strtolower($langFromUrl) !== strtolower((string) $defaultLang)) {
         // Check if URL already has language prefix
-        $urlPath = parse_url($url, PHP_URL_PATH);
+        $urlPath = wp_parse_url($url, PHP_URL_PATH);
         if ($urlPath && !preg_match('#^/([a-z]{2})(?:/|$)#i', $urlPath)) {
             // Add language prefix to the URL, preserving any site subpath (e.g. '/wordpress')
-            $parsed = parse_url($url);
+            $parsed = wp_parse_url($url);
             $basePath = rtrim($parsed['path'] ?? '', '/');
             $newPath = $basePath . '/' . $langFromUrl . '/';
             $url = $parsed['scheme'] . '://' . $parsed['host'];
@@ -2768,7 +2770,7 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
     // Determine current language
     $current_lang = null;
     $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-    $path = (string) parse_url($req_uri, PHP_URL_PATH);
+    $path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
     if ($path === '') {
         $path = '/';
     }
@@ -2877,7 +2879,7 @@ add_action('admin_head-nav-menus.php', function() {
                         <li>
                             <label class="menu-item-title">
                                 <input type="checkbox" class="menu-item-checkbox" name="menu-item[-1][menu-item-object-id]" value="-1">
-                                <?php _e('🌐 Language Switcher', 'ai-translate'); ?>
+                                <?php esc_html_e('🌐 Language Switcher', 'ai-translate'); ?>
                             </label>
                             <input type="hidden" class="menu-item-type" name="menu-item[-1][menu-item-type]" value="custom">
                             <input type="hidden" class="menu-item-title" name="menu-item[-1][menu-item-title]" value="<?php esc_attr_e('Language Switcher', 'ai-translate'); ?>">
@@ -2959,7 +2961,7 @@ add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $
             <div class="ai-switcher-warning" style="background:#fef2f2;border:1px solid #dc2626;border-radius:4px;padding:8px 12px;margin:8px 0;">
                 <p style="color:#dc2626;margin:0;font-weight:600;">
                     <?php printf(
-                        esc_html__('This menu item is inactive. The language switcher is set to "%s" in %splugin settings%s. Set it to "Hidden" to use the menu switcher.', 'ai-translate'),
+                        /* translators: %1$s: string value, %2$s: string value, %3$s: string value */ esc_html__('This menu item is inactive. The language switcher is set to "%1$s" in %2$splugin settings%3$s. Set it to "Hidden" to use the menu switcher.', 'ai-translate'),
                         esc_html(ucwords(str_replace('-', ' ', $sw_position))),
                         '<a href="' . esc_url($settings_url) . '#switcher_position" style="color:#dc2626;">',
                         '</a>'
@@ -2986,18 +2988,18 @@ add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $
             <input type="checkbox" id="edit-menu-item-is-language-switcher-<?php echo $item_id; ?>"
                    name="menu-item-is-language-switcher[<?php echo $item_id; ?>]"
                    value="1" <?php checked($is_language_switcher, '1'); ?> />
-            <?php _e('Make this a language switcher', 'ai-translate'); ?>
+            <?php esc_html_e('Make this a language switcher', 'ai-translate'); ?>
         </label>
     </p>
 
     <div class="field-menu-item-switcher-options description description-wide" style="display: <?php echo $is_language_switcher ? 'block' : 'none'; ?>;">
         <p>
             <label for="edit-menu-item-switcher-type-<?php echo $item_id; ?>">
-                <?php _e('Switcher Type:', 'ai-translate'); ?>
+                <?php esc_html_e('Switcher Type:', 'ai-translate'); ?>
                 <select id="edit-menu-item-switcher-type-<?php echo $item_id; ?>"
                         name="menu-item-switcher-type[<?php echo $item_id; ?>]">
-                    <option value="dropdown" <?php selected($switcher_type, 'dropdown'); ?>><?php _e('Dropdown', 'ai-translate'); ?></option>
-                    <option value="inline" <?php selected($switcher_type, 'inline'); ?>><?php _e('Inline', 'ai-translate'); ?></option>
+                    <option value="dropdown" <?php selected($switcher_type, 'dropdown'); ?>><?php esc_html_e('Dropdown', 'ai-translate'); ?></option>
+                    <option value="inline" <?php selected($switcher_type, 'inline'); ?>><?php esc_html_e('Inline', 'ai-translate'); ?></option>
                 </select>
             </label>
         </p>
@@ -3007,7 +3009,7 @@ add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $
                 <input type="checkbox" id="edit-menu-item-show-flags-<?php echo $item_id; ?>"
                        name="menu-item-show-flags[<?php echo $item_id; ?>]"
                        value="1" <?php checked($show_flags, true); ?> />
-                <?php _e('Show language flags', 'ai-translate'); ?>
+                <?php esc_html_e('Show language flags', 'ai-translate'); ?>
             </label>
         </p>
 
@@ -3016,7 +3018,7 @@ add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $
                 <input type="checkbox" id="edit-menu-item-show-codes-<?php echo $item_id; ?>"
                        name="menu-item-show-codes[<?php echo $item_id; ?>]"
                        value="1" <?php checked($show_codes, true); ?> />
-                <?php _e('Show language codes', 'ai-translate'); ?>
+                <?php esc_html_e('Show language codes', 'ai-translate'); ?>
             </label>
         </p>
     </div>
@@ -3169,7 +3171,7 @@ add_shortcode('ai_menu_language_switcher', function($atts) {
     // Determine current language
     $current_lang = null;
     $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-    $path = (string) parse_url($req_uri, PHP_URL_PATH);
+    $path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
     if ($path === '') {
         $path = '/';
     }
@@ -3313,7 +3315,7 @@ add_action('wp_footer', function() {
     // Determine current language
     $current_lang = null;
     $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-    $path = (string) parse_url($req_uri, PHP_URL_PATH);
+    $path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
     if ($path === '') {
         $path = '/';
     }
@@ -3507,7 +3509,7 @@ add_filter('walker_nav_menu_start_el', function($item_output, $item, $depth, $ar
     }
 
     $req_uri      = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-    $path         = ai_translate_strip_site_path((string) parse_url($req_uri, PHP_URL_PATH));
+    $path         = ai_translate_strip_site_path((string) wp_parse_url($req_uri, PHP_URL_PATH));
     if ($path === '') { $path = '/'; }
     $current_lang = $default_lang;
     if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) {
@@ -3595,7 +3597,7 @@ class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
         // Determine current language
         $current_lang = null;
         $req_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $path = ai_translate_strip_site_path((string) parse_url($req_uri, PHP_URL_PATH));
+        $path = ai_translate_strip_site_path((string) wp_parse_url($req_uri, PHP_URL_PATH));
         if ($path === '') {
             $path = '/';
         }

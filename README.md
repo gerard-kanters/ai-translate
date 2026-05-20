@@ -1,9 +1,9 @@
 === AI Translate ===
 Contributors: gkanters  
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
-Requires at least: 5.0  
-Tested up to: 6.9  
-Stable tag: 2.3.2
+Requires at least: 6.2  
+Tested up to: 7.0  
+Stable tag: 2.3.3
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -178,13 +178,13 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Requirements
 
-- ✅ WordPress 5.0 or higher
+- ✅ WordPress 6.2 or higher
 - ✅ PHP 8 or higher
 - 🔑 API key for OpenAI, Deepseek, or compatible service
 
 ## Changelog
 
-### 2.3.1
+### 2.3.3
 - 404 error detectie on older URL redirecting to current URL.
 - Support URL title translation for Jetpack related posts.
 - More unit tests to improve stability.
@@ -192,6 +192,7 @@ AI Translate requires an API key from one of the supported providers:
 - Support Rank Math sitemap. Adding languages specific sitemap folders.
 - Fix for CPT and WooCommerce pages (archives).
 - Security fixes SSL verification and ajax vulnerability.
+- Wordpress 7.0 compatible, minimal release 6.2 now
 
 ### 2.2.9
 - Fix potential 500 error in clean installations. 

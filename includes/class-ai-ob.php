@@ -867,7 +867,7 @@ final class AI_OB
         }
         if ($req !== '') {
             // Normalize: remove query string and fragments for path lookup
-            $path = (string) parse_url($req, PHP_URL_PATH);
+            $path = (string) wp_parse_url($req, PHP_URL_PATH);
             if ($path === null) {
                 $path = $req;
             }
@@ -954,7 +954,7 @@ final class AI_OB
         // - Search: query params included in route_id (handled above)
         // - WooCommerce/dynamic: query params excluded, page not cached (handled by has_dynamic_query_parameters)
         // - Tracking params: excluded to prevent duplicate caches
-        $req_path = (string) parse_url($req, PHP_URL_PATH);
+        $req_path = (string) wp_parse_url($req, PHP_URL_PATH);
         if ($req_path === null) {
             $req_path = $req;
         }
@@ -1060,7 +1060,7 @@ final class AI_OB
         if (strpos($req_uri, '%25') !== false) {
             $req_uri = urldecode($req_uri);
         }
-        $reqPath = (string) parse_url($req_uri, PHP_URL_PATH);
+        $reqPath = (string) wp_parse_url($req_uri, PHP_URL_PATH);
         if (preg_match('/\.xml$/i', $reqPath) ||
             isset($_GET['sitemap']) ||
             isset($_GET['sitemap-index']) ||
