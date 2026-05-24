@@ -988,6 +988,14 @@ final class AI_OB
             return true;
         }
 
+        // Skip page-builder editor/preview iframes (Elementor, Divi, Beaver, ...) and
+        // WordPress post preview. These are rendered for a logged-in admin and depend on
+        // builder-specific scripts in the original HTML; translating/rewriting the output
+        // breaks the builder's editor session.
+        if (function_exists('ai_translate_is_editor_context') && ai_translate_is_editor_context()) {
+            return true;
+        }
+
         return false;
     }
 

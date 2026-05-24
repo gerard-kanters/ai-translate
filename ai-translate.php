@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.3
+ * Version: 2.3.4
  * Requires at least: 6.2
  * Tested up to: 7.0
  * Requires PHP: 8.0
@@ -640,6 +640,87 @@ add_filter('request', function ($vars) {
 });
 
 /**
+ * Detect page-builder editor / preview context (Elementor, Divi, Beaver, WPBakery, Oxygen,
+ * Bricks, Breakdance, Brizy, Thrive) and WordPress core post preview.
+ *
+ * Editor previews are loaded inside an iframe by a logged-in admin and depend on the
+ * original (untranslated) URL plus query parameters. The plugin must NOT redirect or
+ * translate these requests, otherwise the editor loses preview parameters and the
+ * builder reports a session error.
+ *
+ * @return bool True when the current request is a builder/preview context.
+ */
+function ai_translate_is_editor_context()
+{
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only detection only.
+    static $is_editor = null;
+    if ($is_editor !== null) {
+        return $is_editor;
+    }
+
+    // Known, builder-specific query parameters (verified in each builder's source).
+    $builder_params = array(
+        'elementor-preview',         // Elementor editor preview iframe
+        'elementor_library',         // Elementor library preview
+        'et_fb',                     // Divi Visual Builder
+        'et_pb_preview',             // Divi preview
+        'fl_builder',                // Beaver Builder
+        'vc_editable',               // WPBakery / Visual Composer
+        'vc_action',                 // WPBakery / Visual Composer
+        'tve',                       // Thrive Architect
+        'ct_builder',                // Oxygen Builder
+        'oxygen',                    // Oxygen Builder loader URL
+        'bricks',                    // Bricks Builder
+        'breakdance',                // Breakdance Builder loader URL (?breakdance=builder)
+        'breakdance_iframe',         // Breakdance Builder iframe
+        'breakdance_open_document',  // Breakdance render document
+        '_breakdance_doing_ajax',    // Breakdance frontend AJAX (POST /?page_id=X&_breakdance_doing_ajax=yes)
+        'brizy-edit',                // Brizy Builder
+        'brizy-edit-iframe',         // Brizy Builder iframe
+    );
+    foreach ($builder_params as $param) {
+        if (isset($_GET[$param])) {
+            $is_editor = true;
+            return true;
+        }
+    }
+
+    // WordPress core post preview (preview=true and/or preview_id) — only for users
+    // that can actually edit, to avoid abuse via crafted query strings on public URLs.
+    $has_preview_param = (
+        (isset($_GET['preview']) && (string) $_GET['preview'] !== 'false')
+        || isset($_GET['preview_id'])
+        || isset($_GET['preview_nonce'])
+    );
+    if ($has_preview_param && is_user_logged_in()) {
+        $is_editor = true;
+        return true;
+    }
+
+    // Generic fallback: any iframe loaded from /wp-admin/ by a user with edit capability.
+    // Sec-Fetch-Dest is sent by all modern browsers (Chrome 80+, Firefox 90+, Safari 16.4+).
+    // Combination of iframe destination + wp-admin Referer + edit capability uniquely
+    // identifies a builder preview iframe, so unknown/future builders are also covered
+    // without us needing to learn each builder's specific query parameter.
+    if (is_user_logged_in() && function_exists('current_user_can') && current_user_can('edit_posts')) {
+        $sec_fetch_dest = isset($_SERVER['HTTP_SEC_FETCH_DEST'])
+            ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_SEC_FETCH_DEST']))
+            : '';
+        if ($sec_fetch_dest === 'iframe' || $sec_fetch_dest === 'frame') {
+            $referer = wp_get_referer();
+            if ($referer && strpos((string) $referer, '/wp-admin/') !== false) {
+                $is_editor = true;
+                return true;
+            }
+        }
+    }
+
+    $is_editor = false;
+    return false;
+    // phpcs:enable WordPress.Security.NonceVerification.Recommended
+}
+
+/**
  * Check if current request is an XML file (sitemap, robots.txt, etc.).
  *
  * @return bool
@@ -776,6 +857,14 @@ add_action('template_redirect', function () {
 
     // Skip admin/AJAX/REST/feeds/XML files
     if (is_admin() || wp_doing_ajax() || wp_is_json_request() || is_feed() || ai_translate_is_xml_request()) {
+        return;
+    }
+
+    // Skip page-builder editor/preview iframes (Elementor, Divi, Beaver, ...) and WP post preview.
+    // These are loaded by a logged-in admin and rely on the original URL + query parameters.
+    // Redirecting them to /{lang}/ would drop the preview parameters and break the editor
+    // ("Session expired" in Elementor). The frontend is rendered as-is in the default language.
+    if (ai_translate_is_editor_context()) {
         return;
     }
 
