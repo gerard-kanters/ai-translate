@@ -24,13 +24,13 @@ final class AI_Lang
         $default = AI_Translate_Core::default_language();
         $enabled = array_map('strval', AI_Translate_Core::enabled_languages());
         $detectable = array_map('strval', AI_Translate_Core::detectable_languages());
-        // Allow any supported language in URL (not only enabled/detectable)
-        $available = [];
-        if (class_exists('AITranslate\\AI_Translate_Core')) {
-            $core = \AITranslate\AI_Translate_Core::get_instance();
-            $available = array_map('strval', array_keys($core->get_available_languages()));
-        }
-        $allowed = array_values(array_unique(array_filter(array_merge($available, $enabled, $detectable, $default !== '' ? [$default] : []))));
+        // Only languages the site owner has explicitly enabled (switcher) or marked as
+        // detectable (auto via browser) are eligible. The default language is always allowed.
+        // The plugin's full list of supported languages is intentionally NOT used here:
+        // a browser preference for a language that is not enabled/detectable must fall back
+        // to the default language and NOT trigger a redirect to /{lang}/ (which would 404
+        // via the security check in template_redirect).
+        $allowed = array_values(array_unique(array_filter(array_merge($enabled, $detectable, $default !== '' ? [$default] : []))));
         // Normalize to lowercase to avoid case-mismatch (e.g., 'IT' vs 'it')
         $allowed = array_map(function ($v) { return strtolower(sanitize_key((string) $v)); }, $allowed);
 
