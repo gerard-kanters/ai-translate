@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 6.2  
 Tested up to: 7.0  
-Stable tag: 2.3.4
+Stable tag: 2.3.5
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -183,6 +183,10 @@ AI Translate requires an API key from one of the supported providers:
 - 🔑 API key for OpenAI, Deepseek, or compatible service
 
 ## Changelog
+
+### 2.3.5
+- Fix: when the front page is set to "Latest posts", publishing, updating, trashing or restoring a blog post now also invalidates the translated homepage cache so the latest-posts list stays in sync.
+
 
 ### 2.3.4
 - 404 error detectie on older URL redirecting to current URL.

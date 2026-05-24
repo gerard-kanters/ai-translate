@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.4
+ * Version: 2.3.5
  * Requires at least: 6.2
  * Tested up to: 7.0
  * Requires PHP: 8.0
@@ -2459,8 +2459,46 @@ add_action('post_updated', function ($post_id, $post_after, $post_before) {
 }, 10, 3);
 
 /**
- * On content or title changes: clear translation cache for this post so the next
- * visit triggers a fresh translation (retranslation).
+ * Clear translation caches affected by a post change.
+ *
+ * Always clears the post's own cache. When the front page is configured to show
+ * the latest blog posts (show_on_front = 'posts') and the changed post is a
+ * regular 'post', also clears the homepage cache (post_id = 0) so the latest
+ * posts list on the translated homepage no longer serves stale content.
+ *
+ * @param int                       $post_id Post ID.
+ * @param \WP_Post|object|null      $post    Optional post object (avoids extra get_post call).
+ * @return void
+ */
+function ai_translate_clear_caches_for_post_change($post_id, $post = null)
+{
+    $post_id = (int) $post_id;
+    if ($post_id <= 0) {
+        return;
+    }
+
+    \AITranslate\AI_Cache_Meta::clear_post_cache($post_id);
+
+    if (!is_object($post)) {
+        $post = get_post($post_id);
+    }
+    if (!is_object($post) || empty($post->post_type)) {
+        return;
+    }
+    if ($post->post_type !== 'post') {
+        return;
+    }
+    if (get_option('show_on_front') !== 'posts') {
+        return;
+    }
+
+    \AITranslate\AI_Cache_Meta::clear_post_cache(0);
+}
+
+/**
+ * On content or title changes of an existing published post: clear translation
+ * cache for this post (and the homepage when it lists blog posts) so the next
+ * visit triggers a fresh translation.
  */
 add_action('post_updated', function ($post_id, $post_after, $post_before) {
     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
@@ -2476,7 +2514,30 @@ add_action('post_updated', function ($post_id, $post_after, $post_before) {
         && (string) $post_before->post_title === (string) $post_after->post_title) {
         return;
     }
-    \AITranslate\AI_Cache_Meta::clear_post_cache($post_id);
+    ai_translate_clear_caches_for_post_change($post_id, $post_after);
+}, 10, 3);
+
+/**
+ * Publish/unpublish/trash/restore transitions: post_updated only fires when an
+ * existing post is updated, so first-time publication and status changes that
+ * affect blog listings (publish<->trash, publish<->draft) need a separate hook.
+ * Only acts when 'publish' is entered or left to avoid unrelated transitions
+ * (e.g. draft -> auto-draft).
+ */
+add_action('transition_post_status', function ($new_status, $old_status, $post) {
+    if (!is_object($post) || empty($post->ID)) {
+        return;
+    }
+    if ($new_status === $old_status) {
+        return;
+    }
+    if ($new_status !== 'publish' && $old_status !== 'publish') {
+        return;
+    }
+    if (wp_is_post_revision($post->ID) || wp_is_post_autosave($post->ID)) {
+        return;
+    }
+    ai_translate_clear_caches_for_post_change((int) $post->ID, $post);
 }, 10, 3);
 
 /**
