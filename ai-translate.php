@@ -2541,6 +2541,71 @@ add_action('transition_post_status', function ($new_status, $old_status, $post) 
 }, 10, 3);
 
 /**
+ * Clear translation cache for a single post when its publicly visible comments change.
+ * Only the affected post is flushed (all languages of that post), never the whole site.
+ *
+ * @param int $comment_id Comment ID
+ * @return void
+ */
+function ai_translate_clear_caches_for_comment_change($comment_id)
+{
+    $comment_id = (int) $comment_id;
+    if ($comment_id <= 0) {
+        return;
+    }
+    $comment = get_comment($comment_id);
+    if (!is_object($comment) || empty($comment->comment_post_ID)) {
+        return;
+    }
+    \AITranslate\AI_Cache_Meta::clear_post_cache((int) $comment->comment_post_ID);
+}
+
+/**
+ * Newly inserted comment: only flush when WordPress accepted it without moderation.
+ * $comment_approved is 1 (approved), 0 (pending) or 'spam'. Pending/spam are
+ * skipped so spammers can never invalidate the cache by submitting comments.
+ */
+add_action('comment_post', function ($comment_id, $comment_approved) {
+    if ((int) $comment_approved !== 1) {
+        return;
+    }
+    ai_translate_clear_caches_for_comment_change($comment_id);
+}, 10, 2);
+
+/**
+ * Moderation transitions: flush whenever a comment enters or leaves 'approved'
+ * (moderator approves a pending comment, marks an approved comment as spam/trash,
+ * or restores one). Transitions between non-public states don't affect visitors.
+ */
+add_action('transition_comment_status', function ($new_status, $old_status, $comment) {
+    if ($new_status === $old_status) {
+        return;
+    }
+    if ($new_status !== 'approved' && $old_status !== 'approved') {
+        return;
+    }
+    if (!is_object($comment) || empty($comment->comment_ID)) {
+        return;
+    }
+    ai_translate_clear_caches_for_comment_change((int) $comment->comment_ID);
+}, 10, 3);
+
+/**
+ * Editing an already-approved comment: content/author may have changed, so the
+ * cached translation is stale. Edits on non-approved comments don't affect visitors.
+ */
+add_action('edit_comment', function ($comment_id) {
+    $comment = get_comment($comment_id);
+    if (!is_object($comment)) {
+        return;
+    }
+    if ((string) $comment->comment_approved !== '1') {
+        return;
+    }
+    ai_translate_clear_caches_for_comment_change((int) $comment_id);
+}, 10, 1);
+
+/**
  * One-time warmup: generate translated slugs for existing top-level pages so
  * language-prefixed URLs immediately resolve (prevents blank pages before first visit).
  * Mirrors robustness in the original implementation by pre-seeding the slug map.

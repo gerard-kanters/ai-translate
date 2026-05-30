@@ -716,6 +716,12 @@ final class AI_OB
             'preview_nonce',
             'customize',
             'customize_theme',
+            // Comment moderation: WordPress redirects to permalink?unapproved=ID&moderation-hash=HASH
+            // after a comment that requires moderation. The "awaiting moderation" notice for the
+            // poster is rendered server-side based on these params, so the response must not be
+            // served from cache (and must not be cached itself).
+            'unapproved',
+            'moderation-hash',
         );
         
         // Check if any dynamic parameter is present
