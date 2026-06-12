@@ -181,65 +181,6 @@ final class AI_Slugs
             }
         }
         
-        // Fuzzy fallback: handle truncated prefixes (e.g., 'kketten' vs 'pakketten')
-        // Only match if translated_slug is a prefix of the requested slug (truncated prefix case).
-        // A valid prefix is strictly shorter than the requested slug, so filter by CHAR_LENGTH upfront.
-        // This avoids fetching the entire language partition — only prefix candidates are returned.
-        $slug_char_len = mb_strlen($slug);
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, translated_slug FROM %i WHERE %i = %s AND CHAR_LENGTH(translated_slug) < %d ORDER BY CHAR_LENGTH(translated_slug) DESC LIMIT 100",
-            $table,
-            $colLang,
-            $lang,
-            $slug_char_len
-        ), ARRAY_A);
-        $best_match = null;
-        $best_match_length = 0;
-        if (is_array($rows)) {
-            foreach ($rows as $row) {
-                $translated = isset($row[$colTrans]) ? (string) $row[$colTrans] : '';
-                if ($translated === '') continue;
-                // Decode if URL-encoded
-                if (strpos($translated, '%') !== false) {
-                    $translated_decoded = rawurldecode($translated);
-                    if (mb_check_encoding($translated_decoded, 'UTF-8')) {
-                        $translated = $translated_decoded;
-                    }
-                }
-                // Check if translated slug is a prefix of the requested slug (truncated prefix)
-                // IMPORTANT: Only match if it's actually a truncated prefix, not if the slug is longer
-                // This means the translated slug must be shorter than the requested slug
-                if (str_starts_with($slug, $translated) && mb_strlen($translated) < mb_strlen($slug)) {
-                    $translated_length = mb_strlen($translated);
-                    // Keep the longest matching prefix
-                    if ($translated_length > $best_match_length) {
-                        $best_match = $row;
-                        $best_match_length = $translated_length;
-                    }
-                }
-            }
-        }
-        if ($best_match !== null) {
-            $post_id = (int) $best_match['post_id'];
-            // Verify it's not an attachment
-            $post = get_post($post_id);
-            if ($post && $post->post_type !== 'attachment') {
-                // Fix encoded slug in DB if needed
-                $stored_original = isset($best_match[$colTrans]) ? (string) $best_match[$colTrans] : '';
-                $translated_final = $stored_original;
-                if (strpos($stored_original, '%') !== false) {
-                    $translated_decoded = rawurldecode($stored_original);
-                    if (mb_check_encoding($translated_decoded, 'UTF-8')) {
-                        $translated_final = $translated_decoded;
-                    }
-                }
-                if ($stored_original !== $translated_final && strpos($stored_original, '%') !== false) {
-                    self::fix_encoded_slug_in_db($post_id, $lang, $stored_original);
-                }
-                return $post_id;
-            }
-        }
-        
         // Fallback to original slug: if translated slug doesn't match, try matching against source slug
         // This handles cases where the URL still uses the original slug (e.g., /it/blogs/ when translated slug is /it/blog/)
         // Prefer posts that already have a translation entry for this language (even if slug differs)
@@ -295,6 +236,64 @@ final class AI_Slugs
                     self::fix_encoded_slug_in_db($post_id, $lang, $stored);
                     return $post_id;
                 }
+            }
+        }
+
+        // Fuzzy fallback LAST: handle truncated prefixes (e.g., 'kketten' vs 'pakketten').
+        // Must run after ALL exact matches (translated + source slug); otherwise a shorter
+        // slug that happens to be a prefix of the requested slug wins over an exact
+        // source-slug match (e.g. 'winkel' [shop] hijacking '/ka/winkelwagen/' [cart]).
+        // Only match if translated_slug is a prefix of the requested slug (truncated prefix case).
+        // A valid prefix is strictly shorter than the requested slug, so filter by CHAR_LENGTH upfront.
+        // This avoids fetching the entire language partition — only prefix candidates are returned.
+        $slug_char_len = mb_strlen($slug);
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, translated_slug FROM %i WHERE %i = %s AND CHAR_LENGTH(translated_slug) < %d ORDER BY CHAR_LENGTH(translated_slug) DESC LIMIT 100",
+            $table,
+            $colLang,
+            $lang,
+            $slug_char_len
+        ), ARRAY_A);
+        $best_match = null;
+        $best_match_length = 0;
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $translated = isset($row[$colTrans]) ? (string) $row[$colTrans] : '';
+                if ($translated === '') continue;
+                // Decode if URL-encoded
+                if (strpos($translated, '%') !== false) {
+                    $translated_decoded = rawurldecode($translated);
+                    if (mb_check_encoding($translated_decoded, 'UTF-8')) {
+                        $translated = $translated_decoded;
+                    }
+                }
+                // Check if translated slug is a prefix of the requested slug (truncated prefix)
+                // IMPORTANT: Only match if it's actually a truncated prefix, not if the slug is longer
+                // This means the translated slug must be shorter than the requested slug
+                if (str_starts_with($slug, $translated) && mb_strlen($translated) < mb_strlen($slug)) {
+                    $translated_length = mb_strlen($translated);
+                    // Keep the longest matching prefix
+                    if ($translated_length > $best_match_length) {
+                        $best_match = $row;
+                        $best_match_length = $translated_length;
+                    }
+                }
+            }
+        }
+        if ($best_match !== null) {
+            $post_id = (int) $best_match['post_id'];
+            // Verify it's not an attachment
+            $post = get_post($post_id);
+            if ($post && $post->post_type !== 'attachment') {
+                // Fix encoded slug in DB if needed
+                $stored_original = isset($best_match[$colTrans]) ? (string) $best_match[$colTrans] : '';
+                if (strpos($stored_original, '%') !== false) {
+                    $translated_decoded = rawurldecode($stored_original);
+                    if (mb_check_encoding($translated_decoded, 'UTF-8') && $stored_original !== $translated_decoded) {
+                        self::fix_encoded_slug_in_db($post_id, $lang, $stored_original);
+                    }
+                }
+                return $post_id;
             }
         }
         return null;

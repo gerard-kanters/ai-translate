@@ -302,6 +302,12 @@ final class AI_OB
         // Check for dynamic query parameters that indicate the page should be translated but not cached
         // Examples: WooCommerce add-to-cart, form submissions, AJAX actions, etc.
         $hasDynamicQueryParams = $this->has_dynamic_query_parameters();
+
+        // Respect the ecosystem-wide DONOTCACHEPAGE constant. WooCommerce sets it on
+        // cart/checkout/my-account pages (session-specific content, stale REST nonces);
+        // other plugins use it for similar dynamic pages. Translate, but never serve
+        // from or store in the page cache.
+        $noCachePage = defined('DONOTCACHEPAGE') && DONOTCACHEPAGE;
         
         // Note: content_version removed from cache key for stability
         // route_id is already unique per page, making content_version unnecessary
@@ -316,7 +322,7 @@ final class AI_OB
             return $html; // Return untranslated HTML without processing
         }
 
-        if (!$bypassUserCache && !$nocache && !$hasDynamicQueryParams) {
+        if (!$bypassUserCache && !$nocache && !$hasDynamicQueryParams && !$noCachePage) {
             $cached = AI_Cache::get($key);
 
             if ($cached !== false && !$this->content_matches_target_lang($cached, $lang)) {
@@ -351,8 +357,10 @@ final class AI_OB
         $lockKey = 'ai_translate_lock_' . md5($key);
         $maxLockWait = 30; // Maximum seconds to wait for lock
         $lockAcquired = false;
-        
-        if (!$bypassUserCache && !$nocache) {
+
+        // No-cache pages never produce a shared cache file, so waiting on the lock
+        // would only stall concurrent visitors for 30s and then serve untranslated HTML.
+        if (!$bypassUserCache && !$nocache && !$noCachePage) {
             $lockStart = time();
             // Try to acquire lock, wait if another process is generating this page
             while (($lockTime = get_transient($lockKey)) !== false) {
@@ -585,7 +593,7 @@ final class AI_OB
         $isCacheable = $this->route_has_valid_content($route);
         
         $contentMatchesLang = $this->content_matches_target_lang($html3, $lang);
-        if (!$bypassUserCache && !$hasDynamicQueryParams && $isCacheable) {
+        if (!$bypassUserCache && !$hasDynamicQueryParams && !$noCachePage && $isCacheable) {
             $retryKey = 'ai_tr_retry_' . md5($key);
             if ($contentMatchesLang) {
                 AI_Cache::set($key, $html3);
@@ -800,6 +808,29 @@ final class AI_OB
         // For 404 pages: use a single consistent route_id so all 404s share one cache entry per language
         if (function_exists('is_404') && is_404()) {
             return 'path:' . md5('/404');
+        }
+
+        // Taxonomy archives: always use a path-based route. Term slugs are not in the
+        // slug map and can collide with post slugs; resolving them via the post-resolution
+        // heuristics below would cache the archive under a post route (cache collision).
+        if ((function_exists('is_category') && is_category()) ||
+            (function_exists('is_tag') && is_tag()) ||
+            (function_exists('is_tax') && is_tax())) {
+            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
+            if (strpos($req, '%25') !== false) {
+                $req = urldecode($req);
+            }
+            $req_path = (string) wp_parse_url($req, PHP_URL_PATH);
+            if ($req_path === '') {
+                $req_path = '/';
+            }
+            $req_path = preg_replace('#/+#', '/', $req_path);
+            // Strip language prefix so all languages share one route (language is part of the cache key)
+            $req_path = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $req_path);
+            if ($req_path === '') {
+                $req_path = '/';
+            }
+            return 'path:' . md5(untrailingslashit($req_path) . '/');
         }
 
         // CRITICAL: For warm cache requests and translated URLs, resolve the post ID from the URL FIRST
@@ -1051,13 +1082,16 @@ final class AI_OB
      */
     private function should_skip_page_structure()
     {
-        // Only translate singular posts/pages, with exceptions for search/homepage/404/CPT-archives
+        // Only translate singular posts/pages, with exceptions for search/homepage/404/CPT-archives/taxonomy-archives
         if (function_exists('is_singular') && !is_singular()) {
             $is_search           = function_exists('is_search') && is_search();
             $is_front_page       = function_exists('is_front_page') && is_front_page();
             $is_404              = function_exists('is_404') && is_404();
             $is_post_type_archive = function_exists('is_post_type_archive') && is_post_type_archive();
-            if (!$is_search && !$is_front_page && !$is_404 && !$is_post_type_archive) {
+            $is_tax_archive      = (function_exists('is_category') && is_category()) ||
+                                   (function_exists('is_tag') && is_tag()) ||
+                                   (function_exists('is_tax') && is_tax());
+            if (!$is_search && !$is_front_page && !$is_404 && !$is_post_type_archive && !$is_tax_archive) {
                 return true;
             }
         }
@@ -1242,9 +1276,11 @@ final class AI_OB
 
 
     /**
-     * Check if the current page is a taxonomy, author, date, or post-type archive.
-     * Post-type archives are NOT skipped — they contain translatable content (titles, excerpts).
-     * Taxonomy/author/date archives are skipped because they are too dynamic to cache reliably.
+     * Check if the current page is an archive type that should NOT be translated.
+     * Post-type archives (CPT listings, WooCommerce shop) and taxonomy archives
+     * (category, tag, custom taxonomies like product_cat) ARE translated: they are
+     * SEO-relevant listing pages reachable from translated navigation.
+     * Author and date archives are skipped (near-infinite URL space, little value).
      *
      * @return bool
      */
@@ -1255,13 +1291,20 @@ final class AI_OB
             return false;
         }
 
-        // Primary archive check (covers category, tag, author, date, taxonomy archives)
+        // Taxonomy archives (category, tag, custom tax) must be translated.
+        if ((function_exists('is_category') && is_category()) ||
+            (function_exists('is_tag') && is_tag()) ||
+            (function_exists('is_tax') && is_tax())) {
+            return false;
+        }
+
+        // Remaining archive types (author, date) are skipped.
         if (function_exists('is_archive') && is_archive()) {
             return true;
         }
 
-        // Specific archive types (belt-and-suspenders for themes that bypass is_archive)
-        $archive_functions = ['is_category', 'is_tag', 'is_author', 'is_date', 'is_tax'];
+        // Belt-and-suspenders for themes that bypass is_archive
+        $archive_functions = ['is_author', 'is_date'];
         foreach ($archive_functions as $function) {
             if (function_exists($function) && $function()) {
                 return true;

@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.5
+ * Version: 2.3.6
  * Requires at least: 6.2
  * Tested up to: 7.0
  * Requires PHP: 8.0
@@ -569,21 +569,9 @@ add_filter('request', function ($vars) {
             unset($vars['ai_translate_path']);
         } else {
             // Path did not resolve to a post; try taxonomy (category, tag, custom tax).
-            $term_slug = (strpos($path, '/') !== false) ? basename($path) : $path;
-            $term = null;
-            if ($term_slug !== '') {
-                $term = get_term_by('slug', $term_slug, 'category');
-                if (!$term || is_wp_error($term)) {
-                    $term = get_term_by('slug', $term_slug, 'post_tag');
-                }
-                if (!$term || is_wp_error($term)) {
-                    $parts = array_values(array_filter(explode('/', trim($path, '/'))));
-                    if (count($parts) >= 2 && taxonomy_exists($parts[0])) {
-                        $term = get_term_by('slug', $parts[1], $parts[0]);
-                    }
-                }
-            }
-            if ($term && !is_wp_error($term)) {
+            $resolved_term = ai_translate_resolve_term_from_path($path);
+            if ($resolved_term) {
+                $term = $resolved_term['term'];
                 $tax = $term->taxonomy;
                 if ($tax === 'category') {
                     $vars['category_name'] = $term->slug;
@@ -591,6 +579,9 @@ add_filter('request', function ($vars) {
                     $vars['tag'] = $term->slug;
                 } else {
                     $vars[$tax] = $term->slug;
+                }
+                if ($resolved_term['paged'] > 1) {
+                    $vars['paged'] = $resolved_term['paged'];
                 }
                 unset($vars['ai_translate_path']);
             }
@@ -1434,12 +1425,66 @@ add_action('wp_footer', function () {
     echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});var AI_TA={u:"' . esc_url($restUrl) . '",n:"' . esc_js($nonce) . '"};
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
 function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
-function cS(r){function n(t){return t?t.trim().replace(/\s+/g," "):""}var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=n(el.getAttribute("placeholder"));if(ph)s.add(ph);var tl=n(el.getAttribute("title"));if(tl)s.add(tl);var al=n(el.getAttribute("aria-label"));if(al)s.add(al);var at=n(el.getAttribute("alt"));if(at)s.add(at);var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=n(el.getAttribute("value"));if(v)s.add(v);}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tcn=n(tc);if(tcn)s.add(tcn);}});return Array.from(s);} 
- function aT(r,m){var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var at=el.getAttribute("alt");if(at){var att=at.trim();if(att&&m[att]!=null)el.setAttribute("alt",m[att]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tct=tc.trim();if(tct&&m[tct]!=null)el.textContent=m[tct];}});} 
+function wR(r){var out=[];var roots=r.querySelectorAll?r.querySelectorAll("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer"):[];roots.forEach(function(root){if(root.parentElement&&root.parentElement.closest&&root.parentElement.closest("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer"))return;if(root.closest&&root.closest("[data-ai-trans-skip]"))return;out.push(root);});return out;}
+function wT(root,cb){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);var t;while((t=w.nextNode())){var p=t.parentElement;if(!p)continue;var tg=(p.tagName||"").toLowerCase();if(tg==="script"||tg==="style")continue;if(p.closest&&p.closest("[data-ai-trans-skip]"))continue;cb(t);}}
+function cS(r){function n(t){return t?t.trim().replace(/\s+/g," "):""}var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];wR(r).forEach(function(root){wT(root,function(t){var v=n(t.nodeValue);if(v&&v.length>1&&v.length<=150&&/[A-Za-z][A-Za-z]/.test(v))s.add(v);});});ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=n(el.getAttribute("placeholder"));if(ph)s.add(ph);var tl=n(el.getAttribute("title"));if(tl)s.add(tl);var al=n(el.getAttribute("aria-label"));if(al)s.add(al);var at=n(el.getAttribute("alt"));if(at)s.add(at);var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=n(el.getAttribute("value"));if(v)s.add(v);}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tcn=n(tc);if(tcn)s.add(tcn);}});return Array.from(s);} 
+ function aT(r,m){wR(r).forEach(function(root){wT(root,function(t){var v=t.nodeValue;if(!v)return;var vt=v.trim().replace(/\s+/g," ");if(vt&&m[vt]!=null&&m[vt]!==vt)t.nodeValue=m[vt];});});var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var at=el.getAttribute("alt");if(at){var att=at.trim();if(att&&m[att]!=null)el.setAttribute("alt",m[att]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tct=tc.trim();if(tct&&m[tct]!=null)el.textContent=m[tct];}});} 
  function tA(r){if(tA.called)return;tA.called=true;var ua=(typeof navigator!=="undefined"&&navigator.userAgent)?navigator.userAgent:"";if(/googlebot|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i.test(ua)){tA.called=false;return;}var ss=cS(r);if(!ss.length){tA.called=false;return;}var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4){tA.called=false;if(x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
-document.addEventListener("DOMContentLoaded",function(){var checkPage=function(){if(document.readyState==="complete"){setTimeout(function(){tA(document);},1500);}else{setTimeout(checkPage,100);}};checkPage();var moT=null,sel="input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline";if(typeof MutationObserver!=="undefined"&&gL()){var mo=new MutationObserver(function(muts){for(var f=false,i=0;i<muts.length&&!f;i++){var a=muts[i].addedNodes;for(var j=0;j<a.length&&!f;j++){var n=a[j];if(n.nodeType===1){if(n.matches&&n.matches(sel))f=true;else if(n.querySelector&&n.querySelector(sel))f=true;}}}if(f){clearTimeout(moT);moT=setTimeout(function(){tA(document);},500);}});mo.observe(document.body||document.documentElement,{childList:true,subtree:true});}});
+document.addEventListener("DOMContentLoaded",function(){var checkPage=function(){if(document.readyState==="complete"){setTimeout(function(){tA(document);},1500);}else{setTimeout(checkPage,100);}};checkPage();var moT=null,sel="input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline,[class*=\"wc-block\"],[class*=\"wp-block-woocommerce-\"]";if(typeof MutationObserver!=="undefined"&&gL()){var mo=new MutationObserver(function(muts){for(var f=false,i=0;i<muts.length&&!f;i++){var a=muts[i].addedNodes;for(var j=0;j<a.length&&!f;j++){var n=a[j];if(n.nodeType===1){if(n.matches&&n.matches(sel))f=true;else if(n.querySelector&&n.querySelector(sel))f=true;}}}if(f){clearTimeout(moT);moT=setTimeout(function(){tA(document);},500);}});mo.observe(document.body||document.documentElement,{childList:true,subtree:true});}});
 })();</script>';
 });
+/**
+ * Check whether a string is a known source string (msgid) in the translation
+ * catalog (.pot) shipped by an active plugin. Used to validate client-side
+ * rendered UI strings (e.g. WooCommerce block cart/checkout) that are absent
+ * from the server-rendered HTML, without opening the batch-strings endpoint
+ * up as a free-form translation proxy.
+ *
+ * @param string $text Normalized source string.
+ * @return bool
+ */
+function ai_translate_is_known_catalog_string($text)
+{
+    $text = (string) $text;
+    if ($text === '' || mb_strlen($text) > 150) {
+        return false;
+    }
+    static $catalogs = null;
+    if ($catalogs === null) {
+        $catalogs = [];
+        $active = (array) get_option('active_plugins', []);
+        foreach ($active as $plugin_file) {
+            $plugin_dir = dirname((string) $plugin_file);
+            if ($plugin_dir === '.' || $plugin_dir === '') {
+                continue; // single-file plugin, ships no catalog
+            }
+            $dir = WP_PLUGIN_DIR . '/' . $plugin_dir;
+            foreach (['/languages', '/i18n/languages'] as $sub) {
+                foreach ((array) glob($dir . $sub . '/*.pot') as $pot) {
+                    if (is_string($pot) && is_readable($pot)) {
+                        $catalogs[] = $pot;
+                    }
+                }
+            }
+        }
+    }
+    if (empty($catalogs)) {
+        return false;
+    }
+    // POT msgid lines escape backslash and double quote; match single-line msgids exactly.
+    $needle = 'msgid "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $text) . '"';
+    static $contents = [];
+    foreach ($catalogs as $pot) {
+        if (!isset($contents[$pot])) {
+            $contents[$pot] = (string) file_get_contents($pot);
+        }
+        if ($contents[$pot] !== '' && strpos($contents[$pot], $needle) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * REST endpoint for dynamic UI attribute translation.
  */
@@ -1775,6 +1820,11 @@ add_action('rest_api_init', function () {
                                 // Match in attributes (placeholder, title, aria-label, alt, value) or content
                                 if (preg_match('/' . $text_escaped . '/iu', $page_html)) {
                                     $validated[$id] = $text;
+                                } elseif (ai_translate_is_known_catalog_string($text)) {
+                                    // Client-side rendered UI strings (e.g. WooCommerce block cart/checkout)
+                                    // are not present in the server HTML; validate them against the
+                                    // plugin's shipped translation catalog (.pot) instead.
+                                    $validated[$id] = $text;
                                 }
                             }
                             // Only allow translation of validated strings
@@ -2015,6 +2065,69 @@ function ai_translate_detect_cpt_archive($segment)
         }
         if (!empty($pt->rewrite['slug']) && $pt->rewrite['slug'] === $segment) {
             return $pt->name;
+        }
+    }
+    return null;
+}
+
+/**
+ * Resolve a language-stripped URL path to a taxonomy term archive.
+ * Handles built-in category/tag slugs as well as custom taxonomies whose
+ * rewrite slug differs from the taxonomy name (e.g. WooCommerce 'product_cat'
+ * with rewrite slug 'product-category'). Supports hierarchical term paths
+ * (parent/child) and a trailing /page/N pagination suffix.
+ *
+ * @param string $path Path without language prefix (e.g. 'product-category/dragons/page/2').
+ * @return array{term:\WP_Term,paged:int}|null Term plus page number, or null when no match.
+ */
+function ai_translate_resolve_term_from_path($path)
+{
+    $path = trim((string) $path, '/');
+    if ($path === '') {
+        return null;
+    }
+    $paged = 0;
+    if (preg_match('#^(.+)/page/([0-9]+)$#i', $path, $pm)) {
+        $path = trim($pm[1], '/');
+        $paged = (int) $pm[2];
+    }
+    $parts = array_values(array_filter(explode('/', $path)));
+    if (empty($parts)) {
+        return null;
+    }
+    $term_slug = (string) end($parts);
+
+    // Built-in taxonomies: bare term slug as last path segment.
+    foreach (array('category', 'post_tag') as $builtin) {
+        $term = get_term_by('slug', $term_slug, $builtin);
+        if ($term && !is_wp_error($term)) {
+            return array('term' => $term, 'paged' => $paged);
+        }
+    }
+
+    if (count($parts) < 2) {
+        return null;
+    }
+
+    // Custom taxonomies: match the URL base against the taxonomy name or its
+    // rewrite slug (may contain multiple segments, e.g. 'shop/category').
+    $base = implode('/', array_slice($parts, 0, count($parts) - 1));
+    foreach (get_taxonomies(array('public' => true), 'objects') as $tax) {
+        $candidates = array($tax->name);
+        if (!empty($tax->rewrite['slug'])) {
+            $candidates[] = trim((string) $tax->rewrite['slug'], '/');
+        }
+        foreach (array_unique($candidates) as $slug_base) {
+            if ($slug_base === '') {
+                continue;
+            }
+            // Exact match, or prefix match for hierarchical term paths (base/parent/child).
+            if ($base === $slug_base || str_starts_with($base, $slug_base . '/')) {
+                $term = get_term_by('slug', $term_slug, $tax->name);
+                if ($term && !is_wp_error($term)) {
+                    return array('term' => $term, 'paged' => $paged);
+                }
+            }
         }
     }
     return null;
@@ -2303,21 +2416,9 @@ add_action('parse_request', function ($wp) {
             $post = get_page_by_path($rest, OBJECT, $public_types);
         }
         if (!$post) {
-            $term_slug = (strpos($rest, '/') !== false) ? basename($rest) : $rest;
-            $term = null;
-            if ($term_slug !== '') {
-                $term = get_term_by('slug', $term_slug, 'category');
-                if (!$term || is_wp_error($term)) {
-                    $term = get_term_by('slug', $term_slug, 'post_tag');
-                }
-                if (!$term || is_wp_error($term)) {
-                    $parts = array_values(array_filter(explode('/', trim($rest, '/'))));
-                    if (count($parts) >= 2 && taxonomy_exists($parts[0])) {
-                        $term = get_term_by('slug', $parts[1], $parts[0]);
-                    }
-                }
-            }
-            if ($term && !is_wp_error($term)) {
+            $resolved_term = ai_translate_resolve_term_from_path($rest);
+            if ($resolved_term) {
+                $term = $resolved_term['term'];
                 $tax = $term->taxonomy;
                 $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
                 if ($tax === 'category') {
@@ -2326,6 +2427,9 @@ add_action('parse_request', function ($wp) {
                     $wp->query_vars['tag'] = $term->slug;
                 } else {
                     $wp->query_vars[$tax] = $term->slug;
+                }
+                if ($resolved_term['paged'] > 1) {
+                    $wp->query_vars['paged'] = $resolved_term['paged'];
                 }
                 $wp->is_404 = false;
                 return;

@@ -1243,6 +1243,17 @@ add_action('admin_init', function () {
                 $sanitized['multi_domain_caching'] = false;
             }
 
+            // Keep URL slugs in default language (checkbox)
+            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
+            // Bij AJAX/partial update: alleen updaten als expliciet in input
+            if ($is_form_submit) {
+                $sanitized['keep_slugs_in_english'] = isset($input['keep_slugs_in_english']);
+            } elseif (array_key_exists('keep_slugs_in_english', $input)) {
+                $sanitized['keep_slugs_in_english'] = (bool) $input['keep_slugs_in_english'];
+            } elseif (!isset($sanitized['keep_slugs_in_english'])) {
+                $sanitized['keep_slugs_in_english'] = false;
+            }
+
             // Model selection (per provider)
             if (isset($input['selected_model'])) {
                 $selected_provider = $sanitized['api_provider'] ?? ($current_settings['api_provider'] ?? null);
