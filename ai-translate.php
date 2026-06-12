@@ -547,9 +547,13 @@ add_filter('request', function ($vars) {
     if (!empty($vars['ai_translate_path']) && !empty($vars['lang'])) {
         $path = trim((string) $vars['ai_translate_path'], '/');
         $lang = (string) $vars['lang'];
-        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $path);
-        if (!$post_id && strpos($path, '/') !== false) {
-            $base = basename($path);
+        // Split off a rewrite-endpoint or /page/N suffix (e.g. 'my-account/orders',
+        // 'shop/page/2') so the base path can be resolved via the slug map.
+        $suffix_info = ai_translate_split_endpoint_suffix($path);
+        $resolve_path = ($suffix_info['suffix'] !== '' && $suffix_info['base'] !== '') ? $suffix_info['base'] : $path;
+        $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $resolve_path);
+        if (!$post_id && strpos($resolve_path, '/') !== false) {
+            $base = basename($resolve_path);
             $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $base);
             if (!$post_id) {
                 // Generic fallback: try to find post by translated slug (prefers non-attachments)
@@ -564,6 +568,11 @@ add_filter('request', function ($vars) {
                 } else {
                     $vars['p'] = (int) $post->ID;
                     $vars['post_type'] = $post->post_type;
+                }
+                if ($suffix_info['endpoint'] !== null) {
+                    $vars[$suffix_info['endpoint']] = $suffix_info['value'];
+                } elseif ($suffix_info['paged'] > 1) {
+                    $vars['paged'] = $suffix_info['paged'];
                 }
             }
             unset($vars['ai_translate_path']);
@@ -2133,6 +2142,66 @@ function ai_translate_resolve_term_from_path($path)
     return null;
 }
 
+/**
+ * Split a registered rewrite-endpoint suffix or a /page/N pagination suffix off
+ * a language-stripped URL path. WooCommerce appends endpoints to the page URL
+ * (e.g. 'my-account/orders', 'checkout/order-received/123') and page-based
+ * archives such as the shop page paginate as 'shop/page/2'. The base path must
+ * be resolved via the slug map; the suffix maps to extra query vars and must be
+ * preserved in canonical redirects.
+ *
+ * @param string $path Path without language prefix (e.g. 'my-account/orders').
+ * @return array{base:string,suffix:string,endpoint:?string,value:string,paged:int}
+ *         base = path without suffix, suffix = raw suffix string ('' when none),
+ *         endpoint = query var name for a rewrite endpoint (null when none),
+ *         value = endpoint value (e.g. order ID), paged = page number (0 when none).
+ */
+function ai_translate_split_endpoint_suffix($path)
+{
+    $result = array('base' => trim((string) $path, '/'), 'suffix' => '', 'endpoint' => null, 'value' => '', 'paged' => 0);
+    $segments = array_values(array_filter(explode('/', $result['base']), 'strlen'));
+    $count = count($segments);
+    if ($count < 2) {
+        return $result;
+    }
+
+    // Trailing /page/N pagination. Requires at least 3 segments so the base path
+    // stays non-empty; bare /{lang}/page/N is handled by its dedicated handler.
+    if ($count >= 3 && strtolower($segments[$count - 2]) === 'page' && ctype_digit($segments[$count - 1])) {
+        $result['paged'] = (int) $segments[$count - 1];
+        $result['base'] = implode('/', array_slice($segments, 0, $count - 2));
+        $result['suffix'] = 'page/' . $result['paged'];
+        return $result;
+    }
+
+    // Registered rewrite endpoints (WooCommerce my-account/checkout endpoints, core 'embed', etc.).
+    global $wp_rewrite;
+    if (!isset($wp_rewrite->endpoints) || !is_array($wp_rewrite->endpoints)) {
+        return $result;
+    }
+    foreach ($segments as $i => $segment) {
+        if ($i === 0) {
+            continue; // First segment is always part of the page path.
+        }
+        foreach ($wp_rewrite->endpoints as $endpoint) {
+            if (!is_array($endpoint) || !isset($endpoint[1]) || (string) $endpoint[1] !== $segment) {
+                continue;
+            }
+            // Only endpoints valid on pages or the site root (WooCommerce uses EP_ROOT | EP_PAGES).
+            $mask = isset($endpoint[0]) ? (int) $endpoint[0] : 0;
+            if (($mask & (EP_PAGES | EP_ROOT)) === 0) {
+                continue;
+            }
+            $result['endpoint'] = (isset($endpoint[2]) && $endpoint[2] !== '') ? (string) $endpoint[2] : $segment;
+            $result['value'] = implode('/', array_slice($segments, $i + 1));
+            $result['base'] = implode('/', array_slice($segments, 0, $i));
+            $result['suffix'] = $segment . ($result['value'] !== '' ? '/' . $result['value'] : '');
+            return $result;
+        }
+    }
+    return $result;
+}
+
 // Map translated paths like /{lang}/{translated-slug} to the original content (page or post)
 add_action('parse_request', function ($wp) {
     if (is_admin() || wp_doing_ajax()) {
@@ -2169,6 +2238,15 @@ add_action('parse_request', function ($wp) {
     // Let the dedicated pagination handler manage /{lang}/page/{n}
     if (preg_match('#^page/[0-9]+/?$#i', $rest)) {
         return;
+    }
+
+    // Split a trailing rewrite-endpoint suffix (WooCommerce my-account/checkout
+    // endpoints) or /page/N pagination off the path. The remaining base path is
+    // resolved via the slug map; the suffix is mapped to query vars below and
+    // preserved when redirecting to the canonical translated URL.
+    $suffix_info = ai_translate_split_endpoint_suffix($rest);
+    if ($suffix_info['suffix'] !== '' && $suffix_info['base'] !== '') {
+        $rest = $suffix_info['base'];
     }
 
     // Try exact mapping from translated path to post ID via slug map
@@ -2300,10 +2378,20 @@ add_action('parse_request', function ($wp) {
             } else {
                 $correct_url = home_url('/' . $lang . '/' . $correct_translated_slug . '/');
             }
+            // Re-attach endpoint/pagination suffix so e.g. order-received and
+            // my-account endpoints survive the canonical redirect.
+            if ($suffix_info['suffix'] !== '') {
+                $correct_url .= $suffix_info['suffix'] . '/';
+            }
 
             // Only redirect if the URL is different
             $current_url = home_url($path);
-            if ($correct_url !== $current_url) {
+            if (untrailingslashit($correct_url) !== untrailingslashit($current_url)) {
+                // Preserve the query string (e.g. ?key=wc_order_... on order-received).
+                $query = (string) wp_parse_url($reqUriRaw, PHP_URL_QUERY);
+                if ($query !== '') {
+                    $correct_url .= '?' . $query;
+                }
                 nocache_headers();
                 wp_safe_redirect($correct_url, 301);
                 exit;
@@ -2338,6 +2426,13 @@ add_action('parse_request', function ($wp) {
             }
             $wp->is_single = true;
             $wp->is_singular = true;
+        }
+        // Apply the endpoint/pagination suffix (e.g. WooCommerce 'orders',
+        // 'order-received/123', or 'page/2' on the shop page).
+        if ($suffix_info['endpoint'] !== null) {
+            $wp->query_vars[$suffix_info['endpoint']] = $suffix_info['value'];
+        } elseif ($suffix_info['paged'] > 1) {
+            $wp->query_vars['paged'] = $suffix_info['paged'];
         }
         $wp->is_404 = false;
         return;

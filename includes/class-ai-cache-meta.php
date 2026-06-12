@@ -388,6 +388,28 @@ class AI_Cache_Meta
      * @param int $limit  Posts per page
      * @return array Array of posts with cache info
      */
+    /**
+     * Post IDs of pages that are never page-cached and therefore don't belong
+     * in the cache admin table. WooCommerce sets DONOTCACHEPAGE on the
+     * cart/checkout/my-account pages, so warming them costs API calls while
+     * the result is never stored.
+     *
+     * @return int[] Post IDs to exclude (empty when WooCommerce is not active).
+     */
+    public static function get_never_cached_post_ids()
+    {
+        $ids = array();
+        if (function_exists('wc_get_page_id')) {
+            foreach (array('cart', 'checkout', 'myaccount') as $wc_page) {
+                $page_id = (int) wc_get_page_id($wc_page);
+                if ($page_id > 0) {
+                    $ids[] = $page_id;
+                }
+            }
+        }
+        return $ids;
+    }
+
     public static function get_posts_with_cache_stats($offset = 0, $limit = 50)
     {
         global $wpdb;
@@ -441,8 +463,15 @@ class AI_Cache_Meta
             $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", $site_like);
         }
 
+        // Exclude pages that are never page-cached (e.g. WooCommerce cart/checkout/my-account)
+        $excluded_ids = self::get_never_cached_post_ids();
+        $exclude_condition = '';
+        if (!empty($excluded_ids)) {
+            $exclude_condition = ' AND p.ID NOT IN (' . implode(', ', array_map('intval', $excluded_ids)) . ')';
+        }
+
         // Try to execute query with JOIN first
-        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $site_join_condition is prepared above; $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args (count is dynamic so sniff cannot verify)
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $site_join_condition is prepared above; $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args (count is dynamic so sniff cannot verify); $exclude_condition contains int-cast IDs only
         $query = $wpdb->prepare(
             "SELECT 
                 p.ID,
@@ -455,7 +484,7 @@ class AI_Cache_Meta
                 %i c ON p.ID = c.post_id" . $site_join_condition . "
             WHERE 
                 p.post_status = 'publish'
-                AND p.post_type IN ($post_types_placeholders)
+                AND p.post_type IN ($post_types_placeholders)" . $exclude_condition . "
             GROUP BY 
                 p.ID, p.post_type, p.post_title
             ORDER BY 
@@ -472,7 +501,7 @@ class AI_Cache_Meta
         if (!is_array($results) || !empty($wpdb->last_error)) {
             $wpdb->last_error = ''; // Clear error
             // Fallback query without JOIN
-            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args (count is dynamic so sniff cannot verify)
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args (count is dynamic so sniff cannot verify); $exclude_condition contains int-cast IDs only
             $query = $wpdb->prepare(
                 "SELECT 
                     p.ID,
@@ -482,7 +511,7 @@ class AI_Cache_Meta
                     {$wpdb->posts} p
                 WHERE 
                     p.post_status = 'publish'
-                    AND p.post_type IN ($post_types_placeholders)
+                    AND p.post_type IN ($post_types_placeholders)" . $exclude_condition . "
                 ORDER BY 
                     p.post_type ASC, p.post_title ASC
                 LIMIT %d OFFSET %d",
@@ -594,14 +623,21 @@ class AI_Cache_Meta
             $public_post_types = array('page', 'post');
         }
         $post_types_placeholders = implode(', ', array_fill(0, count($public_post_types), '%s'));
-        
-        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared -- $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args
+
+        // Exclude pages that are never page-cached (must match get_posts_with_cache_stats)
+        $excluded_ids = self::get_never_cached_post_ids();
+        $exclude_condition = '';
+        if (!empty($excluded_ids)) {
+            $exclude_condition = ' AND ID NOT IN (' . implode(', ', array_map('intval', $excluded_ids)) . ')';
+        }
+
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared -- $post_types_placeholders is a server-built '%s, %s, ...' placeholder string for IN() and values are passed via prepare args; $exclude_condition contains int-cast IDs only
         $count = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT COUNT(*)
                 FROM {$wpdb->posts}
                 WHERE post_status = %s
-                AND post_type IN ($post_types_placeholders)",
+                AND post_type IN ($post_types_placeholders)" . $exclude_condition,
                 array_merge(array('publish'), array_values($public_post_types))
             )
         );

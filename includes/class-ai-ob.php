@@ -705,6 +705,14 @@ final class AI_OB
             'checkout',
             'order-received',
             'order-pay',
+            // WooCommerce catalog sorting/filtering (classic widgets/themes use
+            // query params; the cache key excludes query params, so these views
+            // must be translated per-request instead of served from cache)
+            'orderby',
+            'min_price',
+            'max_price',
+            'rating_filter',
+            'product-page',
             // Form submissions
             'form_submitted',
             'submit',
@@ -735,6 +743,14 @@ final class AI_OB
         // Check if any dynamic parameter is present
         foreach ($dynamic_params as $param) {
             if (isset($_GET[$param])) {
+                return true;
+            }
+        }
+
+        // WooCommerce layered-nav attribute filters use per-attribute parameter
+        // names (filter_color, query_type_color, ...), so match by prefix.
+        foreach (array_keys($_GET) as $param_name) {
+            if (strpos((string) $param_name, 'filter_') === 0 || strpos((string) $param_name, 'query_type_') === 0) {
                 return true;
             }
         }
@@ -808,6 +824,28 @@ final class AI_OB
         // For 404 pages: use a single consistent route_id so all 404s share one cache entry per language
         if (function_exists('is_404') && is_404()) {
             return 'path:' . md5('/404');
+        }
+
+        // Paginated views (e.g. the shop page on /page/2): use a path-based route so
+        // every page number gets its own cache entry. A 'post:' route would collide
+        // with page 1 (same key) and corrupt the cache-meta row for the post, which
+        // tracks exactly one file per (post, language) for invalidation/warming.
+        if (function_exists('is_paged') && is_paged()) {
+            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
+            if (strpos($req, '%25') !== false) {
+                $req = urldecode($req);
+            }
+            $req_path = (string) wp_parse_url($req, PHP_URL_PATH);
+            if ($req_path === '') {
+                $req_path = '/';
+            }
+            $req_path = preg_replace('#/+#', '/', $req_path);
+            // Strip language prefix so the route stays stable (language is part of the cache key)
+            $req_path = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $req_path);
+            if ($req_path === '') {
+                $req_path = '/';
+            }
+            return 'path:' . md5(untrailingslashit($req_path) . '/');
         }
 
         // Taxonomy archives: always use a path-based route. Term slugs are not in the

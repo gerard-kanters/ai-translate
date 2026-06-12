@@ -698,6 +698,14 @@ function ajax_warm_post_cache()
             wp_send_json_error(['message' => __('Only published posts can be cached.', 'ai-translate')]);
             return;
         }
+
+        // Pages that are never page-cached (DONOTCACHEPAGE, e.g. WooCommerce
+        // cart/checkout/my-account): warming would spend API calls while the
+        // result is never stored.
+        if (in_array($post_id, AI_Cache_Meta::get_never_cached_post_ids(), true)) {
+            wp_send_json_error(['message' => __('This page is dynamic and is never cached.', 'ai-translate')]);
+            return;
+        }
     }
     
     // Ensure table exists
