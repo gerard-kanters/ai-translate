@@ -10,3 +10,5 @@ update_readme_translations.py
 /vendor/
 .phpunit.cache/
 composer.lock
+AGENTS.md
+claude.md

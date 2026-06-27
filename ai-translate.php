@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.6
+ * Version: 2.3.7
  * Requires at least: 6.2
  * Tested up to: 7.0
  * Requires PHP: 8.0
@@ -2314,6 +2314,31 @@ add_action('parse_request', function ($wp) {
         }
     }
 
+    // History/cross-language fallback for CPT-prefixed paths (e.g. /fr/product/<old-slug>/):
+    // after a re-translation the previous translated slug only exists in the slug-history
+    // table, and cached listing pages can still link to it. Resolve it (current map in any
+    // language + history) so the canonical-redirect block below 301s to the current URL
+    // instead of serving a 404.
+    if (!$post_id && $detected_post_type && $slug_used_for_lookup !== null && $slug_used_for_lookup !== '') {
+        $candidate_ids = \AITranslate\AI_Slugs::find_post_ids_by_translated_slug($slug_used_for_lookup);
+        $unique_target = null;
+        foreach ($candidate_ids as $cid) {
+            $cp = get_post((int) $cid);
+            if ($cp && $cp->post_status === 'publish' && $cp->post_type === $detected_post_type) {
+                if ($unique_target === null) {
+                    $unique_target = (int) $cid;
+                } elseif ($unique_target !== (int) $cid) {
+                    $unique_target = null; // ambiguous: multiple posts share this old slug
+                    break;
+                }
+            }
+        }
+        if ($unique_target !== null) {
+            $post_id = $unique_target;
+            $expected_post_type = $detected_post_type;
+        }
+    }
+
     // Fallback: try the entire path as slug (for pages/posts without post type prefix)
     if (!$post_id) {
         $slug_used_for_lookup = $rest;
@@ -2365,9 +2390,25 @@ add_action('parse_request', function ($wp) {
         // Get the post object for further processing
         $post = get_post((int) $post_id);
 
+        // Normalize percent-encoded URL parts to UTF-8 before comparing. Slugs with
+        // non-ASCII characters (e.g. legacy 'cannelé') arrive %-encoded from the
+        // browser while the DB stores literal UTF-8; comparing raw strings made
+        // logically identical URLs look different, causing 301s to the same URL
+        // (redirect loop: "page isn't redirecting properly").
+        $ai_url_norm = static function ($value) {
+            $value = (string) $value;
+            if (strpos($value, '%') !== false) {
+                $decoded = rawurldecode($value);
+                if (mb_check_encoding($decoded, 'UTF-8')) {
+                    return $decoded;
+                }
+            }
+            return $value;
+        };
+
         // Check if we found the post via the correct translated slug, or via fallback
         $correct_translated_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
-        $found_via_correct_slug = ($correct_translated_slug && $slug_used_for_lookup === $correct_translated_slug);
+        $found_via_correct_slug = ($correct_translated_slug && $ai_url_norm($slug_used_for_lookup) === $ai_url_norm($correct_translated_slug));
 
         if (!$found_via_correct_slug && $correct_translated_slug) {
             // Found via fallback (source slug), redirect to correct translated URL
@@ -2384,9 +2425,10 @@ add_action('parse_request', function ($wp) {
                 $correct_url .= $suffix_info['suffix'] . '/';
             }
 
-            // Only redirect if the URL is different
+            // Only redirect if the URL is actually different in decoded form;
+            // redirecting to a URL that only differs in percent-encoding loops forever.
             $current_url = home_url($path);
-            if (untrailingslashit($correct_url) !== untrailingslashit($current_url)) {
+            if (untrailingslashit($ai_url_norm($correct_url)) !== untrailingslashit($ai_url_norm($current_url))) {
                 // Preserve the query string (e.g. ?key=wc_order_... on order-received).
                 $query = (string) wp_parse_url($reqUriRaw, PHP_URL_QUERY);
                 if ($query !== '') {

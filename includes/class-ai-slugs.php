@@ -428,7 +428,16 @@ final class AI_Slugs
         if (strtolower($lang) === strtolower($default)) {
             return $source_slug;
         }
-        
+
+        // Keep slugs in default language: always render the source slug, ALSO when a
+        // translated mapping already exists. This check must run before the row lookup
+        // below, otherwise the setting only affects posts that were never translated.
+        // Existing mappings are intentionally left in place: old translated URLs keep
+        // resolving via the slug map and 301 to the source-slug URL (parse_request).
+        if ((bool) AI_Translate_Core::get_setting('keep_slugs_in_english', false)) {
+            return $source_slug;
+        }
+
         $version = md5($source_slug);
 
         $row = self::get_row($post_id, $lang);
@@ -448,14 +457,6 @@ final class AI_Slugs
         // When serving from page cache we must not trigger translation (no segment cache write)
         if (!$allow_translate) {
             return null;
-        }
-
-        $keep_slugs_english = (bool) AI_Translate_Core::get_setting('keep_slugs_in_english', false);
-
-        // If slugs should be kept in English, return source slug directly
-        if ($keep_slugs_english) {
-            self::upsert_row($post_id, $lang, $source_slug, $source_slug, $version);
-            return $source_slug;
         }
 
         // Translate the post TITLE (natural language) instead of the slug-string itself.
@@ -482,10 +483,15 @@ final class AI_Slugs
         if ($translated === '') {
             $translated = $source_slug;
         }
-        // Build slug. For non-ASCII translations (Arabic, Cyrillic, Greek, etc.) skip
+        // Build slug. For non-Latin scripts (Arabic, Cyrillic, Greek, CJK, etc.) skip
         // sanitize_title() because it urlencodes the result; we want readable native
         // characters in the database. Use a Unicode-aware cleaner instead.
-        $hasNonAscii = preg_match('/[^\x00-\x7F]/', $translated) === 1;
+        // Latin-script text with accents (French 'cannelé', Spanish 'añadir') must NOT
+        // take that branch: accented URL characters cause percent-encoding/normalization
+        // mismatches in browsers and redirects (redirect loops, 404s). remove_accents()
+        // transliterates those to ASCII — exactly what WordPress core does for post_name —
+        // so only text that is still non-ASCII afterwards is treated as non-Latin script.
+        $hasNonAscii = preg_match('/[^\x00-\x7F]/', remove_accents($translated)) === 1;
         if ($hasNonAscii) {
             $tmp = mb_strtolower((string) $translated);
             $tmp = preg_replace('/[^\p{L}\p{N}\s\-]+/u', '', $tmp);

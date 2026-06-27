@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 6.2  
 Tested up to: 7.0  
-Stable tag: 2.3.6
+Stable tag: 2.3.7
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -184,11 +184,12 @@ AI Translate requires an API key from one of the supported providers:
 
 ## Changelog
 
-### 2.3.6
+### 2.3.7
 - Fix: when the front page is set to "Latest posts", publishing, updating, trashing or restoring a blog post now also invalidates the translated homepage cache so the latest-posts list stays in sync.
 - Fix issues with Woocommerce (product category and shopping-cart)
 - Fix checkbox in admin "keep url slugs in English" 
 - Taxonomy archives also included in translation since they are relevant for customers.
+- Woocommerce product names issues resolved with accented slugs and old slugs. 
 
 
 ### 2.3.4
