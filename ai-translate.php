@@ -2737,9 +2737,12 @@ function ai_translate_clear_caches_for_post_change($post_id, $post = null)
 }
 
 /**
- * On content or title changes of an existing published post: clear translation
- * cache for this post (and the homepage when it lists blog posts) so the next
- * visit triggers a fresh translation.
+ * On content, title, or password changes of an existing published post: clear
+ * translation cache for this post (and the homepage when it lists blog posts)
+ * so the next visit triggers a fresh translation. Password changes must be
+ * included because route_should_be_translated()/route_has_valid_content() skip
+ * translation/caching entirely while a post is password-protected; removing the
+ * password without this check would leave a stale (untranslated) cache in place.
  */
 add_action('post_updated', function ($post_id, $post_after, $post_before) {
     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
@@ -2752,7 +2755,8 @@ add_action('post_updated', function ($post_id, $post_after, $post_before) {
         return;
     }
     if ((string) $post_before->post_content === (string) $post_after->post_content
-        && (string) $post_before->post_title === (string) $post_after->post_title) {
+        && (string) $post_before->post_title === (string) $post_after->post_title
+        && (string) $post_before->post_password === (string) $post_after->post_password) {
         return;
     }
     ai_translate_clear_caches_for_post_change($post_id, $post_after);

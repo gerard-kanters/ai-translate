@@ -1368,6 +1368,15 @@ final class AI_OB
                 $post = get_post($post_id);
                 // Translate if post exists, is published, and has meaningful content
                 if ($post && $post->post_status === 'publish') {
+                    // Password-protected posts are visitor/cookie-dependent (post_password_required()).
+                    // The shared translation cache is not per-visitor, so whichever HTML happens to be
+                    // rendered first (the password form, or the real content for a visitor who already
+                    // holds the password cookie) would get baked in and served to every subsequent
+                    // visitor of that language, regardless of their own password state. Skip entirely.
+                    if (!empty($post->post_password)) {
+                        return false;
+                    }
+
                     // Skip specific post types that are plugin elements without real content
                     $skip_post_types = ['easy-pricing-table', 'nav_menu_item'];
                     if (in_array($post->post_type, $skip_post_types)) {
@@ -1436,8 +1445,11 @@ final class AI_OB
             $post_id = (int) substr($route, 5);
             if ($post_id > 0) {
                 $post = get_post($post_id);
-                // Only cache if post exists, is published, and is not a nav_menu_item
-                return $post && $post->post_status === 'publish' && $post->post_type !== 'nav_menu_item';
+                // Only cache if post exists, is published, is not a nav_menu_item, and is not
+                // password-protected (see route_should_be_translated() for why: shared cache
+                // cannot vary by the requesting visitor's password cookie).
+                return $post && $post->post_status === 'publish' && $post->post_type !== 'nav_menu_item'
+                    && empty($post->post_password);
             }
             return false;
         }
