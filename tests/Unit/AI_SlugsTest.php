@@ -58,13 +58,13 @@ final class AI_SlugsTest extends TestCase
     {
         $this->stubPrepare();
 
-        // First get_var call: exact match on translated_slug
-        $this->wpdb->shouldReceive('get_var')
+        // First get_col call: exact match candidates on translated_slug
+        $this->wpdb->shouldReceive('get_col')
             ->once()
-            ->andReturn('42');
+            ->andReturn(['42']);
 
-        // get_post should confirm it's not an attachment
-        $post = (object) ['post_type' => 'page', 'post_status' => 'publish'];
+        // get_post should confirm it's not an attachment and not password-protected
+        $post = (object) ['post_type' => 'page', 'post_status' => 'publish', 'post_password' => ''];
         Functions\when('get_post')->justReturn($post);
 
         $result = AI_Slugs::resolve_path_to_post('de', 'kontakt');
@@ -75,18 +75,43 @@ final class AI_SlugsTest extends TestCase
     {
         $this->stubPrepare();
 
-        // Exact match finds a post
+        // Exact match finds a candidate
+        $this->wpdb->shouldReceive('get_col')
+            ->andReturn(['42'], [], []);
         $this->wpdb->shouldReceive('get_var')
-            ->andReturn('42', null, null, null);
+            ->andReturn(null, null, null);
         $this->wpdb->shouldReceive('get_results')
             ->andReturn([]);
 
         // But it's an attachment
-        $attachment = (object) ['post_type' => 'attachment', 'post_status' => 'publish'];
+        $attachment = (object) ['post_type' => 'attachment', 'post_status' => 'publish', 'post_password' => ''];
         Functions\when('get_post')->justReturn($attachment);
 
         $result = AI_Slugs::resolve_path_to_post('de', 'foto');
         $this->assertNull($result);
+    }
+
+    public function test_exact_match_skips_password_protected_duplicate(): void
+    {
+        $this->stubPrepare();
+
+        // Two posts share the same (lang, translated_slug) row — e.g. identical titles.
+        // The lower post_id (returned first by ORDER BY post_id ASC) is password-protected;
+        // resolution must skip it and fall through to the valid candidate.
+        $this->wpdb->shouldReceive('get_col')
+            ->once()
+            ->andReturn(['5', '42']);
+
+        $posts = [
+            5 => (object) ['post_type' => 'post', 'post_status' => 'publish', 'post_password' => 'secret'],
+            42 => (object) ['post_type' => 'post', 'post_status' => 'publish', 'post_password' => ''],
+        ];
+        Functions\when('get_post')->alias(function ($id) use ($posts) {
+            return $posts[(int) $id] ?? null;
+        });
+
+        $result = AI_Slugs::resolve_path_to_post('es', 'soluciones-discretas');
+        $this->assertSame(42, $result);
     }
 
     public function test_url_encoded_path_is_normalized(): void
@@ -94,11 +119,11 @@ final class AI_SlugsTest extends TestCase
         $this->stubPrepare();
 
         // The method should URL-decode '%C3%A9' to 'é' before matching
-        $this->wpdb->shouldReceive('get_var')
+        $this->wpdb->shouldReceive('get_col')
             ->once()
-            ->andReturn('10');
+            ->andReturn(['10']);
 
-        $post = (object) ['post_type' => 'page', 'post_status' => 'publish'];
+        $post = (object) ['post_type' => 'page', 'post_status' => 'publish', 'post_password' => ''];
         Functions\when('get_post')->justReturn($post);
 
         $result = AI_Slugs::resolve_path_to_post('hu', 'fell%C3%A9p%C3%A9s');
@@ -109,19 +134,19 @@ final class AI_SlugsTest extends TestCase
     {
         $this->stubPrepare();
 
-        // Exact match fails, encoded match fails, fuzzy fails
+        // Exact match fails, encoded match fails
+        $this->wpdb->shouldReceive('get_col')
+            ->andReturn([], []);
+        // Source slug match succeeds (1st remaining get_var call), fuzzy match fails (2nd)
         $this->wpdb->shouldReceive('get_var')
-            ->andReturn(null, null, '55', null);
+            ->andReturn('55', null);
         $this->wpdb->shouldReceive('get_results')
             ->andReturn([], []);
 
         Functions\when('get_post')->justReturn(null);
 
-        // Source slug fallback succeeds (3rd get_var call returns 55)
-        // But we need to mock get_post for fuzzy fallback...
-        // The third get_var is the source slug match
-        $result = AI_Slugs::resolve_path_to_post('it', 'blogs');
         // Source slug match returns post_id directly without get_post check
+        $result = AI_Slugs::resolve_path_to_post('it', 'blogs');
         $this->assertSame(55, $result);
     }
 
@@ -130,8 +155,10 @@ final class AI_SlugsTest extends TestCase
         $this->stubPrepare();
 
         // All slug map lookups fail
+        $this->wpdb->shouldReceive('get_col')
+            ->andReturn([], []);
         $this->wpdb->shouldReceive('get_var')
-            ->andReturn(null, null, null, '99');
+            ->andReturn(null, null, '99');
         $this->wpdb->shouldReceive('get_results')
             ->andReturn([], []);
 
@@ -145,6 +172,8 @@ final class AI_SlugsTest extends TestCase
     {
         $this->stubPrepare();
 
+        $this->wpdb->shouldReceive('get_col')
+            ->andReturn([], []);
         $this->wpdb->shouldReceive('get_var')
             ->andReturn(null);
         $this->wpdb->shouldReceive('get_results')
@@ -160,11 +189,11 @@ final class AI_SlugsTest extends TestCase
     {
         $this->stubPrepare();
 
-        $this->wpdb->shouldReceive('get_var')
+        $this->wpdb->shouldReceive('get_col')
             ->once()
-            ->andReturn('7');
+            ->andReturn(['7']);
 
-        $post = (object) ['post_type' => 'post', 'post_status' => 'publish'];
+        $post = (object) ['post_type' => 'post', 'post_status' => 'publish', 'post_password' => ''];
         Functions\when('get_post')->justReturn($post);
 
         $result = AI_Slugs::resolve_path_to_post('de', '/mijn-bericht/');

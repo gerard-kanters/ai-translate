@@ -146,13 +146,24 @@ final class AI_Slugs
         $colTrans = 'translated_slug';
         $colSource = $schema === 'original' ? 'original_slug' : 'source_slug';
         
-        // Exact match first (support both schemas), but exclude attachments
-        $post_id = $wpdb->get_var($wpdb->prepare("SELECT post_id FROM %i WHERE %i = %s AND translated_slug = %s LIMIT 1", $table, $colLang, $lang, $slug));
-        if ($post_id) {
-            // Verify it's not an attachment
-            $post = get_post((int) $post_id);
-            if ($post && $post->post_type !== 'attachment') {
-                return (int) $post_id;
+        // Exact match first (support both schemas), but exclude attachments and password-protected
+        // posts. Two distinct posts with identical titles get the same translated_slug for a given
+        // language (duplicate rows in this table); without ORDER BY, "LIMIT 1" is non-deterministic
+        // and could intermittently resolve a public translated URL to an unrelated password-protected
+        // post. Fetch all candidates, ordered deterministically, and skip invalid ones.
+        $candidate_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT post_id FROM %i WHERE %i = %s AND translated_slug = %s ORDER BY post_id ASC",
+            $table,
+            $colLang,
+            $lang,
+            $slug
+        ));
+        if (!empty($candidate_ids)) {
+            foreach ($candidate_ids as $candidate_id) {
+                $post = get_post((int) $candidate_id);
+                if ($post && $post->post_type !== 'attachment' && empty($post->post_password)) {
+                    return (int) $candidate_id;
+                }
             }
         }
         

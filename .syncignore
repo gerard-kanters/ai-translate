@@ -12,6 +12,7 @@ phpunit.xml.dist
 phpcs.xml.dist
 .gitignore
 .syncignore
-agent.md
+AGENTS.md
+claude.md
 *.code-workspace
 update_readme_translations.py
