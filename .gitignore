@@ -4,6 +4,7 @@
 .claude/
 .vscode/
 .git_disabled/
+.syncignore
 agent.md
 ai-translate.code-workspace
 update_readme_translations.py
