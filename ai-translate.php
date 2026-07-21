@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.9
+ * Version: 2.3.10
  * Requires at least: 6.2
  * Tested up to: 7.0
  * Requires PHP: 8.0
@@ -1017,14 +1017,23 @@ add_action('template_redirect', function () {
         }
     }
 
-    // RULE 3: Canonicalize default language - /{default}/ → /
-    // Deterministic server-side redirect (fixes incognito race conditions).
+    // RULE 3: Canonicalize default language - strip /{default}/ prefix, keep the rest.
+    // /{default}/ → /  and  /{default}/product/x/ → /product/x/
+    // (Previously always redirected to /, which broke deep default-language URLs
+    // and could bounce against WooCommerce/CPT canonical redirects.)
     if ($langFromUrl !== null && $defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
         if ($reqPath !== '/') {
             \AITranslate\AI_Lang::set_cookie((string) $defaultLang);
             \AITranslate\AI_Lang::set_current((string) $defaultLang);
+            $stripped = preg_replace('#^/' . preg_quote($langFromUrl, '#') . '(?=/|$)#i', '', $reqPath);
+            if (!is_string($stripped) || $stripped === '') {
+                $stripped = '/';
+            }
+            if ($stripped !== '/' && substr($stripped, -1) !== '/') {
+                $stripped .= '/';
+            }
             nocache_headers();
-            wp_safe_redirect('/', 302);
+            wp_safe_redirect(home_url($stripped), 302);
             exit;
         }
     }
@@ -1219,9 +1228,15 @@ function ai_translate_canonical_path($fallback) {
             $uri = get_page_uri($obj->ID);
             if ($uri) { $path = '/' . trim($uri, '/') . '/'; }
         } else {
-            // Raw post slug - no filter applied
+            // Raw post slug + CPT rewrite prefix (e.g. product/ → urun/) so the
+            // language switcher keeps WooCommerce/CPT URLs routable.
             $slug = get_post_field('post_name', $obj->ID);
-            if ($slug) { $path = '/' . trim((string)$slug, '/') . '/'; }
+            if ($slug) {
+                $prefix = function_exists('ai_translate_cpt_path_prefix')
+                    ? ai_translate_cpt_path_prefix((string) $obj->post_type)
+                    : '';
+                $path = '/' . $prefix . trim((string) $slug, '/') . '/';
+            }
         }
     } elseif ($obj instanceof WP_Term && isset($obj->term_id)) {
         // ai-translate has no term_link filter, safe to use
@@ -2080,6 +2095,55 @@ function ai_translate_detect_cpt_archive($segment)
 }
 
 /**
+ * Return the public rewrite-slug prefix for a post type (e.g. 'product/' or 'urun/').
+ * Empty for built-in post/page or when the type has no rewrite slug.
+ *
+ * WooCommerce (and other CPTs) often use a rewrite slug that differs from the
+ * post type name (product_base = 'urun' while post type remains 'product').
+ * All language-prefixed URLs must use the rewrite slug, not the type name.
+ *
+ * @param string $post_type Post type name.
+ * @return string Prefix with trailing slash, or ''.
+ */
+function ai_translate_cpt_path_prefix($post_type)
+{
+    $post_type = (string) $post_type;
+    if ($post_type === '' || $post_type === 'post' || $post_type === 'page') {
+        return '';
+    }
+    $obj = get_post_type_object($post_type);
+    if (!$obj || empty($obj->rewrite['slug'])) {
+        return '';
+    }
+    return trim((string) $obj->rewrite['slug'], '/') . '/';
+}
+
+/**
+ * Resolve a URL path segment to a public CPT name.
+ * Matches the post type name OR its rewrite slug (e.g. 'urun' → 'product').
+ *
+ * @param string $segment First path segment after the language code.
+ * @return array{type:string,rewrite_slug:string}|null
+ */
+function ai_translate_match_cpt_segment($segment)
+{
+    $segment = trim((string) $segment, '/');
+    if ($segment === '') {
+        return null;
+    }
+    foreach (get_post_types(['public' => true, '_builtin' => false], 'objects') as $pt) {
+        $rewrite_slug = !empty($pt->rewrite['slug']) ? trim((string) $pt->rewrite['slug'], '/') : (string) $pt->name;
+        if ($segment === (string) $pt->name || $segment === $rewrite_slug) {
+            return [
+                'type'         => (string) $pt->name,
+                'rewrite_slug' => $rewrite_slug,
+            ];
+        }
+    }
+    return null;
+}
+
+/**
  * Resolve a language-stripped URL path to a taxonomy term archive.
  * Handles built-in category/tag slugs as well as custom taxonomies whose
  * rewrite slug differs from the taxonomy name (e.g. WooCommerce 'product_cat'
@@ -2253,25 +2317,28 @@ add_action('parse_request', function ($wp) {
     $post_id = null;
     $expected_post_type = null;
 
-    // Check if path contains a post type prefix (e.g., service/slug)
+    // Check if path contains a CPT rewrite-slug / post-type prefix (e.g. product/slug or urun/slug)
     $slug_used_for_lookup = null;
     $detected_post_type = null;
+    $detected_rewrite_slug = null;
     if (strpos($rest, '/') !== false) {
         $parts = explode('/', $rest, 2);
         if (count($parts) === 2) {
-            $potential_post_type = $parts[0];
+            $potential_prefix = $parts[0];
             $potential_slug = trim($parts[1], '/');
             $slug_used_for_lookup = $potential_slug;
 
-            // Check if this is a registered post type
-            if (post_type_exists($potential_post_type)) {
-                $detected_post_type = $potential_post_type;
-                // If slug is empty (only post type, e.g., /it/service/), route to archive or redirect
+            // Match post type name OR rewrite slug (WooCommerce product_base may be 'urun').
+            $cpt_match = ai_translate_match_cpt_segment($potential_prefix);
+            if ($cpt_match) {
+                $detected_post_type = $cpt_match['type'];
+                $detected_rewrite_slug = $cpt_match['rewrite_slug'];
+                // If slug is empty (only CPT prefix, e.g., /it/product/), route to archive or redirect
                 if ($potential_slug === '') {
-                    $cpt_obj = get_post_type_object($potential_post_type);
+                    $cpt_obj = get_post_type_object($detected_post_type);
                     if ($cpt_obj && $cpt_obj->has_archive) {
                         $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
-                        $wp->query_vars['post_type'] = $potential_post_type;
+                        $wp->query_vars['post_type'] = $detected_post_type;
                         $wp->is_archive  = true;
                         $wp->is_singular = false;
                         $wp->is_404      = false;
@@ -2284,8 +2351,8 @@ add_action('parse_request', function ($wp) {
                 $post_id = \AITranslate\AI_Slugs::resolve_path_to_post($lang, $potential_slug);
                 if ($post_id) {
                     $post = get_post((int) $post_id);
-                    if ($post && $post->post_type === $potential_post_type) {
-                        $expected_post_type = $potential_post_type;
+                    if ($post && $post->post_type === $detected_post_type) {
+                        $expected_post_type = $detected_post_type;
                     } else {
                         // Post type mismatch, invalid result
                         $post_id = null;
@@ -2294,20 +2361,20 @@ add_action('parse_request', function ($wp) {
             }
         }
     } else {
-        // Single segment: check if it's a post type without slug (e.g., /it/service)
-        if (post_type_exists($rest)) {
-            $detected_post_type = $rest;
-            $cpt_obj = get_post_type_object($rest);
+        // Single segment: CPT archive root by name or rewrite/archive slug (e.g. /it/product, /it/urun)
+        $cpt_match = ai_translate_match_cpt_segment($rest);
+        if ($cpt_match) {
+            $detected_post_type = $cpt_match['type'];
+            $detected_rewrite_slug = $cpt_match['rewrite_slug'];
+            $cpt_obj = get_post_type_object($detected_post_type);
             if ($cpt_obj && $cpt_obj->has_archive) {
-                // Route to CPT archive (e.g. /de/service/ → service archive)
                 $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
-                $wp->query_vars['post_type'] = $rest;
+                $wp->query_vars['post_type'] = $detected_post_type;
                 $wp->is_archive   = true;
                 $wp->is_singular  = false;
                 $wp->is_404       = false;
                 return;
             }
-            // Post type without archive, redirect to language root
             nocache_headers();
             wp_safe_redirect(home_url('/' . $lang . '/'), 301);
             exit;
@@ -2406,37 +2473,40 @@ add_action('parse_request', function ($wp) {
             return $value;
         };
 
-        // Check if we found the post via the correct translated slug, or via fallback
+        // Check if we found the post via the correct translated slug, or via fallback.
+        // Also enforce the CPT rewrite-slug prefix (e.g. /en/witch/ → /en/urun/witch/).
         $correct_translated_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
         $found_via_correct_slug = ($correct_translated_slug && $ai_url_norm($slug_used_for_lookup) === $ai_url_norm($correct_translated_slug));
 
-        if (!$found_via_correct_slug && $correct_translated_slug) {
-            // Found via fallback (source slug), redirect to correct translated URL
-            if ($expected_post_type && post_type_exists($expected_post_type)) {
-                $correct_url = home_url('/' . $lang . '/' . $expected_post_type . '/' . $correct_translated_slug . '/');
-            } elseif ($post && $post->post_type === 'page') {
-                $correct_url = home_url('/' . $lang . '/' . $correct_translated_slug . '/');
-            } else {
-                $correct_url = home_url('/' . $lang . '/' . $correct_translated_slug . '/');
-            }
-            // Re-attach endpoint/pagination suffix so e.g. order-received and
-            // my-account endpoints survive the canonical redirect.
-            if ($suffix_info['suffix'] !== '') {
-                $correct_url .= $suffix_info['suffix'] . '/';
-            }
+        if ($correct_translated_slug && $post) {
+            $cpt_prefix = ai_translate_cpt_path_prefix((string) $post->post_type);
+            $correct_url = home_url('/' . $lang . '/' . $cpt_prefix . $correct_translated_slug . '/');
 
-            // Only redirect if the URL is actually different in decoded form;
-            // redirecting to a URL that only differs in percent-encoding loops forever.
-            $current_url = home_url($path);
-            if (untrailingslashit($ai_url_norm($correct_url)) !== untrailingslashit($ai_url_norm($current_url))) {
-                // Preserve the query string (e.g. ?key=wc_order_... on order-received).
-                $query = (string) wp_parse_url($reqUriRaw, PHP_URL_QUERY);
-                if ($query !== '') {
-                    $correct_url .= '?' . $query;
+            // Structure check: CPT URLs must include the rewrite slug prefix.
+            $expected_rest = trim($cpt_prefix . $correct_translated_slug, '/');
+            $current_rest_norm = $ai_url_norm(trim($rest, '/'));
+            $structure_ok = ($current_rest_norm === $ai_url_norm($expected_rest));
+
+            if (!$found_via_correct_slug || !$structure_ok) {
+                // Re-attach endpoint/pagination suffix so e.g. order-received and
+                // my-account endpoints survive the canonical redirect.
+                if ($suffix_info['suffix'] !== '') {
+                    $correct_url .= $suffix_info['suffix'] . '/';
                 }
-                nocache_headers();
-                wp_safe_redirect($correct_url, 301);
-                exit;
+
+                // Only redirect if the URL is actually different in decoded form;
+                // redirecting to a URL that only differs in percent-encoding loops forever.
+                $current_url = home_url($path);
+                if (untrailingslashit($ai_url_norm($correct_url)) !== untrailingslashit($ai_url_norm($current_url))) {
+                    // Preserve the query string (e.g. ?key=wc_order_... on order-received).
+                    $query = (string) wp_parse_url($reqUriRaw, PHP_URL_QUERY);
+                    if ($query !== '') {
+                        $correct_url .= '?' . $query;
+                    }
+                    nocache_headers();
+                    wp_safe_redirect($correct_url, 301);
+                    exit;
+                }
             }
         }
         $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
@@ -2652,13 +2722,11 @@ add_filter('post_type_link', function ($permalink, $post, $leavename, $sample) {
     $translated = \AITranslate\AI_Slugs::get_or_generate((int) $post->ID, $lang);
     if ($translated === null) return $permalink;
 
-    // For custom post types, we need to build the path manually
-    // Extract the post type from the current permalink structure
-    $post_type = $post->post_type;
+    // Use the rewrite slug (e.g. WooCommerce product_base 'urun'), not the
+    // post type name ('product'), so generated links match real routes.
+    $cpt_prefix = ai_translate_cpt_path_prefix((string) $post->post_type);
     $trail = substr($permalink, -1) === '/' ? '/' : '';
-
-    // Build path: /{lang}/{post_type}/{translated-slug}/
-    $path = '/' . $lang . '/' . $post_type . '/' . trim($translated, '/') . $trail;
+    $path = '/' . $lang . '/' . $cpt_prefix . trim($translated, '/') . $trail;
     return home_url($path);
 }, 10, 4);
 

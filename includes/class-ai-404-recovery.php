@@ -183,13 +183,9 @@ final class AI_404_Recovery
             return null;
         }
 
-        $cpt_prefix = '';
-        if ($post->post_type !== 'page' && $post->post_type !== 'post') {
-            $obj = get_post_type_object((string) $post->post_type);
-            if ($obj && !empty($obj->rewrite['slug'])) {
-                $cpt_prefix = trim((string) $obj->rewrite['slug'], '/') . '/';
-            }
-        }
+        $cpt_prefix = function_exists('ai_translate_cpt_path_prefix')
+            ? ai_translate_cpt_path_prefix((string) $post->post_type)
+            : '';
 
         $path = '/' . $lang . '/' . $cpt_prefix . trim($translated, '/') . '/';
         return home_url($path);

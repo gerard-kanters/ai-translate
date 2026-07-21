@@ -828,12 +828,17 @@ final class AI_SEO
         if ($post_id > 0) {
             $translatedSlug = AI_Slugs::get_or_generate($post_id, $targetLang);
             if ($translatedSlug !== null) {
-                if (strtolower($targetLang) === strtolower($default)) {
-                    // Default language: no language prefix
-                    return home_url('/' . ltrim($translatedSlug, '/') . '/');
+                $cpt_prefix = '';
+                $post_obj = get_post((int) $post_id);
+                if ($post_obj && function_exists('ai_translate_cpt_path_prefix')) {
+                    $cpt_prefix = ai_translate_cpt_path_prefix((string) $post_obj->post_type);
                 }
-                // Non-default: include language prefix
-                return home_url('/' . $targetLang . '/' . ltrim($translatedSlug, '/') . '/');
+                if (strtolower($targetLang) === strtolower($default)) {
+                    // Default language: no language prefix, keep CPT rewrite slug
+                    return home_url('/' . $cpt_prefix . ltrim($translatedSlug, '/') . '/');
+                }
+                // Non-default: language prefix + CPT rewrite slug
+                return home_url('/' . $targetLang . '/' . $cpt_prefix . ltrim($translatedSlug, '/') . '/');
             }
         }
         
@@ -883,10 +888,16 @@ final class AI_SEO
 
         $translatedSlug = AI_Slugs::get_or_generate((int) $post_id, $lang);
         if ($translatedSlug !== null && $translatedSlug !== '') {
-            if (strtolower($lang) === strtolower($default)) {
-                return home_url('/' . ltrim($translatedSlug, '/') . '/');
+            // Honour CPT rewrite slugs (e.g. WooCommerce product_base 'urun').
+            $cpt_prefix = '';
+            $post_obj = get_post((int) $post_id);
+            if ($post_obj && function_exists('ai_translate_cpt_path_prefix')) {
+                $cpt_prefix = ai_translate_cpt_path_prefix((string) $post_obj->post_type);
             }
-            return home_url('/' . $lang . '/' . ltrim($translatedSlug, '/') . '/');
+            if (strtolower($lang) === strtolower($default)) {
+                return home_url('/' . $cpt_prefix . ltrim($translatedSlug, '/') . '/');
+            }
+            return home_url('/' . $lang . '/' . $cpt_prefix . ltrim($translatedSlug, '/') . '/');
         }
 
         $currentUrl = get_permalink((int) $post_id);
