@@ -753,6 +753,47 @@ function ai_translate_is_xml_request()
 }
 
 /**
+ * Check if the current request's User-Agent is a known search engine crawler.
+ * Used to keep bots on the default language instead of following browser-language
+ * auto-detection (crawlers rarely send a meaningful Accept-Language header, and
+ * should never trigger/see a language redirect for SEO consistency).
+ *
+ * @return bool
+ */
+function ai_translate_is_known_bot_ua()
+{
+    $ua = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_USER_AGENT'])) : '';
+    return $ua !== '' && (bool) preg_match('/googlebot|googleother|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i', $ua);
+}
+
+/**
+ * Add Accept-Language/Cookie to the Vary header on language-detection-based redirects.
+ *
+ * These redirects (browser-language auto-detect, cookie-based root/path redirects) decide
+ * their target based on request headers, not just the URL. A shared cache (CDN/reverse proxy)
+ * that does not honor Cache-Control but does honor Vary will otherwise reuse one visitor's
+ * redirect for every other visitor of the same URL. This is defense-in-depth alongside the
+ * existing nocache_headers() call, not a replacement for it.
+ *
+ * @return void
+ */
+function ai_translate_add_vary_headers()
+{
+    if (headers_sent()) {
+        return;
+    }
+    $existing = [];
+    foreach (headers_list() as $h) {
+        if (stripos($h, 'Vary:') === 0) {
+            $existing = array_map('trim', explode(',', substr($h, strlen('Vary:'))));
+            break;
+        }
+    }
+    $merged = array_values(array_unique(array_filter(array_merge($existing, ['Accept-Language', 'Cookie']))));
+    header('Vary: ' . implode(', ', $merged));
+}
+
+/**
  * Start output buffering for front-end (skip admin, AJAX, REST, feeds and XML files).
  * Handles language detection and redirection according to the 4 language switcher rules.
  */
@@ -1043,6 +1084,7 @@ add_action('template_redirect', function () {
         if ($defaultLang && strtolower($cookieLang) !== strtolower((string) $defaultLang)) {
             // Returning visitor with non-default language preference - redirect to their preferred URL
             nocache_headers();
+            ai_translate_add_vary_headers();
             wp_safe_redirect(home_url('/' . $cookieLang . '/'), 302);
             exit;
         }
@@ -1066,6 +1108,7 @@ add_action('template_redirect', function () {
     if ($langFromUrl === null && $reqPath !== '/' && $cookieLang !== '' && $defaultLang &&
         strtolower($cookieLang) !== strtolower((string) $defaultLang) && !$hasSearchParam) {
         nocache_headers();
+        ai_translate_add_vary_headers();
         wp_safe_redirect(home_url('/' . $cookieLang . $reqPath), 302);
         exit;
     }
@@ -1074,34 +1117,46 @@ add_action('template_redirect', function () {
 
     // RULE 1: First visit (no cookie) - detect browser language and redirect
     if ($cookieLang === '' && $langFromUrl === null && !$hasSearchParam) {
-        \AITranslate\AI_Lang::reset();
-        \AITranslate\AI_Lang::detect();
-        $detected = \AITranslate\AI_Lang::current();
-        if (!$detected) {
-            $detected = (string) $defaultLang;
+        // Crawlers must never follow a browser-language redirect: their Accept-Language
+        // header is often generic/absent, and they should consistently see the default
+        // language for SEO/indexing consistency.
+        if (ai_translate_is_known_bot_ua()) {
+            $resolvedLang = (string) $defaultLang;
+        } else {
+            \AITranslate\AI_Lang::reset();
+            \AITranslate\AI_Lang::detect();
+            $detected = \AITranslate\AI_Lang::current();
+            if (!$detected) {
+                $detected = (string) $defaultLang;
+            }
+
+            $resolvedLang = $detected;
+
+            // Set cookie (central helper handles domains/headers)
+            \AITranslate\AI_Lang::set_cookie($detected);
+
+            // Redirect to language URL if not default
+            // IMPORTANT: prevent browsers/proxies from caching this 302 (incognito can get "stuck").
+            // Vary is defense-in-depth: a shared cache that ignores Cache-Control but honors Vary
+            // will still not reuse this visitor's redirect for a visitor with a different
+            // Accept-Language/cookie state.
+            if ($detected && strtolower($detected) !== strtolower((string) $defaultLang)) {
+                nocache_headers();
+                ai_translate_add_vary_headers();
+                // For root: redirect to /{lang}/; for non-root: redirect to /{lang}{path}
+                $targetPath = ($reqPath === '/') ? '/' . $detected . '/' : '/' . $detected . $reqPath;
+                wp_safe_redirect(home_url($targetPath), 302);
+                exit;
+            }
+            // If detected == default, no redirect needed, just set language below
         }
-
-        $resolvedLang = $detected;
-
-        // Set cookie (central helper handles domains/headers)
-        \AITranslate\AI_Lang::set_cookie($detected);
-
-        // Redirect to language URL if not default
-        // IMPORTANT: prevent browsers/proxies from caching this 302 (incognito can get "stuck")
-        if ($detected && strtolower($detected) !== strtolower((string) $defaultLang)) {
-            nocache_headers();
-            // For root: redirect to /{lang}/; for non-root: redirect to /{lang}{path}
-            $targetPath = ($reqPath === '/') ? '/' . $detected . '/' : '/' . $detected . $reqPath;
-            wp_safe_redirect(home_url($targetPath), 302);
-            exit;
-        }
-        // If detected == default, no redirect needed, just set language below
     } elseif ($reqPath === '/' && $cookieLang !== '') {
         // Returning visitor on root: respect stored preference
         $resolvedLang = $cookieLang;
 
         if ($defaultLang && strtolower($cookieLang) !== strtolower((string) $defaultLang)) {
             nocache_headers();
+            ai_translate_add_vary_headers();
             wp_safe_redirect(home_url('/' . $cookieLang . '/'), 302);
             exit;
         }
@@ -1169,6 +1224,37 @@ add_action('template_redirect', function () {
     \AITranslate\AI_OB::instance()->start();
 }, 5); // Priority 5 to run AFTER preloader plugins (e.g. Safelayout Cute Preloader at 2).
 // Preloader must ob_start first so it injects into AI-Translate output, not vice versa.
+
+/**
+ * Client-side cookie-based language redirect fallback.
+ *
+ * When a full-page cache (Kinsta, CDN, Varnish) serves a cached HTML page, PHP
+ * never runs and server-side redirect rules (RULE 4/5 in template_redirect) cannot
+ * fire. This inline <head> script detects a non-default ai_translate_lang cookie on
+ * a URL without a language prefix and performs a client-side redirect — bypassing
+ * the cache layer entirely and restoring expected behavior for returning visitors.
+ */
+add_action('wp_head', function () {
+    $default = \AITranslate\AI_Lang::default();
+    if ($default === '') {
+        return;
+    }
+    $default = strtolower(sanitize_key($default));
+?>
+<script>
+(function(){
+  var c=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);
+  if(!c)return;
+  var lang=decodeURIComponent(c[1]).toLowerCase();
+  if(lang==="<?php echo esc_js($default); ?>")return;
+  if(/^\/([a-z]{2})(?:\/|$)/i.test(location.pathname))return;
+  var ua=navigator.userAgent||"";
+  if(/googlebot|googleother|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i.test(ua))return;
+  location.replace(location.origin+"/"+lang+location.pathname);
+})();
+</script>
+<?php
+}, -9999);
 
 /**
  * Ensure that when viewing the posts index (translated posts page) with ?blogpage=N,
@@ -1517,9 +1603,7 @@ add_action('rest_api_init', function () {
         'methods' => 'POST',
         'permission_callback' => function (\WP_REST_Request $request) {
             // Bot check first: bots get empty response anyway, no need for referer/nonce
-            $ua = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_USER_AGENT'])) : '';
-            $is_bot = $ua !== '' && preg_match('/googlebot|googleother|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i', $ua);
-            if ($is_bot) {
+            if (ai_translate_is_known_bot_ua()) {
                 $request->set_param('_ai_tr_bot_no_nonce', 1);
                 return true;
             }
