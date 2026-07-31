@@ -2669,16 +2669,16 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     // Existing saved selections are kept by the UI; this only controls default-first ordering.
     $preferred_model_patterns = [
         'openai' => [
-            '/^gpt-5\.4-mini$/i',
+            '/gpt[-\s_.]*5\.6[-\s_.]*luna/i',
         ],
         'openrouter' => [
-            '/gemini[-\s_.]*3\.1[-\s_.]*flash[-\s_.]*lite/i',
+            '/gemini[-\s_.]*3\.5[-\s_.]*flash[-\s_.]*lite/i',
         ],
         'deepinfra' => [
-            '/gemini[-\s_.]*2\.5[-\s_.]*flash(?![-\s_.]*lite)/i',
+            '/gemini[-\s_.]*3\.1[-\s_.]*flash[-\s_.]*lite/i',
         ],
         'deepseek' => [
-            '/^deepseek-chat$/i',
+            '/^deepseek-v4-flash$/i',
         ],
         'groq' => [
             '/openai\/gpt[-\s_.]*oss[-\s_.]*120b/i',
