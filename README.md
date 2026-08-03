@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 6.2  
 Tested up to: 7.0  
-Stable tag: 2.3.10
+Stable tag: 2.3.11
 Requires PHP: 8.0
 License: GPLv2 or later  
 License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
@@ -183,6 +183,21 @@ AI Translate requires an API key from one of the supported providers:
 - 🔑 API key for OpenAI, Deepseek, or compatible service
 
 ## Changelog
+
+### 2.3.11
+- Fix: WooCommerce star ratings on translated product pages could stay stale in cache when reviews were added programmatically or via importers (review invalidation now hooks wp_insert_comment, which covers every insertion path).
+- Fix: product review changes now also flush translated shop and category archive caches, so star ratings on listings stay in sync.
+- Fix: permanently deleting an approved review (force delete) now also flushes the translated product/shop/archive caches — the deletion hook fired after the comment row was already gone, so the flush was skipped.
+- Fix: the batch-strings catalog validation now also accepts plural catalog forms (msgid_plural / plural msgstr), so rendered strings like "Showing all 5 results" are translated in AJAX-driven WooCommerce UI.
+- RTL: Arabic and Hebrew pages now render with dir="rtl" on the html tag.
+- New: WooCommerce settings section with option "Do not translate product names" (keeps brand names/SKUs in the original language on product pages, listings and cart tables).
+- New: glossary setting — force specific translations per term per language via the translation prompt.
+- New: AI Language Switcher block for block themes (FSE) and the block editor.
+- Improved: classic WooCommerce notices and the classic mini-cart are now translated after AJAX updates (e.g. add-to-cart), like the block cart already was.
+- Improved: product names and attribute values in the block cart/checkout now translate via database validation.
+- Improved: JSON-LD Product schema name/description are translated for international rich results.
+- Improved: page-builder editor detection now also covers Flatsome UX Builder, Newspaper tagDiv Composer and Avada Live.
+- Improved: saving a post now only translates slugs to enabled + detectable languages instead of all 35+, speeding up post saves and WooCommerce bulk imports.
 
 ### 2.3.10
 - Fix: when the front page is set to "Latest posts", publishing, updating, trashing or restoring a blog post now also invalidates the translated homepage cache so the latest-posts list stays in sync.

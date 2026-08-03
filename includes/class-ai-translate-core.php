@@ -1011,7 +1011,52 @@ final class AI_Translate_Core
             $sourceLangName
         );
 
+        $prompt .= self::build_glossary_prompt_hint((string) $target_language);
+
         return $prompt;
+    }
+
+    /**
+     * Build the glossary section of the translation system prompt for a target language.
+     * Parses the 'glossary' setting (one term per line: "Bike = de: Fahrrad, nl: Fiets")
+     * and enforces the configured translation of each source term for that language.
+     *
+     * @param string $target_language Target language code.
+     * @return string Prompt fragment (empty when no rules apply to the target language).
+     */
+    private static function build_glossary_prompt_hint($target_language)
+    {
+        $settings = self::settings();
+        $raw = isset($settings['glossary']) ? trim((string) $settings['glossary']) : '';
+        if ($raw === '') {
+            return '';
+        }
+        $target = strtolower(trim($target_language));
+        $rules = [];
+        foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '=') === false) {
+                continue;
+            }
+            [$source, $targets] = array_map('trim', explode('=', $line, 2));
+            if ($source === '') {
+                continue;
+            }
+            foreach (explode(',', $targets) as $pair) {
+                if (strpos($pair, ':') === false) {
+                    continue;
+                }
+                [$lang, $term] = array_map('trim', explode(':', $pair, 2));
+                if (strtolower($lang) === $target && $term !== '') {
+                    $rules[] = sprintf("Translate '%s' exactly as '%s'", $source, $term);
+                    break;
+                }
+            }
+        }
+        if (empty($rules)) {
+            return '';
+        }
+        return "\n\nTERMINOLOGY (mandatory, override your own choice for these terms):\n- " . implode("\n- ", $rules);
     }
 
     /**

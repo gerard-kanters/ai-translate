@@ -1262,6 +1262,24 @@ add_action('admin_init', function () {
                 $sanitized['keep_slugs_in_english'] = false;
             }
 
+            // WooCommerce: keep product names untranslated (checkbox)
+            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
+            // Bij AJAX/partial update: alleen updaten als expliciet in input
+            if ($is_form_submit) {
+                $sanitized['woocommerce_keep_product_names'] = isset($input['woocommerce_keep_product_names']);
+            } elseif (array_key_exists('woocommerce_keep_product_names', $input)) {
+                $sanitized['woocommerce_keep_product_names'] = (bool) $input['woocommerce_keep_product_names'];
+            } elseif (!isset($sanitized['woocommerce_keep_product_names'])) {
+                $sanitized['woocommerce_keep_product_names'] = false;
+            }
+
+            // Glossary: forced term translations per language (textarea)
+            if (array_key_exists('glossary', $input)) {
+                $sanitized['glossary'] = sanitize_textarea_field((string) $input['glossary']);
+            } elseif (!isset($sanitized['glossary'])) {
+                $sanitized['glossary'] = '';
+            }
+
             // Model selection (per provider)
             if (isset($input['selected_model'])) {
                 $selected_provider = $sanitized['api_provider'] ?? ($current_settings['api_provider'] ?? null);
@@ -1802,6 +1820,31 @@ add_action('admin_init', function () {
         'ai_translate_cache'
     );
 
+    // WooCommerce Section
+    add_settings_section(
+        'ai_translate_woocommerce',
+        __('WooCommerce', 'ai-translate'),
+        null,
+        'ai-translate'
+    );
+    add_settings_field(
+        'woocommerce_keep_product_names',
+        __('Product Names', 'ai-translate'),
+        function () {
+            $settings = AI_Translate_Core::settings();
+            $value = !empty($settings['woocommerce_keep_product_names']);
+            echo '<label>';
+            echo '<input type="checkbox" name="ai_translate_settings[woocommerce_keep_product_names]" value="1" ' . checked($value, true, false) . '> ';
+            echo esc_html__('Do not translate product names', 'ai-translate');
+            echo '</label>';
+            echo '<p class="description">';
+            echo esc_html__('When enabled, product names stay in the original language on product pages, listings and cart tables — useful for brand names and SKUs. Clear the page cache after changing this setting.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_woocommerce'
+    );
+
     // Advanced Settings Section
     add_settings_section(
         'ai_translate_advanced',
@@ -1809,6 +1852,24 @@ add_action('admin_init', function () {
         null,
         'ai-translate'
     );
+
+    // --- Add Glossary Field ---
+    add_settings_field(
+        'glossary',
+        __('Glossary (forced term translations)', 'ai-translate'),
+        function () {
+            $settings = AI_Translate_Core::settings();
+            $value = isset($settings['glossary']) ? (string) $settings['glossary'] : '';
+            echo '<textarea name="ai_translate_settings[glossary]" rows="6" class="large-text code" placeholder="Bike = de: Fahrrad, fr: Vélo, nl: Fiets">' . esc_textarea($value) . '</textarea>';
+            echo '<p class="description">';
+            echo esc_html__('One term per line: source term = lang: translation, lang: translation. The source term is matched against your default language; the given translation is then enforced in the translation prompt for that target language. Example: Bike = de: Fahrrad, nl: Fiets. Clear the page cache after changing the glossary.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_advanced'
+    );
+    // --- End Glossary Field ---
+
 
     // --- Add Homepage Meta Description Field ---
     add_settings_field(

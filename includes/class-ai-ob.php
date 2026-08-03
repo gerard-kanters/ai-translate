@@ -66,6 +66,14 @@ final class AI_OB
         // Replace WordPress site_url host with current request host to prevent cross-origin AJAX issues
         $html = $this->fix_cached_domain($html);
 
+        // Pages cached before dir="rtl" support lack the attribute; apply it on serve
+        // so existing Arabic/Hebrew caches render right-to-left immediately instead of
+        // only after cache expiry. Idempotent for pages already generated with the fix.
+        $active_lang = AI_Lang::current();
+        if ($active_lang !== null && AI_Lang::is_rtl($active_lang)) {
+            $html = self::apply_html_lang_dir($html, $active_lang);
+        }
+
         return $html;
     }
 
@@ -483,27 +491,18 @@ final class AI_OB
                 );
             }
             
-            // Update HTML lang attribute in the preserved original HTML to match target language
-            if ($lang !== null && $lang !== '') {
-                $locale = self::getLangAttribute($lang);
-                // Replace existing lang attribute
-                $html2 = preg_replace('/(<html\b[^>]*\s)lang=["\'][^"\']*["\']/i', '$1lang="' . esc_attr($locale) . '"', $html2, 1);
-                // If no lang attribute exists, add it to the html tag
-                if (!preg_match('/<html\b[^>]*\slang=/i', $html2)) {
-                    $html2 = preg_replace('/(<html\b)([^>]*)>/i', '$1$2 lang="' . esc_attr($locale) . '">', $html2, 1);
-                }
-            }
+            // Update HTML lang attribute (and dir for RTL target languages) in the
+            // preserved original HTML to match target language
+            $html2 = self::apply_html_lang_dir($html2, $lang);
         }
 
-        // Ensure lang attribute is set before SEO injection
+        // Ensure lang (and dir for RTL) attributes are correct before SEO injection
         if ($lang !== null && $lang !== '' && !empty($html2)) {
             $locale = self::getLangAttribute($lang);
-            // Double-check lang attribute is correct in final HTML
-            if (!preg_match('/<html\b[^>]*\slang=["\']' . preg_quote($locale, '/') . '["\']/i', $html2)) {
-                $html2 = preg_replace('/(<html\b[^>]*\s)lang=["\'][^"\']*["\']/i', '$1lang="' . esc_attr($locale) . '"', $html2, 1);
-                if (!preg_match('/<html\b[^>]*\slang=/i', $html2)) {
-                    $html2 = preg_replace('/(<html\b)([^>]*)>/i', '$1$2 lang="' . esc_attr($locale) . '">', $html2, 1);
-                }
+            $langOk = (bool) preg_match('/<html\b[^>]*\slang=["\']' . preg_quote($locale, '/') . '["\']/i', $html2);
+            $dirOk = !AI_Lang::is_rtl($lang) || (bool) preg_match('/<html\b[^>]*\sdir=["\']rtl["\']/i', $html2);
+            if (!$langOk || !$dirOk) {
+                $html2 = self::apply_html_lang_dir($html2, $lang);
             }
         }
 
@@ -777,6 +776,37 @@ final class AI_OB
             'pt' => 'pt-PT',
         ];
         return $localeMap[$lang] ?? $lang;
+    }
+
+    /**
+     * Set the <html> lang attribute to the target language and, for RTL target
+     * languages, dir="rtl". Themes never load their RTL styles because the WP
+     * locale never switches; without the dir attribute Arabic/Hebrew pages render
+     * LTR with punctuation on the wrong side. Idempotent and safe to re-apply.
+     *
+     * @param string      $html Full page HTML.
+     * @param string|null $lang Target language code.
+     * @return string
+     */
+    public static function apply_html_lang_dir($html, $lang)
+    {
+        if ($lang === null || $lang === '') {
+            return $html;
+        }
+        $locale = self::getLangAttribute($lang);
+        // Replace existing lang attribute, or add it to the <html> tag when absent.
+        $html = preg_replace('/(<html\b[^>]*\s)lang=["\'][^"\']*["\']/i', '$1lang="' . esc_attr($locale) . '"', $html, 1);
+        if (!preg_match('/<html\b[^>]*\slang=/i', $html)) {
+            $html = preg_replace('/(<html\b)([^>]*)>/i', '$1$2 lang="' . esc_attr($locale) . '">', $html, 1);
+        }
+        if (AI_Lang::is_rtl($lang)) {
+            // Replace existing dir attribute, or add it to the <html> tag when absent.
+            $html = preg_replace('/(<html\b[^>]*\s)dir=["\'][^"\']*["\']/i', '$1dir="rtl"', $html, 1);
+            if (!preg_match('/<html\b[^>]*\sdir=/i', $html)) {
+                $html = preg_replace('/(<html\b)([^>]*)>/i', '$1$2 dir="rtl">', $html, 1);
+            }
+        }
+        return $html;
     }
 
     /**

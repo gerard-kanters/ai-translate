@@ -36,6 +36,11 @@ if (!class_exists('AITranslate\\AI_Translate_Core')) {
             return self::$settings[$key] ?? $default;
         }
 
+        public static function settings(bool $refresh = false): array
+        {
+            return self::$settings;
+        }
+
         public static function get_website_context()
         {
             return '';
@@ -86,6 +91,14 @@ if (!class_exists('AITranslate\\AI_Lang')) {
         public static function detectable()
         {
             return self::$detectable;
+        }
+
+        /**
+         * Mirror of the real AI_Lang::is_rtl(); keep in sync.
+         */
+        public static function is_rtl($lang)
+        {
+            return in_array(strtolower(trim((string) $lang)), ['ar', 'he'], true);
         }
 
         /** Test helper */

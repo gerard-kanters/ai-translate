@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.10
+ * Version: 2.3.11
  * Requires at least: 6.2
  * Tested up to: 7.0
  * Requires PHP: 8.0
@@ -677,6 +677,10 @@ function ai_translate_is_editor_context()
         '_breakdance_doing_ajax',    // Breakdance frontend AJAX (POST /?page_id=X&_breakdance_doing_ajax=yes)
         'brizy-edit',                // Brizy Builder
         'brizy-edit-iframe',         // Brizy Builder iframe
+        'uxb_iframe',                // Flatsome UX Builder iframe (?post_id=X&uxb_iframe=1)
+        'td_action',                 // Newspaper tagDiv Composer edit mode (?td_action=tdc)
+        'tdc_action',                // Newspaper tagDiv Composer iframe (?tdc_action=iframe)
+        'fb-edit',                   // Avada Live frontend builder (?fb-edit=1)
     );
     foreach ($builder_params as $param) {
         if (isset($_GET[$param])) {
@@ -1535,12 +1539,12 @@ add_action('wp_footer', function () {
     echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});var AI_TA={u:"' . esc_url($restUrl) . '",n:"' . esc_js($nonce) . '"};
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
 function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
-function wR(r){var out=[];var roots=r.querySelectorAll?r.querySelectorAll("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer"):[];roots.forEach(function(root){if(root.parentElement&&root.parentElement.closest&&root.parentElement.closest("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer"))return;if(root.closest&&root.closest("[data-ai-trans-skip]"))return;out.push(root);});return out;}
+function wR(r){var out=[];var roots=r.querySelectorAll?r.querySelectorAll("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer,.woocommerce-message,.woocommerce-error,.woocommerce-info,.widget_shopping_cart_content"):[];roots.forEach(function(root){if(root.parentElement&&root.parentElement.closest&&root.parentElement.closest("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer,.woocommerce-message,.woocommerce-error,.woocommerce-info,.widget_shopping_cart_content"))return;if(root.closest&&root.closest("[data-ai-trans-skip]"))return;out.push(root);});return out;}
 function wT(root,cb){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);var t;while((t=w.nextNode())){var p=t.parentElement;if(!p)continue;var tg=(p.tagName||"").toLowerCase();if(tg==="script"||tg==="style")continue;if(p.closest&&p.closest("[data-ai-trans-skip]"))continue;cb(t);}}
 function cS(r){function n(t){return t?t.trim().replace(/\s+/g," "):""}var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];wR(r).forEach(function(root){wT(root,function(t){var v=n(t.nodeValue);if(v&&v.length>1&&v.length<=150&&/[A-Za-z][A-Za-z]/.test(v))s.add(v);});});ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=n(el.getAttribute("placeholder"));if(ph)s.add(ph);var tl=n(el.getAttribute("title"));if(tl)s.add(tl);var al=n(el.getAttribute("aria-label"));if(al)s.add(al);var at=n(el.getAttribute("alt"));if(at)s.add(at);var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=n(el.getAttribute("value"));if(v)s.add(v);}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tcn=n(tc);if(tcn)s.add(tcn);}});return Array.from(s);} 
  function aT(r,m){wR(r).forEach(function(root){wT(root,function(t){var v=t.nodeValue;if(!v)return;var vt=v.trim().replace(/\s+/g," ");if(vt&&m[vt]!=null&&m[vt]!==vt)t.nodeValue=m[vt];});});var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var at=el.getAttribute("alt");if(at){var att=at.trim();if(att&&m[att]!=null)el.setAttribute("alt",m[att]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tct=tc.trim();if(tct&&m[tct]!=null)el.textContent=m[tct];}});} 
  function tA(r){if(tA.called)return;tA.called=true;var ua=(typeof navigator!=="undefined"&&navigator.userAgent)?navigator.userAgent:"";if(/googlebot|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i.test(ua)){tA.called=false;return;}var ss=cS(r);if(!ss.length){tA.called=false;return;}var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4){tA.called=false;if(x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
-document.addEventListener("DOMContentLoaded",function(){var checkPage=function(){if(document.readyState==="complete"){setTimeout(function(){tA(document);},1500);}else{setTimeout(checkPage,100);}};checkPage();var moT=null,sel="input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline,[class*=\"wc-block\"],[class*=\"wp-block-woocommerce-\"]";if(typeof MutationObserver!=="undefined"&&gL()){var mo=new MutationObserver(function(muts){for(var f=false,i=0;i<muts.length&&!f;i++){var a=muts[i].addedNodes;for(var j=0;j<a.length&&!f;j++){var n=a[j];if(n.nodeType===1){if(n.matches&&n.matches(sel))f=true;else if(n.querySelector&&n.querySelector(sel))f=true;}}}if(f){clearTimeout(moT);moT=setTimeout(function(){tA(document);},500);}});mo.observe(document.body||document.documentElement,{childList:true,subtree:true});}});
+document.addEventListener("DOMContentLoaded",function(){var checkPage=function(){if(document.readyState==="complete"){setTimeout(function(){tA(document);},1500);}else{setTimeout(checkPage,100);}};checkPage();var moT=null,sel="input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline,[class*=\"wc-block\"],[class*=\"wp-block-woocommerce-\"],.woocommerce-message,.woocommerce-error,.woocommerce-info,.widget_shopping_cart_content";if(typeof MutationObserver!=="undefined"&&gL()){var mo=new MutationObserver(function(muts){for(var f=false,i=0;i<muts.length&&!f;i++){var a=muts[i].addedNodes;for(var j=0;j<a.length&&!f;j++){var n=a[j];if(n.nodeType===1){if(n.matches&&n.matches(sel))f=true;else if(n.querySelector&&n.querySelector(sel))f=true;}}}if(f){clearTimeout(moT);moT=setTimeout(function(){tA(document);},500);}});mo.observe(document.body||document.documentElement,{childList:true,subtree:true});}});
 })();</script>';
 });
 /**
@@ -1553,12 +1557,13 @@ document.addEventListener("DOMContentLoaded",function(){var checkPage=function()
  * @param string $text Normalized source string.
  * @return bool
  */
-function ai_translate_is_known_catalog_string($text)
+/**
+ * Discover .pot catalogs shipped by active plugins (shared by the catalog validators).
+ *
+ * @return string[] Readable .pot file paths.
+ */
+function ai_translate_get_catalog_files()
 {
-    $text = (string) $text;
-    if ($text === '' || mb_strlen($text) > 150) {
-        return false;
-    }
     static $catalogs = null;
     if ($catalogs === null) {
         $catalogs = [];
@@ -1578,21 +1583,176 @@ function ai_translate_is_known_catalog_string($text)
             }
         }
     }
-    if (empty($catalogs)) {
+    return $catalogs;
+}
+
+/**
+ * Collect catalog template strings used to validate client-side rendered UI text:
+ * single-line msgids from active plugins' .pot catalogs (English source strings)
+ * plus translations from installed language packs (.mo) for the site locale, so
+ * runtime strings rendered in the site's own locale are recognized as well.
+ *
+ * @return string[]
+ */
+function ai_translate_get_catalog_templates()
+{
+    static $templates = null;
+    if ($templates !== null) {
+        return $templates;
+    }
+    $templates = [];
+    foreach (ai_translate_get_catalog_files() as $pot) {
+        $contents = (string) file_get_contents($pot);
+        if ($contents === '') {
+            continue;
+        }
+        if (preg_match_all('/^msgid(?:_plural)? "((?:[^"\\\\]|\\\\.)*)"$/m', $contents, $m)) {
+            foreach ($m[1] as $raw) {
+                $templates[] = stripcslashes($raw);
+            }
+        }
+    }
+    // Language packs: runtime strings (WC notices, block UI) are rendered in the site
+    // locale when a pack is installed, so the English msgids alone are not enough.
+    $locale = function_exists('get_locale') ? get_locale() : '';
+    if ($locale !== '' && !function_exists('get_file_data')) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+    if ($locale !== '' && !class_exists('MO')) {
+        require_once ABSPATH . WPINC . '/pomo/mo.php';
+    }
+    if ($locale !== '') {
+        foreach ((array) get_option('active_plugins', []) as $plugin_file) {
+            $data = get_file_data(WP_PLUGIN_DIR . '/' . $plugin_file, ['TextDomain' => 'Text Domain']);
+            $domain = isset($data['TextDomain']) ? trim((string) $data['TextDomain']) : '';
+            if ($domain === '') {
+                continue;
+            }
+            $candidates = [
+                WP_LANG_DIR . '/plugins/' . $domain . '-' . $locale . '.mo',
+                WP_PLUGIN_DIR . '/' . dirname((string) $plugin_file) . '/languages/' . $domain . '-' . $locale . '.mo',
+            ];
+            foreach ($candidates as $mo_file) {
+                if (!is_readable($mo_file)) {
+                    continue;
+                }
+                $mo = new \MO();
+                if (!$mo->import_from_file($mo_file)) {
+                    continue;
+                }
+                foreach ($mo->entries as $entry) {
+                    // Include every plural form; translations[0] alone misses rendered plurals.
+                    foreach ((array) $entry->translations as $msgstr) {
+                        $msgstr = (string) $msgstr;
+                        if ($msgstr !== '') {
+                            $templates[] = $msgstr;
+                        }
+                    }
+                }
+                break; // first readable pack for this plugin is enough
+            }
+        }
+    }
+    return $templates;
+}
+
+function ai_translate_is_known_catalog_string($text)
+{
+    $text = (string) $text;
+    if ($text === '' || mb_strlen($text) > 150) {
         return false;
     }
-    // POT msgid lines escape backslash and double quote; match single-line msgids exactly.
-    $needle = 'msgid "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $text) . '"';
-    static $contents = [];
-    foreach ($catalogs as $pot) {
-        if (!isset($contents[$pot])) {
-            $contents[$pot] = (string) file_get_contents($pot);
+    static $set = null;
+    if ($set === null) {
+        $set = array_flip(ai_translate_get_catalog_templates());
+    }
+    return isset($set[$text]);
+}
+
+/**
+ * Whether a string matches a catalog template with placeholders filled in, e.g. a
+ * WooCommerce notice like '"Bike" has been added to your cart.' rendered from the
+ * template '"%s" has been added to your cart.'. Such runtime strings are absent from
+ * both the server HTML and the exact-template catalog check. Matching is anchored and
+ * only accepts templates that actually contain placeholders, so the batch-strings
+ * endpoint stays closed for arbitrary free-form text.
+ *
+ * @param string $text Normalized source string.
+ * @return bool
+ */
+function ai_translate_matches_catalog_pattern($text)
+{
+    $text = (string) $text;
+    if ($text === '' || mb_strlen($text) > 150) {
+        return false;
+    }
+    static $patterns = null;
+    if ($patterns === null) {
+        $patterns = [];
+        foreach (ai_translate_get_catalog_templates() as $template) {
+            // Skip pure-literal templates; only placeholder templates become patterns.
+            if (!preg_match('/%(?:\d+\$)?[sd]/', $template)) {
+                continue;
+            }
+            // Require at least 3 literal letters besides the placeholders: a template
+            // like "%s" alone would compile to ^.+?$ and match any arbitrary string,
+            // reopening the endpoint as a free translation proxy.
+            $literal = preg_replace('/%(?:\d+\$)?[sd%]/', '', $template);
+            if (!preg_match('/\p{L}{3}/u', $literal)) {
+                continue;
+            }
+            $tmp = preg_replace('/%%/', "\x01", $template);
+            $tmp = preg_replace('/%(?:\d+\$)?[sd]/', "\x02", $tmp);
+            $regex = preg_quote($tmp, '/');
+            $regex = str_replace("\x01", '%', $regex);
+            $regex = str_replace("\x02", '.+?', $regex);
+            $patterns[] = '/^' . $regex . '$/u';
         }
-        if ($contents[$pot] !== '' && strpos($contents[$pot], $needle) !== false) {
+    }
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $text)) {
             return true;
         }
     }
     return false;
+}
+
+/**
+ * Whether a string exists as a product/variation title or taxonomy term name.
+ * WooCommerce block cart/checkout renders product names and attribute values
+ * client-side via the Store API, so they fail both the page-HTML and catalog
+ * checks. Validating against the site's own database keeps the batch-strings
+ * endpoint closed for arbitrary text while covering catalog content. Returns
+ * false without querying when WooCommerce is not active.
+ *
+ * @param string $text Normalized source string.
+ * @return bool
+ */
+function ai_translate_is_known_product_or_term_string($text)
+{
+    $text = trim((string) $text);
+    if ($text === '' || mb_strlen($text) > 150 || !post_type_exists('product')) {
+        return false;
+    }
+    static $cache = [];
+    if (array_key_exists($text, $cache)) {
+        return $cache[$text];
+    }
+    global $wpdb;
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded lookup, static-cached per request
+    $found = (bool) $wpdb->get_var($wpdb->prepare(
+        "SELECT 1 FROM $wpdb->posts WHERE post_type IN ('product','product_variation') AND post_status = 'publish' AND post_title = %s LIMIT 1",
+        $text
+    ));
+    if (!$found) {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded lookup, static-cached per request
+        $found = (bool) $wpdb->get_var($wpdb->prepare(
+            "SELECT 1 FROM $wpdb->terms WHERE name = %s LIMIT 1",
+            $text
+        ));
+    }
+    $cache[$text] = $found;
+    return $found;
 }
 
 /**
@@ -1932,6 +2092,14 @@ add_action('rest_api_init', function () {
                                     // Client-side rendered UI strings (e.g. WooCommerce block cart/checkout)
                                     // are not present in the server HTML; validate them against the
                                     // plugin's shipped translation catalog (.pot) instead.
+                                    $validated[$id] = $text;
+                                } elseif (ai_translate_matches_catalog_pattern($text)) {
+                                    // Rendered catalog strings with placeholders filled in
+                                    // (e.g. AJAX WooCommerce notices containing a product name).
+                                    $validated[$id] = $text;
+                                } elseif (ai_translate_is_known_product_or_term_string($text)) {
+                                    // Client-side rendered catalog content (block cart product
+                                    // names, attribute values) validated against the database.
                                     $validated[$id] = $text;
                                 }
                             }
@@ -2831,9 +2999,10 @@ add_action('save_post', function ($post_id, $post, $update) {
     $default = \AITranslate\AI_Lang::default();
     $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
     $detectable = \AITranslate\AI_Translate_Core::detectable_languages();
-    $core = \AITranslate\AI_Translate_Core::get_instance();
-    $available = array_keys($core->get_available_languages());
-    $langs = array_values(array_unique(array_merge($enabled, $detectable, $available)));
+    // Limit synchronous slug translation to enabled+detectable languages. Translating to all
+    // available languages here fired ~35 sequential API calls in the saving request (slow
+    // post saves, painful for WooCommerce bulk imports); other languages generate on demand.
+    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
     foreach ($langs as $lang) {
         $lang = sanitize_key((string) $lang);
         if ($default !== null && strtolower($lang) === strtolower($default)) continue;
@@ -2944,29 +3113,94 @@ add_action('transition_post_status', function ($new_status, $old_status, $post) 
  * @param int $comment_id Comment ID
  * @return void
  */
-function ai_translate_clear_caches_for_comment_change($comment_id)
+function ai_translate_clear_caches_for_comment_change($comment_id, $comment = null)
 {
     $comment_id = (int) $comment_id;
     if ($comment_id <= 0) {
         return;
     }
-    $comment = get_comment($comment_id);
+    // On a force delete, core fires transition_comment_status AFTER the row is gone,
+    // so get_comment() would return null; callers in that path pass the object along.
+    if (!is_object($comment)) {
+        $comment = get_comment($comment_id);
+    }
     if (!is_object($comment) || empty($comment->comment_post_ID)) {
         return;
     }
     \AITranslate\AI_Cache_Meta::clear_post_cache((int) $comment->comment_post_ID);
+    // Product reviews also change star ratings on listings (shop page, category/tag
+    // archives). Flush those too; bounded because reviews are rare and listing sets small.
+    if (get_post_type((int) $comment->comment_post_ID) === 'product') {
+        ai_translate_flush_product_listing_caches((int) $comment->comment_post_ID);
+    }
 }
 
 /**
- * Newly inserted comment: only flush when WordPress accepted it without moderation.
- * $comment_approved is 1 (approved), 0 (pending) or 'spam'. Pending/spam are
- * skipped so spammers can never invalidate the cache by submitting comments.
+ * Flush listing caches affected by a product change (e.g. review star ratings).
+ * The shop page is a post-scoped route and flushes via clear_post_cache(). Product
+ * category/tag archives are path-based routes without cache-meta rows, so their cache
+ * files are deleted directly per enabled/detectable language. Paginated archive views
+ * (/page/2/) and "related products" on other product pages refresh via normal expiry.
+ *
+ * @param int $product_id Product post ID.
+ * @return void
  */
-add_action('comment_post', function ($comment_id, $comment_approved) {
-    if ((int) $comment_approved !== 1) {
+function ai_translate_flush_product_listing_caches($product_id)
+{
+    if (function_exists('wc_get_page_id')) {
+        $shop_id = wc_get_page_id('shop');
+        if ($shop_id > 0) {
+            \AITranslate\AI_Cache_Meta::clear_post_cache($shop_id);
+        }
+    }
+    $langs = array_values(array_unique(array_merge(
+        \AITranslate\AI_Translate_Core::enabled_languages(),
+        \AITranslate\AI_Translate_Core::detectable_languages()
+    )));
+    if (empty($langs)) {
         return;
     }
-    ai_translate_clear_caches_for_comment_change($comment_id);
+    foreach (['product_cat', 'product_tag'] as $taxonomy) {
+        $terms = wp_get_post_terms($product_id, $taxonomy);
+        if (!is_array($terms)) {
+            continue;
+        }
+        foreach ($terms as $term) {
+            $link = get_term_link($term);
+            if (!is_string($link) || $link === '') {
+                continue;
+            }
+            $path = (string) wp_parse_url($link, PHP_URL_PATH);
+            if ($path === '') {
+                continue;
+            }
+            $path = ai_translate_strip_site_path($path);
+            // Same route formula as AI_OB::current_route_id()'s taxonomy-archive branch.
+            $route = 'path:' . md5(untrailingslashit($path) . '/');
+            foreach ($langs as $lang) {
+                $lang = sanitize_key((string) $lang);
+                if ($lang === '') {
+                    continue;
+                }
+                \AITranslate\AI_Cache::delete(\AITranslate\AI_Cache::key($lang, $route));
+            }
+        }
+    }
+}
+
+/**
+ * Newly inserted comment: only flush when it was inserted as approved. Pending/spam
+ * are skipped so spammers can never invalidate the cache by submitting comments.
+ * Hooked on 'wp_insert_comment' rather than 'comment_post': wp_insert_comment()
+ * itself never fires 'comment_post' (only wp_new_comment() does), so reviews added
+ * directly (WP-CLI, review importers, programmatic insertion) would never flush.
+ * wp_new_comment() internally calls wp_insert_comment(), so this hook covers both.
+ */
+add_action('wp_insert_comment', function ($comment_id, $comment) {
+    if (!is_object($comment) || (string) $comment->comment_approved !== '1') {
+        return;
+    }
+    ai_translate_clear_caches_for_comment_change((int) $comment_id);
 }, 10, 2);
 
 /**
@@ -2984,7 +3218,7 @@ add_action('transition_comment_status', function ($new_status, $old_status, $com
     if (!is_object($comment) || empty($comment->comment_ID)) {
         return;
     }
-    ai_translate_clear_caches_for_comment_change((int) $comment->comment_ID);
+    ai_translate_clear_caches_for_comment_change((int) $comment->comment_ID, $comment);
 }, 10, 3);
 
 /**
@@ -3464,6 +3698,38 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
     return $output;
 }
 add_shortcode('ai_language_switcher', 'ai_translate_language_switcher_shortcode');
+
+/**
+ * Register the AI Language Switcher block for block themes (FSE) and the block editor.
+ * Block themes have no Appearance → Menus screen, so the menu meta box integration is
+ * unreachable there. Server-rendered via the same shared renderer as the shortcode.
+ */
+add_action('init', function () {
+    if (!function_exists('register_block_type')) {
+        return;
+    }
+    wp_register_script(
+        'ai-translate-block-editor',
+        plugin_dir_url(__FILE__) . 'assets/ai-translate-block.js',
+        ['wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n'],
+        filemtime(plugin_dir_path(__FILE__) . 'assets/ai-translate-block.js'),
+        true
+    );
+    register_block_type('ai-translate/language-switcher', [
+        'editor_script' => 'ai-translate-block-editor',
+        'attributes' => [
+            'type' => ['type' => 'string', 'default' => 'dropdown'],
+            'showFlags' => ['type' => 'boolean', 'default' => true],
+            'showCodes' => ['type' => 'boolean', 'default' => true],
+        ],
+        'render_callback' => function ($attributes) {
+            $type = isset($attributes['type']) && $attributes['type'] === 'inline' ? 'inline' : 'dropdown';
+            $show_flags = !isset($attributes['showFlags']) || (bool) $attributes['showFlags'];
+            $show_codes = !isset($attributes['showCodes']) || (bool) $attributes['showCodes'];
+            return ai_translate_generate_switcher_html($type, $show_flags, $show_codes);
+        },
+    ]);
+});
 
 /**
  * Enqueue CSS and JavaScript for the language switcher shortcode

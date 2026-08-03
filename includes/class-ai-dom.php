@@ -549,6 +549,16 @@ final class AI_DOM
                 if (strpos($classAttr, ' wp-admin ') !== false || strpos($classAttr, ' no-translate ') !== false || strpos($classAttr, ' notranslate ') !== false) {
                     return true;
                 }
+                // Optional: keep WooCommerce product names untranslated (brand names/SKUs).
+                // Reuses the notranslate mechanism for known product-name elements.
+                if (self::keepProductNamesEnabled()
+                    && (strpos($classAttr, ' product_title ') !== false
+                        || strpos($classAttr, ' woocommerce-loop-product__title ') !== false
+                        || strpos($classAttr, ' product-name ') !== false
+                        || strpos($classAttr, ' wc-block-components-product-name ') !== false)
+                ) {
+                    return true;
+                }
                 // Skip ACF fields that should not be translated individually (only as part of page content)
                 if (strpos($classAttr, ' acf-field ') !== false || strpos($classAttr, ' acf- ') !== false) {
                     return true;
@@ -557,6 +567,22 @@ final class AI_DOM
         }
 
         return false;
+    }
+
+    /**
+     * Whether the "Do not translate product names" WooCommerce setting is enabled.
+     * Result is cached statically for the request.
+     *
+     * @return bool
+     */
+    private static function keepProductNamesEnabled()
+    {
+        static $keep = null;
+        if ($keep === null) {
+            $settings = \AITranslate\AI_Translate_Core::settings();
+            $keep = !empty($settings['woocommerce_keep_product_names']);
+        }
+        return $keep;
     }
 
     /**

@@ -240,6 +240,19 @@ final class AI_Lang
     }
 
     /**
+     * Whether a language code is written right-to-left.
+     * Covers the RTL languages offered by AI_Translate_Core::get_available_languages()
+     * (currently Arabic and Hebrew); extend when a new RTL language is added there.
+     *
+     * @param string|null $lang Language code (e.g. 'ar', 'he').
+     * @return bool
+     */
+    public static function is_rtl($lang)
+    {
+        return in_array(strtolower(trim((string) $lang)), ['ar', 'he'], true);
+    }
+
+    /**
      * Determine whether current request must be exempt from translation and URL rewriting.
      * Rules: skip admin/AJAX/REST/feeds and skip when current language equals default.
      *

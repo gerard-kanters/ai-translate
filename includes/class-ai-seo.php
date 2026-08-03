@@ -1106,6 +1106,15 @@ final class AI_SEO
                 }
             }
         }
+        // WooCommerce Product schema: only name/description are user-facing prose;
+        // offers, sku, brand and ratings must stay untouched.
+        if ($type === 'Product') {
+            foreach (['name', 'description'] as $field) {
+                if (isset($node[$field]) && is_string($node[$field]) && trim($node[$field]) !== '') {
+                    $texts[] = $node[$field];
+                }
+            }
+        }
         if (isset($node['@graph']) && is_array($node['@graph'])) {
             foreach ($node['@graph'] as $graphNode) {
                 if (is_array($graphNode)) {
@@ -1129,7 +1138,20 @@ final class AI_SEO
                 }
             }
             unset($item);
-        }        // Handle @graph arrays (used by Yoast and others)
+        }
+        // WooCommerce Product schema: translate name/description only (see collector).
+        if ($type === 'Product') {
+            foreach (['name', 'description'] as $field) {
+                if (isset($node[$field]) && is_string($node[$field]) && trim($node[$field]) !== '') {
+                    $translated = self::maybeTranslateMeta($node[$field], $default, $lang);
+                    if (is_string($translated) && $translated !== '' && $translated !== $node[$field]) {
+                        $node[$field] = $translated;
+                        $changed = true;
+                    }
+                }
+            }
+        }
+        // Handle @graph arrays (used by Yoast and others)
         if (isset($node['@graph']) && is_array($node['@graph'])) {
             foreach ($node['@graph'] as &$graphNode) {
                 if (is_array($graphNode)) {
