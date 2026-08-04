@@ -2741,10 +2741,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
             '/gpt[-\s_.]*5\.6[-\s_.]*luna/i',
         ],
         'openrouter' => [
-            '/gemini[-\s_.]*3\.5[-\s_.]*flash[-\s_.]*lite/i',
+            '/openai\/gpt[-\s_.]*5\.6[-\s_.]*luna/i',
         ],
         'deepinfra' => [
-            '/gemini[-\s_.]*3\.1[-\s_.]*flash[-\s_.]*lite/i',
+            '/^deepseek-ai\/DeepSeek-V4-Flash$/i',
         ],
         'deepseek' => [
             '/^deepseek-v4-flash$/i',
