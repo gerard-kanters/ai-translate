@@ -147,7 +147,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function toggleGpt5Warning() {
         var gpt5Warning = document.getElementById('openai_gpt5_warning');
         if (gpt5Warning && apiProviderSelect) {
-            if (apiProviderSelect.value === 'openai') {
+            var p = apiProviderSelect.value;
+            // Shown for providers that commonly expose reasoning/thinking models.
+            if (p === 'openai' || p === 'deepseek' || p === 'openrouter' || p === 'deepinfra') {
                 gpt5Warning.style.display = 'block';
             } else {
                 gpt5Warning.style.display = 'none';

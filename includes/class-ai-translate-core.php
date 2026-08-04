@@ -333,10 +333,48 @@ final class AI_Translate_Core
     }
 
     /**
+     * Lowest practical reasoning effort for translation workloads.
+     *
+     * GPT-5.1+ (incl. Luna): low — OpenAI's recommended starting point for
+     * latency-sensitive work; more stable than none for translation quality.
+     * Original GPT-5: minimal (none not supported). O-series: low.
+     * gpt-5-pro: high (only supported value). DeepSeek/Gemini: none (off).
+     *
+     * @param string $model Model ID (may include provider prefix).
+     * @return string Effort level: none|minimal|low|high.
+     */
+    public static function resolve_min_reasoning_effort(string $model): string
+    {
+        $isGpt5    = stripos($model, 'gpt-5') !== false;
+        $isOSeries = (bool) preg_match('/(?:^|\/)o\d/i', $model);
+        $isPro     = (bool) preg_match('/(?:^|\/|-)pro(?:-|\/|$)/i', $model);
+
+        // gpt-5-pro only supports high.
+        if ($isGpt5 && $isPro) {
+            return 'high';
+        }
+        // O-series: none is often unsupported.
+        if ($isOSeries) {
+            return 'low';
+        }
+        // GPT-5.1+ / Luna: low (better quality/stability than none for translations).
+        // Original GPT-5 family: minimal (lowest supported; none not available).
+        if ($isGpt5) {
+            if (preg_match('/gpt-5\.(?:[1-9]|\d{2,})/i', $model)) {
+                return 'low';
+            }
+            return 'minimal';
+        }
+        // DeepSeek V4, Gemini (via OpenRouter/DeepInfra): fully off.
+        return 'none';
+    }
+
+    /**
      * Adjust an API request body for model-specific requirements.
      *
-     * Handles reasoning models (o-series, gpt-5+) that need different
-     * parameters than standard chat models (temperature, reasoning_effort).
+     * Disables or minimizes reasoning/thinking for translation (cost + latency).
+     * Provider formats differ: OpenAI uses reasoning_effort, DeepSeek uses
+     * thinking.type, OpenRouter/DeepInfra use reasoning.effort.
      *
      * @param array  $body     Request body with 'model' and 'messages'.
      * @param string $model    Model ID.
@@ -345,23 +383,50 @@ final class AI_Translate_Core
      */
     public static function adjust_body_for_model(array $body, string $model, string $provider): array
     {
-        $isOSeries = (bool) preg_match('/^o\d/i', $model);
-        $isGpt5    = stripos($model, 'gpt-5') !== false;
-        $isPro     = stripos($model, '-pro') !== false;
+        $isOSeries   = (bool) preg_match('/(?:^|\/)o\d/i', $model);
+        $isGpt5      = stripos($model, 'gpt-5') !== false;
+        $isDeepSeekV = (bool) preg_match('/deepseek[-_]?(?:v\d|reasoner)/i', $model);
+        $isGemini    = stripos($model, 'gemini') !== false;
+        $isReasoning = $isOSeries || $isGpt5 || $isDeepSeekV || $isGemini;
 
-        // Reasoning models reject temperature=0; remove explicit value.
+        // GPT-5 / O-series reject temperature=0.
         if ($isOSeries || $isGpt5) {
             unset($body['temperature']);
         }
 
-        // Set reasoning_effort to minimize cost/latency for translation tasks.
-        if (($isOSeries || $isGpt5) && !isset($body['reasoning_effort']) && !isset($body['reasoning'])) {
-            $effort = $isPro ? 'medium' : 'low';
-            if ($provider === 'openai') {
-                $body['reasoning_effort'] = $effort;
+        if (
+            !$isReasoning
+            || isset($body['reasoning_effort'])
+            || isset($body['reasoning'])
+            || isset($body['thinking'])
+        ) {
+            return $body;
+        }
+
+        $effort = self::resolve_min_reasoning_effort($model);
+
+        // DeepSeek native API: thinking is ON by default on V4; must disable explicitly.
+        if ($provider === 'deepseek') {
+            if ($effort === 'none') {
+                $body['thinking'] = ['type' => 'disabled'];
             } else {
-                $body['reasoning'] = ['effort' => $effort];
+                $body['thinking'] = ['type' => 'enabled'];
+                // DeepSeek only accepts low|high|max when thinking is enabled.
+                $body['reasoning_effort'] = in_array($effort, ['low', 'high', 'max'], true) ? $effort : 'low';
             }
+            return $body;
+        }
+
+        if ($provider === 'openai') {
+            $body['reasoning_effort'] = $effort;
+            return $body;
+        }
+
+        // OpenRouter, DeepInfra, Groq, custom OpenAI-compatible gateways.
+        $body['reasoning'] = ['effort' => $effort];
+        // DeepSeek-V behind a gateway often still honors the native thinking toggle.
+        if ($isDeepSeekV && $effort === 'none') {
+            $body['thinking'] = ['type' => 'disabled'];
         }
 
         return $body;

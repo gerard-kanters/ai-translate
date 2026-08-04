@@ -1463,7 +1463,7 @@ add_action('admin_init', function () {
             }
             echo '</select>';
             echo '<div id="openai_gpt5_warning" class="ai-translate-provider-note" style="margin-top:10px; display:none;">';
-            echo '<p class="description"><strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ' . esc_html__('Reasoning models (O-series, GPT-5+) are supported but use more tokens. Reasoning effort is automatically minimized for translations.', 'ai-translate') . '</p>';
+            echo '<p class="description"><strong>' . esc_html__('Note:', 'ai-translate') . '</strong> ' . esc_html__('Reasoning/thinking is turned off when the provider allows it (otherwise the lowest supported effort is used) to keep translations fast and cheap.', 'ai-translate') . '</p>';
             echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';

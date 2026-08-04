@@ -458,8 +458,8 @@ msgstr ""
 msgid "Note:"
 msgstr ""
 
-#: includes/admin-page.php:1458
-msgid "Reasoning models (O-series, GPT-5+) are supported but use more tokens. Reasoning effort is automatically minimized for translations."
+#: includes/admin-page.php:1466
+msgid "Reasoning/thinking is turned off when the provider allows it (otherwise the lowest supported effort is used) to keep translations fast and cheap."
 msgstr ""
 
 #. translators: %s: string value
