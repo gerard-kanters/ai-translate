@@ -1037,31 +1037,27 @@ add_action('template_redirect', function () {
                 return;
             }
             
-            // SECURITY: Prevent DOS attack by blocking language/slug mismatches
-            // If URL contains non-Latin characters (Korean, Chinese, Japanese, Arabic, etc.)
-            // but language code is Latin-based, this is likely an attack
+            // SECURITY: Prevent DOS attack by blocking language/slug mismatches.
+            // Only flag real non-Latin *scripts* (Cyrillic/Greek/Arabic/Hebrew/CJK/…),
+            // never Latin Extended (Maltese ħ, French é, etc.). The old
+            // [\x{0080}-\x{FFFF}] + incomplete accent-lang whitelist falsely 404'd
+            // /mt/…ħ…/ → AI_404_Recovery self-redirect loop (curl: max redirects).
             $pathWithoutLang = preg_replace('#^/([a-z]{2})/#i', '/', $reqPath);
             if ($pathWithoutLang !== $reqPath) {
-                // Check if path contains non-Latin characters
-                $hasNonLatin = preg_match('/[\x{0080}-\x{FFFF}]/u', urldecode($pathWithoutLang));
-                
-                if ($hasNonLatin) {
-                    // Non-Latin script languages vs Latin-with-accents (fr/de/… may have accented chars in slugs)
-                    $isNonLatinLang = \AITranslate\AI_Lang::is_non_latin($langLower);
-                    
-                    // Latin-based languages that commonly use accented characters (Latin Extended)
-                    // These should NOT be blocked when the path contains Latin Extended chars
-                    $latinWithAccentsLangs = ['hu', 'cs', 'pl', 'sk', 'ro', 'tr', 'hr', 'sl', 'lv', 'lt', 'et', 'fi', 'sv', 'no', 'da', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'ga'];
-                    $isLatinWithAccents = in_array($langLower, $latinWithAccentsLangs, true);
-                    
-                    // Only block if it's truly non-Latin (not just accented Latin) for Latin-based languages
-                    if (!$isNonLatinLang && !$isLatinWithAccents) {
-                        global $wp_query;
-                        $wp_query->set_404();
-                        status_header(404);
-                        nocache_headers();
-                        return;
-                    }
+                $decodedPath = rawurldecode((string) $pathWithoutLang);
+                // Scripts matching AI_Lang::non_latin_codes(): el, Cyrillic family,
+                // he, ar, hi, th, ka, ja kana, CJK, ko Hangul.
+                $hasNonLatinScript = (bool) preg_match(
+                    '/[\x{0370}-\x{03FF}\x{0400}-\x{052F}\x{0590}-\x{05FF}\x{0600}-\x{06FF}\x{0900}-\x{097F}\x{0E00}-\x{0E7F}\x{10A0}-\x{10FF}\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}\x{AC00}-\x{D7AF}]/u',
+                    $decodedPath
+                );
+
+                if ($hasNonLatinScript && !\AITranslate\AI_Lang::is_non_latin($langLower)) {
+                    global $wp_query;
+                    $wp_query->set_404();
+                    status_header(404);
+                    nocache_headers();
+                    return;
                 }
             }
         }

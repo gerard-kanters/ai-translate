@@ -109,9 +109,21 @@ final class AI_404_Recovery
             return null;
         }
 
-        // Self-redirect / loop guard: ignore trailing-slash differences.
+        // Self-redirect / loop guard: compare decoded forms so percent-encoded
+        // non-ASCII (e.g. %C4%A7 vs ħ) does not look like a different URL and
+        // trigger an infinite 301 to the same resource.
+        $norm = static function ($value) {
+            $value = (string) $value;
+            if (strpos($value, '%') !== false) {
+                $decoded = rawurldecode($value);
+                if (mb_check_encoding($decoded, 'UTF-8')) {
+                    return $decoded;
+                }
+            }
+            return $value;
+        };
         $current_url = function_exists('home_url') ? home_url($path) : $path;
-        if (rtrim($target_url, '/') === rtrim((string) $current_url, '/')) {
+        if (rtrim($norm($target_url), '/') === rtrim($norm((string) $current_url), '/')) {
             return null;
         }
 
