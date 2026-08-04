@@ -771,6 +771,58 @@ function ai_translate_is_known_bot_ua()
 }
 
 /**
+ * Whether a URL (Referer/Origin) belongs to this site.
+ * Compares host (and subdirectory path when applicable). Rejects prefix tricks
+ * like https://example.com.attacker.tld/ that pass a naive strpos(home_url()) check.
+ *
+ * @param string $url Absolute URL or Origin header value.
+ * @return bool
+ */
+function ai_translate_is_same_site_url($url)
+{
+    $url = esc_url_raw(trim((string) $url));
+    if ($url === '') {
+        return false;
+    }
+
+    $home_parts = wp_parse_url(home_url('/'));
+    $url_parts = wp_parse_url($url);
+    if (!is_array($home_parts) || !is_array($url_parts)) {
+        return false;
+    }
+
+    $home_host = isset($home_parts['host']) ? strtolower((string) $home_parts['host']) : '';
+    $url_host = isset($url_parts['host']) ? strtolower((string) $url_parts['host']) : '';
+    if ($home_host === '' || $url_host === '' || $home_host !== $url_host) {
+        return false;
+    }
+
+    $home_scheme = isset($home_parts['scheme']) ? strtolower((string) $home_parts['scheme']) : 'http';
+    $url_scheme = isset($url_parts['scheme']) ? strtolower((string) $url_parts['scheme']) : '';
+    // Origin headers always include a scheme; Referer should too. Only http/https allowed.
+    if ($url_scheme === '' || !in_array($url_scheme, ['http', 'https'], true) || !in_array($home_scheme, ['http', 'https'], true)) {
+        return false;
+    }
+
+    $home_port = isset($home_parts['port']) ? (int) $home_parts['port'] : null;
+    $url_port = isset($url_parts['port']) ? (int) $url_parts['port'] : null;
+    if ($home_port !== $url_port) {
+        return false;
+    }
+
+    // Subdirectory installs: URL path must stay under the site path.
+    $home_path = isset($home_parts['path']) ? untrailingslashit((string) $home_parts['path']) : '';
+    if ($home_path !== '' && $home_path !== '/') {
+        $url_path = isset($url_parts['path']) ? (string) $url_parts['path'] : '/';
+        if ($url_path !== $home_path && strpos($url_path, $home_path . '/') !== 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Add Accept-Language/Cookie to the Vary header on language-detection-based redirects.
  *
  * These redirects (browser-language auto-detect, cookie-based root/path redirects) decide
@@ -1767,9 +1819,9 @@ add_action('rest_api_init', function () {
                 $request->set_param('_ai_tr_bot_no_nonce', 1);
                 return true;
             }
-            // Referer check: must originate from this site
+            // Referer check: must originate from this site (exact host, not prefix match)
             $referer = isset($_SERVER['HTTP_REFERER']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_REFERER'])) : '';
-            if ($referer === '' || strpos($referer, home_url()) !== 0) {
+            if ($referer === '' || !ai_translate_is_same_site_url($referer)) {
                 return new \WP_Error('rest_forbidden', 'Invalid referer', ['status' => 403]);
             }
             $nonce = $request->get_header('X-WP-Nonce');
@@ -1785,7 +1837,9 @@ add_action('rest_api_init', function () {
             // Allow anonymous same-site requests without requiring a valid nonce.
             if (!is_user_logged_in()) {
                 $origin = isset($_SERVER['HTTP_ORIGIN']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_ORIGIN'])) : '';
-                if ($origin !== '' && strpos($origin, home_url()) !== 0) {
+                // When Origin is present it must match this site; empty Origin is allowed
+                // (some browsers omit it on same-site navigations) because Referer already passed.
+                if ($origin !== '' && !ai_translate_is_same_site_url($origin)) {
                     return new \WP_Error('rest_forbidden', 'Invalid origin', ['status' => 403]);
                 }
                 return true;
@@ -2055,7 +2109,7 @@ add_action('rest_api_init', function () {
                             }
                         }
                     }
-                    if ($referer !== '' && strpos($referer, home_url()) === 0) {
+                    if ($referer !== '' && ai_translate_is_same_site_url($referer)) {
                         // Get page HTML (cached using same expiration as translations)
                         $page_cache_key = 'ai_tr_page_html_' . md5($referer);
                         $page_html = get_transient($page_cache_key);
@@ -2071,8 +2125,7 @@ add_action('rest_api_init', function () {
                             if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
                                 $page_html = wp_remote_retrieve_body($response);
                                 // Cache using same expiration as translations
-                                $expiry_hours = isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24);
-                                $expiry = max(1, $expiry_hours) * HOUR_IN_SECONDS;
+                                $expiry = max(1, \AITranslate\AI_Translate_Core::cache_expiration_hours()) * HOUR_IN_SECONDS;
                                 set_transient($page_cache_key, $page_html, $expiry);
                             } else {
                                 // Security: if page HTML cannot be fetched, block translation to prevent abuse
@@ -2127,7 +2180,7 @@ add_action('rest_api_init', function () {
                         $segmentType = ($wordCount > 4) ? 'node' : 'meta';
                         $plan['segments'][] = ['id' => $id, 'text' => $text, 'type' => $segmentType];
                     }
-                    $ctx = ['website_context' => isset($settings['website_context']) ? (string)$settings['website_context'] : ''];
+                    $ctx = ['website_context' => \AITranslate\AI_Translate_Core::get_website_context()];
                     $res = \AITranslate\AI_Batch::translate_plan($plan, $default, $lang, $ctx);
                     $segs = isset($res['segments']) && is_array($res['segments']) ? $res['segments'] : array();
                     foreach ($toTranslate as $id => $origNormalized) {
@@ -3697,6 +3750,30 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
 
     return $output;
 }
+
+/**
+ * Shortcode callback for [ai_language_switcher].
+ *
+ * @param array|string $atts Shortcode attributes.
+ * @return string
+ */
+function ai_translate_language_switcher_shortcode($atts = [])
+{
+    $atts = shortcode_atts([
+        'type' => 'dropdown',
+        'show_flags' => 'true',
+        'show_codes' => 'true',
+        'class' => '',
+    ], $atts, 'ai_language_switcher');
+
+    $type = (isset($atts['type']) && $atts['type'] === 'inline') ? 'inline' : 'dropdown';
+    $falsey = ['false', '0', 'no', 'off'];
+    $show_flags = !in_array(strtolower((string) $atts['show_flags']), $falsey, true);
+    $show_codes = !in_array(strtolower((string) $atts['show_codes']), $falsey, true);
+    $class = sanitize_text_field((string) $atts['class']);
+
+    return ai_translate_generate_switcher_html($type, $show_flags, $show_codes, $class);
+}
 add_shortcode('ai_language_switcher', 'ai_translate_language_switcher_shortcode');
 
 /**
@@ -3933,54 +4010,59 @@ add_action('wp_ajax_add-menu-item', function() {
 }, 1);
 
 /**
- * Handle direct language switcher addition via GET parameter
+ * Handle direct language switcher addition via GET parameter.
+ * Requires menu capability + nonce; the normal path is the nav-menus meta box.
  */
 add_action('admin_init', function() {
-    if (isset($_GET['ai-add-language-switcher']) && isset($_GET['menu-item-title'])) {
-        // Get current menu ID from URL or POST
-        $menu_id = isset($_REQUEST['menu']) ? intval($_REQUEST['menu']) : 0;
+    if (!isset($_GET['ai-add-language-switcher']) || !isset($_GET['menu-item-title'])) {
+        return;
+    }
 
-        if (!$menu_id) {
-            // Try to get from referer or find the first available menu
-            $menus = wp_get_nav_menus();
-            if (!empty($menus)) {
-                $menu_id = $menus[0]->term_id;
-            }
+    if (!current_user_can('edit_theme_options')) {
+        return;
+    }
+
+    $nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash((string) $_GET['_wpnonce'])) : '';
+    if ($nonce === '' || !wp_verify_nonce($nonce, 'ai_translate_add_language_switcher')) {
+        return;
+    }
+
+    $menu_id = isset($_REQUEST['menu']) ? (int) $_REQUEST['menu'] : 0;
+    if (!$menu_id) {
+        $menus = wp_get_nav_menus();
+        if (!empty($menus)) {
+            $menu_id = (int) $menus[0]->term_id;
         }
+    }
 
-        if ($menu_id) {
-            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- admin-side menu builder query parameter, sanitized below
-            $title = isset($_GET['menu-item-title']) ? sanitize_text_field(wp_unslash((string) $_GET['menu-item-title'])) : '';
+    if (!$menu_id) {
+        return;
+    }
 
-            // Keep title simple for clean admin display - HTML rendering handled by walker in frontend
+    $title = sanitize_text_field(wp_unslash((string) $_GET['menu-item-title']));
 
-            // Create the menu item
-            $menu_item_id = wp_update_nav_menu_item($menu_id, 0, array(
-                'menu-item-title' => $title,
-                'menu-item-url' => '#',
-                'menu-item-type' => 'custom',
-                'menu-item-object' => 'ai_language_switcher',
-                'menu-item-status' => 'publish',
-                'menu-item-classes' => 'menu-item-language-switcher menu-item-has-children'
-            ));
+    $menu_item_id = wp_update_nav_menu_item($menu_id, 0, array(
+        'menu-item-title' => $title,
+        'menu-item-url' => '#',
+        'menu-item-type' => 'custom',
+        'menu-item-object' => 'ai_language_switcher',
+        'menu-item-status' => 'publish',
+        'menu-item-classes' => 'menu-item-language-switcher menu-item-has-children'
+    ));
 
-            if (!is_wp_error($menu_item_id)) {
-                // Mark this item as a language switcher
-                update_post_meta($menu_item_id, '_menu_item_is_language_switcher', '1');
-                update_post_meta($menu_item_id, '_menu_item_switcher_type', 'dropdown');
-                update_post_meta($menu_item_id, '_menu_item_show_flags', 'true');
-                update_post_meta($menu_item_id, '_menu_item_show_codes', 'true');
+    if (!is_wp_error($menu_item_id)) {
+        update_post_meta($menu_item_id, '_menu_item_is_language_switcher', '1');
+        update_post_meta($menu_item_id, '_menu_item_switcher_type', 'dropdown');
+        update_post_meta($menu_item_id, '_menu_item_show_flags', 'true');
+        update_post_meta($menu_item_id, '_menu_item_show_codes', 'true');
 
-                // Redirect back to menu editor with success message
-                $redirect_url = add_query_arg(array(
-                    'menu' => $menu_id,
-                    'ai-language-added' => '1'
-                ), admin_url('nav-menus.php'));
+        $redirect_url = add_query_arg(array(
+            'menu' => $menu_id,
+            'ai-language-added' => '1'
+        ), admin_url('nav-menus.php'));
 
-                wp_safe_redirect($redirect_url);
-                exit;
-            }
-        }
+        wp_safe_redirect($redirect_url);
+        exit;
     }
 });
 

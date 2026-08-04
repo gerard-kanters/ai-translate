@@ -69,7 +69,7 @@ final class AI_OBTest extends TestCase
 
         $this->assertStringContainsString('dir="rtl"', $result);
         $this->assertStringNotContainsString('dir="ltr"', $result);
-        $this->assertStringContainsString('class="wp"', $result);
+        $this->assertMatchesRegularExpression('/<html\b[^>]*\bclass="rtl wp"/', $result);
     }
 
     public function test_does_not_add_dir_for_ltr_target(): void
@@ -100,6 +100,45 @@ final class AI_OBTest extends TestCase
 
         $this->assertStringContainsString('lang="ar"', $result);
         $this->assertStringContainsString('dir="rtl"', $result);
+    }
+
+    public function test_adds_rtl_class_to_html_and_body_for_arabic(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body class="home">tekst</body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'ar');
+
+        $this->assertMatchesRegularExpression('/<html\b[^>]*\bclass="rtl"/', $result);
+        $this->assertMatchesRegularExpression('/<body\b[^>]*\bclass="rtl home"/', $result);
+    }
+
+    public function test_adds_rtl_class_when_body_has_no_class_attr(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body>tekst</body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'he');
+
+        $this->assertMatchesRegularExpression('/<body\b[^>]*\bclass="rtl"/', $result);
+    }
+
+    public function test_does_not_duplicate_existing_rtl_class(): void
+    {
+        $html = '<html lang="ar" class="rtl" dir="rtl"><head></head><body class="rtl home">tekst</body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'ar');
+
+        $this->assertSame(1, preg_match_all('/<html\b[^>]*\bclass="rtl"/', $result));
+        $this->assertSame(1, preg_match_all('/<body\b[^>]*\bclass="rtl home"/', $result));
+        $this->assertDoesNotMatchRegularExpression('/\brtl\s+rtl\b/', $result);
+    }
+
+    public function test_does_not_add_rtl_class_for_ltr_target(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body class="home">tekst</body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'de');
+
+        $this->assertStringNotContainsString('rtl', $result);
     }
 
     public function test_is_idempotent(): void

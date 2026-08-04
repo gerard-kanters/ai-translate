@@ -31,6 +31,12 @@ final class AI_OB
      */
     public function start()
     {
+        // Ensure is_rtl() reflects the active AI Translate language before the
+        // theme renders (body_class, language_attributes, rtl.css enqueue).
+        $lang = AI_Lang::current();
+        if ($lang !== null && $lang !== '') {
+            AI_Lang::sync_wp_text_direction($lang);
+        }
         ob_start([$this, 'callback'], 0, PHP_OUTPUT_HANDLER_STDFLAGS);
     }
 
@@ -780,9 +786,11 @@ final class AI_OB
 
     /**
      * Set the <html> lang attribute to the target language and, for RTL target
-     * languages, dir="rtl". Themes never load their RTL styles because the WP
-     * locale never switches; without the dir attribute Arabic/Hebrew pages render
-     * LTR with punctuation on the wrong side. Idempotent and safe to re-apply.
+     * languages, dir="rtl" plus class "rtl" on <html> and <body>.
+     *
+     * AI_Lang::sync_wp_text_direction() makes is_rtl() true during render so themes
+     * can load rtl.css; this helper still patches cached HTML that was generated
+     * before that sync (missing dir/class). Idempotent and safe to re-apply.
      *
      * @param string      $html Full page HTML.
      * @param string|null $lang Target language code.
@@ -805,8 +813,44 @@ final class AI_OB
             if (!preg_match('/<html\b[^>]*\sdir=/i', $html)) {
                 $html = preg_replace('/(<html\b)([^>]*)>/i', '$1$2 dir="rtl">', $html, 1);
             }
+            $html = self::ensure_rtl_class_on_tag($html, 'html');
+            $html = self::ensure_rtl_class_on_tag($html, 'body');
         }
         return $html;
+    }
+
+    /**
+     * Ensure a tag's class attribute contains "rtl" (add class attr if missing).
+     *
+     * @param string $html Full page HTML.
+     * @param string $tag  Tag name (html|body).
+     * @return string
+     */
+    private static function ensure_rtl_class_on_tag($html, $tag)
+    {
+        $tag = strtolower((string) $tag);
+        if ($tag === '' || !preg_match('/<(?:' . preg_quote($tag, '/') . ')\b/i', $html)) {
+            return $html;
+        }
+
+        if (preg_match('/(<' . preg_quote($tag, '/') . '\b[^>]*\sclass=["\'])([^"\']*)(["\'])/i', $html, $m)) {
+            if (preg_match('/(?:^|\s)rtl(?:\s|$)/', $m[2])) {
+                return $html;
+            }
+            return preg_replace(
+                '/(<' . preg_quote($tag, '/') . '\b[^>]*\sclass=["\'])([^"\']*)(["\'])/i',
+                '$1rtl $2$3',
+                $html,
+                1
+            );
+        }
+
+        return preg_replace(
+            '/(<' . preg_quote($tag, '/') . '\b)([^>]*)>/i',
+            '$1$2 class="rtl">',
+            $html,
+            1
+        );
     }
 
     /**

@@ -101,6 +101,13 @@ if (!class_exists('AITranslate\\AI_Lang')) {
             return in_array(strtolower(trim((string) $lang)), ['ar', 'he'], true);
         }
 
+        /**
+         * Mirror of AI_Lang::sync_wp_text_direction(); no-op in unit tests.
+         */
+        public static function sync_wp_text_direction($lang)
+        {
+        }
+
         /** Test helper */
         public static function _setDefault($lang)
         {

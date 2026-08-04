@@ -417,3 +417,26 @@
         transition: none;
     }
 }
+
+/* RTL: mirror absolute menus and submenu indent (dir set by AI Translate for ar/he) */
+[dir="rtl"] .menu-item-language-switcher .sub-menu {
+    left: auto !important;
+    right: 0 !important;
+}
+
+[dir="rtl"] .ai-language-switcher-menu {
+    left: auto;
+    right: 0;
+}
+
+@media (max-width: 768px) {
+    [dir="rtl"] .menu-item-language-switcher .sub-menu {
+        margin-left: 0 !important;
+        margin-right: 10px !important;
+    }
+
+    [dir="rtl"] .menu-item-language-switcher .ai-menu-language-current::after {
+        margin-left: 0;
+        margin-right: 2px;
+    }
+}

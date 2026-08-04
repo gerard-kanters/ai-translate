@@ -665,7 +665,7 @@ final class AI_Translate_Core
 
         \AITranslate\AI_Cache_Meta::delete_by_path_prefix($base);
         
-        // Clear segment translation transients for this language
+        // Clear segment + attribute translation transients for this language
         global $wpdb;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $wpdb->query($wpdb->prepare(
@@ -673,6 +673,27 @@ final class AI_Translate_Core
             '_transient_ai_tr_seg_' . $lang . '_%',
             '_transient_timeout_ai_tr_seg_' . $lang . '_%'
         ));
+
+        // Attribute keys use dual-write (object cache + DB); delete via helper so both layers clear.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $attr_option_names = $wpdb->get_col($wpdb->prepare(
+            "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
+            '_transient_ai_tr_attr_' . $lang . '_%'
+        ));
+        if (is_array($attr_option_names)) {
+            foreach ($attr_option_names as $option_name) {
+                $option_name = (string) $option_name;
+                if (strpos($option_name, '_transient_') !== 0) {
+                    continue;
+                }
+                $key = substr($option_name, strlen('_transient_'));
+                if (function_exists('ai_translate_delete_attr_transient')) {
+                    ai_translate_delete_attr_transient($key);
+                } else {
+                    delete_transient($key);
+                }
+            }
+        }
         
         return ['success' => true, 'count' => $count];
     }

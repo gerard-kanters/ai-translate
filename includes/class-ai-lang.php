@@ -201,13 +201,39 @@ final class AI_Lang
     /**
      * Explicitly set the current language (bypass detection).
      *
+     * Also syncs WordPress text direction so is_rtl() / body_class('rtl') /
+     * language_attributes() and theme rtl.css loading work for ar/he.
+     *
      * @param string|null $lang
      * @return string|null
      */
     public static function set_current($lang)
     {
         self::$current = $lang !== null ? strtolower(sanitize_key((string) $lang)) : null;
+        self::sync_wp_text_direction(self::$current);
         return self::$current;
+    }
+
+    /**
+     * Force WP_Locale text_direction to match the active AI Translate language.
+     *
+     * Filtering `locale` alone is not enough: without an installed language pack
+     * `_x( 'ltr', 'text direction' )` stays LTR, so is_rtl() remains false and
+     * themes never load rtl.css / never get body.rtl — leaving only a bare
+     * dir="rtl" on <html> from the output buffer (half-applied RTL).
+     *
+     * @param string|null $lang Language code.
+     * @return void
+     */
+    public static function sync_wp_text_direction($lang)
+    {
+        $dir = self::is_rtl($lang) ? 'rtl' : 'ltr';
+        $GLOBALS['text_direction'] = $dir;
+
+        global $wp_locale;
+        if (isset($wp_locale) && is_object($wp_locale) && property_exists($wp_locale, 'text_direction')) {
+            $wp_locale->text_direction = $dir;
+        }
     }
 
     /**
