@@ -489,35 +489,19 @@ final class AI_URL
         }
         if (!$post_id) return null;
 
-        $translated_slug = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
-        if (!$translated_slug) return null;
-
-        // Replace the basename with translated slug and prefix language
-        // Use source basename (may be Unicode) for replacement
-        $basename = $source;
-        $dirname = rtrim(dirname($pathNoLang), '/');
-        if ($dirname === '\\' || $dirname === '.') $dirname = '';
-        $newPath = '/' . $lang . '/';
-        if ($dirname !== '') {
-            // strip existing language code from dirname
-            $dirname = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', '/' . ltrim($dirname, '/'));
-            $newPath .= trim($dirname, '/') . '/';
-        }
-        // If homepage => '/{lang}/'
-        if ($basename === '' || $basename === 'home' || $basename === 'index') {
-            $newPath = '/' . $lang . '/';
-        } else {
-            // If translation failed fallback is source; still build path
-            $newPath .= $translated_slug !== '' ? $translated_slug : $basename;
-        }
-        // If original path had trailing slash, keep it
-        if (substr($path, -1) === '/') {
-            $newPath .= '/';
+        if (function_exists('ai_translate_build_translated_path')) {
+            $trail = substr($path, -1) === '/' ? '/' : '';
+            $translatedPath = ai_translate_build_translated_path($post_id, $lang, $default, $trail);
+            if ($translatedPath === null) {
+                return null;
+            }
+            $newPath = (string) wp_parse_url(home_url($translatedPath), PHP_URL_PATH);
+            $query = isset($hrefParts['query']) ? ('?' . $hrefParts['query']) : '';
+            $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
+            return $newPath . $query . $frag;
         }
 
-        $query = isset($hrefParts['query']) ? ('?' . $hrefParts['query']) : '';
-        $frag = isset($hrefParts['fragment']) ? ('#' . $hrefParts['fragment']) : '';
-        return $newPath . $query . $frag;
+        return null;
     }
 
     /**

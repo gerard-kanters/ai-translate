@@ -39,6 +39,26 @@ final class AI_Translate_Core
     }
 
     /**
+     * Send a JSON API request with a consistent HTTP lifecycle.
+     *
+     * @param string       $endpoint API endpoint.
+     * @param array        $headers Request headers.
+     * @param string|array $body Request body.
+     * @param int          $timeout Request timeout in seconds.
+     * @return array|\WP_Error
+     */
+    public static function remote_api_post(string $endpoint, array $headers, $body, int $timeout = 45)
+    {
+        return wp_remote_post($endpoint, [
+            'headers' => $headers,
+            'timeout' => $timeout,
+            'connect_timeout' => min(10, max(1, $timeout)),
+            'sslverify' => true,
+            'body' => is_string($body) ? $body : wp_json_encode($body),
+        ]);
+    }
+
+    /**
      * Cached accessor for plugin settings. Avoids repeated get_option() calls per request.
      *
      * @return array
@@ -489,12 +509,7 @@ final class AI_Translate_Core
             if ($endpointPath === '/responses') {
                 $chatBody = self::convert_body_to_responses($chatBody);
             }
-            $chatResp = wp_remote_post($chatEndpoint, [
-                'headers' => $chatHeaders,
-                'timeout' => 20,
-                'sslverify' => true,
-                'body' => wp_json_encode($chatBody),
-            ]);
+            $chatResp = self::remote_api_post($chatEndpoint, $chatHeaders, $chatBody, 20);
             if (is_wp_error($chatResp)) {
                 throw new \Exception(esc_html('Chat test failed: ' . $chatResp->get_error_message()));
             }
@@ -543,12 +558,7 @@ final class AI_Translate_Core
                         'model' => $model,
                         'messages' => [['role' => 'user', 'content' => 'Test']],
                     ]);
-                    $chatResp = wp_remote_post($chatEndpoint, [
-                        'headers' => $chatHeaders,
-                        'timeout' => 20,
-                        'sslverify' => true,
-                        'body' => wp_json_encode($chatBody),
-                    ]);
+                    $chatResp = self::remote_api_post($chatEndpoint, $chatHeaders, $chatBody, 20);
                     if (is_wp_error($chatResp)) {
                         throw new \Exception(esc_html('Chat test failed: ' . $chatResp->get_error_message()));
                     }
@@ -1389,12 +1399,7 @@ final class AI_Translate_Core
 
                 $headers = self::build_api_headers($apiKey, $provider, ['custom_api_url' => $baseUrl]);
 
-                $response = wp_remote_post($endpoint, [
-                    'headers' => $headers,
-                    'timeout' => 30,
-                    'sslverify' => true,
-                    'body' => wp_json_encode($body),
-                ]);
+                $response = self::remote_api_post($endpoint, $headers, $body, 30);
 
                 // Auto-detect /responses API and retry once on 404
                 if (!is_wp_error($response) && (int) wp_remote_retrieve_response_code($response) === 404) {
@@ -1411,12 +1416,7 @@ final class AI_Translate_Core
                         ];
                         $retryBody = self::adjust_body_for_model($retryBody, $model, $provider);
                         $body = self::convert_body_to_responses($retryBody);
-                        $response = wp_remote_post($endpoint, [
-                            'headers' => $headers,
-                            'timeout' => 30,
-                            'sslverify' => true,
-                            'body' => wp_json_encode($body),
-                        ]);
+                        $response = self::remote_api_post($endpoint, $headers, $body, 30);
                     }
                 }
 
@@ -1552,12 +1552,7 @@ final class AI_Translate_Core
 
                 $headers = self::build_api_headers($apiKey, $provider, ['custom_api_url' => $baseUrl]);
 
-                $response = wp_remote_post($endpoint, [
-                    'headers' => $headers,
-                    'timeout' => 60,
-                    'sslverify' => true,
-                    'body' => wp_json_encode($body),
-                ]);
+                $response = self::remote_api_post($endpoint, $headers, $body, 60);
 
                 // Auto-detect /responses API and retry once on 404
                 if (!is_wp_error($response) && (int) wp_remote_retrieve_response_code($response) === 404) {
@@ -1574,12 +1569,7 @@ final class AI_Translate_Core
                         ];
                         $retryBody = self::adjust_body_for_model($retryBody, $metaModel, $provider);
                         $body = self::convert_body_to_responses($retryBody);
-                        $response = wp_remote_post($endpoint, [
-                            'headers' => $headers,
-                            'timeout' => 60,
-                            'sslverify' => true,
-                            'body' => wp_json_encode($body),
-                        ]);
+                        $response = self::remote_api_post($endpoint, $headers, $body, 60);
                     }
                 }
 

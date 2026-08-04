@@ -256,13 +256,13 @@ final class AI_Batch
                             $userPayload = self::buildUserPayload($batchSegs2);
                             $body = self::buildApiBody($model, $system, $userPayload, $provider, $isResponses);
                             $fallbackHeaders = self::buildApiHeaders($apiKey, $provider, $settings);
-                            $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
+                            $resp = AI_Translate_Core::remote_api_post($endpoint, $fallbackHeaders, $body, $timeoutSeconds);
                             if (is_wp_error($resp)) { continue; }
                             $code = (int) wp_remote_retrieve_response_code($resp);
                             if ($code === 429) {
                                 $wait = self::get_retry_after_seconds($resp);
                                 if ($wait > 0) { sleep(min($wait, 90)); }
-                                $resp = wp_remote_post($endpoint, [ 'headers' => $fallbackHeaders, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body) ]);
+                                $resp = AI_Translate_Core::remote_api_post($endpoint, $fallbackHeaders, $body, $timeoutSeconds);
                                 if (!is_wp_error($resp)) { $code = (int) wp_remote_retrieve_response_code($resp); }
                             }
                             if ($code !== 200) { continue; }
@@ -391,13 +391,7 @@ final class AI_Batch
             $timeRemaining = $timeLimit > 0 ? ($timeLimit - (microtime(true) - $requestTime)) : 60;
             $safeTimeout = min($timeoutSeconds, max(10, (int)($timeRemaining - 10)));
 
-            $response = wp_remote_post($endpoint, [
-                'headers' => $headers,
-                'timeout' => $safeTimeout,
-                'connect_timeout' => 10,
-                'sslverify' => true,
-                'body' => wp_json_encode($body),
-            ]);
+            $response = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $safeTimeout);
             if (is_wp_error($response)) {
                 break;
             }
@@ -410,13 +404,7 @@ final class AI_Batch
                     $isResponses = true;
                     $endpoint = rtrim($baseUrl, '/') . '/responses';
                     $body = self::buildApiBody($model, $system, $userPayload, $provider, true);
-                    $response = wp_remote_post($endpoint, [
-                        'headers' => $headers,
-                        'timeout' => $safeTimeout,
-                        'connect_timeout' => 10,
-                        'sslverify' => true,
-                        'body' => wp_json_encode($body),
-                    ]);
+                    $response = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $safeTimeout);
                     if (is_wp_error($response)) {
                         break;
                     }
@@ -429,13 +417,7 @@ final class AI_Batch
                     $elapsed = microtime(true) - $requestTime;
                     if ($timeLimit > 0 && $elapsed < $timeLimit - 15 && $wait > 0) {
                         sleep(min($wait, 90));
-                        $response = wp_remote_post($endpoint, [
-                            'headers' => $headers,
-                            'timeout' => $safeTimeout,
-                            'connect_timeout' => 10,
-                            'sslverify' => true,
-                            'body' => wp_json_encode($body),
-                        ]);
+                        $response = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $safeTimeout);
                         if (!is_wp_error($response)) {
                             $code = (int) wp_remote_retrieve_response_code($response);
                         }
@@ -716,7 +698,7 @@ final class AI_Batch
         foreach ($retryChunks as $rc) {
             $userPayload = self::buildUserPayload($rc);
             $body = self::buildApiBody($model, $strictSystem, $userPayload, $provider, $retryIsResponses);
-            $resp = wp_remote_post($endpoint, ['headers' => $headers, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body)]);
+            $resp = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $timeoutSeconds);
             if (is_wp_error($resp)) {
                 continue;
             }
@@ -725,7 +707,7 @@ final class AI_Batch
                 $wait = self::get_retry_after_seconds($resp);
                 if ($wait > 0) {
                     sleep(min($wait, 90));
-                    $resp = wp_remote_post($endpoint, ['headers' => $headers, 'timeout' => $timeoutSeconds, 'sslverify' => true, 'body' => wp_json_encode($body)]);
+                    $resp = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $timeoutSeconds);
                     if (!is_wp_error($resp)) {
                         $code = (int) wp_remote_retrieve_response_code($resp);
                     }

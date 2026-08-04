@@ -1383,119 +1383,44 @@ function ai_translate_canonical_path($fallback) {
 }
 
 /**
- * Minimal server-side language switcher (no JS): renders links to current path in other languages.
+ * Render the floating language switcher with the shared frontend renderer.
  */
 add_action('wp_footer', function () {
-    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
-    $default = \AITranslate\AI_Translate_Core::default_language();
-    if ($default !== '' && !in_array($default, $enabled, true)) {
-        $enabled[] = $default;
-    }
-    if (empty($enabled) || $default === '') {
+    if (is_admin()) {
         return;
     }
-
-    // Determine current path and strip any leading /xx/
-    $reqUri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-    $path = (string) wp_parse_url($reqUri, PHP_URL_PATH);
-    if ($path === '') {
-        $path = '/';
-    }
-    $path = ai_translate_strip_site_path($path);
-    $pathNoLang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
-    if ($pathNoLang === '') {
-        $pathNoLang = '/';
-    }
-    $pathNoLang = ai_translate_canonical_path($pathNoLang);
-
-    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
-
-    // Get switcher position from settings (default: bottom-left)
     $position = \AITranslate\AI_Translate_Core::switcher_position();
     $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right', 'none');
     if (!in_array($position, $valid_positions, true)) {
         $position = 'bottom-left';
     }
-    
-    // Skip footer switcher if none is selected
-    if ($position === 'none') {
+    if ($position !== 'none') {
+        echo ai_translate_generate_switcher_html(
+            'dropdown',
+            true,
+            true,
+            'ai-language-switcher-floating ai-language-switcher-pos-' . $position
+        );
+    }
+});
+
+/**
+ * Translate dynamically rendered frontend strings on every frontend request.
+ */
+add_action('wp_footer', function () {
+    if (is_admin()) {
         return;
     }
-
-    // Determine CSS based on position
-    $container_css = '';
-    $menu_css = '';
-    
-    if (strpos($position, 'bottom') === 0) {
-        // Bottom positions: menu opens upward
-        $container_css .= 'bottom:20px;';
-        if ($position === 'bottom-left') {
-            $container_css .= 'left:20px;';
-            $menu_css .= 'bottom:100%;left:0;margin-bottom:8px;';
-        } else {
-            $container_css .= 'right:20px;';
-            $menu_css .= 'bottom:100%;right:0;margin-bottom:8px;';
-        }
-    } else {
-        // Top positions: menu opens downward
-        $container_css .= 'top:20px;';
-        if ($position === 'top-left') {
-            $container_css .= 'left:20px;';
-            $menu_css .= 'top:100%;left:0;margin-top:8px;';
-        } else {
-            $container_css .= 'right:20px;';
-            $menu_css .= 'top:100%;right:0;margin-top:8px;';
-        }
-    }
-
-    // Inline minimal CSS with dynamic positioning (namespaced classes to avoid theme conflicts)
-    echo '<style>.ai-trans{position:fixed;' . esc_attr($container_css) . 'z-index:2147483000}.ai-trans .ai-trans-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:8px 12px;border-radius:24px;border:none;background:#1e3a8a;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:13px;font-weight:600}.ai-trans .ai-trans-btn img{width:20px;height:14px;border-radius:2px}.ai-trans .ai-trans-menu{position:absolute;' . esc_attr($menu_css) . 'background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:8px;display:none;min-width:140px}.ai-trans.ai-trans-open .ai-trans-menu{display:block}.ai-trans .ai-trans-item{display:flex;align-items:center;gap:8px;padding:8px 10px;text-decoration:none;color:#222;border-radius:6px;font-size:13px}.ai-trans .ai-trans-item:hover{background:#f3f4f6}.ai-trans .ai-trans-item img{width:20px;height:14px;border-radius:2px}</style>';
-
-    // Current language (from URL or default)
-    $currentLang = null;
-    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) {
-        $currentLang = strtolower($m[1]);
-    }
-    if (!$currentLang) {
-        $currentLang = $default;
-    }
-    $currentFlag = esc_url($flags_url . sanitize_key($currentLang) . '.png');
-
-    echo '<div id="ai-trans" class="ai-trans" data-ai-trans-skip="1">';
-    // Show current language flag with code label
-    echo '<button type="button" class="ai-trans-btn" aria-haspopup="true" aria-expanded="false" aria-controls="ai-trans-menu" title="' . esc_attr(strtoupper($currentLang)) . '"><img src="' . esc_url($currentFlag) . '" alt="' . esc_attr($currentLang) . '"><span>' . esc_html(strtoupper($currentLang)) . '</span></button>';
-    echo '<div id="ai-trans-menu" class="ai-trans-menu" role="menu">';
-
-    foreach ($enabled as $code) {
-        $code = sanitize_key($code);
-        $isDefaultLang = (strtolower($code) === strtolower((string) $default));
-
-        // Skip current language
-        if ($code === $currentLang) {
-            continue;
-        }
-
-        $label = strtoupper($isDefaultLang ? $default : $code);
-        $sub = ai_translate_site_path();
-        $url = $isDefaultLang ? esc_url($sub . $pathNoLang) : esc_url($sub . '/' . $code . $pathNoLang);
-        $flag = esc_url($flags_url . $code . '.png');
-        echo '<a class="ai-trans-item" href="' . esc_url($url) . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1"><img src="' . esc_url($flag) . '" alt="' . esc_attr($label) . '"><span>' . esc_html($label) . '</span></a>';
-    }
-
-    echo '</div></div>';
-
-    // Minimal toggle script + pure JS cookie handling
     $restUrl = esc_url_raw(rest_url('ai-translate/v1/batch-strings'));
     $nonce = wp_create_nonce('ai_translate_front_nonce');
-    $is_ssl = is_ssl() ? 'true' : 'false';
-    echo '<script>(function(){var w=document.getElementById("ai-trans");if(!w)return;var b=w.querySelector(".ai-trans-btn");b.addEventListener("click",function(e){e.stopPropagation();var open=w.classList.toggle("ai-trans-open");b.setAttribute("aria-expanded",open?"true":"false")});document.addEventListener("click",function(e){if(!w.contains(e.target)){w.classList.remove("ai-trans-open");b.setAttribute("aria-expanded","false")}});var AI_TA={u:"' . esc_url($restUrl) . '",n:"' . esc_js($nonce) . '"};
+    echo '<script>(function(){var AI_TA={u:"' . esc_url($restUrl) . '",n:"' . esc_js($nonce) . '"};
 // Dynamic UI attribute translation (placeholder/title/aria-label/value of buttons)
 function gL(){try{var m=location.pathname.match(/^\/([a-z]{2})(?:\/|$)/i);if(m){return (m[1]||"").toLowerCase();}var mc=document.cookie.match(/(?:^|; )ai_translate_lang=([^;]+)/);if(mc){return decodeURIComponent(mc[1]||"").toLowerCase();}}catch(e){}return "";}
 function wR(r){var out=[];var roots=r.querySelectorAll?r.querySelectorAll("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer,.woocommerce-message,.woocommerce-error,.woocommerce-info,.widget_shopping_cart_content"):[];roots.forEach(function(root){if(root.parentElement&&root.parentElement.closest&&root.parentElement.closest("[class*=\"wp-block-woocommerce-\"],.wc-block-components-drawer,.woocommerce-message,.woocommerce-error,.woocommerce-info,.widget_shopping_cart_content"))return;if(root.closest&&root.closest("[data-ai-trans-skip]"))return;out.push(root);});return out;}
 function wT(root,cb){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);var t;while((t=w.nextNode())){var p=t.parentElement;if(!p)continue;var tg=(p.tagName||"").toLowerCase();if(tg==="script"||tg==="style")continue;if(p.closest&&p.closest("[data-ai-trans-skip]"))continue;cb(t);}}
 function cS(r){function n(t){return t?t.trim().replace(/\s+/g," "):""}var s=new Set();var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];wR(r).forEach(function(root){wT(root,function(t){var v=n(t.nodeValue);if(v&&v.length>1&&v.length<=150&&/[A-Za-z][A-Za-z]/.test(v))s.add(v);});});ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=n(el.getAttribute("placeholder"));if(ph)s.add(ph);var tl=n(el.getAttribute("title"));if(tl)s.add(tl);var al=n(el.getAttribute("aria-label"));if(al)s.add(al);var at=n(el.getAttribute("alt"));if(at)s.add(at);var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=n(el.getAttribute("value"));if(v)s.add(v);}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tcn=n(tc);if(tcn)s.add(tcn);}});return Array.from(s);} 
  function aT(r,m){wR(r).forEach(function(root){wT(root,function(t){var v=t.nodeValue;if(!v)return;var vt=v.trim().replace(/\s+/g," ");if(vt&&m[vt]!=null&&m[vt]!==vt)t.nodeValue=m[vt];});});var ns=r.querySelectorAll?r.querySelectorAll("input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline"):[];ns.forEach(function(el){if(el.closest?el.closest("[data-ai-trans-skip]"):el.hasAttribute("data-ai-trans-skip"))return;var ph=el.getAttribute("placeholder");if(ph){var pht=ph.trim();if(pht&&m[pht]!=null)el.setAttribute("placeholder",m[pht]);}var tl=el.getAttribute("title");if(tl){var tlt=tl.trim();if(tlt&&m[tlt]!=null)el.setAttribute("title",m[tlt]);}var al=el.getAttribute("aria-label");if(al){var alt=al.trim();if(alt&&m[alt]!=null)el.setAttribute("aria-label",m[alt]);}var at=el.getAttribute("alt");if(at){var att=at.trim();if(att&&m[att]!=null)el.setAttribute("alt",m[att]);}var tg=(el.tagName||"").toLowerCase();if(tg==="input"){var tp=(el.getAttribute("type")||"").toLowerCase();if(tp==="submit"||tp==="button"||tp==="reset"){var v=el.getAttribute("value");if(v){var vt=v.trim();if(vt&&m[vt]!=null)el.setAttribute("value",m[vt]);}}}var tc=el.textContent;var inJetpack=(el.closest&&(el.closest(".jp-relatedposts")||el.closest("#jp-relatedposts")));if((el.classList.contains("initial-greeting")||el.classList.contains("chatbot-bot-text")||inJetpack)&&tc){var tct=tc.trim();if(tct&&m[tct]!=null)el.textContent=m[tct];}});} 
- function tA(r){if(tA.called)return;tA.called=true;var ua=(typeof navigator!=="undefined"&&navigator.userAgent)?navigator.userAgent:"";if(/googlebot|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i.test(ua)){tA.called=false;return;}var ss=cS(r);if(!ss.length){tA.called=false;return;}var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4){tA.called=false;if(x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
+function tA(r){if(tA.called)return;tA.called=true;var ua=(typeof navigator!=="undefined"&&navigator.userAgent)?navigator.userAgent:"";if(/googlebot|googleother|bingbot|yandexbot|baiduspider|duckduckbot|slurp|facebot|ia_archiver/i.test(ua)){tA.called=false;return;}var ss=cS(r);if(!ss.length){tA.called=false;return;}var x=new XMLHttpRequest();x.open("POST",AI_TA.u,true);x.setRequestHeader("Content-Type","application/json; charset=UTF-8");x.onreadystatechange=function(){if(x.readyState===4){tA.called=false;if(x.status===200){try{var resp=JSON.parse(x.responseText);if(resp&&resp.success&&resp.data&&resp.data.map){aT(r,resp.data.map);}}catch(e){}}}};x.send(JSON.stringify({nonce:AI_TA.n,lang:gL(),strings:ss}));}
 document.addEventListener("DOMContentLoaded",function(){var checkPage=function(){if(document.readyState==="complete"){setTimeout(function(){tA(document);},1500);}else{setTimeout(checkPage,100);}};checkPage();var moT=null,sel="input,textarea,select,button,[title],[aria-label],img[alt],.initial-greeting,.chatbot-bot-text,.jp-relatedposts-post-title a,.jp-relatedposts-post-context,#jp-relatedposts .jp-relatedposts-headline,[class*=\"wc-block\"],[class*=\"wp-block-woocommerce-\"],.woocommerce-message,.woocommerce-error,.woocommerce-info,.widget_shopping_cart_content";if(typeof MutationObserver!=="undefined"&&gL()){var mo=new MutationObserver(function(muts){for(var f=false,i=0;i<muts.length&&!f;i++){var a=muts[i].addedNodes;for(var j=0;j<a.length&&!f;j++){var n=a[j];if(n.nodeType===1){if(n.matches&&n.matches(sel))f=true;else if(n.querySelector&&n.querySelector(sel))f=true;}}}if(f){clearTimeout(moT);moT=setTimeout(function(){tA(document);},500);}});mo.observe(document.body||document.documentElement,{childList:true,subtree:true});}});
 })();</script>';
 });
@@ -3632,7 +3557,7 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
     $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
 
     if ($type === 'inline') {
-        $output = '<div class="ai-language-switcher-inline ' . esc_attr($class) . '">';
+        $output = '<div class="ai-language-switcher-inline ' . esc_attr($class) . '" data-ai-trans-skip="1">';
         foreach ($enabled_languages as $lang_code) {
             $lang_code = sanitize_key($lang_code);
             if ($lang_code === $current_lang) continue;
@@ -3652,7 +3577,7 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
         $current_flag = esc_url($flags_url . sanitize_key($current_lang) . '.png');
         $current_label = strtoupper($current_lang);
 
-        $output = '<div class="ai-language-switcher-dropdown ' . esc_attr($class) . '" id="' . esc_attr($unique_id) . '">';
+        $output = '<div class="ai-language-switcher-dropdown ' . esc_attr($class) . '" id="' . esc_attr($unique_id) . '" data-ai-trans-skip="1">';
         $output .= '<button type="button" class="ai-language-switcher-btn" aria-haspopup="true" aria-expanded="false" aria-controls="' . esc_attr($unique_id) . '-menu">';
         if ($show_flags) $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_lang) . '" class="ai-language-flag" />';
         if ($show_codes) $output .= '<span class="ai-language-code">' . esc_html($current_label) . '</span>';
@@ -3927,71 +3852,6 @@ add_action('wp_nav_menu_item_custom_fields', function($item_id, $item, $depth, $
     </script>
     <?php
 }, 10, 4);
-
-/**
- * Handle language switcher menu items added via JavaScript
- */
-add_action('wp_ajax_add-menu-item', function() {
-    // This will be called when wpNavMenu.addItemToMenu() is used
-    // The item will be processed normally by WordPress
-}, 1);
-
-/**
- * Handle direct language switcher addition via GET parameter.
- * Requires menu capability + nonce; the normal path is the nav-menus meta box.
- */
-add_action('admin_init', function() {
-    if (!isset($_GET['ai-add-language-switcher']) || !isset($_GET['menu-item-title'])) {
-        return;
-    }
-
-    if (!current_user_can('edit_theme_options')) {
-        return;
-    }
-
-    $nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash((string) $_GET['_wpnonce'])) : '';
-    if ($nonce === '' || !wp_verify_nonce($nonce, 'ai_translate_add_language_switcher')) {
-        return;
-    }
-
-    $menu_id = isset($_REQUEST['menu']) ? (int) $_REQUEST['menu'] : 0;
-    if (!$menu_id) {
-        $menus = wp_get_nav_menus();
-        if (!empty($menus)) {
-            $menu_id = (int) $menus[0]->term_id;
-        }
-    }
-
-    if (!$menu_id) {
-        return;
-    }
-
-    $title = sanitize_text_field(wp_unslash((string) $_GET['menu-item-title']));
-
-    $menu_item_id = wp_update_nav_menu_item($menu_id, 0, array(
-        'menu-item-title' => $title,
-        'menu-item-url' => '#',
-        'menu-item-type' => 'custom',
-        'menu-item-object' => 'ai_language_switcher',
-        'menu-item-status' => 'publish',
-        'menu-item-classes' => 'menu-item-language-switcher menu-item-has-children'
-    ));
-
-    if (!is_wp_error($menu_item_id)) {
-        update_post_meta($menu_item_id, '_menu_item_is_language_switcher', '1');
-        update_post_meta($menu_item_id, '_menu_item_switcher_type', 'dropdown');
-        update_post_meta($menu_item_id, '_menu_item_show_flags', 'true');
-        update_post_meta($menu_item_id, '_menu_item_show_codes', 'true');
-
-        $redirect_url = add_query_arg(array(
-            'menu' => $menu_id,
-            'ai-language-added' => '1'
-        ), admin_url('nav-menus.php'));
-
-        wp_safe_redirect($redirect_url);
-        exit;
-    }
-});
 
 // Success message removed per user request - interface should be self-explanatory
 
@@ -4296,51 +4156,15 @@ add_filter('walker_nav_menu_start_el', function($item_output, $item, $depth, $ar
         return $item_output;
     }
 
-    $enabled_langs = \AITranslate\AI_Translate_Core::enabled_languages();
-    $default_lang  = \AITranslate\AI_Translate_Core::default_language();
-    if ($default_lang !== '' && !in_array($default_lang, $enabled_langs, true)) {
-        $enabled_langs[] = $default_lang;
-    }
-    if (empty($enabled_langs) || $default_lang === '') {
-        return $item_output;
-    }
+    $switcher_type = get_post_meta($item->ID, '_menu_item_switcher_type', true) ?: 'dropdown';
+    $show_flags = get_post_meta($item->ID, '_menu_item_show_flags', true) !== 'false';
+    $show_codes = get_post_meta($item->ID, '_menu_item_show_codes', true) !== 'false';
 
-    $req_uri      = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-    $path         = ai_translate_strip_site_path((string) wp_parse_url($req_uri, PHP_URL_PATH));
-    if ($path === '') { $path = '/'; }
-    $current_lang = $default_lang;
-    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) {
-        $current_lang = strtolower($m[1]);
-    }
-    $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
-    if ($path_no_lang === '') { $path_no_lang = '/'; }
-    if (function_exists('ai_translate_canonical_path')) {
-        $path_no_lang = ai_translate_canonical_path($path_no_lang);
-    }
-
-    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
-
-    $out  = '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
-    $out .= '<img src="' . esc_url($flags_url . sanitize_key($current_lang) . '.png') . '" alt="' . esc_attr(strtoupper($current_lang)) . '" class="ai-menu-language-flag" />';
-    $out .= '<span class="ai-menu-language-code">' . esc_html(strtoupper($current_lang)) . '</span>';
-    $out .= '</a>';
-
-    $out .= '<ul class="sub-menu children">';
-    foreach ($enabled_langs as $lc) {
-        $lc = sanitize_key($lc);
-        if ($lc === $current_lang) { continue; }
-        $lang_url = ($lc === $default_lang)
-            ? esc_url($path_no_lang)
-            : esc_url('/' . $lc . $path_no_lang);
-        $out .= '<li class="menu-item ai-menu-language-item">';
-        $out .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lc) . '" data-ai-trans-skip="1">';
-        $out .= '<img src="' . esc_url($flags_url . $lc . '.png') . '" alt="' . esc_attr(strtoupper($lc)) . '" class="ai-menu-language-flag" />';
-        $out .= '<span class="ai-menu-language-code">' . esc_html(strtoupper($lc)) . '</span>';
-        $out .= '</a></li>';
-    }
-    $out .= '</ul>';
-
-    return $out;
+    return ai_translate_generate_switcher_html(
+        $switcher_type === 'inline' ? 'inline' : 'dropdown',
+        $show_flags,
+        $show_codes
+    );
 }, 10, 4);
 
 /**
@@ -4380,155 +4204,22 @@ class AI_Translate_Menu_Walker extends Walker_Nav_Menu {
      * Render language switcher as a menu item with submenu
      */
     private function render_language_switcher_menu_item(&$output, $item, $depth, $args, $id) {
-        // Get plugin settings
-        $enabled_languages = \AITranslate\AI_Translate_Core::enabled_languages();
-        $default_language = \AITranslate\AI_Translate_Core::default_language();
-        if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
-            $enabled_languages[] = $default_language;
-        }
-
-        if (empty($enabled_languages) || empty($default_language)) {
-            return; // No languages configured
-        }
-
-        // Determine current language
-        $current_lang = null;
-        $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-        $path = ai_translate_strip_site_path((string) wp_parse_url($req_uri, PHP_URL_PATH));
-        if ($path === '') {
-            $path = '/';
-        }
-
-        if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $matches)) {
-            $current_lang = strtolower($matches[1]);
-        }
-
-        if (!$current_lang) {
-            $current_lang = $default_language;
-        }
-
-        // Build base path (remove language prefix if present)
-        $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
-        if ($path_no_lang === '') {
-            $path_no_lang = '/';
-        }
-
-        $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
-
-        // Get switcher options
         $switcher_type = get_post_meta($item->ID, '_menu_item_switcher_type', true) ?: 'dropdown';
         $show_flags = get_post_meta($item->ID, '_menu_item_show_flags', true) !== 'false';
         $show_codes = get_post_meta($item->ID, '_menu_item_show_codes', true) !== 'false';
-
-        if ($switcher_type === 'inline') {
-            // Inline layout - all languages horizontal
-            $classes = array('menu-item', 'menu-item-language-switcher');
-            if (!empty($item->classes)) {
-                $classes = array_merge($classes, $item->classes);
-            }
-
-            $class_str = 'class="' . esc_attr(implode(' ', $classes)) . '"';
-            $output .= '<li id="menu-item-' . $item->ID . '" ' . $class_str . '>';
-            $output .= '<div class="ai-language-switcher-inline">';
-
-            foreach ($enabled_languages as $lang_code) {
-                $lang_code = sanitize_key($lang_code);
-                $is_current = ($lang_code === $current_lang);
-
-                // Skip current language
-                if ($is_current) {
-                    continue;
-                }
-
-                $lang_label = strtoupper($lang_code);
-
-                // Build URL
-                if ($lang_code === $default_language) {
-                    $lang_url = esc_url($path_no_lang);
-                } else {
-                    $lang_url = esc_url('/' . $lang_code . $path_no_lang);
-                }
-
-                $output .= '<a href="' . $lang_url . '" class="ai-language-item" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
-
-                if ($show_flags) {
-                    $flag_src = esc_url($flags_url . $lang_code . '.png');
-                    $output .= '<img src="' . $flag_src . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" />';
-                }
-
-                if ($show_codes) {
-                    $output .= '<span class="ai-language-code">' . esc_html($lang_label) . '</span>';
-                }
-
-                $output .= '</a>';
-            }
-
-            $output .= '</div>';
-            $output .= '</li>';
-        } else {
-            // Dropdown layout (default)
-            $classes = array('menu-item', 'menu-item-language-switcher', 'menu-item-has-children');
-            if (!empty($item->classes)) {
-                $classes = array_merge($classes, $item->classes);
-            }
-
-            $class_str = 'class="' . esc_attr(implode(' ', $classes)) . '"';
-
-            // Output the menu item with submenu
-            $output .= '<li id="menu-item-' . $item->ID . '" ' . $class_str . '>';
-
-            // Current language display (what shows in the menu bar)
-            $current_label = strtoupper($current_lang);
-            $current_flag = esc_url($flags_url . sanitize_key($current_lang) . '.png');
-
-            $output .= '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
-            if ($show_flags) {
-                $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_label) . '" class="ai-menu-language-flag" />';
-            }
-            if ($show_codes) {
-                $output .= '<span class="ai-menu-language-code">' . esc_html($current_label) . '</span>';
-            }
-            $output .= '</a>';
-
-            // Submenu with all languages
-            $output .= '<ul class="sub-menu children">';
-
-            foreach ($enabled_languages as $lang_code) {
-                $lang_code = sanitize_key($lang_code);
-                $is_current = ($lang_code === $current_lang);
-
-                // Skip current language
-                if ($is_current) {
-                    continue;
-                }
-
-                $lang_label = strtoupper($lang_code);
-
-                // Build URL
-                if ($lang_code === $default_language) {
-                    $lang_url = esc_url($path_no_lang);
-                } else {
-                    $lang_url = esc_url('/' . $lang_code . $path_no_lang);
-                }
-
-                $output .= '<li class="menu-item ai-menu-language-item">';
-                $output .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
-
-                if ($show_flags) {
-                    $flag_src = esc_url($flags_url . $lang_code . '.png');
-                    $output .= '<img src="' . $flag_src . '" alt="' . esc_attr($lang_label) . '" class="ai-menu-language-flag" />';
-                }
-
-                if ($show_codes) {
-                    $output .= '<span class="ai-menu-language-code" style="color: #000 !important;">' . esc_html($lang_label) . '</span>';
-                }
-
-                $output .= '</a>';
-                $output .= '</li>';
-            }
-
-            $output .= '</ul>';
-            $output .= '</li>';
+        $classes = array('menu-item', 'menu-item-language-switcher');
+        if ($switcher_type !== 'inline') {
+            $classes[] = 'menu-item-has-children';
         }
+        if (!empty($item->classes)) {
+            $classes = array_merge($classes, (array) $item->classes);
+        }
+        $output .= '<li id="menu-item-' . (int) $item->ID . '" class="' . esc_attr(implode(' ', array_unique($classes))) . '">';
+        $output .= ai_translate_generate_switcher_html(
+            $switcher_type === 'inline' ? 'inline' : 'dropdown',
+            $show_flags,
+            $show_codes
+        );
+        $output .= '</li>';
     }
 }

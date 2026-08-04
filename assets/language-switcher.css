@@ -222,6 +222,122 @@
     display: inline-block;
 }
 
+/* Floating switcher positions — match classic compact pill + calm grey hover */
+.ai-language-switcher-floating {
+    position: fixed;
+    z-index: 2147483000;
+}
+
+.ai-language-switcher-floating .ai-language-switcher-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: 24px;
+    border: none;
+    background: #1e3a8a;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: none;
+}
+
+.ai-language-switcher-floating .ai-language-switcher-btn:hover,
+.ai-language-switcher-floating .ai-language-switcher-btn:focus {
+    background: #1e3a8a;
+    border: none;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.ai-language-switcher-floating .ai-language-flag {
+    width: 20px;
+    height: 14px;
+    border-radius: 2px;
+}
+
+.ai-language-switcher-floating .ai-language-switcher-menu {
+    right: auto;
+    left: 0;
+    min-width: 140px;
+    width: max-content;
+    max-height: none;
+    margin-top: 0;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    overflow: visible;
+}
+
+.ai-language-switcher-floating .ai-language-item {
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: none;
+    border-radius: 6px;
+    color: #222;
+    font-size: 13px;
+    transition: none;
+}
+
+.ai-language-switcher-floating .ai-language-item:hover,
+.ai-language-switcher-floating .ai-language-item:focus {
+    background: #f3f4f6;
+    outline: none;
+    color: #222 !important;
+}
+
+.ai-language-switcher-floating .ai-language-item.current {
+    background: transparent;
+    font-weight: 600;
+}
+
+.ai-language-switcher-pos-bottom-left {
+    bottom: 20px;
+    left: 20px;
+}
+
+.ai-language-switcher-pos-bottom-right {
+    right: 20px;
+    bottom: 20px;
+}
+
+.ai-language-switcher-pos-top-left {
+    top: 20px;
+    left: 20px;
+}
+
+.ai-language-switcher-pos-top-right {
+    top: 20px;
+    right: 20px;
+}
+
+.ai-language-switcher-pos-bottom-left .ai-language-switcher-menu,
+.ai-language-switcher-pos-bottom-right .ai-language-switcher-menu {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.ai-language-switcher-pos-bottom-right .ai-language-switcher-menu,
+.ai-language-switcher-pos-top-right .ai-language-switcher-menu {
+    right: 0;
+    left: auto;
+}
+
+.ai-language-switcher-pos-top-left .ai-language-switcher-menu,
+.ai-language-switcher-pos-top-right .ai-language-switcher-menu {
+    top: 100%;
+    bottom: auto;
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
 .ai-language-switcher-btn {
     display: inline-flex;
     align-items: center;
