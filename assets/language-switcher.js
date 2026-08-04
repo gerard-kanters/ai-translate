@@ -183,32 +183,6 @@
         }
     }
 
-    /**
-     * Set focus trap for accessibility
-     * When dropdown is open, trap focus within the menu
-     */
-    function trapFocus(element, event) {
-        const focusableElements = element.querySelectorAll(
-            'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select'
-        );
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (event.key === 'Tab') {
-            if (event.shiftKey) {
-                if (document.activeElement === firstElement) {
-                    event.preventDefault();
-                    lastElement.focus();
-                }
-            } else {
-                if (document.activeElement === lastElement) {
-                    event.preventDefault();
-                    firstElement.focus();
-                }
-            }
-        }
-    }
-
     // Mobile menu support - toggle submenus on click/tap
     initMobileMenuSupport();
 })();

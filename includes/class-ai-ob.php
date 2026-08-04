@@ -376,26 +376,20 @@ final class AI_OB
         // would only stall concurrent visitors for 30s and then serve untranslated HTML.
         if (!$bypassUserCache && !$nocache && !$noCachePage) {
             $lockStart = time();
-            // Try to acquire lock, wait if another process is generating this page
-            while (($lockTime = get_transient($lockKey)) !== false) {
+            // Wait while another process holds the lock
+            while (!self::try_acquire_cache_lock($lockKey)) {
                 if ((time() - $lockStart) > $maxLockWait) {
                     // Another request is still generating this page; avoid duplicate API calls
-                    // Serve the current HTML without starting a second translation pass
                     $processing = false;
                     return $html;
                 }
-                // Wait 200ms before checking again
                 usleep(200000);
-                // Check if cache became available while waiting
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
                     $processing = false;
                     return $this->post_process_cached_content($cached);
                 }
             }
-            
-            // Acquire lock for this page generation
-            set_transient($lockKey, time(), 120); // Lock expires after 2 minutes as failsafe
             $lockAcquired = true;
         }
         
@@ -404,7 +398,7 @@ final class AI_OB
         $remaining = $timeLimit > 0 ? ($timeLimit - $elapsed) : 120;
         if ($remaining < 20) {
             if ($lockAcquired) {
-                delete_transient($lockKey);
+                self::release_cache_lock($lockKey);
             }
             $processing = false;
             return $html;
@@ -424,7 +418,7 @@ final class AI_OB
 
         if ($htmlLen < 500 || !$hasHtml || !$hasBody) {
             if ($lockAcquired) {
-                delete_transient($lockKey);
+                self::release_cache_lock($lockKey);
             }
             $processing = false;
             return $html; // Return untranslated incomplete HTML without caching
@@ -452,7 +446,7 @@ final class AI_OB
             if (!$cache_exists || !$cache_is_expired) {
                 // Cache doesn't exist or is not expired, block translation
                 if ($lockAcquired) {
-                    delete_transient($lockKey);
+                    self::release_cache_lock($lockKey);
                 }
                 $reason = $cache_exists ? 'cache_not_expired' : 'cache_not_exists';
                 
@@ -472,7 +466,7 @@ final class AI_OB
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
         if (empty($translations)) {
             if ($lockAcquired) {
-                delete_transient($lockKey);
+                self::release_cache_lock($lockKey);
             }
             $processing = false;
             return $html;
@@ -585,7 +579,7 @@ final class AI_OB
 
         if ($html3Len < 500 || !$html3HasHtml || !$html3HasBody || !$html3HasClosingTags) {
             if ($lockAcquired) {
-                delete_transient($lockKey);
+                self::release_cache_lock($lockKey);
             }
             $processing = false;
             return $this->post_process_cached_content($html3); // Return output but don't cache it
@@ -615,7 +609,7 @@ final class AI_OB
         
         // Release lock after successful cache generation
         if ($lockAcquired) {
-            delete_transient($lockKey);
+            self::release_cache_lock($lockKey);
         }
         
         $processing = false;
@@ -659,7 +653,7 @@ final class AI_OB
                 }
 
                 // Check transient cache first
-                $cacheKey = 'ai_tr_attr_' . $lang . '_' . md5($normalized);
+                $cacheKey = ai_translate_attr_cache_key($lang, $normalized);
                 $cached = ai_translate_get_attr_transient($cacheKey);
                 if ($cached !== false) {
                     $escaped = substr(json_encode((string) $cached, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 1, -1);
@@ -815,8 +809,91 @@ final class AI_OB
             }
             $html = self::ensure_rtl_class_on_tag($html, 'html');
             $html = self::ensure_rtl_class_on_tag($html, 'body');
+            // Page builders often bake style="text-align: left" into content.
+            // dir=rtl alone does not override inline styles; flip left → right only
+            // (idempotent on cached re-serve via post_process_cached_content).
+            $html = self::flip_inline_text_align_left_to_right($html);
+            // Pages cached while WP_Styles still thought LTR link to style.css
+            // (body{direction:ltr}). Swap to existing *-rtl.css files on serve.
+            $html = self::rewrite_stylesheets_to_rtl($html);
         }
         return $html;
+    }
+
+    /**
+     * Rewrite stylesheet hrefs to their -rtl variants when those files exist.
+     *
+     * Mirrors WordPress wp_style_add_data( ..., 'rtl', 'replace' ) for HTML that
+     * was rendered/cached before WP_Styles::$text_direction was synced.
+     * Idempotent: already-rtl hrefs and missing -rtl files are left unchanged.
+     *
+     * @param string $html Full page HTML.
+     * @return string
+     */
+    private static function rewrite_stylesheets_to_rtl($html)
+    {
+        if ($html === '' || stripos($html, '.css') === false) {
+            return $html;
+        }
+
+        $contentUrl = function_exists('content_url') ? content_url('/') : '';
+        $contentDir = defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR : '';
+        if ($contentUrl === '' || $contentDir === '') {
+            return $html;
+        }
+
+        return (string) preg_replace_callback(
+            '/(<link\b[^>]*\bhref=(["\']))([^"\']+\.css[^"\']*)(\2[^>]*>)/i',
+            static function ($m) use ($contentUrl, $contentDir) {
+                $href = $m[3];
+                $pathPart = (string) (wp_parse_url($href, PHP_URL_PATH) ?? '');
+                if ($pathPart === '' || preg_match('/-rtl(\.min)?\.css$/i', $pathPart)) {
+                    return $m[0];
+                }
+
+                $rtlPathPart = (string) preg_replace('/(\.min)?\.css$/i', '-rtl$1.css', $pathPart);
+                if ($rtlPathPart === '' || $rtlPathPart === $pathPart) {
+                    return $m[0];
+                }
+
+                $marker = '/wp-content/';
+                $pos = stripos($rtlPathPart, $marker);
+                if ($pos === false) {
+                    return $m[0];
+                }
+                $rel = substr($rtlPathPart, $pos + strlen($marker));
+                $fsPath = trailingslashit($contentDir) . ltrim(str_replace('\\', '/', $rel), '/');
+                if (!is_readable($fsPath)) {
+                    return $m[0];
+                }
+
+                $newHref = str_replace($pathPart, $rtlPathPart, $href);
+                return $m[1] . $newHref . $m[4];
+            },
+            $html
+        );
+    }
+
+    /**
+     * Rewrite inline style="text-align: left" to right for RTL pages.
+     *
+     * Only left → right (never right → left) so repeated application on cache
+     * hits stays idempotent.
+     *
+     * @param string $html Full page HTML.
+     * @return string
+     */
+    private static function flip_inline_text_align_left_to_right($html)
+    {
+        if ($html === '' || stripos($html, 'text-align') === false) {
+            return $html;
+        }
+
+        return (string) preg_replace(
+            '/(style\s*=\s*["\'][^"\']*?\btext-align\s*:\s*)left\b/i',
+            '$1right',
+            $html
+        );
     }
 
     /**
@@ -1339,21 +1416,46 @@ final class AI_OB
     }
 
     /**
-     * Get the current request URL.
+     * Atomically try to acquire a short-lived page-generation lock.
+     * Object cache: wp_cache_add. Otherwise: add_option (unique insert).
      *
-     * @return string|null
+     * @param string $lockKey
+     * @return bool True if this request acquired the lock
      */
-    private function get_current_url()
+    private static function try_acquire_cache_lock($lockKey)
     {
-        if (!isset($_SERVER['HTTP_HOST']) || !isset($_SERVER['REQUEST_URI'])) {
-            return null;
+        $ttl = 120;
+        if (wp_using_ext_object_cache()) {
+            return (bool) wp_cache_add($lockKey, time(), 'ai_translate_locks', $ttl);
         }
 
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-        $uri = esc_url_raw(wp_unslash($_SERVER['REQUEST_URI']));
+        $option = '_ai_tr_lock_' . md5((string) $lockKey);
+        $existing = get_option($option);
+        if ($existing !== false && is_numeric($existing) && (time() - (int) $existing) > $ttl) {
+            delete_option($option);
+        }
 
-        return $protocol . '://' . $host . $uri;
+        if (!add_option($option, time(), '', 'no')) {
+            return false;
+        }
+        set_transient($lockKey, time(), $ttl);
+        return true;
+    }
+
+    /**
+     * Release a page-generation lock acquired via try_acquire_cache_lock().
+     *
+     * @param string $lockKey
+     * @return void
+     */
+    private static function release_cache_lock($lockKey)
+    {
+        delete_transient($lockKey);
+        if (wp_using_ext_object_cache()) {
+            wp_cache_delete($lockKey, 'ai_translate_locks');
+        } else {
+            delete_option('_ai_tr_lock_' . md5((string) $lockKey));
+        }
     }
 
     /**
@@ -1594,353 +1696,6 @@ final class AI_OB
     }
 
     /**
-     * Detect if translated HTML contains substantial untranslated text (> 4 words).
-     * Only detects character-set mismatches: Latin ↔ Non-Latin.
-     * Does NOT detect Latin → Latin (e.g. EN→DE, NL→FR) as this requires language-specific analysis.
-     * Also checks UI attributes (placeholder, title, aria-label, button values) for untranslated content.
-     *
-     * @param string $html Translated HTML
-     * @param string $targetLang Target language code
-     * @param string $sourceLang Source language code
-     * @param string $url Request URL for logging
-     * @return array{has_untranslated:bool,word_count:int,reason:string,untranslated_attributes?:array}
-     */
-    private function detect_untranslated_content($html, $targetLang, $sourceLang, $url = '')
-    {
-        $result = ['has_untranslated' => false, 'word_count' => 0, 'reason' => ''];
-        
-        $doc = new \DOMDocument();
-        $internalErrors = libxml_use_internal_errors(true);
-        $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NODEFDTD);
-        libxml_clear_errors();
-        libxml_use_internal_errors($internalErrors);
-        
-        $xpath = new \DOMXPath($doc);
-        $bodyNodes = $xpath->query('//body');
-        if (!$bodyNodes || $bodyNodes->length === 0) {
-            return $result;
-        }
-
-        // Check UI attributes for untranslated content (works for all languages)
-        $uiAttributesCheck = $this->check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang, $url);
-        if ($uiAttributesCheck['has_untranslated']) {
-            $result['has_untranslated'] = true;
-            $result['word_count'] = $uiAttributesCheck['word_count'];
-            $result['reason'] = $uiAttributesCheck['reason'];
-            $result['untranslated_attributes'] = $uiAttributesCheck['untranslated_attributes'] ?? [];
-            return $result;
-        }
-
-        // Strip boilerplate (nav/footer/forms/scripts) before text extraction to reduce false positives.
-        $pruneSelectors = ['//script', '//style', '//noscript', '//svg', '//nav', '//header', '//footer', '//form', '//input', '//button', '//select', '//option', '//textarea'];
-        foreach ($pruneSelectors as $selector) {
-            $nodes = $xpath->query($selector);
-            if ($nodes instanceof \DOMNodeList) {
-                foreach ($nodes as $node) {
-                    if ($node->parentNode) {
-                        $node->parentNode->removeChild($node);
-                    }
-                }
-            }
-        }
-
-        // Prefer <main> or <article> content when available; fall back to body.
-        $contentNode = $xpath->query('//main');
-        if (!$contentNode || $contentNode->length === 0) {
-            $contentNode = $xpath->query('//article');
-        }
-        $textSource = ($contentNode && $contentNode->length > 0) ? $contentNode->item(0) : $bodyNodes->item(0);
-        $bodyText = trim((string) $textSource->textContent);
-        if (mb_strlen($bodyText) < 50) {
-            return $result;
-        }
-        
-        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi'];
-        $sourceIsNonLatin = in_array(strtolower($sourceLang), $nonLatinLangs, true);
-        $targetIsNonLatin = in_array(strtolower($targetLang), $nonLatinLangs, true);
-        
-        // Only detect if character sets differ (Latin ↔ Non-Latin)
-        if ($sourceIsNonLatin === $targetIsNonLatin) {
-            return $result;
-        }
-        
-        $latinChars = preg_match_all('/[a-zA-Z]/', $bodyText);
-        $totalChars = mb_strlen($bodyText);
-        $latinRatio = $totalChars > 0 ? ($latinChars / $totalChars) : 0;
-        
-        // Use more lenient threshold for non-Latin target languages (0.70 instead of 0.40)
-        // This allows natural Latin content like URLs, brand names, and boilerplate
-        // Many websites have significant Latin content even in non-Latin languages
-        $expectedLatinRatio = $targetIsNonLatin ? 0.70 : 0.50;
-        $unexpectedDirection = $targetIsNonLatin ? ($latinRatio > $expectedLatinRatio) : ($latinRatio < $expectedLatinRatio);
-        
-        if ($unexpectedDirection) {
-            preg_match_all('/\b[a-zA-Z]+\b/', $bodyText, $matches);
-            $latinWords = isset($matches[0]) ? $matches[0] : [];
-            
-            $commonExclusions = ['CEO', 'CTO', 'IT', 'AI', 'API', 'URL', 'SEO', 'SaaS', 'B2B', 'B2C', 
-                'WordPress', 'NetCare', 'Centillien', 'LinkedIn', 'Facebook', 'Twitter', 'Instagram',
-                'WhatsApp', 'YouTube', 'Google', 'Microsoft', 'Apple', 'iPhone', 'iPad', 'Android',
-                'Windows', 'Mac', 'Linux', 'HTML', 'CSS', 'JavaScript', 'PHP', 'SQL', 'HTTP', 'HTTPS',
-                'PDF', 'JSON', 'XML', 'REST', 'SOAP', 'VPN', 'DNS', 'IP', 'TCP', 'UDP', 'USB', 'RAM',
-                'CPU', 'GPU', 'SSD', 'HDD', 'DVD', 'CD', 'iOS', 'macOS', 'Wi-Fi', 'Bluetooth', 'NFC'];
-            
-            $filteredWords = array_filter($latinWords, function($word) use ($commonExclusions) {
-                if (mb_strlen($word) <= 2) return false;
-                if (is_numeric($word)) return false;
-                if (in_array($word, $commonExclusions, true)) return false;
-                if (strtoupper($word) === $word && mb_strlen($word) <= 5) return false;
-                return true;
-            });
-            
-            $wordCount = count($filteredWords);
-            $normalizedText = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $bodyText);
-            $allWords = preg_split('/\s+/u', (string) $normalizedText, -1, PREG_SPLIT_NO_EMPTY);
-            $totalWordCount = is_array($allWords) ? count($allWords) : 0;
-            $latinWordRatio = $totalWordCount > 0 ? ($wordCount / $totalWordCount) : 0;
-
-            // Require substantial proportion of Latin words before invalidating non-Latin targets.
-            if ($wordCount > 4 && (!$targetIsNonLatin || $latinWordRatio > 0.55)) {
-                $result['has_untranslated'] = true;
-                $result['word_count'] = $wordCount;
-                
-                if ($targetIsNonLatin) {
-                    $result['reason'] = sprintf('Non-Latin target (%s) has %d Latin words (%.1f%% Latin)', 
-                        strtoupper($targetLang), $wordCount, $latinRatio * 100);
-                } else {
-                    $result['reason'] = sprintf('Latin target (%s) has too few Latin chars (%.1f%%, expected >%.0f%%)', 
-                        strtoupper($targetLang), $latinRatio * 100, $expectedLatinRatio * 100);
-                }
-                
-                return $result;
-            }
-        }
-        
-        return $result;
-    }
-
-    /**
-     * Check if UI attributes (placeholder, title, aria-label, button values) are untranslated.
-     * Works for all languages by checking if attributes are cached in transient.
-     *
-     * @param \DOMXPath $xpath XPath instance for DOM navigation
-     * @param string $targetLang Target language code
-     * @param string $sourceLang Source language code
-     * @param string $url Request URL for logging
-     * @return array{has_untranslated:bool,word_count:int,reason:string,untranslated_attributes:array}
-     */
-    private function check_ui_attributes_untranslated($xpath, $targetLang, $sourceLang, $url = '')
-    {
-        $result = ['has_untranslated' => false, 'word_count' => 0, 'reason' => '', 'untranslated_attributes' => []];
-        
-        // Skip check for default language
-        if (strtolower($targetLang) === strtolower($sourceLang)) {
-            return $result;
-        }
-        
-        // Collect UI attributes that need translation (same as JavaScript does)
-        $uiStrings = [];
-        $uiStringsWithAttr = [];
-        $nodes = $xpath->query('//input | //textarea | //select | //button | //*[@title] | //*[@aria-label] | //img[@alt] | //*[contains(@class, "initial-greeting")] | //*[contains(@class, "chatbot-bot-text")]');
-        
-        if (!$nodes || $nodes->length === 0) {
-            return $result;
-        }
-        
-        foreach ($nodes as $node) {
-            if (!$node instanceof \DOMElement) {
-                continue;
-            }
-            
-            // Skip elements with data-ai-trans-skip attribute (also check ancestors)
-            $skip = false;
-            $check = $node;
-            while ($check instanceof \DOMElement) {
-                if ($check->hasAttribute('data-ai-trans-skip')) {
-                    $skip = true;
-                    break;
-                }
-                $check = $check->parentNode;
-            }
-            if ($skip) {
-                continue;
-            }
-            
-            // Collect placeholder
-            if ($node->hasAttribute('placeholder')) {
-                $text = trim($node->getAttribute('placeholder'));
-                if ($text !== '' && mb_strlen($text) >= 2) {
-                    $normalized = preg_replace('/\s+/u', ' ', $text);
-                    $uiStrings[$normalized] = $normalized;
-                    $uiStringsWithAttr[$normalized] = ['attr' => 'placeholder', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
-                }
-            }
-            
-            // Collect title
-            if ($node->hasAttribute('title')) {
-                $text = trim($node->getAttribute('title'));
-                if ($text !== '' && mb_strlen($text) >= 2) {
-                    $normalized = preg_replace('/\s+/u', ' ', $text);
-                    $uiStrings[$normalized] = $normalized;
-                    if (!isset($uiStringsWithAttr[$normalized])) {
-                        $uiStringsWithAttr[$normalized] = ['attr' => 'title', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
-                    }
-                }
-            }
-            
-            // Collect aria-label
-            if ($node->hasAttribute('aria-label')) {
-                $text = trim($node->getAttribute('aria-label'));
-                if ($text !== '' && mb_strlen($text) >= 2) {
-                    $normalized = preg_replace('/\s+/u', ' ', $text);
-                    $uiStrings[$normalized] = $normalized;
-                    if (!isset($uiStringsWithAttr[$normalized])) {
-                        $uiStringsWithAttr[$normalized] = ['attr' => 'aria-label', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
-                    }
-                }
-            }
-            
-            // Collect alt for images
-            if ($node->hasAttribute('alt')) {
-                $text = trim($node->getAttribute('alt'));
-                if ($text !== '' && mb_strlen($text) >= 2) {
-                    $normalized = preg_replace('/\s+/u', ' ', $text);
-                    $uiStrings[$normalized] = $normalized;
-                    if (!isset($uiStringsWithAttr[$normalized])) {
-                        $uiStringsWithAttr[$normalized] = ['attr' => 'alt', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
-                    }
-                }
-            }
-            
-            // Collect value for input buttons
-            $tagName = strtolower($node->tagName ?? '');
-            if ($tagName === 'input') {
-                $type = strtolower($node->getAttribute('type') ?? '');
-                if (in_array($type, ['submit', 'button', 'reset'], true)) {
-                    $text = trim($node->getAttribute('value') ?? '');
-                    if ($text !== '' && mb_strlen($text) >= 2) {
-                        $normalized = preg_replace('/\s+/u', ' ', $text);
-                        $uiStrings[$normalized] = $normalized;
-                        if (!isset($uiStringsWithAttr[$normalized])) {
-                            $uiStringsWithAttr[$normalized] = ['attr' => 'value', 'text' => $text, 'tag' => 'input[' . $type . ']'];
-                        }
-                    }
-                }
-            }
-            
-            // Collect textContent for chatbot elements
-            if ($node->hasAttribute('class')) {
-                $classes = $node->getAttribute('class');
-                if (strpos($classes, 'initial-greeting') !== false || strpos($classes, 'chatbot-bot-text') !== false) {
-                    $text = trim($node->textContent ?? '');
-                    if ($text !== '' && mb_strlen($text) >= 2) {
-                        $normalized = preg_replace('/\s+/u', ' ', $text);
-                        $uiStrings[$normalized] = $normalized;
-                        if (!isset($uiStringsWithAttr[$normalized])) {
-                            $uiStringsWithAttr[$normalized] = ['attr' => 'textContent', 'text' => $text, 'tag' => strtolower($node->tagName ?? '')];
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (empty($uiStrings)) {
-            return $result;
-        }
-        
-        // Check if UI strings are cached (translated)
-        // UI attributes can be cached in two places:
-        // 1. ai_tr_attr_* (JavaScript batch-strings cache)
-        // 2. ai_tr_seg_* (PHP translation plan cache, format: ai_tr_seg_{lang}_{md5('attr|md5(text)')})
-        $untranslatedCount = 0;
-        $untranslatedAttributes = [];
-        foreach ($uiStrings as $normalized) {
-            $cached = false;
-            
-            // First check JavaScript cache (ai_tr_attr_*)
-            $attrCacheKey = 'ai_tr_attr_' . $targetLang . '_' . md5($normalized);
-            $cached = function_exists('ai_translate_get_attr_transient') 
-                ? ai_translate_get_attr_transient($attrCacheKey) 
-                : get_transient($attrCacheKey);
-            
-            // If not found in JavaScript cache, check PHP translation plan cache (ai_tr_seg_*)
-            if ($cached === false) {
-                $segKey = 'attr|' . md5($normalized);
-                $segCacheKey = 'ai_tr_seg_' . $targetLang . '_' . md5($segKey);
-                $cached = get_transient($segCacheKey);
-            }
-            
-            if ($cached === false) {
-                // Heuristic: if text already appears to be in target language, seed cache to prevent repeated invalidations
-                $textSample = isset($uiStringsWithAttr[$normalized]['text']) ? (string) $uiStringsWithAttr[$normalized]['text'] : $normalized;
-                $looksTarget = $this->looks_like_target_lang($textSample, $targetLang, $sourceLang);
-                if ($looksTarget) {
-                    // Seed attr cache with the original text as translation
-                    if (function_exists('ai_translate_set_attr_transient')) {
-                        ai_translate_set_attr_transient($attrCacheKey, $textSample, DAY_IN_SECONDS);
-                    } else {
-                        set_transient($attrCacheKey, $textSample, DAY_IN_SECONDS);
-                    }
-                    if (isset($uiStringsWithAttr[$normalized])) {
-                        $uiStringsWithAttr[$normalized]['seeded'] = true;
-                    }
-                    // Mark as cached to skip counting as untranslated
-                    $cached = $textSample;
-                } else {
-                    $untranslatedCount++;
-                    if (isset($uiStringsWithAttr[$normalized])) {
-                        $untranslatedAttributes[] = $uiStringsWithAttr[$normalized];
-                    }
-                }
-            }
-        }
-        
-        if ($untranslatedCount > 0) {
-            $result['has_untranslated'] = true;
-            $result['word_count'] = $untranslatedCount;
-            $result['reason'] = sprintf('Found %d untranslated UI attribute(s) (placeholder/title/aria-label/button values)', $untranslatedCount);
-            $result['untranslated_attributes'] = $untranslatedAttributes;
-        }
-        
-        return $result;
-    }
-
-    /**
-     * Simple heuristic to detect if a text already matches the target language script.
-     * For non-Latin targets: accept when Latin char ratio < 0.30.
-     * For Latin targets: accept when Latin char ratio >= 0.30 and Cyrillic/Arabic/etc. are minimal.
-     *
-     * @param string $text
-     * @param string $targetLang Target language code.
-     * @param string $sourceLang Source language code.
-     * @return bool
-     */
-    private function looks_like_target_lang($text, $targetLang, $sourceLang)
-    {
-        $text = trim((string) $text);
-        if ($text === '') {
-            return false;
-        }
-        $latinCount = preg_match_all('/[A-Za-z]/', $text);
-        $totalChars = max(1, mb_strlen($text));
-        $latinRatio = $latinCount / $totalChars;
-        
-        $nonLatinTargets = ['zh','ja','ko','ar','he','th','ka','ru','uk','bg','el','hi'];
-        $targetIsNonLatin = in_array(strtolower($targetLang), $nonLatinTargets, true);
-        $sourceIsNonLatin = in_array(strtolower($sourceLang), $nonLatinTargets, true);
-        
-        // If target is non-Latin: consider translated when Latin ratio is low
-        if ($targetIsNonLatin && $latinRatio < 0.30) {
-            return true;
-        }
-        // If target is Latin and source is non-Latin: consider translated when Latin ratio is reasonable
-        if (!$targetIsNonLatin && $sourceIsNonLatin && $latinRatio >= 0.30) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
      * Lightweight check whether HTML body content matches the expected target language.
      * Detects Latin ↔ Non-Latin mismatches only (e.g. NL body text cached for JA target).
      * Returns true when content appears correct or when detection is not possible (Latin↔Latin).
@@ -1959,9 +1714,8 @@ final class AI_OB
             return true;
         }
 
-        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi'];
-        $targetIsNonLatin = in_array(strtolower($targetLang), $nonLatinLangs, true);
-        $sourceIsNonLatin = in_array(strtolower($defaultLang), $nonLatinLangs, true);
+        $targetIsNonLatin = AI_Lang::is_non_latin($targetLang);
+        $sourceIsNonLatin = AI_Lang::is_non_latin($defaultLang);
 
         if ($targetIsNonLatin === $sourceIsNonLatin) {
             return true;

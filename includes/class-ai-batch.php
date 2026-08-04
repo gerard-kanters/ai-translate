@@ -123,8 +123,7 @@ final class AI_Batch
                     // For non-Latin target languages the result must contain non-ASCII characters
                     // in the target script. If the response is pure Latin (transliteration), invalidate.
                     if (!$cacheInvalid) {
-                        $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'bg', 'el', 'hi', 'uk', 'ru', 'kk', 'mk', 'sr'];
-                        if (in_array($targetLang, $nonLatinLangs, true)) {
+                        if (AI_Lang::is_non_latin($targetLang)) {
                             $hasNonAscii = preg_match('/[^\x00-\x7F]/', $cachedText) === 1;
                             if (!$hasNonAscii && mb_strlen(trim($cachedText)) > 0 && !$containsWhitelisted) {
                                 $cacheInvalid = true;
@@ -375,42 +374,7 @@ final class AI_Batch
                     }
                 }
             }
-            // Validate coverage and quality; retry missing/unchanged primaries once
-            $needsRetry = [];
-            foreach ($primarySegById as $pid => $meta) {
-                if (isset($translationsPrimary[$pid])) {
-                    if (self::needsTranslationRetry((string)$meta['text'], (string)$translationsPrimary[$pid], $targetLang, $identicalWhitelist)) {
-                        $needsRetry[] = $pid;
-                    }
-                } elseif (!isset($cachedPrimary[$pid])) {
-                    $needsRetry[] = $pid;
-                }
-            }
-            if (empty($translationsPrimary) && !empty($primarySegById)) {
-                $needsRetry = array_keys($primarySegById);
-            }
-            
-            if (!empty($needsRetry)) {
-                $retryTranslations = self::retryFailedSegments($needsRetry, $primarySegById, $system, $model, $provider, $apiKey, $endpoint, $timeoutSeconds, $settings, $target);
-                foreach ($retryTranslations as $k => $v) {
-                    $translationsPrimary[(string)$k] = $v;
-                }
-            }
-
-            // Write cache for primaries and expand to full id map
-            $newlyCached = self::cacheTranslations($translationsPrimary, $primarySegById, $targetLang, $expiry);
-            $final = [];
-            // include cached primaries as well
-            foreach ($cachedPrimary as $pid => $tr) {
-                $translationsPrimary[$pid] = $tr;
-            }
-            foreach ($idsByPrimary as $pid => $ids) {
-                $tr = isset($translationsPrimary[$pid]) ? (string)$translationsPrimary[$pid] : null;
-                if ($tr === null) { continue; }
-                foreach ($ids as $oid) { $final[$oid] = $tr; }
-            }
-
-            return ['segments' => $final, 'map' => []];
+            return self::finalizePrimaryTranslations($translationsPrimary, $cachedPrimary, $primarySegById, $idsByPrimary, $targetLang, $identicalWhitelist, $system, $model, $provider, $apiKey, $endpoint, $timeoutSeconds, $settings, $target, $expiry);
         }
 
         // Sequential fallback (when parallel not available)
@@ -498,11 +462,15 @@ final class AI_Batch
             self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
         }
         
-        // Validate coverage and quality; retry missing/unchanged primaries
+        return self::finalizePrimaryTranslations($translationsPrimary, $cachedPrimary, $primarySegById, $idsByPrimary, $targetLang, $identicalWhitelist, $system, $model, $provider, $apiKey, $endpoint, $timeoutSeconds, $settings, $target, $expiry);
+    }
+
+    private static function finalizePrimaryTranslations(array $translationsPrimary, array $cachedPrimary, array $primarySegById, array $idsByPrimary, string $targetLang, array $identicalWhitelist, string $system, string $model, string $provider, string $apiKey, string $endpoint, int $timeoutSeconds, array $settings, string $target, int $expiry): array
+    {
         $needsRetry = [];
         foreach ($primarySegById as $pid => $meta) {
             if (isset($translationsPrimary[$pid])) {
-                if (self::needsTranslationRetry((string)$meta['text'], (string)$translationsPrimary[$pid], $targetLang, $identicalWhitelist)) {
+                if (self::needsTranslationRetry((string) $meta['text'], (string) $translationsPrimary[$pid], $targetLang, $identicalWhitelist)) {
                     $needsRetry[] = $pid;
                 }
             } elseif (!isset($cachedPrimary[$pid])) {
@@ -512,24 +480,26 @@ final class AI_Batch
         if (empty($translationsPrimary) && !empty($primarySegById)) {
             $needsRetry = array_keys($primarySegById);
         }
-        
         if (!empty($needsRetry)) {
             $retryTranslations = self::retryFailedSegments($needsRetry, $primarySegById, $system, $model, $provider, $apiKey, $endpoint, $timeoutSeconds, $settings, $target);
             foreach ($retryTranslations as $k => $v) {
-                $translationsPrimary[(string)$k] = $v;
+                $translationsPrimary[(string) $k] = $v;
             }
         }
-        
-        // Cache and expand to all ids
-        $newlyCached = self::cacheTranslations($translationsPrimary, $primarySegById, $targetLang, $expiry);
-        $final = [];
-        foreach ($cachedPrimary as $pid => $tr) { $translationsPrimary[$pid] = $tr; }
-        foreach ($idsByPrimary as $pid => $ids) {
-            $tr = isset($translationsPrimary[$pid]) ? (string)$translationsPrimary[$pid] : null;
-            if ($tr === null) { continue; }
-            foreach ($ids as $oid) { $final[$oid] = $tr; }
+        self::cacheTranslations($translationsPrimary, $primarySegById, $targetLang, $expiry);
+        foreach ($cachedPrimary as $pid => $tr) {
+            $translationsPrimary[$pid] = $tr;
         }
-
+        $final = [];
+        foreach ($idsByPrimary as $pid => $ids) {
+            $tr = isset($translationsPrimary[$pid]) ? (string) $translationsPrimary[$pid] : null;
+            if ($tr === null) {
+                continue;
+            }
+            foreach ($ids as $oid) {
+                $final[$oid] = $tr;
+            }
+        }
         return ['segments' => $final, 'map' => []];
     }
 
@@ -603,7 +573,9 @@ final class AI_Batch
             $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
             set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), $tr, $expiry);
             if ($primarySegById[$pid]['type'] === 'attr') {
-                $attrKey = 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
+                $attrKey = function_exists('ai_translate_attr_cache_key')
+                    ? ai_translate_attr_cache_key($targetLang, $primarySegById[$pid]['text'])
+                    : 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
                 if (function_exists('ai_translate_set_attr_transient')) {
                     ai_translate_set_attr_transient($attrKey, $tr, $expiry);
                 } else {
@@ -651,15 +623,7 @@ final class AI_Batch
      */
     private static function buildApiHeaders(string $apiKey, string $provider, array $settings): array
     {
-        $headers = [
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type' => 'application/json',
-        ];
-        if ($provider === 'openrouter' || ($provider === 'custom' && isset($settings['custom_api_url']) && strpos($settings['custom_api_url'], 'openrouter.ai') !== false)) {
-            $headers['Referer'] = home_url();
-            $headers['X-Title'] = get_bloginfo('name');
-        }
-        return $headers;
+        return AI_Translate_Core::build_api_headers($apiKey, $provider, $settings);
     }
 
     /**
@@ -689,7 +653,7 @@ final class AI_Batch
         }
         // For non-Latin target languages the translation must contain non-ASCII characters
         // (script of the target language). Pure-Latin responses are transliterations and need retry.
-        if (in_array($targetLang, ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'bg', 'el', 'hi', 'uk', 'ru', 'kk', 'mk', 'sr'], true)) {
+        if (AI_Lang::is_non_latin($targetLang)) {
             $trimmedTr = trim($tr);
             if ($trimmedTr !== '' && !$containsWhitelisted) {
                 $hasNonAscii = preg_match('/[^\x00-\x7F]/', $trimmedTr) === 1;

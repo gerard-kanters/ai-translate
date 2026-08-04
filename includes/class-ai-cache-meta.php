@@ -34,24 +34,6 @@ class AI_Cache_Meta
     }
 
     /**
-     * Get the cache directory path for the current domain.
-     *
-     * @return string Cache directory path
-     */
-    private static function get_cache_directory()
-    {
-        $uploads = wp_upload_dir();
-        $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
-        
-        $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir();
-        if (!empty($site_dir)) {
-            $base = trailingslashit($base) . $site_dir . '/';
-        }
-        
-        return $base;
-    }
-    
-    /**
      * Delegate to centralized get_site_cache_dir in AI_Translate_Core.
      *
      * @return string

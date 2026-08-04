@@ -315,6 +315,29 @@ function ai_translate_delete_attr_transient($key)
 }
 
 /**
+ * Cache key for client-side / attribute translations (dual-write transient).
+ *
+ * @param string $lang            Language code.
+ * @param string $normalized_text Normalized source text.
+ * @return string
+ */
+function ai_translate_attr_cache_key($lang, $normalized_text) {
+    return 'ai_tr_attr_' . sanitize_key((string) $lang) . '_' . md5((string) $normalized_text);
+}
+
+/**
+ * Segment-cache fallback key for attribute texts (ai_tr_seg_*).
+ *
+ * @param string $lang            Language code.
+ * @param string $normalized_text Normalized source text.
+ * @return string
+ */
+function ai_translate_seg_attr_cache_key($lang, $normalized_text) {
+    $lang = sanitize_key((string) $lang);
+    return 'ai_tr_seg_' . $lang . '_' . md5('attr|' . md5((string) $normalized_text));
+}
+
+/**
  * Register language-prefixed rewrite rules so WordPress can resolve translated URLs via the 'lang' query var.
  * Runs at priority 999 to ensure custom post types are registered first.
  *
@@ -580,18 +603,7 @@ add_filter('request', function ($vars) {
             // Path did not resolve to a post; try taxonomy (category, tag, custom tax).
             $resolved_term = ai_translate_resolve_term_from_path($path);
             if ($resolved_term) {
-                $term = $resolved_term['term'];
-                $tax = $term->taxonomy;
-                if ($tax === 'category') {
-                    $vars['category_name'] = $term->slug;
-                } elseif ($tax === 'post_tag') {
-                    $vars['tag'] = $term->slug;
-                } else {
-                    $vars[$tax] = $term->slug;
-                }
-                if ($resolved_term['paged'] > 1) {
-                    $vars['paged'] = $resolved_term['paged'];
-                }
+                $vars = ai_translate_apply_resolved_term_to_vars($vars, $resolved_term);
                 unset($vars['ai_translate_path']);
             }
         }
@@ -1034,9 +1046,8 @@ add_action('template_redirect', function () {
                 $hasNonLatin = preg_match('/[\x{0080}-\x{FFFF}]/u', urldecode($pathWithoutLang));
                 
                 if ($hasNonLatin) {
-                    // Define character set mappings for languages with truly non-Latin scripts
-                    $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'ru', 'uk', 'bg', 'el', 'hi', 'bn', 'ta', 'te', 'ml', 'kn', 'gu', 'pa', 'ur', 'fa', 'ps', 'sd', 'ug', 'kk', 'ky', 'uz', 'mn', 'my', 'km', 'lo', 'ne', 'si', 'dz', 'bo', 'ti', 'am', 'hy', 'az', 'be', 'mk', 'sr', 'hr', 'bs', 'sq', 'mt', 'is', 'fo', 'cy', 'ga', 'gd', 'yi'];
-                    $isNonLatinLang = in_array($langLower, $nonLatinLangs, true);
+                    // Non-Latin script languages vs Latin-with-accents (fr/de/… may have accented chars in slugs)
+                    $isNonLatinLang = \AITranslate\AI_Lang::is_non_latin($langLower);
                     
                     // Latin-based languages that commonly use accented characters (Latin Extended)
                     // These should NOT be blocked when the path contains Latin Extended chars
@@ -1317,32 +1328,6 @@ add_action('wp_head', function () {
  * the main query uses paged=N so page 2+ actually render page 2+ instead of page 1.
  */
 
-// Enqueue switcher CSS and JS only for nav menu integration (not for floating positions)
-add_action('wp_enqueue_scripts', function () {
-    if (is_admin()) {
-        return;
-    }
-    
-    $position = \AITranslate\AI_Translate_Core::switcher_position();
-    
-    // Only enqueue switcher assets for nav menu positions (not floating positions)
-    if ($position === 'nav-start' || $position === 'nav-end') {
-        wp_enqueue_style(
-            'ai-translate-switcher',
-            plugin_dir_url(__FILE__) . 'assets/switcher.css',
-            array(),
-            '2.1.7'
-        );
-        wp_enqueue_script(
-            'ai-translate-switcher',
-            plugin_dir_url(__FILE__) . 'assets/switcher.js',
-            array(),
-            '2.1.7',
-            true
-        );
-    }
-});
-
 /**
  * Return the canonical root-relative path for the current page in the original/default language.
  * Bypasses post_link/page_link filters (which prefix the current language + translated slug)
@@ -1395,91 +1380,6 @@ function ai_translate_canonical_path($fallback) {
         }
     }
     return $path ?? $fallback;
-}
-
-/**
- * Generate language switcher HTML for navigation menu.
- *
- * @return string Switcher HTML or empty string if not applicable
- */
-function ai_translate_get_nav_switcher_html() {
-    if (is_admin()) {
-        return '';
-    }
-    
-    $position = \AITranslate\AI_Translate_Core::switcher_position();
-    
-    // Only generate if nav-start or nav-end is selected
-    if ($position !== 'nav-start' && $position !== 'nav-end') {
-        return '';
-    }
-    
-    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
-    $default = \AITranslate\AI_Translate_Core::default_language();
-    if ($default !== '' && !in_array($default, $enabled, true)) {
-        $enabled[] = $default;
-    }
-    if ($default === '' && !empty($enabled)) {
-        $default = (string) $enabled[0];
-    }
-    if (empty($enabled) || $default === '') {
-        return '';
-    }
-    
-    // Determine current path and strip any leading /xx/
-    $reqUri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-    $path = (string) wp_parse_url($reqUri, PHP_URL_PATH);
-    if ($path === '') {
-        $path = '/';
-    }
-    $path = ai_translate_strip_site_path($path);
-
-    // Current language (from URL or default)
-    $currentLang = null;
-    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $m)) {
-        $currentLang = strtolower($m[1]);
-    }
-    if (!$currentLang) {
-        $currentLang = $default;
-    }
-    
-    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
-    $currentFlag = esc_url($flags_url . sanitize_key($currentLang) . '.png');
-    
-    // Generate unique ID for this menu instance
-    $menu_id = 'ai-trans-menu-' . uniqid();
-    
-    // Build switcher HTML (compact nav version)
-    $switcher_html = '<li class="menu-item ai-trans-nav-container"><div class="ai-trans ai-trans-nav" data-ai-trans-skip="1">';
-    // Use <a> instead of <button> so themes that style <a> elements keep the item visible.
-    $switcher_html .= '<a href="#" class="ai-trans-btn" role="button" aria-haspopup="true" aria-expanded="false" aria-controls="' . esc_attr($menu_id) . '" title="' . esc_attr(strtoupper($currentLang)) . '">';
-    $switcher_html .= '<img src="' . $currentFlag . '" alt="' . esc_attr($currentLang) . '"><span class="ai-trans-code">' . esc_html(strtoupper($currentLang)) . '</span>';
-    $switcher_html .= '</a>';
-    $switcher_html .= '<div id="' . esc_attr($menu_id) . '" class="ai-trans-menu" role="menu">';
-    
-    // Build path without language prefix so switcher lands on the same page in the target language
-    $pathNoLang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
-    if ($pathNoLang === '') {
-        $pathNoLang = '/';
-    }
-    // Resolve translated slugs back to original-language slug (e.g. /fr/actualites/ → /nieuws/)
-    $pathNoLang = ai_translate_canonical_path($pathNoLang);
-
-    foreach ($enabled as $code) {
-        $code = sanitize_key($code);
-        $isDefaultLang = (strtolower($code) === strtolower((string) $default));
-        $label = strtoupper($isDefaultLang ? $default : $code);
-        $sub = ai_translate_site_path();
-        $url = $isDefaultLang ? esc_url($sub . $pathNoLang) : esc_url($sub . '/' . $code . $pathNoLang);
-        $flag = esc_url($flags_url . $code . '.png');
-        $switcher_html .= '<a class="ai-trans-item" href="' . $url . '" role="menuitem" data-lang="' . esc_attr($code) . '" data-ai-trans-skip="1">';
-        $switcher_html .= '<img src="' . $flag . '" alt="' . esc_attr($label) . '">';
-        $switcher_html .= '</a>';
-    }
-
-    $switcher_html .= '</div></div></li>';
-
-    return $switcher_html;
 }
 
 /**
@@ -1989,13 +1889,12 @@ add_action('rest_api_init', function () {
                 // 1. ai_tr_attr_* (JavaScript batch-strings cache)
                 // 2. ai_tr_seg_* (PHP translation plan cache, format: ai_tr_seg_{lang}_{md5('attr|md5(text)')})
                 $cached = false;
-                $attrCacheKey = 'ai_tr_attr_' . $lang . '_' . md5($normalized);
+                $attrCacheKey = ai_translate_attr_cache_key($lang, $normalized);
                 $cached = ai_translate_get_attr_transient($attrCacheKey);
                 
                 // If not found in JavaScript cache, check PHP translation plan cache
                 if ($cached === false) {
-                    $segKey = 'attr|' . md5($normalized);
-                    $segCacheKey = 'ai_tr_seg_' . $lang . '_' . md5($segKey);
+                    $segCacheKey = ai_translate_seg_attr_cache_key($lang, $normalized);
                     $cached = get_transient($segCacheKey);
                 }
                 
@@ -2021,14 +1920,11 @@ add_action('rest_api_init', function () {
 
                         // For non-Latin target languages: additional check for Latin ratio
                         // Only for longer texts to avoid false positives with brand names
-                        if (!$cacheInvalid && mb_strlen($cachedText) > 100) {
-                            $nonLatinLangs = ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka'];
-                            if (in_array($lang, $nonLatinLangs, true)) {
-                                $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
-                                $latinRatio = mb_strlen($cachedText) > 0 ? ($latinCount / mb_strlen($cachedText)) : 0;
-                                if ($latinRatio > 0.4) {
-                                    $cacheInvalid = true;
-                                }
+                        if (!$cacheInvalid && mb_strlen($cachedText) > 100 && \AITranslate\AI_Lang::is_non_latin($lang)) {
+                            $latinCount = preg_match_all('/[a-zA-Z]/', $cachedText);
+                            $latinRatio = mb_strlen($cachedText) > 0 ? ($latinCount / mb_strlen($cachedText)) : 0;
+                            if ($latinRatio > 0.4) {
+                                $cacheInvalid = true;
                             }
                         }
                     }
@@ -2202,7 +2098,7 @@ add_action('rest_api_init', function () {
                         // Store in cache using normalized version for consistency
                         // Even if translation is identical to source (text was already in target language),
                         // we cache it so it won't be sent to API again
-                        $cacheKey = 'ai_tr_attr_' . $lang . '_' . md5($origNormalized);
+                        $cacheKey = ai_translate_attr_cache_key($lang, $origNormalized);
                         $trNormalized = trim($tr);
                         $trNormalized = preg_replace('/\s+/u', ' ', $trNormalized);
                         $isIdentical = ($trNormalized === $origNormalized && mb_strlen($origNormalized) > 3);
@@ -2509,6 +2405,32 @@ function ai_translate_resolve_term_from_path($path)
         }
     }
     return null;
+}
+
+/**
+ * Map a resolved taxonomy term onto WP query vars (category_name / tag / {taxonomy} + paged).
+ *
+ * @param array $vars          Query vars (request filter) or $wp->query_vars.
+ * @param array $resolved_term Result of ai_translate_resolve_term_from_path().
+ * @return array
+ */
+function ai_translate_apply_resolved_term_to_vars(array $vars, array $resolved_term): array {
+    if (empty($resolved_term['term']) || !($resolved_term['term'] instanceof \WP_Term)) {
+        return $vars;
+    }
+    $term = $resolved_term['term'];
+    $tax = $term->taxonomy;
+    if ($tax === 'category') {
+        $vars['category_name'] = $term->slug;
+    } elseif ($tax === 'post_tag') {
+        $vars['tag'] = $term->slug;
+    } else {
+        $vars[$tax] = $term->slug;
+    }
+    if (!empty($resolved_term['paged']) && (int) $resolved_term['paged'] > 1) {
+        $vars['paged'] = (int) $resolved_term['paged'];
+    }
+    return $vars;
 }
 
 /**
@@ -2930,19 +2852,8 @@ add_action('parse_request', function ($wp) {
         if (!$post) {
             $resolved_term = ai_translate_resolve_term_from_path($rest);
             if ($resolved_term) {
-                $term = $resolved_term['term'];
-                $tax = $term->taxonomy;
                 $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
-                if ($tax === 'category') {
-                    $wp->query_vars['category_name'] = $term->slug;
-                } elseif ($tax === 'post_tag') {
-                    $wp->query_vars['tag'] = $term->slug;
-                } else {
-                    $wp->query_vars[$tax] = $term->slug;
-                }
-                if ($resolved_term['paged'] > 1) {
-                    $wp->query_vars['paged'] = $resolved_term['paged'];
-                }
+                $wp->query_vars = ai_translate_apply_resolved_term_to_vars($wp->query_vars, $resolved_term);
                 $wp->is_404 = false;
                 return;
             }
@@ -2980,8 +2891,35 @@ add_action('parse_request', function ($wp) {
 });
 
 /**
- * Rewrite internal permalinks (post/page) to stable translated slugs for current language.
+ * Build a root-relative translated path for a post in the given language.
+ * Includes CPT rewrite prefix when applicable (e.g. WooCommerce product_base).
+ *
+ * @param int    $post_id Post ID.
+ * @param string $lang    Target language code.
+ * @param string $default Default/source language code.
+ * @param string $trail   Trailing slash (or empty).
+ * @return string|null Path or null when slug cannot be resolved.
  */
+function ai_translate_build_translated_path($post_id, $lang, $default, $trail = '/') {
+    $post_id = (int) $post_id;
+    $lang = sanitize_key((string) $lang);
+    $default = sanitize_key((string) $default);
+    $translated = \AITranslate\AI_Slugs::get_or_generate($post_id, $lang);
+    if ($translated === null) {
+        return null;
+    }
+    $cpt_prefix = '';
+    $post = get_post($post_id);
+    if ($post && function_exists('ai_translate_cpt_path_prefix')) {
+        $cpt_prefix = ai_translate_cpt_path_prefix((string) $post->post_type);
+    }
+    $slug = trim((string) $translated, '/');
+    if (strtolower($lang) === strtolower($default)) {
+        return '/' . $cpt_prefix . $slug . $trail;
+    }
+    return '/' . $lang . '/' . $cpt_prefix . $slug . $trail;
+}
+
 add_filter('post_link', function ($permalink, $post, $leavename) {
     if (is_admin()) return $permalink;
     if (ai_translate_is_xml_request()) return $permalink;
@@ -2990,12 +2928,9 @@ add_filter('post_link', function ($permalink, $post, $leavename) {
     if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
         return $permalink;
     }
-    $translated = \AITranslate\AI_Slugs::get_or_generate((int) $post->ID, $lang);
-    if ($translated === null) return $permalink;
-    // Build path /{lang}/{translated-slug}/ respecting trailing slash (support Unicode slugs)
     $trail = substr($permalink, -1) === '/' ? '/' : '';
-    $path = '/' . $lang . '/' . trim($translated, '/') . $trail;
-    return home_url($path);
+    $path = ai_translate_build_translated_path((int) $post->ID, $lang, $default, $trail);
+    return $path === null ? $permalink : home_url($path);
 }, 10, 3);
 
 add_filter('page_link', function ($permalink, $post_id, $sample) {
@@ -3006,11 +2941,9 @@ add_filter('page_link', function ($permalink, $post_id, $sample) {
     if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
         return $permalink;
     }
-    $translated = \AITranslate\AI_Slugs::get_or_generate((int) $post_id, $lang);
-    if ($translated === null) return $permalink;
     $trail = substr($permalink, -1) === '/' ? '/' : '';
-    $path = '/' . $lang . '/' . trim($translated, '/') . $trail;
-    return home_url($path);
+    $path = ai_translate_build_translated_path((int) $post_id, $lang, $default, $trail);
+    return $path === null ? $permalink : home_url($path);
 }, 10, 3);
 
 /**
@@ -3024,15 +2957,9 @@ add_filter('post_type_link', function ($permalink, $post, $leavename, $sample) {
     if ($lang === null || $default === null || strtolower($lang) === strtolower($default)) {
         return $permalink;
     }
-    $translated = \AITranslate\AI_Slugs::get_or_generate((int) $post->ID, $lang);
-    if ($translated === null) return $permalink;
-
-    // Use the rewrite slug (e.g. WooCommerce product_base 'urun'), not the
-    // post type name ('product'), so generated links match real routes.
-    $cpt_prefix = ai_translate_cpt_path_prefix((string) $post->post_type);
     $trail = substr($permalink, -1) === '/' ? '/' : '';
-    $path = '/' . $lang . '/' . $cpt_prefix . trim($translated, '/') . $trail;
-    return home_url($path);
+    $path = ai_translate_build_translated_path((int) $post->ID, $lang, $default, $trail);
+    return $path === null ? $permalink : home_url($path);
 }, 10, 4);
 
 /**
@@ -4127,99 +4054,14 @@ add_filter('wp_nav_menu_args', function($args) {
 
 // Add shortcode for menu language switcher
 add_shortcode('ai_menu_language_switcher', function($atts) {
-    $atts = shortcode_atts(array(
-        'show_flags' => 'true',
-        'show_codes' => 'true',
-    ), $atts);
-
-    $enabled_languages = \AITranslate\AI_Translate_Core::enabled_languages();
-    $default_language = \AITranslate\AI_Translate_Core::default_language();
-    if ($default_language !== '' && !in_array($default_language, $enabled_languages, true)) {
-        $enabled_languages[] = $default_language;
-    }
-
-    if (empty($enabled_languages) || empty($default_language)) {
-        return '';
-    }
-
-    // Determine current language
-    $current_lang = null;
-    $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-    $path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
-    if ($path === '') {
-        $path = '/';
-    }
-    $path = ai_translate_strip_site_path($path);
-
-    if (preg_match('#^/([a-z]{2})(?=/|$)#i', $path, $matches)) {
-        $current_lang = strtolower($matches[1]);
-    }
-
-    if (!$current_lang) {
-        $current_lang = $default_language;
-    }
-
-    // Build base path (remove language prefix if present)
-    $path_no_lang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
-    if ($path_no_lang === '') {
-        $path_no_lang = '/';
-    }
-    $path_no_lang = ai_translate_canonical_path($path_no_lang);
-
-    $flags_url = plugin_dir_url(__FILE__) . 'assets/flags/';
-
-    // Generate submenu HTML
-    $submenu_html = '<ul class="sub-menu children">';
-    foreach ($enabled_languages as $lang_code) {
-        $lang_code = sanitize_key($lang_code);
-        $is_current = ($lang_code === $current_lang);
-        $lang_label = strtoupper($lang_code);
-
-        // Build URL
-        $sub = ai_translate_site_path();
-        if ($lang_code === $default_language) {
-            $lang_url = esc_url($sub . $path_no_lang);
-        } else {
-            $lang_url = esc_url($sub . '/' . $lang_code . $path_no_lang);
-        }
-
-        $item_classes = 'menu-item';
-        if ($is_current) {
-            $item_classes .= ' current-menu-item';
-        }
-
-        $submenu_html .= '<li class="' . esc_attr($item_classes) . '">';
-        $submenu_html .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
-
-        if ($atts['show_flags'] === 'true') {
-            $submenu_html .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-menu-language-flag" />';
-        }
-        if ($atts['show_codes'] === 'true') {
-            $submenu_html .= '<span class="ai-menu-language-code">' . esc_html($lang_label) . '</span>';
-        }
-
-        $submenu_html .= '</a>';
-        $submenu_html .= '</li>';
-    }
-    $submenu_html .= '</ul>';
-
-    // Current language display
-    $current_flag = esc_url($flags_url . sanitize_key($current_lang) . '.png');
-    $current_label = strtoupper($current_lang);
-
-    $output = '<div class="menu-item-language-switcher menu-item-has-children">';
-    $output .= '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
-    if ($atts['show_flags'] === 'true') {
-        $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_label) . '" class="ai-menu-language-flag" />';
-    }
-    if ($atts['show_codes'] === 'true') {
-        $output .= '<span class="ai-menu-language-code">' . esc_html($current_label) . '</span>';
-    }
-    $output .= '</a>';
-    $output .= $submenu_html;
-    $output .= '</div>';
-
-    return $output;
+    $atts = shortcode_atts(['show_flags' => 'true', 'show_codes' => 'true'], $atts);
+    $html = ai_translate_generate_switcher_html(
+        'dropdown',
+        $atts['show_flags'] === 'true',
+        $atts['show_codes'] === 'true'
+    );
+    if ($html === '') return '';
+    return '<div class="menu-item-language-switcher menu-item-has-children">' . $html . '</div>';
 });
 
 // Direct database approach: Update menu items when they are saved
@@ -4248,30 +4090,6 @@ add_action('admin_init', function() {
         }
     }
 });
-
-// Force our walker for menus with language switcher items
-add_filter('wp_nav_menu_args', function($args) {
-    // Simple check - if walker not set, try to detect language switchers
-    if (!isset($args['walker'])) {
-        $menu_items = array();
-
-        if (isset($args['theme_location'])) {
-            $menu_locations = get_nav_menu_locations();
-            if (isset($menu_locations[$args['theme_location']])) {
-                $menu_items = wp_get_nav_menu_items($menu_locations[$args['theme_location']]);
-            }
-        }
-
-        foreach ($menu_items as $item) {
-            if (get_post_meta($item->ID, '_menu_item_object', true) === 'ai_language_switcher') {
-                $args['walker'] = new AI_Translate_Menu_Walker();
-                break;
-            }
-        }
-    }
-
-    return $args;
-}, 9999);
 
 // Add JavaScript to replace language switcher menu items on frontend
 add_action('wp_footer', function() {

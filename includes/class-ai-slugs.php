@@ -817,24 +817,6 @@ final class AI_Slugs
     }
 
     /**
-     * Backwards-compatible Jaccard wrapper (kept for tests/external callers).
-     *
-     * @param string $a
-     * @param string $b
-     * @return float
-     */
-    private static function jaccard_similarity($a, $b)
-    {
-        $words_a = self::slug_words($a);
-        $words_b = self::slug_words($b);
-        if (empty($words_a) || empty($words_b)) return 0.0;
-        $intersection = array_intersect($words_a, $words_b);
-        $union = array_unique(array_merge($words_a, $words_b));
-        if (count($union) === 0) return 0.0;
-        return count($intersection) / count($union);
-    }
-
-    /**
      * Append a previously stored translated slug to the history table so 404-recovery
      * can map outdated translated URLs back to their post.
      *

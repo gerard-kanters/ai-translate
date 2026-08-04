@@ -83,12 +83,14 @@ final class AI_Lang
                 // the cookie is now present within this same request lifecycle.
                 $GLOBALS['ai_translate_first_visit_lang'] = $picked;
                 self::$current = $picked;
+                self::sync_wp_text_direction(self::$current);
                 return self::$current;
             }
             // 2) Default as last resort
             $normalizedDefault = $default !== '' ? strtolower(sanitize_key($default)) : '';
             if ($normalizedDefault !== '') {
                 self::$current = $normalizedDefault;
+                self::sync_wp_text_direction(self::$current);
                 return self::$current;
             }
             self::$current = null;
@@ -98,10 +100,12 @@ final class AI_Lang
         if (!empty($allowed) && !in_array(strtolower($lang), $allowed, true)) {
             // Not in allowed set; fall back to default if present.
             self::$current = $default !== '' ? $default : null;
+            self::sync_wp_text_direction(self::$current);
             return self::$current;
         }
 
         self::$current = $lang;
+        self::sync_wp_text_direction(self::$current);
         return self::$current;
     }
 
@@ -222,6 +226,10 @@ final class AI_Lang
      * themes never load rtl.css / never get body.rtl — leaving only a bare
      * dir="rtl" on <html> from the output buffer (half-applied RTL).
      *
+     * Also syncs WP_Styles::$text_direction: that object is constructed early
+     * (before the URL language is known) and wp_print_styles() uses *its* copy,
+     * not is_rtl(), to decide whether to print style-rtl.css / bootstrap-rtl.css.
+     *
      * @param string|null $lang Language code.
      * @return void
      */
@@ -233,6 +241,14 @@ final class AI_Lang
         global $wp_locale;
         if (isset($wp_locale) && is_object($wp_locale) && property_exists($wp_locale, 'text_direction')) {
             $wp_locale->text_direction = $dir;
+        }
+
+        // Keep the style queueer's direction in sync so rtl "replace" stylesheets print.
+        if (function_exists('wp_styles')) {
+            $styles = wp_styles();
+            if (is_object($styles) && property_exists($styles, 'text_direction')) {
+                $styles->text_direction = $dir;
+            }
         }
     }
 
@@ -276,6 +292,29 @@ final class AI_Lang
     public static function is_rtl($lang)
     {
         return in_array(strtolower(trim((string) $lang)), ['ar', 'he'], true);
+    }
+
+    /**
+     * Language codes that use a non-Latin script.
+     * Single source of truth for cache validation, retry detection, and content checks.
+     * Keep in sync when adding a non-Latin language to get_available_languages().
+     *
+     * @return array<int, string>
+     */
+    public static function non_latin_codes(): array
+    {
+        return ['zh', 'ja', 'ko', 'ar', 'he', 'th', 'ka', 'bg', 'el', 'hi', 'uk', 'ru', 'kk', 'mk', 'sr'];
+    }
+
+    /**
+     * Whether a language code uses a non-Latin script.
+     *
+     * @param string|null $lang
+     * @return bool
+     */
+    public static function is_non_latin($lang): bool
+    {
+        return in_array(strtolower(trim((string) $lang)), self::non_latin_codes(), true);
     }
 
     /**

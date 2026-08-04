@@ -24,6 +24,20 @@ final class AI_Translate_Core
         return self::$instance;
     }
 
+    public static function build_api_headers(string $api_key, string $provider, array $settings = []): array
+    {
+        $headers = [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type' => 'application/json',
+        ];
+        $custom = isset($settings['custom_api_url']) ? (string) $settings['custom_api_url'] : '';
+        if ($provider === 'openrouter' || ($provider === 'custom' && strpos($custom, 'openrouter.ai') !== false)) {
+            $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
+            $headers['X-Title'] = 'AI Translate';
+        }
+        return $headers;
+    }
+
     /**
      * Cached accessor for plugin settings. Avoids repeated get_option() calls per request.
      *
@@ -412,15 +426,7 @@ final class AI_Translate_Core
         }
 
         $endpoint = rtrim($base, '/') . '/models';
-        $headers = [
-            'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type'  => 'application/json',
-        ];
-        // OpenRouter requires Referer header (both built-in 'openrouter' and custom OpenRouter URL)
-        if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
-            $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-            $headers['X-Title'] = 'AI Translate';
-        }
+        $headers = self::build_api_headers($api_key, $provider_key, ['custom_api_url' => $custom_api_url]);
         $resp = wp_remote_get($endpoint, [
             'headers' => $headers,
             'timeout' => 15,
@@ -473,15 +479,7 @@ final class AI_Translate_Core
 
             $endpointPath = self::get_model_endpoint_path($model);
             $chatEndpoint = rtrim($base, '/') . $endpointPath;
-            $chatHeaders = [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type'  => 'application/json',
-            ];
-            // OpenRouter requires Referer header (both built-in 'openrouter' and custom OpenRouter URL)
-            if ($provider_key === 'openrouter' || ($provider_key === 'custom' && strpos($custom_api_url, 'openrouter.ai') !== false)) {
-                $chatHeaders['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-                $chatHeaders['X-Title'] = 'AI Translate';
-            }
+            $chatHeaders = self::build_api_headers($api_key, $provider_key, ['custom_api_url' => $custom_api_url]);
             $chatBody = [
                 'model' => $model,
                 'messages' => [
@@ -1389,15 +1387,7 @@ final class AI_Translate_Core
                     $body = self::convert_body_to_responses($body);
                 }
 
-                $headers = [
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type'  => 'application/json',
-                ];
-                
-                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
-                    $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-                    $headers['X-Title'] = 'AI Translate';
-                }
+                $headers = self::build_api_headers($apiKey, $provider, ['custom_api_url' => $baseUrl]);
 
                 $response = wp_remote_post($endpoint, [
                     'headers' => $headers,
@@ -1560,15 +1550,7 @@ final class AI_Translate_Core
                     $body = self::convert_body_to_responses($body);
                 }
 
-                $headers = [
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type'  => 'application/json',
-                ];
-                
-                if ($provider === 'custom' && strpos($baseUrl, 'openrouter.ai') !== false) {
-                    $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
-                    $headers['X-Title'] = 'AI Translate';
-                }
+                $headers = self::build_api_headers($apiKey, $provider, ['custom_api_url' => $baseUrl]);
 
                 $response = wp_remote_post($endpoint, [
                     'headers' => $headers,

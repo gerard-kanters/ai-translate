@@ -612,7 +612,7 @@ function warm_cache_internal_request($post_id, $request_path, $lang_code)
         // Wait a moment for async cache writes to complete
         usleep(500000); // 0.5 second
         
-        $route_id = 'post:' . $post_id;
+        $route_id = warm_cache_route_id((int) $post_id);
         $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
         $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
         
@@ -1406,14 +1406,22 @@ add_action('admin_init', function () {
                 $sanitized['default_language'] = sanitize_text_field($input['default_language']);
             }
 
-            // Enabled languages (switcher)
-            if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
-                $sanitized['enabled_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['enabled_languages'])));
-            }
-
-            // Detectable languages (auto)
-            if (isset($input['detectable_languages']) && is_array($input['detectable_languages'])) {
-                $sanitized['detectable_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['detectable_languages'])));
+            // Enabled / detectable languages: on full form submit, missing array = all unchecked.
+            // AJAX/partial updates only overwrite when the key is present.
+            if ($is_form_submit) {
+                $sanitized['enabled_languages'] = (isset($input['enabled_languages']) && is_array($input['enabled_languages']))
+                    ? array_values(array_unique(array_map('sanitize_text_field', $input['enabled_languages'])))
+                    : [];
+                $sanitized['detectable_languages'] = (isset($input['detectable_languages']) && is_array($input['detectable_languages']))
+                    ? array_values(array_unique(array_map('sanitize_text_field', $input['detectable_languages'])))
+                    : [];
+            } else {
+                if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
+                    $sanitized['enabled_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['enabled_languages'])));
+                }
+                if (isset($input['detectable_languages']) && is_array($input['detectable_languages'])) {
+                    $sanitized['detectable_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['detectable_languages'])));
+                }
             }
 
             // Switcher position

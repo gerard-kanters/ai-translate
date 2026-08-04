@@ -147,8 +147,27 @@ final class AI_Cache
             wp_mkdir_p($dir);
         }
         
-        $result = @file_put_contents($file, $html);
+        $result = false;
+        $tmp = $file . '.tmp.' . uniqid('', true);
+        // Atomic write: write temp then rename so readers never see a partial HTML file.
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- local cache write under uploads
+        if (@file_put_contents($tmp, $html) !== false) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic replace of cache artifact
+            if (@rename($tmp, $file)) {
+                $result = true;
+            } else {
+                // Fallback if rename fails across filesystems
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+                $result = (@file_put_contents($file, $html) !== false);
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+                @unlink($tmp);
+            }
+        }
         
+        if (!$result) {
+            return;
+        }
+
         // Track cache metadata for admin table
         // Extract post_id from route_id in cache key: ait:v4:site:lang:route_id
         $parts = explode(':', (string) $key);

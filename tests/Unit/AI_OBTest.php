@@ -151,6 +151,74 @@ final class AI_OBTest extends TestCase
         $this->assertSame($once, $twice);
     }
 
+    public function test_flips_inline_text_align_left_to_right_for_rtl(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body><p style="text-align: left;">tekst</p></body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'ar');
+
+        $this->assertStringContainsString('text-align: right', $result);
+        $this->assertStringNotContainsString('text-align: left', $result);
+    }
+
+    public function test_inline_text_align_flip_is_idempotent_on_rtl_reserver(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body><p style="text-align: left; color: red;">tekst</p></body></html>';
+
+        $once = AI_OB::apply_html_lang_dir($html, 'ar');
+        $twice = AI_OB::apply_html_lang_dir($once, 'ar');
+
+        $this->assertSame($once, $twice);
+        $this->assertStringContainsString('text-align: right', $twice);
+        $this->assertSame(1, substr_count(strtolower($twice), 'text-align: right'));
+    }
+
+    public function test_does_not_flip_inline_text_align_for_ltr_target(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body><p style="text-align: left;">tekst</p></body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'de');
+
+        $this->assertStringContainsString('text-align: left', $result);
+        $this->assertStringNotContainsString('text-align: right', $result);
+    }
+
+    public function test_rewrites_stylesheet_href_to_rtl_when_file_exists(): void
+    {
+        if (!defined('WP_CONTENT_DIR')) {
+            define('WP_CONTENT_DIR', sys_get_temp_dir() . '/ai-tr-rtl-test-content');
+        }
+        $dir = rtrim((string) WP_CONTENT_DIR, '/\\') . '/themes/testrtl';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+        $ltr = $dir . '/style.css';
+        $rtl = $dir . '/style-rtl.css';
+        file_put_contents($ltr, 'body{direction:ltr}');
+        file_put_contents($rtl, 'body{direction:rtl}');
+
+        Functions\when('content_url')->justReturn('https://example.test/wp-content/');
+        Functions\when('wp_parse_url')->alias(static function ($url, $component = -1) {
+            return parse_url($url, $component);
+        });
+        Functions\when('trailingslashit')->alias(static function ($s) {
+            return rtrim((string) $s, '/\\') . '/';
+        });
+
+        $html = '<html lang="nl"><head>'
+            . '<link rel="stylesheet" href="https://example.test/wp-content/themes/testrtl/style.css?ver=1" />'
+            . '</head><body>x</body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'ar');
+
+        $this->assertStringContainsString('style-rtl.css?ver=1', $result);
+        $this->assertStringNotContainsString('themes/testrtl/style.css?', $result);
+
+        @unlink($ltr);
+        @unlink($rtl);
+        @rmdir($dir);
+    }
+
     public function test_returns_html_unchanged_for_empty_lang(): void
     {
         $html = '<html lang="nl-NL"><head></head><body>tekst</body></html>';
