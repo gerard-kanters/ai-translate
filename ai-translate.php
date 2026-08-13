@@ -7,7 +7,7 @@
  * Author URI: https://netcare.nl/
  * Version: 2.3.11
  * Requires at least: 6.2
- * Tested up to: 7.0
+ * Tested up to: 7.1
  * Requires PHP: 8.0
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
