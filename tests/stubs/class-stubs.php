@@ -166,5 +166,10 @@ if (!class_exists('AITranslate\\AI_Cache_Meta')) {
         {
             // no-op in tests
         }
+
+        public static function get_never_cached_post_ids()
+        {
+            return [];
+        }
     }
 }

@@ -317,12 +317,22 @@ final class AI_OB
         // Examples: WooCommerce add-to-cart, form submissions, AJAX actions, etc.
         $hasDynamicQueryParams = $this->has_dynamic_query_parameters();
 
-        // Respect the ecosystem-wide DONOTCACHEPAGE constant. WooCommerce sets it on
-        // cart/checkout/my-account pages (session-specific content, stale REST nonces);
-        // other plugins use it for similar dynamic pages. Translate, but never serve
-        // from or store in the page cache.
+        // DONOTCACHEPAGE means "do not store this response". WooCommerce sets it on
+        // cart/checkout/my-account (session HTML). Jetpack Subscriptions also sets it
+        // for every manage_options user via is_user_auth() — those admins must still
+        // be served the shared page cache (admin bar is injected afterwards).
         $noCachePage = defined('DONOTCACHEPAGE') && DONOTCACHEPAGE;
-        
+        $neverCachedPostIds = AI_Cache_Meta::get_never_cached_post_ids();
+        $routePostId = (strpos((string) $route, 'post:') === 0) ? (int) substr((string) $route, 5) : 0;
+        $isNeverCachedRoute = ($routePostId > 0 && in_array($routePostId, $neverCachedPostIds, true));
+        $isPrivilegedAdmin = function_exists('current_user_can') && current_user_can('manage_options');
+        // Jetpack Subscriptions defines DONOTCACHEPAGE for every manage_options user.
+        // Those admins still get the shared page cache; the admin bar is injected after.
+        // Session-specific routes (cart, paywalls, dynamic query params) still skip the read.
+        $skipCacheRead = $hasDynamicQueryParams
+            || $isNeverCachedRoute
+            || ((bool) $noCachePage && !$isPrivilegedAdmin);
+
         // Note: content_version removed from cache key for stability
         // route_id is already unique per page, making content_version unnecessary
         // Cache expiry (14+ days) ensures automatic refresh
@@ -336,7 +346,7 @@ final class AI_OB
             return $html; // Return untranslated HTML without processing
         }
 
-        if (!$bypassUserCache && !$nocache && !$hasDynamicQueryParams && !$noCachePage) {
+        if (!$bypassUserCache && !$nocache && !$skipCacheRead) {
             $cached = AI_Cache::get($key);
 
             if ($cached !== false && !$this->content_matches_target_lang($cached, $lang)) {
@@ -372,9 +382,9 @@ final class AI_OB
         $maxLockWait = 30; // Maximum seconds to wait for lock
         $lockAcquired = false;
 
-        // No-cache pages never produce a shared cache file, so waiting on the lock
-        // would only stall concurrent visitors for 30s and then serve untranslated HTML.
-        if (!$bypassUserCache && !$nocache && !$noCachePage) {
+        // Pages that will not be written to the shared cache (session-specific HTML
+        // or DONOTCACHEPAGE) must not wait on the lock: nothing will appear.
+        if (!$bypassUserCache && !$nocache && !$noCachePage && !$isNeverCachedRoute) {
             $lockStart = time();
             // Wait while another process holds the lock
             while (!self::try_acquire_cache_lock($lockKey)) {
@@ -592,7 +602,7 @@ final class AI_OB
         $isCacheable = $this->route_has_valid_content($route);
         
         $contentMatchesLang = $this->content_matches_target_lang($html3, $lang);
-        if (!$bypassUserCache && !$hasDynamicQueryParams && !$noCachePage && $isCacheable) {
+        if (!$bypassUserCache && !$hasDynamicQueryParams && !$noCachePage && !$isNeverCachedRoute && $isCacheable) {
             $retryKey = 'ai_tr_retry_' . md5($key);
             if ($contentMatchesLang) {
                 AI_Cache::set($key, $html3);
