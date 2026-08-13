@@ -1,13 +1,12 @@
-=== AI Translate ===
-Contributors: gkanters  
+=== AI Translate === Contributors: Gerard Kanters  
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
 Requires at least: 6.2  
 Tested up to: 7.1  
 Stable tag: 2.3.11
 Requires PHP: 8.0
 License: GPLv2 or later  
-License URI: <https://www.gnu.org/licenses/gpl-2.0.html>
-Plugin homepage: https://wordpress.org/plugins/ai-translate 
+License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
+Plugin homepage: [https://wordpress.org/plugins/ai-translate](https://wordpress.org/plugins/ai-translate) 
 = AI Translate for WordPress & WooCommerce. Multilingual SEO with translated slugs & 35+ languages. Fast caching, unique Tone of Voice & low AI costs. =
 
 ## Description
@@ -38,6 +37,8 @@ Automatic hreflang tags, translated URL slugs, and proper indexing ensure search
 - **🔗 SEO-Friendly** - Also translates URLs for better search engine optimization.
 - **🔥 Cache-Warming** - Have all pages pre-translated so they are immediately available to visitors.
 
+
+
 ## Installation
 
 1. **Install the plugin** - Upload to `/wp-content/plugins/ai-translate/` or install directly via  WordPress (plugin screen)
@@ -46,6 +47,8 @@ Automatic hreflang tags, translated URL slugs, and proper indexing ensure search
 4. **Add API key** - Add your API key and select which languages you want to support
 5. **Tip for best performance** - Use Memcached or Redis for even faster caching (optional)
 
+
+
 ### Permalinks
 
 AI Translate requires **friendly permalinks** to function properly. The plugin automatically sets your permalinks to the "Post name" structure (`/%postname%/`) during activation if they are currently set to "Plain". This is necessary for the language-prefixed URLs (e.g., `/de/`, `/en/`) to work correctly.
@@ -53,6 +56,8 @@ AI Translate requires **friendly permalinks** to function properly. The plugin a
 If you manually change permalinks to "Plain" after activation, you will see a warning in the WordPress admin, and the language switching will not work as expected.
 
 ## Frequently Asked Questions
+
+
 
 ### What are the costs for using AI Translate?
 
@@ -85,6 +90,8 @@ For optimal performance, we recommend:
 - Using a caching plugin like Jetpack, WP Rocket, or W3 Total Cache
 - Configuring Memcached or Redis for database caching
 - Adjusting cache duration based on how often you update content
+
+
 
 ### Can I use AI Translate for a multilingual webshop?
 
@@ -122,11 +129,15 @@ All plugin settings can be found under 'AI Translate' in your WordPress admin me
 - **🔐 API Key** - Your API authentication key
 - **🤖 Translation Model** - Choose your preferred AI model
 
+
+
 ### Language Settings
 
 - **🌍 Default Language** - The main language of your website
 - **🎯 Enabled Languages** - Languages visible in the language switcher
 - **🔍 Detectable Languages** - Automatic translation on browser match, but not in switcher
+
+
 
 ### Cache Settings
 
@@ -134,10 +145,14 @@ All plugin settings can be found under 'AI Translate' in your WordPress admin me
 - **🗑️ Cache Management** - Clear all cache, only transient cache, or cache per language
 - **🔄 Automatic cache invalidation** - Cache is only refreshed on content changes
 
+
+
 ### Advanced Settings
 
 - **📄 Homepage Meta Description** - Set a custom meta description that will be automatically translated.
 - **✨ Auto-generate site context** - Let the AI automatically analyze your site for better translations
+
+
 
 ## Usage
 
@@ -151,13 +166,14 @@ Each visitor's language preference is remembered for future visits.
 - **🧹 Auto-cleanup** - Expired cache is automatically cleaned up
 - **🔧 Manual clearing** - Clear cache manually via plugin settings
 
+
+
 ## Recommended Model Selection
 
 - **💡 OpenAI**: `gpt-5.4-mini` Pretty good for most languages and reasonably priced.
 - **💰 Deepseek**: `deepseek-chat` - Slower, but more cost-effective.
 - **🔧 OpenRouter**: Select google/gemini-3.1-flash-lite which has a very good price/performance ratio.
-- **💡 Groq**: Select openai/gpt-oss-120b  Extremely fast, pretty cheap and very good in translating. 
-  
+- **💡 Groq**: Select openai/gpt-oss-120b  Extremely fast, pretty cheap and very good in translating.
 
 Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing. 
 
@@ -166,6 +182,8 @@ Gemini flash is the best price performance model available now. It is fast, supp
 - 🔗 Path-based language URLs for SEO
 - 🚀 Support for more content types and translation improvements are in development
 - ⚡ Caching and API optimization are continuously improved
+
+
 
 ## External Services
 
@@ -176,15 +194,22 @@ AI Translate requires an API key from one of the supported providers:
 - 🔒 Only website content for translation is sent—no visitor IP or personal data
 - 💾 All translations are cached locally; nothing is shared externally
 
+
+
 ## Requirements
 
 - ✅ WordPress 6.2 or higher
 - ✅ PHP 8 or higher
 - 🔑 API key for OpenAI, Deepseek, or compatible service
 
+
+
 ## Changelog
 
+
+
 ### 2.3.11
+
 - Fix: WooCommerce star ratings on translated product pages could stay stale in cache when reviews were added programmatically or via importers (review invalidation now hooks wp_insert_comment, which covers every insertion path).
 - Fix: product review changes now also flush translated shop and category archive caches, so star ratings on listings stay in sync.
 - Fix: permanently deleting an approved review (force delete) now also flushes the translated product/shop/archive caches — the deletion hook fired after the comment row was already gone, so the flush was skipped.
@@ -199,7 +224,10 @@ AI Translate requires an API key from one of the supported providers:
 - Improved: page-builder editor detection now also covers Flatsome UX Builder, Newspaper tagDiv Composer and Avada Live.
 - Improved: saving a post now only translates slugs to enabled + detectable languages instead of all 35+, speeding up post saves and WooCommerce bulk imports.
 
+
+
 ### 2.3.10
+
 - Fix: when the front page is set to "Latest posts", publishing, updating, trashing or restoring a blog post now also invalidates the translated homepage cache so the latest-posts list stays in sync.
 - Fix issues with Woocommerce (product category and shopping-cart)
 - Fix checkbox in admin "keep url slugs in English" 
@@ -209,7 +237,9 @@ AI Translate requires an API key from one of the supported providers:
 - CPT-prefix bug fix for woocommerce. Some languages this results in too many redirects for some product pages.
 
 
+
 ### 2.3.4
+
 - 404 error detectie on older URL redirecting to current URL.
 - Support URL title translation for Jetpack related posts.
 - More unit tests to improve stability.
@@ -220,7 +250,10 @@ AI Translate requires an API key from one of the supported providers:
 - Wordpress 7.0 compatible, minimal release 6.2 now
 - Fix for iframe based page builders (Elementor,Divi,Breakdance)
 
+
+
 ### 2.2.9
+
 - Fix potential 500 error in clean installations. 
 - Improve filtering non text transformer models
 - Load cache settings only when cache tab is open.
@@ -228,7 +261,10 @@ AI Translate requires an API key from one of the supported providers:
 - Reduce placeholder tag restore time.
 - Updated Admin translations.
 
+
+
 ### 2.2.8
+
 - Fix menu issue with elementor theme
 - Improve system prompt (role, what and how).
 - Improve website context generator (what is the website about).
@@ -239,6 +275,8 @@ AI Translate requires an API key from one of the supported providers:
 - Code base refactoring. Improve performance and security, thighening code.
 - Better detect usable models from OpenAI.  
 - Change language switcher url to fixed urls instead of query param.
+
+
 
 ### 2.2.4
 
@@ -255,7 +293,9 @@ AI Translate requires an API key from one of the supported providers:
 - Added options for placing the Language switcher button on your site. 
 - Implemented stop API calls in admin to avoid cost.
 - Improved caching and reduce API calls of UI elements.
-  
+
+
+
 ### 2.1.7
 
 - Fixed JS issue with speculationrules.
@@ -266,6 +306,8 @@ AI Translate requires an API key from one of the supported providers:
 - Fixed issue with existing meta tags in default language.
 - Exclude xml files from processing.
 - Added 10 languages.
+
+
 
 ### 2.0.4
 
@@ -278,12 +320,16 @@ AI Translate requires an API key from one of the supported providers:
 - Reduced url length and system prompt to generate slug
 - Placeholder translation improved
 
+
+
 ### 2.0.1
 
 - Total rework, changing the translation architecture
 - Reduced cost of translation (increasing batch)
 - Great performance boost
 - Better support for third party plugins and themes
+
+
 
 ### 1.34
 
@@ -292,6 +338,8 @@ AI Translate requires an API key from one of the supported providers:
 - Fix menu issues with translated URLs
 - Implemented translated open graph tags
 - Better prompting and reduced placeholder translation issues
+
+
 
 ### 1.3
 
@@ -306,6 +354,8 @@ AI Translate requires an API key from one of the supported providers:
 - Better AI prompting for tags/placeholders
 - Improved contextual translation for single words/slugs
 
+
+
 ### 1.2
 
 - Reduced API calls
@@ -316,6 +366,8 @@ AI Translate requires an API key from one of the supported providers:
 - Improved API settings UI
 - Custom post type support
 - Improved non-Latin script URL translation
+
+
 
 ### 1.1
 
@@ -330,11 +382,14 @@ AI Translate requires an API key from one of the supported providers:
 - Bugfixes and style improvements
 - Improved hreflang original URL logic
 
+
+
 ### 1.0
 
 - Initial release with basic AI translation
 
+
+
 ## Provided by
 
 🌐 [NetCare](https://netcare.nl)
-
