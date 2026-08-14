@@ -1,13 +1,15 @@
-=== AI Translate === Contributors: Gerard Kanters  
-Tags: translation, multilingual, woocommerce, seo, artificial intelligence 
-Requires at least: 6.2  
-Tested up to: 7.1  
+=== AI Translate: Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective. ===
+Contributors: gkanters
+Tags: translation, multilingual, woocommerce, seo, artificial intelligence
+Requires at least: 6.2
+Tested up to: 7.1
 Stable tag: 2.3.11
 Requires PHP: 8.0
-License: GPLv2 or later  
+License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
-Plugin homepage: [https://wordpress.org/plugins/ai-translate](https://wordpress.org/plugins/ai-translate) 
-= AI Translate for WordPress & WooCommerce. Multilingual SEO with translated slugs & 35+ languages. Fast caching, unique Tone of Voice & low AI costs. =
+Plugin homepage: [https://wordpress.org/plugins/ai-translate](https://wordpress.org/plugins/ai-translate)
+
+AI Translate: Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
 
 ## Description
 
