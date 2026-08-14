@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.3.11
+Stable tag: 2.3.12
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -207,6 +207,12 @@ AI Translate requires an API key from one of the supported providers:
 
 
 ## Changelog
+
+
+
+### 2.3.12
+
+- Fix: logged-in administrators now get the shared translation page cache even when Jetpack Subscriptions sets DONOTCACHEPAGE. Translated frontend pages were slow for admins and fast for visitors. Cart, checkout and other session-specific pages still skip the cache.
 
 
 
