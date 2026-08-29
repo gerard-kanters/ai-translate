@@ -216,28 +216,31 @@ final class AI_Cache
     /**
      * Get file path for a cache key (public method for metadata tracking)
      *
-     * @param string $key
+     * @param string      $key
+     * @param string|null $site_dir Optional site subdirectory. Null uses the active domain.
      * @return string
      */
-    public static function get_file_path($key)
+    public static function get_file_path($key, $site_dir = null)
     {
-        return self::file_path($key);
+        return self::file_path($key, $site_dir);
     }
 
     /**
      * Map key to file path under uploads.
      *
-     * @param string $key
+     * @param string      $key
+     * @param string|null $site_dir Optional site subdirectory. Null uses the active domain.
      * @return string
      */
-    private static function file_path($key)
+    private static function file_path($key, $site_dir = null)
     {
         $uploads = wp_upload_dir();
         $base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
         
-        // Add site-specific directory if multi-domain caching is enabled
-        $site_dir = self::get_site_cache_dir();
-        if (!empty($site_dir)) {
+        if ($site_dir === null) {
+            $site_dir = self::get_site_cache_dir();
+        }
+        if ($site_dir !== '') {
             $base = trailingslashit($base) . $site_dir . '/';
         }
         

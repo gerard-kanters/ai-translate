@@ -44,6 +44,107 @@ class AI_Cache_Meta
     }
 
     /**
+     * Site subdirectory stored in cache metadata for a cache file path.
+     * Domain layout: /ai-translate/cache/{domain}/{lang}/pages/...
+     * Shared layout: /ai-translate/cache/{lang}/pages/... (empty site_dir).
+     *
+     * @param string $cache_file Full path to a cache file.
+     * @return string
+     */
+    private static function site_dir_from_cache_file($cache_file)
+    {
+        $normalized = wp_normalize_path((string) $cache_file);
+        if (preg_match('#/ai-translate/cache/([^/]+)/([a-z]{2,3})/pages/#i', $normalized, $matches)) {
+            return sanitize_file_name($matches[1]);
+        }
+        return '';
+    }
+
+    /**
+     * Add site_dir and unique key (post_id, language_code, site_dir) so two domains
+     * can keep metadata for the same post and language without overwriting each other.
+     *
+     * @return void
+     */
+    private static function migrate_site_dir_unique_key()
+    {
+        if (get_option('ai_translate_cache_meta_schema') === '2') {
+            return;
+        }
+
+        global $wpdb;
+        $table_name = self::get_table_name();
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_name)) !== $table_name) {
+            update_option('ai_translate_cache_meta_schema', '2');
+            return;
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $columns = $wpdb->get_col($wpdb->prepare('SHOW COLUMNS FROM %i', $table_name));
+        if (!is_array($columns)) {
+            $columns = array();
+        }
+        if (!in_array('site_dir', $columns, true)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->query($wpdb->prepare(
+                'ALTER TABLE %i ADD site_dir VARCHAR(191) NOT NULL DEFAULT %s',
+                $table_name,
+                ''
+            ));
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, cache_file FROM %i WHERE site_dir = %s",
+            $table_name,
+            ''
+        ));
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $site_dir = self::site_dir_from_cache_file($row->cache_file);
+                if ($site_dir === '') {
+                    continue;
+                }
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                $wpdb->update(
+                    $table_name,
+                    array('site_dir' => $site_dir),
+                    array('id' => (int) $row->id),
+                    array('%s'),
+                    array('%d')
+                );
+            }
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $index_rows = $wpdb->get_results($wpdb->prepare('SHOW INDEX FROM %i', $table_name));
+        $index_names = array();
+        if (is_array($index_rows)) {
+            foreach ($index_rows as $index_row) {
+                if (!empty($index_row->Key_name)) {
+                    $index_names[] = (string) $index_row->Key_name;
+                }
+            }
+        }
+        if (!in_array('post_lang_site', $index_names, true)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->query($wpdb->prepare(
+                'ALTER TABLE %i ADD UNIQUE KEY post_lang_site (post_id, language_code, site_dir)',
+                $table_name
+            ));
+        }
+        if (in_array('post_lang', $index_names, true)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->query($wpdb->prepare(
+                'ALTER TABLE %i DROP INDEX post_lang',
+                $table_name
+            ));
+        }
+
+        update_option('ai_translate_cache_meta_schema', '2');
+    }
+
+    /**
      * Create the cache metadata table
      * Called on plugin activation
      *
@@ -60,12 +161,13 @@ class AI_Cache_Meta
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             post_id BIGINT NOT NULL,
             language_code VARCHAR(10) NOT NULL,
+            site_dir VARCHAR(191) NOT NULL DEFAULT '',
             cache_file VARCHAR(255) NOT NULL,
             cache_hash VARCHAR(64) NOT NULL,
             created_at DATETIME NOT NULL,
             file_size INT UNSIGNED DEFAULT 0,
             PRIMARY KEY (id),
-            UNIQUE KEY post_lang (post_id, language_code),
+            UNIQUE KEY post_lang_site (post_id, language_code, site_dir),
             KEY post_id (post_id),
             KEY language_code (language_code),
             KEY created_at (created_at),
@@ -109,7 +211,7 @@ class AI_Cache_Meta
         ));
 
         $indexes_to_check = [
-            'post_lang' => "UNIQUE KEY post_lang (post_id, language_code)",
+            'post_lang_site' => "UNIQUE KEY post_lang_site (post_id, language_code, site_dir)",
             'post_id' => "KEY post_id (post_id)",
             'language_code' => "KEY language_code (language_code)",
             'created_at' => "KEY created_at (created_at)",
@@ -168,18 +270,20 @@ class AI_Cache_Meta
         self::ensure_table_exists();
         
         $file_size = file_exists($cache_file) ? filesize($cache_file) : 0;
+        $site_dir = self::site_dir_from_cache_file($cache_file);
         
         $result = $wpdb->replace(
             self::get_table_name(),
             array(
                 'post_id'       => $post_id,
                 'language_code' => $language_code,
+                'site_dir'      => $site_dir,
                 'cache_file'    => $cache_file,
                 'cache_hash'    => $cache_hash,
                 'created_at'    => current_time('mysql'),
                 'file_size'     => $file_size
             ),
-            array('%d', '%s', '%s', '%s', '%s', '%d')
+            array('%d', '%s', '%s', '%s', '%s', '%s', '%d')
         );
         
         return $result !== false;
@@ -195,16 +299,28 @@ class AI_Cache_Meta
     public static function delete($post_id, $language_code = null)
     {
         global $wpdb;
+
+        self::ensure_table_exists();
         
         $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
         if ($site_dir !== '') {
-            $site_like = '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%';
-            $sql = $wpdb->prepare("DELETE FROM %i WHERE post_id = %d AND cache_file LIKE %s", self::get_table_name(), $post_id, $site_like);
             if ($language_code !== null) {
-                $sql = $wpdb->prepare("DELETE FROM %i WHERE post_id = %d AND language_code = %s AND cache_file LIKE %s", self::get_table_name(), $post_id, $language_code, $site_like);
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                return (int) $wpdb->query($wpdb->prepare(
+                    "DELETE FROM %i WHERE post_id = %d AND language_code = %s AND site_dir = %s",
+                    self::get_table_name(),
+                    $post_id,
+                    $language_code,
+                    $site_dir
+                ));
             }
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-            return (int) $wpdb->query($sql);
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            return (int) $wpdb->query($wpdb->prepare(
+                "DELETE FROM %i WHERE post_id = %d AND site_dir = %s",
+                self::get_table_name(),
+                $post_id,
+                $site_dir
+            ));
         }
         
         $where = array('post_id' => $post_id);
@@ -225,24 +341,63 @@ class AI_Cache_Meta
     /**
      * Clear all cached translations for a post: delete cache files and metadata.
      * Used on content or title changes so the next visit triggers a fresh translation.
+     * Only this post on the current site is cleared; other pages and other domains stay cached.
      *
      * @param int $post_id Post ID
      * @return array{deleted: int, meta_deleted: int, errors: string[]}
      */
     public static function clear_post_cache($post_id)
     {
+        $post_id = (int) $post_id;
         $deleted = 0;
         $errors = [];
         self::ensure_table_exists();
-        $records = self::get($post_id);
+
         $uploads = wp_upload_dir();
         $allowed_base = wp_normalize_path(trailingslashit($uploads['basedir']) . 'ai-translate/cache/');
 
-        foreach ($records as $record) {
-            if (empty($record->cache_file)) {
-                continue;
+        $files_to_delete = [];
+        foreach (self::get($post_id) as $record) {
+            if (!empty($record->cache_file)) {
+                $files_to_delete[] = wp_normalize_path($record->cache_file);
             }
-            $cache_file = wp_normalize_path($record->cache_file);
+        }
+
+        $route_id = null;
+        if ($post_id > 0) {
+            $route_id = 'post:' . $post_id;
+        } elseif ($post_id === 0) {
+            $route_id = 'path:' . md5('/');
+        } elseif ($post_id === -1) {
+            $route_id = 'path:' . md5('/404');
+        }
+
+        if ($route_id !== null) {
+            $site_dirs = array(\AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing());
+            $write_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir();
+            if ($write_dir !== $site_dirs[0]) {
+                $site_dirs[] = $write_dir;
+            }
+            $langs = array_values(array_unique(array_merge(
+                \AITranslate\AI_Translate_Core::enabled_languages(),
+                \AITranslate\AI_Translate_Core::detectable_languages()
+            )));
+            foreach ($site_dirs as $dir) {
+                foreach ($langs as $lang) {
+                    $lang = sanitize_key((string) $lang);
+                    if ($lang === '') {
+                        continue;
+                    }
+                    $files_to_delete[] = wp_normalize_path(\AITranslate\AI_Cache::get_file_path(
+                        \AITranslate\AI_Cache::key($lang, $route_id),
+                        $dir
+                    ));
+                }
+            }
+        }
+
+        $files_to_delete = array_values(array_unique($files_to_delete));
+        foreach ($files_to_delete as $cache_file) {
             if (strpos($cache_file, $allowed_base) !== 0) {
                 continue;
             }
@@ -346,18 +501,22 @@ class AI_Cache_Meta
         self::ensure_table_exists();
         
         $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
-        $site_filter = '';
         if ($site_dir !== '') {
-            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $results = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM %i WHERE post_id = %d AND site_dir = %s",
+                self::get_table_name(),
+                $post_id,
+                $site_dir
+            ));
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $results = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM %i WHERE post_id = %d",
+                self::get_table_name(),
+                $post_id
+            ));
         }
-        
-        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
-        $results = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM %i WHERE post_id = %d" . $site_filter,
-            self::get_table_name(),
-            $post_id
-        ));
-        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
         
         return is_array($results) ? $results : array();
     }
@@ -440,9 +599,8 @@ class AI_Cache_Meta
         $site_join_condition = '';
         $site_filter = '';
         if ($site_dir !== '') {
-            $site_like = '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%';
-            $site_join_condition = $wpdb->prepare(" AND c.cache_file LIKE %s", $site_like);
-            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", $site_like);
+            $site_join_condition = $wpdb->prepare(" AND c.site_dir = %s", $site_dir);
+            $site_filter = $wpdb->prepare(" AND site_dir = %s", $site_dir);
         }
 
         // Exclude pages that are never page-cached (e.g. WooCommerce cart/checkout/my-account)
@@ -993,6 +1151,8 @@ class AI_Cache_Meta
             $wpdb->last_error = ''; // Clear error
             self::create_table();
         }
+
+        self::migrate_site_dir_unique_key();
         
         $verified = true;
     }
@@ -1435,18 +1595,22 @@ class AI_Cache_Meta
         self::ensure_table_exists();
         
         $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
-        $site_filter = '';
         if ($site_dir !== '') {
-            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $results = $wpdb->get_col($wpdb->prepare(
+                "SELECT language_code FROM %i WHERE post_id = %d AND site_dir = %s",
+                self::get_table_name(),
+                $post_id,
+                $site_dir
+            ));
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $results = $wpdb->get_col($wpdb->prepare(
+                "SELECT language_code FROM %i WHERE post_id = %d",
+                self::get_table_name(),
+                $post_id
+            ));
         }
-        
-        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
-        $results = $wpdb->get_col($wpdb->prepare(
-            "SELECT language_code FROM %i WHERE post_id = %d" . $site_filter,
-            self::get_table_name(),
-            $post_id
-        ));
-        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
         
         return is_array($results) ? $results : array();
     }
@@ -1466,20 +1630,24 @@ class AI_Cache_Meta
         self::ensure_table_exists();
         
         $site_dir = \AITranslate\AI_Translate_Core::get_site_cache_dir_for_clearing();
-        $site_filter = '';
         if ($site_dir !== '') {
-            $site_filter = $wpdb->prepare(" AND cache_file LIKE %s", '%/ai-translate/cache/' . $wpdb->esc_like($site_dir) . '/%');
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM %i WHERE post_id = %d AND language_code = %s AND site_dir = %s",
+                self::get_table_name(),
+                $post_id,
+                $language_code,
+                $site_dir
+            ));
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM %i WHERE post_id = %d AND language_code = %s",
+                self::get_table_name(),
+                $post_id,
+                $language_code
+            ));
         }
-        
-        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- $site_filter is itself a prepared SQL fragment built with $wpdb->prepare() above
-        $exists = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM %i 
-            WHERE post_id = %d AND language_code = %s" . $site_filter,
-            self::get_table_name(),
-            $post_id,
-            $language_code
-        ));
-        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
         
         return (int) $exists > 0;
     }

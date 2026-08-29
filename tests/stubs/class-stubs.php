@@ -21,6 +21,21 @@ if (!class_exists('AITranslate\\AI_Translate_Core')) {
             return self::$site_cache_dir;
         }
 
+        public static function get_site_cache_dir_for_clearing(): string
+        {
+            return self::$site_cache_dir;
+        }
+
+        public static function enabled_languages(): array
+        {
+            return ['nl', 'en', 'de', 'fr'];
+        }
+
+        public static function detectable_languages(): array
+        {
+            return [];
+        }
+
         public static function cache_expiration_hours()
         {
             return self::$cache_hours;

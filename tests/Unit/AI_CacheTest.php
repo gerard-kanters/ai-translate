@@ -197,6 +197,27 @@ final class AI_CacheTest extends TestCase
         $this->assertStringContainsString('/cache/mysite/', $path);
     }
 
+    public function test_file_path_explicit_site_dir_overrides_active_domain(): void
+    {
+        Functions\when('wp_upload_dir')->justReturn([
+            'basedir' => '/var/www/uploads',
+        ]);
+        Functions\when('trailingslashit')->alias(function ($s) {
+            return rtrim($s, '/') . '/';
+        });
+        Functions\when('sanitize_key')->alias(function ($s) {
+            return preg_replace('/[^a-z0-9_\-]/', '', strtolower($s));
+        });
+
+        AI_Translate_Core::_set_site_cache_dir('active-host');
+
+        $key = 'ait:v4:abcd1234:en:post:1';
+        $path = AI_Cache::get_file_path($key, 'netcare.nl');
+
+        $this->assertStringContainsString('/cache/netcare.nl/', $path);
+        $this->assertStringNotContainsString('/cache/active-host/', $path);
+    }
+
     public function test_file_path_no_site_dir_when_empty(): void
     {
         Functions\when('wp_upload_dir')->justReturn([
