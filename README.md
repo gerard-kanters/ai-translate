@@ -1,4 +1,4 @@
-=== AI Translate: Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective. ===
+=== AI Translate: Affordable Context-Aware Translation ===
 Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
@@ -9,11 +9,11 @@ License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
 Plugin homepage: [https://wordpress.org/plugins/ai-translate](https://wordpress.org/plugins/ai-translate)
 
-AI Translate: Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
+Translate your site using AI in any language. Fast caching, SEO-friendly and cost-effective. Auto detect browser language.
 
 ## Description
 
-AI Translate automatically translates your entire website using advanced artificial intelligence. The plugin translates pages, posts, titles, menus, and more in real time while customers and bots visit your website in their perferred language. Use cache warming to improve performance for first visitors. 
+AI Translate automatically translates your entire website using advanced artificial intelligence. The plugin translates pages, posts, titles, menus, and more in real time while customers and bots visit your website in their perferred language. Use cache warming to improve performance for first visitors. Choose any model you wish, from frontier models to a locally installed model. 
 
 ### What makes AI Translate unique?
 

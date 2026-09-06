@@ -3379,6 +3379,10 @@ add_filter('home_url', function ($url, $path, $scheme) {
         if ($urlPath && !preg_match('#^/([a-z]{2})(?:/|$)#i', $urlPath)) {
             // Add language prefix to the URL, preserving any site subpath (e.g. '/wordpress')
             $parsed = wp_parse_url($url);
+            // Relatieve URLs hebben geen scheme/host; dan niet herschrijven
+            if (!isset($parsed['scheme']) || !isset($parsed['host'])) {
+                return $url;
+            }
             $basePath = rtrim($parsed['path'] ?? '', '/');
             $newPath = $basePath . '/' . $langFromUrl . '/';
             $url = $parsed['scheme'] . '://' . $parsed['host'];
