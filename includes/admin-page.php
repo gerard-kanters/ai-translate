@@ -1019,7 +1019,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-admin-js',
         plugin_dir_url(__DIR__) . 'assets/admin-page.js',
         array('jquery'),
-        '1.0.5',
+        '1.0.6',
         true
     );
 
@@ -1028,7 +1028,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-cache-table-js',
         plugin_dir_url(__DIR__) . 'assets/admin-cache-table.js',
         array('jquery'),
-        '1.0.0',
+        '1.0.1',
         true
     );
 
@@ -1068,6 +1068,26 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'validationError' => __('Validation failed', 'ai-translate'),
             'validationAjaxError' => __('Validation AJAX Error', 'ai-translate'),
             'validateApiPrompt' => __('Validate API settings', 'ai-translate'),
+            'selectCustom' => __('Select...', 'ai-translate'),
+            'enterModelManually' => __('Enter model name manually', 'ai-translate'),
+            'noCacheFiles' => __('No cache files', 'ai-translate'),
+            'securityTokenMissing' => __('Security token not found. Refresh the page and try again.', 'ai-translate'),
+            'processing' => __('Processing...', 'ai-translate'),
+            'cacheClearError' => /* translators: %s: error detail */ __('An error occurred while clearing the cache: %s', 'ai-translate'),
+            'filesInCache' => /* translators: %s: number of cache files */ __('%s files in cache', 'ai-translate'),
+            'enterApiKeyNotice' => __('Note: Enter API Key to use translation functionality.', 'ai-translate'),
+            'configureApiKeyFirst' => __('Please configure API key first', 'ai-translate'),
+            'confirmReplaceContext' => __('The context field already has content. Do you want to replace it with a generated suggestion?', 'ai-translate'),
+            'generatingContext' => __('Generating context from homepage...', 'ai-translate'),
+            'contextGenerated' => __('Context generated successfully!', 'ai-translate'),
+            'failedGenerateContext' => __('Failed to generate context', 'ai-translate'),
+            'errorGeneratingContext' => __('Error generating context:', 'ai-translate'),
+            'confirmReplaceMeta' => __('The meta description field already has content. Do you want to replace it with a generated suggestion?', 'ai-translate'),
+            'generatingMeta' => __('Generating meta description from homepage...', 'ai-translate'),
+            'metaGenerated' => __('Meta description generated successfully!', 'ai-translate'),
+            'failedGenerateMeta' => __('Failed to generate meta description', 'ai-translate'),
+            'errorGeneratingMeta' => __('Error generating meta description:', 'ai-translate'),
+            'serverResponseNotOk' => /* translators: %s: HTTP status code */ __('Server response was not ok: %s', 'ai-translate'),
         ),
     ));
     
@@ -1088,6 +1108,13 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'deleting' => __('Deleting...', 'ai-translate'),
             'confirm_delete' => __('Are you sure you want to delete this cache file?', 'ai-translate'),
             'delete_error' => __('Failed to delete cache file', 'ai-translate'),
+            'confirm_delete_page' => __('Are you sure you want to delete the cache for this page?', 'ai-translate'),
+            'ajaxUrlMissing' => __('Error: AJAX URL not found. Please refresh the page and try again.', 'ai-translate'),
+            'warming' => __('Warming...', 'ai-translate'),
+            'statusOf' => /* translators: %1$s: cached language count, %2$s: total languages */ __('%1$s of %2$s', 'ai-translate'),
+            'errorPrefix' => /* translators: %s: error detail */ __('Error: %s', 'ai-translate'),
+            'ajaxError' => /* translators: %s: error detail */ __('AJAX error: %s', 'ai-translate'),
+            'unknownError' => __('Unknown error', 'ai-translate'),
         ),
     ));
 });
@@ -2354,7 +2381,7 @@ function render_admin_page()
                                 $details = $languages_details[$code] ?? [];
                                 $size_mb = isset($details['size']) ? number_format($details['size'] / (1024 * 1024), 2) : '0.00';
                                 $expired = isset($details['expired_count']) ? $details['expired_count'] : 0;
-                                $last_mod = isset($details['last_modified']) ? wp_date('d-m-Y H:i:s', $details['last_modified']) : 'N/A';
+                                $last_mod = isset($details['last_modified']) ? wp_date('d-m-Y H:i:s', $details['last_modified']) : __('N/A', 'ai-translate');
                             ?>
                                 <tr id="cache-row-<?php echo esc_attr($code); ?>" class="cache-language-row <?php echo ($count > 0) ? 'has-cache' : 'no-cache'; ?>" 
                                     data-language="<?php echo esc_attr(strtolower($name)); ?>"
@@ -2539,8 +2566,8 @@ function render_admin_page()
                                         $status_class = 'ai-translate-status-partial';
                                     }
                                     ?>
-                                    <span class="ai-translate-status <?php echo esc_attr($status_class); ?>">
-                                        <?php echo esc_html($post->cached_languages . ' of ' . $post->total_languages); ?>
+                                    <span class="ai-translate-status <?php echo esc_attr($status_class); ?>" data-cached="<?php echo esc_attr((string) $post->cached_languages); ?>" data-total="<?php echo esc_attr((string) $post->total_languages); ?>">
+                                        <?php echo esc_html(sprintf(/* translators: %1$s: cached language count, %2$s: total languages */ __('%1$s of %2$s', 'ai-translate'), $post->cached_languages, $post->total_languages)); ?>
                                     </span>
                                 </td>
                                 <td>

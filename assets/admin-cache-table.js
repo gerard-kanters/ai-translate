@@ -17,7 +17,7 @@ jQuery(document).ready(function($) {
     $(document).on('click', '.ai-translate-delete-cache', function(e) {
         e.preventDefault();
         
-        if (!confirm('Are you sure you want to delete the cache for this page?')) {
+        if (!confirm(aiTranslateCacheTable?.strings?.confirm_delete_page || 'Are you sure you want to delete the cache for this page?')) {
             return;
         }
         
@@ -25,11 +25,12 @@ jQuery(document).ready(function($) {
         const postId = $button.data('post-id');
         const nonce = $button.data('nonce');
         const originalText = $button.html();
+        const deletingText = aiTranslateCacheTable?.strings?.deleting || 'Deleting...';
         
-        $button.prop('disabled', true).html('<span class="dashicons dashicons-update dashicons-spin" style="vertical-align: middle;"></span> Deleting...');
+        $button.prop('disabled', true).html('<span class="dashicons dashicons-update dashicons-spin" style="vertical-align: middle;"></span> ' + deletingText);
         
         if (!ajaxUrl) {
-            alert('Error: AJAX URL not found. Please refresh the page and try again.');
+            alert(aiTranslateCacheTable?.strings?.ajaxUrlMissing || 'Error: AJAX URL not found. Please refresh the page and try again.');
             $button.prop('disabled', false).html(originalText);
             return;
         }
@@ -49,12 +50,13 @@ jQuery(document).ready(function($) {
                     $row.css('background-color', '#d4edda');
                     
                     // Update status indicator
-                    const statusText = $row.find('.ai-translate-status').text();
-                    const totalMatch = statusText.match(/of (\d+)/);
-                    const total = totalMatch ? totalMatch[1] : '0';
-                    $row.find('.ai-translate-status').removeClass('ai-translate-status-100 ai-translate-status-partial')
+                    const $status = $row.find('.ai-translate-status');
+                    const total = $status.attr('data-total') || '0';
+                    const statusTmpl = aiTranslateCacheTable?.strings?.statusOf || '%1$s of %2$s';
+                    $status.removeClass('ai-translate-status-100 ai-translate-status-partial')
                         .addClass('ai-translate-status-0')
-                        .text('0 of ' + total);
+                        .attr('data-cached', '0')
+                        .text(statusTmpl.replace('%1$s', '0').replace('%2$s', total));
                     
                     // Show alert
                     alert(response.data.message);
@@ -64,8 +66,8 @@ jQuery(document).ready(function($) {
                         location.reload();
                     }, 1500);
                 } else {
-                    const errorMsg = (response.data && response.data.message) ? response.data.message : (response.data ? response.data : 'Unknown error');
-                    alert('Error: ' + errorMsg);
+                    const errorMsg = (response.data && response.data.message) ? response.data.message : (response.data ? response.data : (aiTranslateCacheTable?.strings?.unknownError || 'Unknown error'));
+                    alert((aiTranslateCacheTable?.strings?.errorPrefix || 'Error: %s').replace('%s', errorMsg));
                     $button.prop('disabled', false).html(originalText);
                 }
             },
@@ -75,7 +77,7 @@ jQuery(document).ready(function($) {
                     error: errorThrown,
                     response: jqXHR.responseText
                 });
-                alert('AJAX error: ' + textStatus + ' - ' + errorThrown);
+                alert((aiTranslateCacheTable?.strings?.ajaxError || 'AJAX error: %s').replace('%s', textStatus + ' - ' + errorThrown));
                 $button.prop('disabled', false).html(originalText);
             }
         });
@@ -90,10 +92,12 @@ jQuery(document).ready(function($) {
         const nonce = $button.data('nonce');
         const originalText = $button.html();
         
-        $button.prop('disabled', true).html('<span class="dashicons dashicons-update dashicons-spin" style="vertical-align: middle;"></span> Warming...');
+        const warmingText = aiTranslateCacheTable?.strings?.warming || 'Warming...';
+        
+        $button.prop('disabled', true).html('<span class="dashicons dashicons-update dashicons-spin" style="vertical-align: middle;"></span> ' + warmingText);
         
         if (!ajaxUrl) {
-            alert('Error: AJAX URL not found. Please refresh the page and try again.');
+            alert(aiTranslateCacheTable?.strings?.ajaxUrlMissing || 'Error: AJAX URL not found. Please refresh the page and try again.');
             $button.prop('disabled', false).html(originalText);
             return;
         }
@@ -120,8 +124,8 @@ jQuery(document).ready(function($) {
                         location.reload();
                     }, 1500);
                 } else {
-                    const errorMsg = (response.data && response.data.message) ? response.data.message : (response.data ? response.data : 'Unknown error');
-                    alert('Error: ' + errorMsg);
+                    const errorMsg = (response.data && response.data.message) ? response.data.message : (response.data ? response.data : (aiTranslateCacheTable?.strings?.unknownError || 'Unknown error'));
+                    alert((aiTranslateCacheTable?.strings?.errorPrefix || 'Error: %s').replace('%s', errorMsg));
                     $button.prop('disabled', false).html(originalText);
                 }
             },
@@ -131,7 +135,7 @@ jQuery(document).ready(function($) {
                     error: errorThrown,
                     response: jqXHR.responseText
                 });
-                alert('AJAX error: ' + textStatus + ' - ' + errorThrown);
+                alert((aiTranslateCacheTable?.strings?.ajaxError || 'AJAX error: %s').replace('%s', textStatus + ' - ' + errorThrown));
                 $button.prop('disabled', false).html(originalText);
             }
         });

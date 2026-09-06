@@ -1,882 +1,1321 @@
-# Copyright (C) 2025 Netcare
+# Copyright (C) 2026 NetCare
 # This file is distributed under the same license as the AI Translate plugin.
 msgid ""
-msgstr "Project-Id-Version: Plugins - AI Translate - Stable (latest release)\nReport-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\nPOT-Creation-Date: 2026-01-11T11:07:29+00:00\nPO-Revision-Date: +0000\nLanguage: hi\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: nplurals=2; plural=n != 1;\nX-Generator: GlotPress/4.0.3\n"
+msgstr ""
+"Project-Id-Version: AI Translate 2.3.12\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ai-translate\n"
+"POT-Creation-Date: 2026-09-06T13:56:36+00:00\n"
+"PO-Revision-Date: 2026-09-06 12:00+0000\n"
+"Last-Translator: NetCare <https://netcare.nl/>\n"
+"Language-Team: NetCare <https://netcare.nl/>\n"
+"Language: hi_IN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Domain: ai-translate\n"
 
 #. Plugin Name of the plugin
-#: ai-translate.php includes/admin-page.php:794 includes/admin-page.php:795
+#: ai-translate.php includes/admin-page.php:992 includes/admin-page.php:993
 msgid "AI Translate"
 msgstr "AI Translate"
 
 #. Description of the plugin
 #: ai-translate.php
-msgid "AI based translation plugin. Adding 35 languages in a few clicks."
-msgstr "AI आधारित अनुवाद प्लगइन। कुछ ही क्लिक में 35 भाषाएं जोड़ें।"
+msgid ""
+"AI based translation plugin. Adding 35 languages in a few clicks. Fast "
+"caching, SEO-friendly, and cost-effective."
+msgstr ""
+"AI आधारित अनुवाद प्लगइन। कुछ क्लिक में 35 भाषाएँ जोड़ें। तेज़ कैश, SEO-अनुकूल और किफ़ायती।"
 
 #. Author of the plugin
 #: ai-translate.php
-msgid "Netcare"
-msgstr "नेटकेयर"
+msgid "NetCare"
+msgstr "NetCare"
 
 #. Author URI of the plugin
 #: ai-translate.php
 msgid "https://netcare.nl/"
 msgstr "https://netcare.nl/"
 
-#: ai-translate.php:377
+#: ai-translate.php:517
 msgid "Rate on WordPress.org"
 msgstr "WordPress.org पर रेट करें"
 
-#: ai-translate.php:1894
+#: ai-translate.php:3410
 msgid "Instellingen"
 msgstr "सेटिंग्स"
 
-#: ai-translate.php:1982
+#: ai-translate.php:3508
 msgid "This plugin requires a permalink structure other than \"Plain\". "
 msgstr "इस प्लगइन को \"Plain\" के अलावा अन्य पर्मालिंक संरचना की आवश्यकता है।"
 
-#: ai-translate.php:1985
+#: ai-translate.php:3511
 msgid "Configure Permalinks"
 msgstr "पर्मालिंक कॉन्फ़िगर करें"
 
-#: ai-translate.php:2107 ai-translate.php:2116
+#: ai-translate.php:3692 ai-translate.php:3701
 msgid "🌐 Language Switcher"
 msgstr "🌐 भाषा स्विचर"
 
-#: ai-translate.php:2119
+#: ai-translate.php:3704 ai-translate.php:3947
 msgid "Language Switcher"
 msgstr "भाषा स्विचर"
 
-#: ai-translate.php:2127
+#: ai-translate.php:3712
 msgid "Add to Menu"
 msgstr "मेनू में जोड़ें"
 
-#: ai-translate.php:2185
+#. translators: %1$s: string value, %2$s: string value, %3$s: string value
+#: ai-translate.php:3784
+msgid ""
+"This menu item is inactive. The language switcher is set to \"%1$s\" in "
+"%2$splugin settings%3$s. Set it to \"Hidden\" to use the menu switcher."
+msgstr ""
+"यह मेनू आइटम निष्क्रिय है। भाषा स्विचर %2$sप्लगइन सेटिंग्स%3$s में \"%1$s\" पर सेट है। मेनू "
+"स्विचर उपयोग करने के लिए इसे \"छिपा हुआ\" पर सेट करें।"
+
+#: ai-translate.php:3811
 msgid "Make this a language switcher"
 msgstr "इसे भाषा स्विचर बनाएँ"
 
-#: ai-translate.php:2192
+#: ai-translate.php:3818
 msgid "Switcher Type:"
 msgstr "स्विचर प्रकार:"
 
-#: ai-translate.php:2195
+#: ai-translate.php:3821 assets/ai-translate-block.js:34
 msgid "Dropdown"
 msgstr "ड्रॉपडाउन"
 
-#: ai-translate.php:2196
+#: ai-translate.php:3822 assets/ai-translate-block.js:35
 msgid "Inline"
 msgstr "इनलाइन"
 
-#: ai-translate.php:2206
-#, fuzzy
+#: ai-translate.php:3832
 msgid "Show language flags"
-msgstr "कोई भाषा नहीं चुनी गई।"
+msgstr "भाषा के झंडे दिखाएँ"
 
-#: ai-translate.php:2215
-#, fuzzy
+#: ai-translate.php:3841 assets/ai-translate-block.js:45
 msgid "Show language codes"
-msgstr "कोई भाषा नहीं चुनी गई।"
+msgstr "भाषा कोड दिखाएँ"
 
-#: includes/admin-page.php:28 includes/admin-page.php:74
-#: includes/admin-page.php:186 includes/admin-page.php:523
-#: includes/admin-page.php:698 includes/admin-page.php:740
+#: includes/admin-page.php:69 includes/admin-page.php:116
+#: includes/admin-page.php:229 includes/admin-page.php:662
+#: includes/admin-page.php:848 includes/admin-page.php:914
 msgid "Insufficient permissions to perform this action."
 msgstr "इस कार्रवाई को करने के लिए अपर्याप्त अनुमतियां।"
 
-#: includes/admin-page.php:35 includes/admin-page.php:81
-#: includes/admin-page.php:192 includes/admin-page.php:530
-#: includes/admin-page.php:705 includes/admin-page.php:747
+#: includes/admin-page.php:76 includes/admin-page.php:123
+#: includes/admin-page.php:235 includes/admin-page.php:669
+#: includes/admin-page.php:855 includes/admin-page.php:921
 msgid "Security check failed (nonce). Refresh the page and try again."
-msgstr "सुरक्षा जांच विफल (नॉनस)। पेज को रीफ्रेश करें और फिर से प्रयास करें।"
+msgstr "सुरक्षा जाँच विफल रही (nonce)। पृष्ठ रीफ़्रेश करें और फिर कोशिश करें।"
 
-#: includes/admin-page.php:41 includes/admin-page.php:198
+#: includes/admin-page.php:82 includes/admin-page.php:241
 msgid "No language selected."
 msgstr "कोई भाषा नहीं चुनी गई।"
 
-#: includes/admin-page.php:52
-msgid "Cache for language \"%s\" cleared. %d files removed."
-msgstr "भाषा \"%s\" के लिए कैश क्लियर कर दिया गया। %d फाइलें हटा दी गईं।"
+#. translators: %1$s: string value, %2$s: number value
+#: includes/admin-page.php:94
+msgid "Cache for language \"%1$s\" cleared. %2$d files removed."
+msgstr "भाषा \"%1$s\" के लिए कैश क्लियर कर दिया गया। %2$d फाइलें हटा दी गईं।"
 
-#: includes/admin-page.php:57
+#: includes/admin-page.php:99
 msgid "Error clearing cache:"
 msgstr "कैश क्लियर करने में त्रुटि:"
 
-#: includes/admin-page.php:88 includes/admin-page.php:537
+#: includes/admin-page.php:130 includes/admin-page.php:676
 msgid "No post ID provided."
 msgstr "कोई पोस्ट ID प्रदान नहीं किया गया।"
 
-#: includes/admin-page.php:95 includes/admin-page.php:544
-#, fuzzy
+#: includes/admin-page.php:137 includes/admin-page.php:683
 msgid "Invalid post ID."
-msgstr "API से अमान्य प्रतिक्रिया"
+msgstr "अमान्य पोस्ट ID."
 
-#: includes/admin-page.php:104 includes/admin-page.php:553
+#: includes/admin-page.php:146 includes/admin-page.php:692
 msgid "Post not found."
 msgstr "पोस्ट नहीं मिली।"
 
-#: includes/admin-page.php:133
+#. translators: %s: string value
+#: includes/admin-page.php:175
 msgid "Invalid file path: %s"
 msgstr "अमान्य फ़ाइल पथ: %s"
 
-#: includes/admin-page.php:144
+#. translators: %s: string value
+#: includes/admin-page.php:186
 msgid "Invalid file type: %s"
 msgstr "अमान्य फ़ाइल प्रकार: %s"
 
-#: includes/admin-page.php:151
+#. translators: %s: string value
+#: includes/admin-page.php:194
 msgid "Could not delete file: %s"
 msgstr "फ़ाइल नहीं हटा सका: %s"
 
-#: includes/admin-page.php:162
-#, fuzzy
+#. translators: %d: number value
+#: includes/admin-page.php:205
 msgid "Cache deleted for %d languages"
-msgstr "प्रति भाषा कैश अवलोकन"
+msgstr "%d भाषाओं के लिए कैश हटाया गया"
 
-#: includes/admin-page.php:164 includes/admin-page.php:672
+#: includes/admin-page.php:207 includes/admin-page.php:822
 msgid "Warnings:"
 msgstr "चेतावनियाँ:"
 
-#: includes/admin-page.php:220
+#: includes/admin-page.php:263
 msgid "Security check failed"
 msgstr "सुरक्षा जांच विफल हुई"
 
-#: includes/admin-page.php:226
+#: includes/admin-page.php:269
 msgid "Insufficient permissions"
 msgstr "अपर्याप्त अनुमतियाँ"
 
-#: includes/admin-page.php:236
+#: includes/admin-page.php:279
 msgid "No cache file specified"
 msgstr "कोई कैश फ़ाइल निर्दिष्ट नहीं"
 
-#: includes/admin-page.php:247
+#: includes/admin-page.php:290
 msgid "Invalid cache file path"
 msgstr "अमान्य कैश फ़ाइल पथ"
 
-#: includes/admin-page.php:252
+#: includes/admin-page.php:295
 msgid "Cache file not found"
 msgstr "कैश फ़ाइल नहीं मिली"
 
-#: includes/admin-page.php:258 includes/admin-page.php:880
+#: includes/admin-page.php:302 includes/admin-page.php:1110
 msgid "Failed to delete cache file"
-msgstr "कैश फ़ाइल हटाने में विफल"
+msgstr "कैश फ़ाइल हटाई नहीं जा सकी"
 
-#: includes/admin-page.php:267
+#: includes/admin-page.php:311
 msgid "Cache file deleted successfully"
 msgstr "कैश फ़ाइल सफलतापूर्वक हटाई गई"
 
-#: includes/admin-page.php:385
-msgid "Cache file not generated"
-msgstr "कैश फ़ाइल नहीं बनाई गई"
-
-#: includes/admin-page.php:399
-msgid "HTTP %d (redirect)"
-msgstr "HTTP %d (रीडायरेक्ट)"
-
-#: includes/admin-page.php:402 includes/admin-page.php:511
-msgid "HTTP %d"
-msgstr "HTTP %d"
-
-#: includes/admin-page.php:497
-msgid "Cache file not generated after successful request"
-msgstr "सफल अनुरोध के बाद कैश फ़ाइल नहीं जनरेट हुई"
-
-#: includes/admin-page.php:559
-msgid "Only published posts can be cached."
-msgstr "केवल प्रकाशित पोस्ट ही कैश की जा सकती हैं।"
-
-#: includes/admin-page.php:573
-#, fuzzy
-msgid "No languages configured."
-msgstr "कोई भाषा नहीं चुनी गई।"
-
-#: includes/admin-page.php:583
+#: includes/admin-page.php:358 includes/admin-page.php:565
+#: includes/admin-page.php:733
 msgid "Could not generate post URL."
 msgstr "पोस्ट URL जनरेट नहीं किया जा सका।"
 
-#: includes/admin-page.php:592
+#: includes/admin-page.php:480
+msgid "Cache file not generated"
+msgstr "कैश फ़ाइल नहीं बनाई गई"
+
+#: includes/admin-page.php:489
+msgid "lang directory missing"
+msgstr "भाषा डायरेक्टरी अनुपस्थित"
+
+#: includes/admin-page.php:494
+msgid "no write occurred"
+msgstr "कोई लेखन नहीं हुआ"
+
+#: includes/admin-page.php:497
+msgid "not writable"
+msgstr "लेखन योग्य नहीं"
+
+#: includes/admin-page.php:500
+msgid "check logs"
+msgstr "लॉग जाँचें"
+
+#: includes/admin-page.php:526
+msgid "Error page (404/500)"
+msgstr "त्रुटि पृष्ठ (404/500)"
+
+#. translators: %d: number value
+#: includes/admin-page.php:538
+msgid "HTTP %d (redirect)"
+msgstr "HTTP %d (रीडायरेक्ट)"
+
+#. translators: %d: number value
+#: includes/admin-page.php:541 includes/admin-page.php:650
+msgid "HTTP %d"
+msgstr "HTTP %d"
+
+#: includes/admin-page.php:636
+msgid "Cache file not generated after successful request"
+msgstr "सफल अनुरोध के बाद कैश फ़ाइल उत्पन्न नहीं हुई"
+
+#: includes/admin-page.php:698
+msgid "Only published posts can be cached."
+msgstr "केवल प्रकाशित पोस्ट ही कैश की जा सकती हैं।"
+
+#: includes/admin-page.php:706
+msgid "This page is dynamic and is never cached."
+msgstr "यह पृष्ठ डायनामिक है और कभी कैश नहीं होता।"
+
+#: includes/admin-page.php:720
+msgid "No languages configured."
+msgstr "कोई भाषा कॉन्फ़िगर नहीं है।"
+
+#: includes/admin-page.php:742
 msgid "Invalid post URL."
 msgstr "अमान्य पोस्ट URL।"
 
-#: includes/admin-page.php:634
-msgid "Error for %s: %s"
-msgstr "%s के लिए त्रुटि: %s"
+#. translators: %1$s: string value, %2$s: string value
+#: includes/admin-page.php:784 includes/admin-page.php:789
+msgid "Error for %1$s: %2$s"
+msgstr "%1$s के लिए त्रुटि: %2$s"
 
-#: includes/admin-page.php:667
-#, fuzzy
+#. translators: %d: number value
+#: includes/admin-page.php:817
 msgid "Cache warmed for %d languages"
-msgstr "प्रति भाषा कैश अवलोकन"
+msgstr "%d भाषाओं के लिए कैश वार्म किया गया"
 
-#: includes/admin-page.php:669
+#. translators: %d: number value
+#: includes/admin-page.php:819
 msgid " (%d skipped)"
 msgstr " (%d छोड़ दिया गया)"
 
-#: includes/admin-page.php:674
+#. translators: %d: number value
+#: includes/admin-page.php:824
 msgid " and %d more"
 msgstr " और %d अधिक"
 
-#: includes/admin-page.php:725
+#: includes/admin-page.php:899 includes/admin-page.php:1084
 msgid "Error generating context:"
 msgstr "संदर्भ उत्पन्न करने में त्रुटि:"
 
-#: includes/admin-page.php:764
+#: includes/admin-page.php:962 includes/admin-page.php:1089
 msgid "Error generating meta description:"
 msgstr "मेटा विवरण उत्पन्न करने में त्रुटि:"
 
-#: includes/admin-page.php:851
+#: includes/admin-page.php:1050
+msgid "Saving language settings..."
+msgstr "भाषा सेटिंग्स सहेजी जा रही हैं..."
+
+#: includes/admin-page.php:1051
+msgid "Languages saved"
+msgstr "भाषाएँ सहेजी गईं"
+
+#: includes/admin-page.php:1052
+msgid "Failed to save language settings"
+msgstr "भाषा सेटिंग्स सहेजी नहीं जा सकीं"
+
+#: includes/admin-page.php:1055
 msgid "Enter API Key first..."
 msgstr "पहले API कुंजी दर्ज करें..."
 
-#: includes/admin-page.php:852
+#: includes/admin-page.php:1056
 msgid "Enter API Key first to load models."
 msgstr "मॉडल लोड करने के लिए पहले API कुंजी दर्ज करें।"
 
-#: includes/admin-page.php:853
+#: includes/admin-page.php:1057
 msgid "Loading models..."
 msgstr "मॉडल लोड हो रहे हैं..."
 
-#: includes/admin-page.php:854
+#: includes/admin-page.php:1058
 msgid "Models loaded successfully."
 msgstr "मॉडल सफलतापूर्वक लोड किए गए।"
 
-#: includes/admin-page.php:855
+#: includes/admin-page.php:1059
 msgid "No models found"
 msgstr "कोई मॉडल नहीं मिला"
 
-#: includes/admin-page.php:856 includes/admin-page.php:2208
+#: includes/admin-page.php:1060 includes/admin-page.php:2705
 msgid "Invalid key"
 msgstr "अमान्य कुंजी"
 
-#: includes/admin-page.php:857
+#: includes/admin-page.php:1061
 msgid "Error loading models"
 msgstr "मॉडल लोड करने में त्रुटि"
 
-#: includes/admin-page.php:858
+#: includes/admin-page.php:1062
 msgid "Select API Provider first..."
 msgstr "पहले API प्रदाता चुनें..."
 
-#: includes/admin-page.php:859 includes/admin-page.php:1658
-#: includes/admin-page.php:1777
+#. translators: %s: error detail
+#: includes/admin-page.php:1063 includes/admin-page.php:1117
+#: includes/admin-page.php:2117 includes/admin-page.php:2236
 msgid "Unknown error"
 msgstr "अज्ञात त्रुटि"
 
-#: includes/admin-page.php:860
+#: includes/admin-page.php:1064
 msgid "Save your settings first before opening the menu editor."
 msgstr "मेनू संपादक खोलने से पहले अपनी सेटिंग्स सहेजें।"
 
-#: includes/admin-page.php:870
-msgid "Loading cached URLs..."
-msgstr "कैश किए गए URL लोड हो रहे हैं..."
+#: includes/admin-page.php:1065
+msgid "Request Key"
+msgstr "अनुरोध कुंजी"
 
-#: includes/admin-page.php:871
-msgid "Could not load cached URLs. Please try again."
-msgstr "कैश किए गए URL लोड नहीं किए जा सके। कृपया पुनः प्रयास करें।"
+#: includes/admin-page.php:1066
+msgid "Validating API settings..."
+msgstr "API सेटिंग्स सत्यापित की जा रही हैं..."
 
-#: includes/admin-page.php:872
-msgid "Request timed out. The site may have many cache files. Please try again or use the rescan function."
-msgstr "अनुरोध का समय समाप्त हो गया। साइट में कई कैश फ़ाइलें हो सकती हैं। कृपया पुनः प्रयास करें या रीस्कैन फ़ंक्शन का उपयोग करें।"
+#: includes/admin-page.php:1067
+msgid "Connection and model OK. API settings saved."
+msgstr "कनेक्शन और मॉडल ठीक हैं। API सेटिंग्स सहेजी गईं।"
 
-#: includes/admin-page.php:873
-msgid "No cached pages for this language."
-msgstr "इस भाषा के लिए कोई कैश पृष्ठ नहीं।"
+#: includes/admin-page.php:1068
+msgid "Validation failed"
+msgstr "सत्यापन विफल"
 
-#: includes/admin-page.php:874
-msgid "Show cached URLs"
-msgstr "कैश किए गए URL दिखाएँ"
+#: includes/admin-page.php:1069
+msgid "Validation AJAX Error"
+msgstr "सत्यापन AJAX त्रुटि"
 
-#: includes/admin-page.php:875
-msgid "Hide cached URLs"
-msgstr "कैश किए गए URL छिपाएँ"
-
-#: includes/admin-page.php:876
-msgid "Showing first %1$s of %2$s entries"
-msgstr "पहले %1$s को %2$s प्रविष्टियों में से दिखा रहा है"
-
-#: includes/admin-page.php:877
-msgid "Delete file"
-msgstr "फ़ाइल मिटाएँ"
-
-#: includes/admin-page.php:878
-msgid "Deleting..."
-msgstr "मिटा रहा है..."
-
-#: includes/admin-page.php:879
-#, fuzzy
-msgid "Are you sure you want to delete this cache file?"
-msgstr "इस कैश फ़ाइल को हटाएँ"
-
-#: includes/admin-page.php:930
-msgid "Invalid API provider selected."
-msgstr "अमान्य API प्रदाता चुना गया।"
-
-#: includes/admin-page.php:950
-msgid "Custom API URL is required for the custom provider."
-msgstr "कस्टम प्रदाता के लिए कस्टम API URL आवश्यक है।"
-
-#: includes/admin-page.php:964
-msgid "Cache duration cannot be less than 14 days. It has been automatically set to 14 days."
-msgstr "कैश अवधि 14 दिनों से कम नहीं हो सकती। इसे स्वचालित रूप से 14 दिनों के लिए सेट कर दिया गया है।"
-
-#: includes/admin-page.php:1024
-msgid "Custom model name is required when selecting a custom model."
-msgstr "कस्टम मॉडल चुनते समय कस्टम मॉडल नाम आवश्यक है।"
-
-#: includes/admin-page.php:1047
-msgid "API key is required for the selected provider."
-msgstr "चुने गए प्रदाता के लिए API की (Key) आवश्यक है।"
-
-#: includes/admin-page.php:1052 includes/class-ai-translate-core.php:96
-msgid "Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
-msgstr "Google API OpenAI के अनुकूल नहीं है। Gemini के लिए Openrouter या Deepinfra का उपयोग करें।"
-
-#: includes/admin-page.php:1170
-msgid "API Settings"
-msgstr "API सेटिंग्स"
-
-#: includes/admin-page.php:1176
-msgid "API Provider"
-msgstr "API प्रदाता"
-
-#: includes/admin-page.php:1183
-msgid "— Select provider —"
-msgstr "— प्रदाता चुनें —"
-
-#: includes/admin-page.php:1190 includes/admin-page.php:1433
-#: includes/admin-page.php:1645
-msgid "Note:"
-msgstr "नोट:"
-
-#: includes/admin-page.php:1292
-msgid "GPT-5 models use minimal reasoning for fast translations. O1 and O3 models are not supported."
-msgstr "GPT-5 मॉडल तेज़ अनुवाद के लिए न्यूनतम तर्क का उपयोग करते हैं। O1 और O3 मॉडल समर्थित नहीं हैं।"
-
-#: includes/admin-page.php:1196
-msgid "Enter the endpoint URL for your custom API provider. Example: %s"
-msgstr "अपने कस्टम API प्रदाता के लिए एंडपॉइंट URL दर्ज करें। उदाहरण: %s"
-
-#: includes/admin-page.php:1207
-msgid "API Key"
-msgstr "API की (Key)"
-
-#: includes/admin-page.php:1222
-msgid "Translation Model"
-msgstr "अनुवाद मॉडल"
-
-#: includes/admin-page.php:1230
-msgid "— Select model —"
-msgstr "— मॉडल चुनें —"
-
-#: includes/admin-page.php:1234
-msgid "Select..."
-msgstr "चुनें..."
-
-#: includes/admin-page.php:1237
-msgid "E.g.: deepseek-chat, gpt-4o, ..."
-msgstr "जैसे: deepseek-chat, gpt-4o, ..."
-
-#: includes/admin-page.php:1239
+#: includes/admin-page.php:1070
 msgid "Validate API settings"
 msgstr "API सेटिंग्स सत्यापित करें"
 
-#: includes/admin-page.php:1250
+#: includes/admin-page.php:1071 includes/admin-page.php:1551
+msgid "Select..."
+msgstr "चुनें..."
+
+#: includes/admin-page.php:1072
+msgid "Enter model name manually"
+msgstr "मॉडल नाम मैन्युअल दर्ज करें"
+
+#: includes/admin-page.php:1073 includes/admin-page.php:2407
+msgid "No cache files"
+msgstr "कोई कैश फाइल नहीं"
+
+#: includes/admin-page.php:1074
+msgid "Security token not found. Refresh the page and try again."
+msgstr "सुरक्षा टोकन नहीं मिला। पृष्ठ रीफ़्रेश करें और फिर कोशिश करें।"
+
+#: includes/admin-page.php:1075
+msgid "Processing..."
+msgstr "प्रोसेस हो रहा है..."
+
+#. translators: %s: error detail
+#: includes/admin-page.php:1076
+msgid "An error occurred while clearing the cache: %s"
+msgstr "कैश साफ़ करते समय त्रुटि हुई: %s"
+
+#. translators: %s: number of cache files
+#: includes/admin-page.php:1077
+msgid "%s files in cache"
+msgstr "कैश में %s फ़ाइलें"
+
+#. translators: %s: number of cache files
+#: includes/admin-page.php:1078
+msgid "Note: Enter API Key to use translation functionality."
+msgstr "नोट: अनुवाद सुविधा उपयोग करने के लिए API कुंजी दर्ज करें।"
+
+#: includes/admin-page.php:1079
+msgid "Please configure API key first"
+msgstr "पहले API कुंजी कॉन्फ़िगर करें"
+
+#: includes/admin-page.php:1080
+msgid ""
+"The context field already has content. Do you want to replace it with a "
+"generated suggestion?"
+msgstr "कॉन्टेक्स्ट फ़ील्ड में पहले से सामग्री है। क्या आप इसे जेनरेट किए गए सुझाव से बदलना चाहते हैं?"
+
+#: includes/admin-page.php:1081
+msgid "Generating context from homepage..."
+msgstr "होमपेज से कॉन्टेक्स्ट जेनरेट हो रहा है..."
+
+#: includes/admin-page.php:1082
+msgid "Context generated successfully!"
+msgstr "कॉन्टेक्स्ट सफलतापूर्वक जेनरेट हुआ!"
+
+#: includes/admin-page.php:1083
+msgid "Failed to generate context"
+msgstr "कॉन्टेक्स्ट जेनरेट नहीं हो सका"
+
+#: includes/admin-page.php:1085
+msgid ""
+"The meta description field already has content. Do you want to replace it "
+"with a generated suggestion?"
+msgstr "मेटा विवरण फ़ील्ड में पहले से सामग्री है। क्या आप इसे जेनरेट किए गए सुझाव से बदलना चाहते हैं?"
+
+#: includes/admin-page.php:1086
+msgid "Generating meta description from homepage..."
+msgstr "होमपेज से मेटा विवरण जेनरेट हो रहा है..."
+
+#: includes/admin-page.php:1087
+msgid "Meta description generated successfully!"
+msgstr "मेटा विवरण सफलतापूर्वक जेनरेट हुआ!"
+
+#: includes/admin-page.php:1088
+msgid "Failed to generate meta description"
+msgstr "मेटा विवरण जेनरेट नहीं हो सका"
+
+#. translators: %s: HTTP status code
+#: includes/admin-page.php:1090
+msgid "Server response was not ok: %s"
+msgstr "सर्वर प्रतिक्रिया ठीक नहीं थी: %s"
+
+#: includes/admin-page.php:1100
+msgid "Loading cached URLs..."
+msgstr "कैश किए गए URL लोड हो रहे हैं..."
+
+#: includes/admin-page.php:1101
+msgid "Could not load cached URLs. Please try again."
+msgstr "कैश किए गए URL लोड नहीं किए जा सके। कृपया पुनः प्रयास करें।"
+
+#: includes/admin-page.php:1102
+msgid ""
+"Request timed out. The site may have many cache files. Please try again or "
+"use the rescan function."
+msgstr ""
+"अनुरोध का समय समाप्त हो गया। साइट में कई कैश फ़ाइलें हो सकती हैं। कृपया पुनः प्रयास करें या "
+"रीस्कैन फ़ंक्शन का उपयोग करें।"
+
+#: includes/admin-page.php:1103
+msgid "No cached pages for this language."
+msgstr "इस भाषा के लिए कोई कैश किया गया पृष्ठ नहीं है।"
+
+#: includes/admin-page.php:1104
+msgid "Show cached URLs"
+msgstr "कैश किए गए URL दिखाएँ"
+
+#: includes/admin-page.php:1105
+msgid "Hide cached URLs"
+msgstr "कैश किए गए URL छिपाएँ"
+
+#. translators: %1$s: number of shown entries, %2$s: total number of entries
+#: includes/admin-page.php:1106
+msgid "Showing first %1$s of %2$s entries"
+msgstr "पहले %1$s को %2$s प्रविष्टियों में से दिखा रहा है"
+
+#. translators: %1$s: number of shown entries, %2$s: total number of entries
+#: includes/admin-page.php:1107
+msgid "Delete file"
+msgstr "फ़ाइल मिटाएँ"
+
+#: includes/admin-page.php:1108
+msgid "Deleting..."
+msgstr "मिटा रहा है..."
+
+#: includes/admin-page.php:1109
+msgid "Are you sure you want to delete this cache file?"
+msgstr "क्या आप वाकई यह कैश फ़ाइल हटाना चाहते हैं?"
+
+#: includes/admin-page.php:1111
+msgid "Are you sure you want to delete the cache for this page?"
+msgstr "क्या आप वाकई इस पृष्ठ का कैश हटाना चाहते हैं?"
+
+#: includes/admin-page.php:1112
+msgid "Error: AJAX URL not found. Please refresh the page and try again."
+msgstr "त्रुटि: AJAX URL नहीं मिला। पृष्ठ रीफ़्रेश करें और फिर कोशिश करें।"
+
+#: includes/admin-page.php:1113
+msgid "Warming..."
+msgstr "वार्म हो रहा है..."
+
+#. translators: %1$s: cached language count, %2$s: total languages
+#: includes/admin-page.php:1114 includes/admin-page.php:2570
+msgid "%1$s of %2$s"
+msgstr "%1$s में से %2$s"
+
+#. translators: %s: error detail
+#: includes/admin-page.php:1115
+msgid "Error: %s"
+msgstr "त्रुटि: %s"
+
+#. translators: %s: error detail
+#: includes/admin-page.php:1116
+msgid "AJAX error: %s"
+msgstr "AJAX त्रुटि: %s"
+
+#: includes/admin-page.php:1167
+msgid "Invalid API provider selected."
+msgstr "अमान्य API प्रदाता चुना गया।"
+
+#. translators: %s: corrected base URL
+#: includes/admin-page.php:1189
+msgid ""
+"The custom API URL was automatically corrected to the base URL: %s (the "
+"plugin appends /chat/completions automatically)."
+msgstr ""
+"कस्टम API URL को स्वचालित रूप से बेस URL में सही किया गया: %s (प्लगइन /chat/"
+"completions अपने आप जोड़ता है)।"
+
+#: includes/admin-page.php:1202
+msgid "Custom API URL is required for the custom provider."
+msgstr "कस्टम प्रदाता के लिए कस्टम API URL आवश्यक है।"
+
+#: includes/admin-page.php:1209 includes/class-ai-translate-core.php:510
+msgid ""
+"Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini."
+msgstr ""
+"Google API OpenAI के अनुकूल नहीं है। Gemini के लिए Openrouter या Deepinfra का "
+"उपयोग करें।"
+
+#: includes/admin-page.php:1223
+msgid ""
+"Cache duration cannot be less than 14 days. It has been automatically set to "
+"14 days."
+msgstr ""
+"कैश अवधि 14 दिनों से कम नहीं हो सकती। इसे स्वचालित रूप से 14 दिनों के लिए सेट कर दिया "
+"गया है।"
+
+#: includes/admin-page.php:1321
+msgid "Custom model name is required when selecting a custom model."
+msgstr "कस्टम मॉडल चुनते समय कस्टम मॉडल नाम आवश्यक है।"
+
+#: includes/admin-page.php:1344
+msgid "API key is required for the selected provider."
+msgstr "चुने गए प्रदाता के लिए API की (Key) आवश्यक है।"
+
+#: includes/admin-page.php:1474
+msgid "API Settings"
+msgstr "API सेटिंग्स"
+
+#: includes/admin-page.php:1480
+msgid "API Provider"
+msgstr "API प्रदाता"
+
+#: includes/admin-page.php:1487
+msgid "— Select provider —"
+msgstr "— प्रदाता चुनें —"
+
+#: includes/admin-page.php:1493 includes/admin-page.php:1808
+#: includes/admin-page.php:2104
+msgid "Note:"
+msgstr "नोट:"
+
+#: includes/admin-page.php:1493
+msgid ""
+"Reasoning/thinking is turned off when the provider allows it (otherwise the "
+"lowest supported effort is used) to keep translations fast and cheap."
+msgstr ""
+"जब प्रदाता अनुमति देता है तो reasoning/thinking बंद रहता है (अन्यथा न्यूनतम समर्थित "
+"effort उपयोग होता है) ताकि अनुवाद तेज़ और सस्ते रहें।"
+
+#. translators: %s: string value
+#: includes/admin-page.php:1498
+msgid ""
+"Enter the base URL of your API provider. The plugin appends /chat/"
+"completions automatically. Example for OpenRouter: %s"
+msgstr ""
+"अपने API प्रदाता का बेस URL दर्ज करें। प्लगइन /chat/completions अपने आप जोड़ता है। "
+"OpenRouter का उदाहरण: %s"
+
+#: includes/admin-page.php:1524
+msgid "API Key"
+msgstr "API की (Key)"
+
+#: includes/admin-page.php:1539
+msgid "Translation Model"
+msgstr "अनुवाद मॉडल"
+
+#: includes/admin-page.php:1547
+msgid "— Select model —"
+msgstr "— मॉडल चुनें —"
+
+#: includes/admin-page.php:1554
+msgid "E.g.: deepseek-chat, gpt-4o, ..."
+msgstr "जैसे: deepseek-chat, gpt-4o, ..."
+
+#: includes/admin-page.php:1568
 msgid "Language Settings"
 msgstr "भाषा सेटिंग्स"
 
-#: includes/admin-page.php:1252
-msgid "Select the default language for your site and which languages should be available in the language switcher. Detectable languages will be used if a visitor's browser preference matches, but won't show in the switcher."
-msgstr "अपनी साइट के लिए डिफ़ॉल्ट भाषा चुनें और कौन सी भाषाएं भाषा स्विचर में उपलब्ध होनी चाहिए। यदि किसी विज़िटर की ब्राउज़र प्राथमिकता मेल खाती है, तो पहचान योग्य भाषाओं का उपयोग किया जाएगा, लेकिन वे स्विचर में नहीं दिखेंगी।"
+#: includes/admin-page.php:1570
+msgid ""
+"Select the default language for your site and which languages should be "
+"available in the language switcher. Detectable languages will be used if a "
+"visitor's browser preference matches, but won't show in the switcher."
+msgstr ""
+"अपनी साइट के लिए डिफ़ॉल्ट भाषा चुनें और कौन सी भाषाएं भाषा स्विचर में उपलब्ध होनी "
+"चाहिए। यदि किसी विज़िटर की ब्राउज़र प्राथमिकता मेल खाती है, तो पहचान योग्य भाषाओं का "
+"उपयोग किया जाएगा, लेकिन वे स्विचर में नहीं दिखेंगी।"
 
-#: includes/admin-page.php:1258
+#: includes/admin-page.php:1577
 msgid "Default Language"
 msgstr "डिफ़ॉल्ट भाषा"
 
-#: includes/admin-page.php:1265
+#: includes/admin-page.php:1584
 msgid "— Select default language —"
 msgstr "— डिफ़ॉल्ट भाषा चुनें —"
 
-#: includes/admin-page.php:1268
+#: includes/admin-page.php:1587
 msgid "Current"
 msgstr "वर्तमान"
 
-#: includes/admin-page.php:1280
+#: includes/admin-page.php:1599
 msgid "Enabled Languages (in Switcher)"
 msgstr "सक्षम भाषाएं (स्विचर में)"
 
-#: includes/admin-page.php:1300
+#: includes/admin-page.php:1622 includes/admin-page.php:1686
+msgid "Instant save"
+msgstr "तुरंत सहेजें"
+
+#: includes/admin-page.php:1624 includes/admin-page.php:1688
+msgid "Enable all"
+msgstr "सभी सक्षम करें"
+
+#: includes/admin-page.php:1625 includes/admin-page.php:1689
+msgid "Disable all"
+msgstr "सभी अक्षम करें"
+
+#: includes/admin-page.php:1648
 msgid "Languages selected here will appear in the language switcher."
 msgstr "यहां चुनी गई भाषाएं भाषा स्विचर में दिखाई देंगी।"
 
-#: includes/admin-page.php:1308
+#: includes/admin-page.php:1656
 msgid "Detectable Languages (Auto-Translate)"
 msgstr "पहचान योग्य भाषाएं (ऑटो-अनुवाद)"
 
-#: includes/admin-page.php:1337
-msgid "If a visitor's browser language matches one of these, the site will be automatically translated (if enabled), but these languages won't show in the switcher."
-msgstr "यदि किसी विज़िटर की ब्राउज़र भाषा इनमें से किसी से मेल खाती है, तो साइट स्वचालित रूप से अनुवादित हो जाएगी (यदि सक्षम है), लेकिन ये भाषाएं स्विचर में नहीं दिखेंगी।"
+#: includes/admin-page.php:1712
+msgid ""
+"If a visitor's browser language matches one of these, the site will be "
+"automatically translated (if enabled), but these languages won't show in the "
+"switcher."
+msgstr ""
+"यदि किसी विज़िटर की ब्राउज़र भाषा इनमें से किसी से मेल खाती है, तो साइट स्वचालित रूप से "
+"अनुवादित हो जाएगी (यदि सक्षम है), लेकिन ये भाषाएं स्विचर में नहीं दिखेंगी।"
 
-#: includes/admin-page.php:1346
+#: includes/admin-page.php:1721
 msgid "Language Switcher Position"
 msgstr "भाषा स्विचर की स्थिति"
 
-#: includes/admin-page.php:1351
+#: includes/admin-page.php:1726
 msgid "Bottom Left Corner"
 msgstr "नीचे बायाँ कोना"
 
-#: includes/admin-page.php:1352
+#: includes/admin-page.php:1727
 msgid "Bottom Right Corner"
 msgstr "नीचे दायाँ कोना"
 
-#: includes/admin-page.php:1353
+#: includes/admin-page.php:1728
 msgid "Top Left Corner"
 msgstr "ऊपर बायाँ कोना"
 
-#: includes/admin-page.php:1354
+#: includes/admin-page.php:1729
 msgid "Top Right Corner"
 msgstr "ऊपर दायाँ कोना"
 
-#: includes/admin-page.php:1355
+#: includes/admin-page.php:1730
 msgid "Hidden - Add manually via Appearance > Menus"
 msgstr "छिपा हुआ - मैन्युअल रूप से Appearance > Menus के माध्यम से जोड़ें"
 
-#: includes/admin-page.php:1365
-msgid "Choose where the language switcher appears on your website. \"Hidden - Add manually via Appearance > Menus\" means the switcher will not be visible in corners - add it manually to your navigation menu instead. Corner positions show a floating switcher. The menu will open upward for bottom positions and downward for top positions."
-msgstr "चुनें कि आपकी वेबसाइट पर भाषा स्विचर कहाँ दिखाई देता है। \"छिपा हुआ - Appearance > Menus के माध्यम से मैन्युअल रूप से जोड़ें\" का मतलब है कि स्विचर कोनों में दिखाई नहीं देगा - इसे इसके बजाय अपने नेविगेशन मेनू में मैन्युअल रूप से जोड़ें। कोना स्थितियां एक फ्लोटिंग स्विचर दिखाती हैं। मेनू नीचे की स्थितियों के लिए ऊपर की ओर और ऊपर की स्थितियों के लिए नीचे की ओर खुलेगा।"
+#: includes/admin-page.php:1740
+msgid ""
+"Choose where the language switcher appears on your website. A corner "
+"position shows a floating switcher; the \"Hidden\" option disables the "
+"floating switcher so you can add a language switcher to your navigation menu "
+"instead. Only one method is active at a time."
+msgstr ""
+"चुनें कि भाषा स्विचर आपकी साइट पर कहाँ दिखे। कोने की स्थिति एक फ़्लोटिंग स्विचर दिखाती "
+"है; \"छिपा हुआ\" फ़्लोटिंग स्विचर बंद कर देता है ताकि आप नेविगेशन मेनू में भाषा स्विचर जोड़ "
+"सकें। एक समय में केवल एक विधि सक्रिय रहती है।"
 
-#: includes/admin-page.php:1366
+#: includes/admin-page.php:1741
 msgid "Open Menu Editor"
 msgstr "मेनू एडिटर खोलें"
 
-#: includes/admin-page.php:1366
+#: includes/admin-page.php:1741
 msgid "Add language switcher to your navigation menus"
 msgstr "अपने नेविगेशन मेनू में भाषा स्विचर जोड़ें"
 
-#: includes/admin-page.php:1375
+#: includes/admin-page.php:1750
 msgid "Cache Settings"
 msgstr "कैश सेटिंग्स"
 
-#: includes/admin-page.php:1381
+#: includes/admin-page.php:1756
 msgid "Cache Duration (days)"
 msgstr "कैश अवधि (दिन)"
 
-#: includes/admin-page.php:1402
+#: includes/admin-page.php:1777
 msgid "days"
 msgstr "दिन"
 
-#: includes/admin-page.php:1403
+#: includes/admin-page.php:1778
 msgid "minimum 14 days"
 msgstr "न्यूनतम 14 दिन"
 
-#: includes/admin-page.php:1410
-#, fuzzy
-msgid "Keep URL Slugs in default language"
-msgstr "URL स्लग को अंग्रेजी में रखें"
+#: includes/admin-page.php:1785
+msgid "Keep URL Slugs in English"
+msgstr "URL स्लग को अंग्रेज़ी में रखें"
 
-#: includes/admin-page.php:1415
-#, fuzzy
-msgid "Keep URL slugs in default language instead of translating them to target languages"
-msgstr "URL slugs को लक्ष्य भाषाओं में अनुवाद करने के बजाय अंग्रेजी में रखें"
+#: includes/admin-page.php:1790
+msgid ""
+"Keep URL slugs in English instead of translating them to target languages"
+msgstr "URL स्लग को लक्ष्य भाषाओं में अनुवाद करने के बजाय अंग्रेज़ी में रखें"
 
-#: includes/admin-page.php:1416
-msgid "When enabled, URLs will remain consistent across languages (e.g., /zh/cv-tips/ instead of /zh/简历技巧/)."
-msgstr "सक्षम होने पर, URL भाषाओं में सुसंगत बने रहेंगे (जैसे, /zh/cv-tips/ बजाय /zh/简历技巧/)।"
+#: includes/admin-page.php:1791
+msgid ""
+"When enabled, URLs will remain consistent across languages (e.g., /zh/cv-"
+"tips/ instead of /zh/简历技巧/)."
+msgstr ""
+"सक्षम होने पर, URL भाषाओं में सुसंगत बने रहेंगे (जैसे, /zh/cv-tips/ बजाय /zh/简历技巧/)।"
 
-#: includes/admin-page.php:1423
+#: includes/admin-page.php:1798
 msgid "Auto-Clear Pages on Menu Update"
 msgstr "मेनू अपडेट पर पेजों को ऑटो-क्लियर करें"
 
-#: includes/admin-page.php:1430
+#: includes/admin-page.php:1805
 msgid "Automatically clear all page caches when menu items are updated"
 msgstr "मेनू आइटम अपडेट होने पर सभी पेज कैश को स्वचालित रूप से क्लियर करें"
 
-#: includes/admin-page.php:1434
-msgid "Menu translation caches (transients) are ALWAYS cleared when you update menus, regardless of this setting."
-msgstr "जब आप मेनू अपडेट करते हैं, तो मेनू अनुवाद कैश (transients) हमेशा क्लियर हो जाते हैं, चाहे यह सेटिंग कुछ भी हो।"
+#: includes/admin-page.php:1809
+msgid ""
+"Menu translation caches (transients) are ALWAYS cleared when you update "
+"menus, regardless of this setting."
+msgstr ""
+"जब आप मेनू अपडेट करते हैं, तो मेनू अनुवाद कैश (transients) हमेशा क्लियर हो जाते हैं, चाहे यह "
+"सेटिंग कुछ भी हो।"
 
-#: includes/admin-page.php:1436
+#: includes/admin-page.php:1811
 msgid "When enabled:"
 msgstr "सक्षम होने पर:"
 
-#: includes/admin-page.php:1437
-msgid "All translated page HTML caches will also be cleared. Menu changes are visible immediately, but requires re-translating pages on next visit (expensive for large sites with many languages)."
-msgstr "सभी अनुवादित पेज HTML कैश भी क्लियर कर दिए जाएंगे। मेनू परिवर्तन तुरंत दिखाई देते हैं, लेकिन अगली विज़िट पर पेजों को फिर से अनुवाद करने की आवश्यकता होती है (कई भाषाओं वाली बड़ी साइटों के लिए महंगा)।"
+#: includes/admin-page.php:1812
+msgid ""
+"All translated page HTML caches will also be cleared. Menu changes are "
+"visible immediately, but requires re-translating pages on next visit "
+"(expensive for large sites with many languages)."
+msgstr ""
+"सभी अनुवादित पेज HTML कैश भी क्लियर कर दिए जाएंगे। मेनू परिवर्तन तुरंत दिखाई देते हैं, लेकिन "
+"अगली विज़िट पर पेजों को फिर से अनुवाद करने की आवश्यकता होती है (कई भाषाओं वाली बड़ी "
+"साइटों के लिए महंगा)।"
 
-#: includes/admin-page.php:1439
+#: includes/admin-page.php:1814
 msgid "When disabled:"
 msgstr "अक्षम होने पर:"
 
-#: includes/admin-page.php:1440
-msgid "Only menu caches are cleared. Page HTML caches remain. Menu changes in already-cached pages will only be visible after cache expires or manual clearing via Cache tab."
-msgstr "केवल मेनू कैश क्लियर किए जाते हैं। पेज HTML कैश बने रहते हैं। पहले से कैश किए गए पेजों में मेनू परिवर्तन केवल कैश समाप्त होने या कैश टैब के माध्यम से मैन्युअल रूप से क्लियर करने के बाद ही दिखाई देंगे।"
+#: includes/admin-page.php:1815
+msgid ""
+"Only menu caches are cleared. Page HTML caches remain. Menu changes in "
+"already-cached pages will only be visible after cache expires or manual "
+"clearing via Cache tab."
+msgstr ""
+"केवल मेनू कैश क्लियर किए जाते हैं। पेज HTML कैश बने रहते हैं। पहले से कैश किए गए पेजों में मेनू "
+"परिवर्तन केवल कैश समाप्त होने या कैश टैब के माध्यम से मैन्युअल रूप से क्लियर करने के बाद ही "
+"दिखाई देंगे।"
 
-#: includes/admin-page.php:1448
+#: includes/admin-page.php:1823
 msgid "Multi-Domain Caching"
 msgstr "मल्टी-डोमेन कैशिंग"
 
-#: includes/admin-page.php:1455
+#: includes/admin-page.php:1830
 msgid "Enable separate cache per domain"
 msgstr "प्रति डोमेन अलग कैश सक्षम करें"
 
-#: includes/admin-page.php:1458
-msgid "When enabled, each domain will have its own cache directory named after the site name. This prevents cache conflicts when multiple domains share the same WordPress installation."
-msgstr "सक्षम होने पर, प्रत्येक डोमेन की अपनी कैश निर्देशिका होगी जिसका नाम साइट के नाम पर होगा। यह तब कैश संघर्षों को रोकता है जब कई डोमेन एक ही वर्डप्रेस इंस्टॉलेशन साझा करते हैं।"
+#: includes/admin-page.php:1833
+msgid ""
+"When enabled, each domain will have its own cache directory named after the "
+"site name. This prevents cache conflicts when multiple domains share the "
+"same WordPress installation."
+msgstr ""
+"सक्षम होने पर, प्रत्येक डोमेन की अपनी कैश निर्देशिका होगी जिसका नाम साइट के नाम पर "
+"होगा। यह तब कैश संघर्षों को रोकता है जब कई डोमेन एक ही वर्डप्रेस इंस्टॉलेशन साझा करते हैं।"
 
-#: includes/admin-page.php:1466 includes/admin-page.php:1473
+#: includes/admin-page.php:1841 includes/admin-page.php:1848
 msgid "Stop translations (except cache invalidation)"
 msgstr "अनुवाद रोकें (कैश अमान्यकरण को छोड़कर)"
 
-#: includes/admin-page.php:1476
-msgid "When enabled, new translations via API will be blocked. Translations will only occur when cached pages expire and need to be refreshed."
-msgstr "सक्षम होने पर, API के माध्यम से नए अनुवाद ब्लॉक कर दिए जाएंगे। अनुवाद केवल तभी होंगे जब कैश किए गए पेज समाप्त हो जाएंगे और उन्हें रीफ्रेश करने की आवश्यकता होगी।"
+#: includes/admin-page.php:1851
+msgid ""
+"When enabled, new translations via API will be blocked. Translations will "
+"only occur when cached pages expire and need to be refreshed."
+msgstr ""
+"सक्षम होने पर, API के माध्यम से नए अनुवाद ब्लॉक कर दिए जाएंगे। अनुवाद केवल तभी होंगे जब "
+"कैश किए गए पेज समाप्त हो जाएंगे और उन्हें रीफ्रेश करने की आवश्यकता होगी।"
 
-#: includes/admin-page.php:1486
+#: includes/admin-page.php:1861
+msgid "WooCommerce"
+msgstr "WooCommerce"
+
+#: includes/admin-page.php:1867
+msgid "Product Names"
+msgstr "उत्पाद नाम"
+
+#: includes/admin-page.php:1873
+msgid "Do not translate product names"
+msgstr "उत्पाद नामों का अनुवाद न करें"
+
+#: includes/admin-page.php:1876
+msgid ""
+"When enabled, product names stay in the original language on product pages, "
+"listings and cart tables — useful for brand names and SKUs. Clear the page "
+"cache after changing this setting."
+msgstr ""
+"सक्षम होने पर उत्पाद पृष्ठों, सूचियों और कार्ट तालिकाओं में उत्पाद नाम मूल भाषा में रहते हैं — "
+"ब्रांड नामों और SKU के लिए उपयोगी। यह सेटिंग बदलने के बाद पेज कैश साफ़ करें।"
+
+#: includes/admin-page.php:1886
 msgid "Advanced Settings"
 msgstr "उन्नत सेटिंग्स"
 
-#: includes/admin-page.php:1494
+#: includes/admin-page.php:1894
+msgid "Glossary (forced term translations)"
+msgstr "शब्दावली (बाध्य शब्द अनुवाद)"
+
+#: includes/admin-page.php:1900
+msgid ""
+"One term per line: source term = lang: translation, lang: translation. The "
+"source term is matched against your default language; the given translation "
+"is then enforced in the translation prompt for that target language. "
+"Example: Bike = de: Fahrrad, nl: Fiets. Clear the page cache after changing "
+"the glossary."
+msgstr ""
+"प्रति पंक्ति एक शब्द: स्रोत शब्द = भाषा: अनुवाद, भाषा: अनुवाद। स्रोत शब्द आपकी डिफ़ॉल्ट "
+"भाषा से मिलाया जाता है; दिया गया अनुवाद उस लक्ष्य भाषा के अनुवाद प्रॉम्प्ट में बाध्य होता "
+"है। उदाहरण: Bike = de: Fahrrad, nl: Fiets. शब्दावली बदलने के बाद पेज कैश साफ़ करें।"
+
+#: includes/admin-page.php:1912
 msgid "Homepage Meta Description"
 msgstr "होमपेज मेटा विवरण"
 
-#: includes/admin-page.php:1523 includes/admin-page.php:1574
-#, fuzzy
+#: includes/admin-page.php:1941 includes/admin-page.php:1992
 msgid "Active domain:"
-msgstr "कार्रवाई"
+msgstr "सक्रिय डोमेन:"
 
-#: includes/admin-page.php:1530
-msgid "Enter the specific meta description for the homepage for the current domain (in the default language). This will override the site tagline or generated excerpt on the homepage."
-msgstr "वर्तमान डोमेन (डिफ़ॉल्ट भाषा में) के लिए होमपेज के लिए विशिष्ट मेटा विवरण दर्ज करें। यह होमपेज पर साइट टैगलाइन या जेनरेट किए गए अंश को ओवरराइड कर देगा।"
+#: includes/admin-page.php:1948
+msgid ""
+"Enter the specific meta description for the homepage for the current domain "
+"(in the default language). This will override the site tagline or generated "
+"excerpt on the homepage."
+msgstr ""
+"वर्तमान डोमेन (डिफ़ॉल्ट भाषा में) के लिए होमपेज के लिए विशिष्ट मेटा विवरण दर्ज करें। यह "
+"होमपेज पर साइट टैगलाइन या जेनरेट किए गए अंश को ओवरराइड कर देगा।"
 
-#: includes/admin-page.php:1532
-msgid "Enter the specific meta description for the homepage (in the default language). This will override the site tagline or generated excerpt on the homepage."
-msgstr "होमपेज (डिफ़ॉल्ट भाषा में) के लिए विशिष्ट मेटा विवरण दर्ज करें। यह होमपेज पर साइट टैगलाइन या जेनरेट किए गए अंश को ओवरराइड कर देगा।"
+#: includes/admin-page.php:1950
+msgid ""
+"Enter the specific meta description for the homepage (in the default "
+"language). This will override the site tagline or generated excerpt on the "
+"homepage."
+msgstr ""
+"होमपेज (डिफ़ॉल्ट भाषा में) के लिए विशिष्ट मेटा विवरण दर्ज करें। यह होमपेज पर साइट टैगलाइन "
+"या जेनरेट किए गए अंश को ओवरराइड कर देगा।"
 
-#: includes/admin-page.php:1534
+#: includes/admin-page.php:1952
 msgid "Generate Meta Description"
 msgstr "मेटा विवरण जेनरेट करें"
 
-#: includes/admin-page.php:1545
+#: includes/admin-page.php:1963
 msgid "Website Context"
 msgstr "वेबसाइट संदर्भ"
 
-#: includes/admin-page.php:1579
+#: includes/admin-page.php:1997
 msgid "Describe your website, business, or organization. For example:"
 msgstr "अपनी वेबसाइट, व्यवसाय या संगठन का वर्णन करें। उदाहरण के लिए:"
 
-#: includes/admin-page.php:1580
-msgid "We are a healthcare technology company specializing in patient management systems. Our services include electronic health records, appointment scheduling, and telemedicine solutions. We serve hospitals, clinics, and healthcare providers across Europe."
-msgstr "हम एक हेल्थकेयर टेक्नोलॉजी कंपनी हैं जो पेशेंट मैनेजमेंट सिस्टम में विशेषज्ञता रखती है। हमारी सेवाओं में इलेक्ट्रॉनिक स्वास्थ्य रिकॉर्ड, अपॉइंटमेंट शेड्यूलिंग और टेलीमेडिसिन समाधान शामिल हैं। हम पूरे यूरोप में अस्पतालों, क्लीनिकों और स्वास्थ्य सेवा प्रदाताओं को सेवा प्रदान करते हैं।"
+#: includes/admin-page.php:1998
+msgid ""
+"We are a healthcare technology company specializing in patient management "
+"systems. Our services include electronic health records, appointment "
+"scheduling, and telemedicine solutions. We serve hospitals, clinics, and "
+"healthcare providers across Europe."
+msgstr ""
+"हम एक हेल्थकेयर टेक्नोलॉजी कंपनी हैं जो पेशेंट मैनेजमेंट सिस्टम में विशेषज्ञता रखती है। हमारी "
+"सेवाओं में इलेक्ट्रॉनिक स्वास्थ्य रिकॉर्ड, अपॉइंटमेंट शेड्यूलिंग और टेलीमेडिसिन समाधान शामिल हैं। "
+"हम पूरे यूरोप में अस्पतालों, क्लीनिकों और स्वास्थ्य सेवा प्रदाताओं को सेवा प्रदान करते हैं।"
 
-#: includes/admin-page.php:1581
+#: includes/admin-page.php:1999
 msgid "Or:"
 msgstr "या:"
 
-#: includes/admin-page.php:1582
-msgid "This is a personal blog about sustainable gardening and organic farming techniques. I share tips, tutorials, and experiences from my own garden."
-msgstr "यह टिकाऊ बागवानी और जैविक खेती तकनीकों के बारे में एक व्यक्तिगत ब्लॉग है। मैं अपने बगीचे से सुझाव, ट्यूटोरियल और अनुभव साझा करता हूं।"
+#: includes/admin-page.php:2000
+msgid ""
+"This is a personal blog about sustainable gardening and organic farming "
+"techniques. I share tips, tutorials, and experiences from my own garden."
+msgstr ""
+"यह टिकाऊ बागवानी और जैविक खेती तकनीकों के बारे में एक व्यक्तिगत ब्लॉग है। मैं अपने बगीचे से "
+"सुझाव, ट्यूटोरियल और अनुभव साझा करता हूं।"
 
-#: includes/admin-page.php:1585
-msgid "Provide context about your website or business for the current domain to help the AI generate more accurate and contextually appropriate translations."
-msgstr "AI को अधिक सटीक और संदर्भ के अनुसार उपयुक्त अनुवाद उत्पन्न करने में मदद करने के लिए वर्तमान डोमेन के लिए अपनी वेबसाइट या व्यवसाय के बारे में संदर्भ प्रदान करें।"
+#: includes/admin-page.php:2003
+msgid ""
+"Provide context about your website or business for the current domain to "
+"help the AI generate more accurate and contextually appropriate translations."
+msgstr ""
+"AI को अधिक सटीक और संदर्भ के अनुसार उपयुक्त अनुवाद उत्पन्न करने में मदद करने के लिए वर्तमान "
+"डोमेन के लिए अपनी वेबसाइट या व्यवसाय के बारे में संदर्भ प्रदान करें।"
 
-#: includes/admin-page.php:1587
-msgid "Provide context about your website or business to help the AI generate more accurate and contextually appropriate translations. "
-msgstr "AI को अधिक सटीक और संदर्भ के अनुसार उपयुक्त अनुवाद उत्पन्न करने में मदद करने के लिए अपनी वेबसाइट या व्यवसाय के बारे में संदर्भ प्रदान करें।"
+#: includes/admin-page.php:2005
+msgid ""
+"Provide context about your website or business to help the AI generate more "
+"accurate and contextually appropriate translations. "
+msgstr ""
+"AI को अधिक सटीक और संदर्भ के अनुसार उपयुक्त अनुवाद उत्पन्न करने में मदद करने के लिए अपनी "
+"वेबसाइट या व्यवसाय के बारे में संदर्भ प्रदान करें।"
 
-#: includes/admin-page.php:1589
+#: includes/admin-page.php:2007
 msgid "Generate Context from Homepage"
 msgstr "होमपेज से संदर्भ जेनरेट करें"
 
-#: includes/admin-page.php:1638
-#, fuzzy
+#. translators: %s: string value
+#: includes/admin-page.php:2097
 msgid "Cache for language %s cleared."
-msgstr "भाषा \"%s\" के लिए कैश क्लियर कर दिया गया। %d फाइलें हटा दी गईं।"
+msgstr "भाषा %s का कैश साफ़ किया गया।"
 
-#: includes/admin-page.php:1641
+#. translators: %d: number value
+#: includes/admin-page.php:2100
 msgid "Files removed: %d"
 msgstr "फ़ाइलें निकाली गईं: %d"
 
-#: includes/admin-page.php:1642
+#. translators: %d: number value
+#: includes/admin-page.php:2101
 msgid "Remaining files: %d"
 msgstr "शेष फ़ाइलें: %d"
 
-#: includes/admin-page.php:1652
+#. translators: %s: string value
+#: includes/admin-page.php:2111
 msgid "No cache files found for language %s."
-msgstr "भाषा %s के लिए कोई कैश फ़ाइलें नहीं मिलीं।"
+msgstr "भाषा %s के लिए कोई कैश फ़ाइल नहीं मिली।"
 
-#: includes/admin-page.php:1661
-#, fuzzy
-msgid "Error clearing cache for language %s: %s"
-msgstr "कैश क्लियर करने में त्रुटि:"
+#. translators: %1$s: string value, %2$s: string value
+#: includes/admin-page.php:2120
+msgid "Error clearing cache for language %1$s: %2$s"
+msgstr "भाषा %1$s का कैश साफ़ करते समय त्रुटि: %2$s"
 
-#: includes/admin-page.php:1677
+#: includes/admin-page.php:2136
 msgid "General"
 msgstr "सामान्य"
 
-#: includes/admin-page.php:1678
+#: includes/admin-page.php:2137
 msgid "Cache"
 msgstr "कैश"
 
-#: includes/admin-page.php:1696
+#: includes/admin-page.php:2155
 msgid "Cache Management"
 msgstr "कैश प्रबंधन"
 
-#: includes/admin-page.php:1700 includes/admin-page.php:1723
+#: includes/admin-page.php:2159 includes/admin-page.php:2182
 msgid "Clear all language caches"
 msgstr "सभी भाषा कैश क्लियर करें"
 
-#: includes/admin-page.php:1701
+#: includes/admin-page.php:2160
 msgid "Clear all language caches."
 msgstr "सभी भाषा कैश क्लियर करें।"
 
-#: includes/admin-page.php:1701
+#: includes/admin-page.php:2160
 msgid "Menu and slug cache are preserved to maintain URL stability."
-msgstr "URL स्थिरता बनाए रखने के लिए मेनू और स्लग कैश को सुरक्षित रखा जाता है।"
+msgstr "URL स्थिरता बनाए रखने के लिए मेनू और स्लग कैश सुरक्षित रहती है।"
 
-#: includes/admin-page.php:1718
-msgid "All language caches and translation transients cleared. Menu and slug cache preserved."
+#: includes/admin-page.php:2177
+msgid ""
+"All language caches and translation transients cleared. Menu and slug cache "
+"preserved."
 msgstr "सभी भाषा कैश और अनुवाद ट्रांजिएंट्स क्लियर कर दिए गए। मेनू और स्लग कैश सुरक्षित हैं।"
 
-#: includes/admin-page.php:1729 includes/admin-page.php:1757
+#: includes/admin-page.php:2188 includes/admin-page.php:2216
 msgid "Clear menu cache"
 msgstr "मेनू कैश क्लियर करें"
 
-#: includes/admin-page.php:1730
-msgid "Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected."
-msgstr "सभी मेनू-आइटम अनुवादों सहित मेनू कैश क्लियर करें। यह सभी मेनू आइटमों के लिए नए अनुवादों को बाध्य करेगा। भाषाएं और स्लग मैप प्रभावित नहीं होते हैं।"
+#: includes/admin-page.php:2189
+msgid ""
+"Clear menu caches including all menu-item translations. This will force "
+"fresh translations for all menu items. Languages and Slug map are not "
+"affected."
+msgstr ""
+"सभी मेनू-आइटम अनुवादों सहित मेनू कैश क्लियर करें। यह सभी मेनू आइटमों के लिए नए अनुवादों को "
+"बाध्य करेगा। भाषाएं और स्लग मैप प्रभावित नहीं होते हैं।"
 
-#: includes/admin-page.php:1734 includes/admin-page.php:1768
-#: includes/admin-page.php:2148 includes/admin-page.php:2235
-#: includes/admin-page.php:2247
-#, fuzzy
+#: includes/admin-page.php:2193 includes/admin-page.php:2227
+#: includes/admin-page.php:2625 includes/admin-page.php:2645
+#: includes/admin-page.php:2808 includes/admin-page.php:2820
+#: includes/admin-page.php:3037
 msgid "Insufficient permissions."
-msgstr "इस कार्रवाई को करने के लिए अपर्याप्त अनुमतियां।"
+msgstr "अपर्याप्त अनुमतियाँ।"
 
-#: includes/admin-page.php:1743
+#: includes/admin-page.php:2202
 msgid "Menu cache cleared"
 msgstr "मेनू कैश क्लियर कर दिया गया"
 
-#: includes/admin-page.php:1745
+#. translators: %d: number of removed menu-item translations
+#: includes/admin-page.php:2204
 msgid "%d menu-item translation removed"
 msgid_plural "%d menu-item translations removed"
 msgstr[0] "%d मेनू-आइटम अनुवाद हटा दिया गया"
 msgstr[1] "%d मेनू-आइटम अनुवाद हटा दिए गए"
 
-#: includes/admin-page.php:1749
+#. translators: %s: string value
+#: includes/admin-page.php:2208
 msgid "and tables truncated: %s"
 msgstr "और तालिकाएं काट दी गईं: %s"
 
-#: includes/admin-page.php:1763 includes/admin-page.php:1785
+#: includes/admin-page.php:2222 includes/admin-page.php:2244
 msgid "Clear slug cache"
 msgstr "स्लग कैश क्लियर करें"
 
-#: includes/admin-page.php:1764
-msgid "Clear the slug table used for translated URLs. Language and menu caches are not affected."
-msgstr "अनुवादित URL के लिए उपयोग की जाने वाली स्लग तालिका क्लियर करें। भाषा और मेनू कैश प्रभावित नहीं होते हैं।"
+#: includes/admin-page.php:2223
+msgid ""
+"Clear the slug table used for translated URLs. Language and menu caches are "
+"not affected."
+msgstr ""
+"अनुवादित URL के लिए उपयोग की जाने वाली स्लग तालिका क्लियर करें। भाषा और मेनू कैश "
+"प्रभावित नहीं होते हैं।"
 
-#: includes/admin-page.php:1775
+#. translators: %d: number value
+#: includes/admin-page.php:2234
 msgid "Slug cache cleared. Rows removed: %d."
 msgstr "स्लग कैश क्लियर कर दिया गया। हटाई गई पंक्तियां: %d."
 
-#: includes/admin-page.php:1778
+#. translators: %s: string value
+#: includes/admin-page.php:2237
 msgid "Failed to clear slug cache: %s."
 msgstr "स्लग कैश क्लियर करने में विफल: %s."
 
-#: includes/admin-page.php:1791
+#: includes/admin-page.php:2250
 msgid "Clear cache per language"
 msgstr "प्रति भाषा कैश क्लियर करें"
 
-#: includes/admin-page.php:1807
+#: includes/admin-page.php:2278
 msgid "Cache overview per language"
 msgstr "प्रति भाषा कैश अवलोकन"
 
-#: includes/admin-page.php:1844
+#: includes/admin-page.php:2315
 msgid "Cache directory:"
 msgstr "कैश निर्देशिका:"
 
-#: includes/admin-page.php:1858
+#: includes/admin-page.php:2329
 msgid "Unknown"
 msgstr "अज्ञात"
 
-#: includes/admin-page.php:1863
+#: includes/admin-page.php:2334
 msgid "Total number of files:"
 msgstr "फाइलों की कुल संख्या:"
 
-#: includes/admin-page.php:1866
+#: includes/admin-page.php:2337
 msgid "Total size:"
 msgstr "कुल आकार:"
 
-#: includes/admin-page.php:1869
+#: includes/admin-page.php:2340
 msgid "Expired files:"
 msgstr "समाप्त फाइलें:"
 
-#: includes/admin-page.php:1872
+#: includes/admin-page.php:2343
 msgid "Last update:"
 msgstr "अंतिम अपडेट:"
 
-#: includes/admin-page.php:1880
+#: includes/admin-page.php:2351
 msgid "Language"
 msgstr "भाषा"
 
-#: includes/admin-page.php:1884
+#: includes/admin-page.php:2355
 msgid "Cache files"
 msgstr "कैश फाइलें"
 
-#: includes/admin-page.php:1888
+#: includes/admin-page.php:2359
 msgid "Size"
 msgstr "आकार"
 
-#: includes/admin-page.php:1892
+#: includes/admin-page.php:2363
 msgid "Expired"
 msgstr "समाप्त"
 
-#: includes/admin-page.php:1896
+#: includes/admin-page.php:2367
 msgid "Last update"
 msgstr "अंतिम अपडेट"
 
-#: includes/admin-page.php:1899
+#: includes/admin-page.php:2370
 msgid "Action"
 msgstr "कार्रवाई"
 
-#: includes/admin-page.php:1926 includes/admin-page.php:1950
+#: includes/admin-page.php:2384
+msgid "N/A"
+msgstr "लागू नहीं"
+
+#: includes/admin-page.php:2397 includes/admin-page.php:2421
 msgid "files"
 msgstr "फाइलें"
 
-#: includes/admin-page.php:1933
+#: includes/admin-page.php:2404
 msgid "Cache clear"
 msgstr "कैश क्लियर"
 
-#: includes/admin-page.php:1936
-msgid "No cache files"
-msgstr "कोई कैश फाइल नहीं"
-
-#: includes/admin-page.php:1949
+#: includes/admin-page.php:2420
 msgid "Total"
 msgstr "कुल"
 
-#: includes/admin-page.php:1964
+#: includes/admin-page.php:2435
 msgid "Translated Pages Overview"
 msgstr "अनुवादित पृष्ठों का अवलोकन"
 
-#: includes/admin-page.php:1965
-msgid "Manage cache per page or blog. Delete cache to retranslate, or warm cache to proactively generate translations."
-msgstr "प्रति पृष्ठ या ब्लॉग कैश प्रबंधित करें। पुनः अनुवाद के लिए कैश हटाएं, या अनुवाद सक्रिय रूप से उत्पन्न करने के लिए कैश वार्म करें।"
+#: includes/admin-page.php:2436
+msgid ""
+"Manage cache per page or blog. Delete cache to retranslate, or warm cache to "
+"proactively generate translations."
+msgstr ""
+"प्रति पृष्ठ या ब्लॉग कैश प्रबंधित करें। पुनः अनुवाद के लिए कैश हटाएं, या अनुवाद सक्रिय रूप से "
+"उत्पन्न करने के लिए कैश वार्म करें।"
 
-#: includes/admin-page.php:1973
+#. translators: %d: number value
+#: includes/admin-page.php:2447
 msgid "Cache metadata rescanned: %d cache records added or updated."
 msgstr "कैश मेटाडेटा पुनः स्कैन किया गया: %d कैश रिकॉर्ड जोड़े या अपडेट किए गए।"
 
-#: includes/admin-page.php:1977
+#: includes/admin-page.php:2451
 msgid "No cache records added. There are currently no cache files available."
 msgstr "No cache records added. There are currently no cache files available."
 
-#: includes/admin-page.php:1994
+#. translators: %d: number value
+#: includes/admin-page.php:2463
 msgid "Cache metadata initialized: %d existing cache records added."
 msgstr "कैश मेटाडेटा प्रारंभ किया गया: %d मौजूदा कैश रिकॉर्ड जोड़े गए।"
 
-#: includes/admin-page.php:2025
-msgid "Cache directory found but no metadata. Click \"Scan Cache Files\" to generate metadata."
-msgstr "कैश निर्देशिका मिली लेकिन कोई मेटाडेटा नहीं। मेटाडेटा उत्पन्न करने के लिए \"कैश फ़ाइलें स्कैन करें\" पर क्लिक करें।"
+#: includes/admin-page.php:2503
+msgid ""
+"Cache directory found but no metadata. Click \"Scan Cache Files\" to "
+"generate metadata."
+msgstr ""
+"कैश निर्देशिका मिली लेकिन कोई मेटाडेटा नहीं। मेटाडेटा उत्पन्न करने के लिए \"कैश फ़ाइलें स्कैन "
+"करें\" पर क्लिक करें।"
 
-#: includes/admin-page.php:2089
-msgid "Scan Cache Files"
+#: includes/admin-page.php:2514
+msgid "Scan cache files"
 msgstr "कैश फाइलें"
 
-#: includes/admin-page.php:2039
+#: includes/admin-page.php:2517
 msgid "Scan the filesystem for cache files and add metadata to the database."
 msgstr "कैश फ़ाइलों के लिए फ़ाइल सिस्टम को स्कैन करें और डेटाबेस में मेटाडेटा जोड़ें।"
 
-#: includes/admin-page.php:2047
+#: includes/admin-page.php:2525 assets/ai-translate-block.js:31
 msgid "Type"
 msgstr "प्रकार"
 
-#: includes/admin-page.php:2048
+#: includes/admin-page.php:2526
 msgid "Title"
 msgstr "शीर्षक"
 
-#: includes/admin-page.php:2049
+#: includes/admin-page.php:2527
 msgid "URL"
 msgstr "URL"
 
-#: includes/admin-page.php:2050
+#: includes/admin-page.php:2528
 msgid "Status"
 msgstr "स्थिति"
 
-#: includes/admin-page.php:2051
-#, fuzzy
+#: includes/admin-page.php:2529
 msgid "Actions"
-msgstr "कार्रवाई"
+msgstr "क्रियाएँ"
 
-#: includes/admin-page.php:2058
+#: includes/admin-page.php:2536
 msgid "No published pages or posts found."
 msgstr "कोई प्रकाशित पृष्ठ या पोस्ट नहीं मिली।"
 
-#: includes/admin-page.php:2101
+#: includes/admin-page.php:2579
 msgid "Delete cache for this page in all languages"
 msgstr "इस पृष्ठ के लिए सभी भाषाओं में कैश हटाएं"
 
-#: includes/admin-page.php:2103
+#: includes/admin-page.php:2581
 msgid "Delete Cache"
 msgstr "कैश हटाएं"
 
-#: includes/admin-page.php:2111
+#: includes/admin-page.php:2589
 msgid "Generate translations for all enabled languages"
 msgstr "सभी सक्षम भाषाओं के लिए अनुवाद जनरेट करें"
 
-#: includes/admin-page.php:2113
-#, fuzzy
+#: includes/admin-page.php:2591
 msgid "Warm Cache"
-msgstr "कैश"
+msgstr "कैश वार्म करें"
 
-#: includes/admin-page.php:2129
+#: includes/admin-page.php:2607
 msgid "&laquo; Previous"
 msgstr "&laquo; पिछला"
 
-#: includes/admin-page.php:2130
+#: includes/admin-page.php:2608
 msgid "Next &raquo;"
 msgstr "अगला &raquo;"
 
-#: includes/admin-page.php:2180
-msgid "API Provider, API Key or Custom API URL is missing or invalid."
-msgstr "API प्रदाता, API की (Key) या कस्टम API URL गायब है या अमान्य है।"
+#: includes/admin-page.php:2629
+msgid "Security check failed."
+msgstr "सुरक्षा जाँच विफल रही।"
 
-#: includes/admin-page.php:2210
+#: includes/admin-page.php:2633
+msgid "Provider missing."
+msgstr "प्रदाता अनुपस्थित है।"
+
+#: includes/admin-page.php:2677
+msgid "API Provider, API Key or Custom API URL is missing or invalid."
+msgstr "API प्रदाता, API कुंजी या कस्टम API URL गायब है या अमान्य है।"
+
+#: includes/admin-page.php:2711
+msgid ""
+"This provider does not support automatic model listing. Enter the model name "
+"manually."
+msgstr "यह प्रदाता स्वचालित मॉडल सूची का समर्थन नहीं करता। मॉडल नाम मैन्युअल दर्ज करें।"
+
+#: includes/admin-page.php:2715
 msgid "API error:"
 msgstr "API त्रुटि:"
 
-#: includes/admin-page.php:2216
+#: includes/admin-page.php:2720
 msgid "Invalid response from API"
 msgstr "API से अमान्य प्रतिक्रिया"
 
-#: includes/admin-page.php:2339
+#: includes/admin-page.php:2996
 msgid "API and model are working. API settings have been saved."
 msgstr "API और मॉडल काम कर रहे हैं। API सेटिंग्स सहेज ली गई हैं।"
 
-#: includes/admin-page.php:2342
+#: includes/admin-page.php:2999
 msgid "API validation failed:"
 msgstr "API सत्यापन विफल:"
 
-#: includes/class-ai-cache-meta.php:401 includes/class-ai-cache-meta.php:567
+#: includes/admin-page.php:3032
+msgid "Security check failed. Please refresh the page."
+msgstr "सुरक्षा जाँच विफल रही। कृपया पृष्ठ रीफ़्रेश करें।"
+
+#: includes/admin-page.php:3043
+msgid "Section parameter missing."
+msgstr "सेक्शन पैरामीटर अनुपस्थित है।"
+
+#. translators: %s: section identifier
+#: includes/admin-page.php:3047
+msgid "Invalid section: %s"
+msgstr "अमान्य सेक्शन: %s"
+
+#: includes/admin-page.php:3059
+msgid "Language settings saved."
+msgstr "भाषा सेटिंग्स सहेजी गईं।"
+
+#: includes/class-ai-cache-meta.php:687 includes/class-ai-cache-meta.php:917
 msgid "Homepage"
 msgstr "होमपेज"
 
-#: includes/class-ai-cache-meta.php:569
+#: includes/class-ai-cache-meta.php:711 includes/class-ai-cache-meta.php:917
+msgid "404 Page"
+msgstr "404 पृष्ठ"
+
+#. translators: %d: number value
+#: includes/class-ai-cache-meta.php:919
 msgid "Post %d"
 msgstr "पोस्ट %d"
 
-#: includes/class-ai-cache-meta.php:631
+#: includes/class-ai-cache-meta.php:985
 msgid "Unknown (not in DB)"
 msgstr "अज्ञात (DB में नहीं)"
 
-#: includes/class-ai-cache-meta.php:636
+#: includes/class-ai-cache-meta.php:990
 msgid "Homepage (not in DB)"
 msgstr "होमपेज (DB में नहीं)"
 
-#: includes/class-ai-cache-meta.php:645
+#: includes/class-ai-cache-meta.php:999
 msgid "not in DB"
 msgstr "DB में नहीं"
 
-#: includes/class-ai-cache-meta.php:667
+#. translators: %d: number value
+#: includes/class-ai-cache-meta.php:1022
 msgid "... and %d more files not in database (use rescan to add them)"
-msgstr "... और %d और फ़ाइलें डेटाबेस में नहीं हैं (जोड़ने के लिए रीस्कैन का उपयोग करें)"
+msgstr "... और %d और फ़ाइलें डेटाबेस में नहीं हैं (उन्हें जोड़ने के लिए पुनः स्कैन करें)"
 
-#: includes/admin-page.php:899
-msgid "Request Key"
-msgstr "अनुरोध कुंजी"
+#. translators: %s is the selected model ID
+#: includes/class-ai-translate-core.php:559
+msgid ""
+"Selected model \"%s\" is not a chat/completions model and cannot be used for "
+"translations. Choose a text chat model (for example: gpt-4o-mini, gpt-4.1-"
+"mini, deepseek-chat)."
+msgstr ""
+"चयनित मॉडल \"%s\" chat/completions मॉडल नहीं है और अनुवाद के लिए उपयोग नहीं हो "
+"सकता। कोई टेक्स्ट चैट मॉडल चुनें (उदाहरण: gpt-4o-mini, gpt-4.1-mini, deepseek-chat)।"
 
+#. translators: %s is the selected model ID
+#: includes/class-ai-translate-core.php:613
+msgid ""
+"Selected model \"%s\" is not supported for chat-based translations. Choose a "
+"chat/completions model instead."
+msgstr ""
+"चयनित मॉडल \"%s\" चैट-आधारित अनुवाद के लिए समर्थित नहीं है। इसके बजाय chat/"
+"completions मॉडल चुनें।"
+
+#: assets/ai-translate-block.js:10
+msgid "AI Language Switcher"
+msgstr "AI भाषा स्विचर"
+
+#: assets/ai-translate-block.js:11
+msgid "Shows the AI Translate language switcher."
+msgstr "AI Translate भाषा स्विचर दिखाता है।"
+
+#: assets/ai-translate-block.js:29
+msgid "Switcher settings"
+msgstr "स्विचर सेटिंग्स"
+
+#: assets/ai-translate-block.js:40
+msgid "Show flags"
+msgstr "झंडे दिखाएँ"
+
+#: assets/ai-translate-block.js:55
+msgid "AI Language Switcher (rendered on the frontend)"
+msgstr "AI भाषा स्विचर (फ्रंटएंड पर दिखाया जाता है)"

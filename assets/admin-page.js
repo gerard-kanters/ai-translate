@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var homepageMetaField = document.getElementById('homepage_meta_description_field');
     var languageSettingsNonceElement = document.getElementById('ai-translate-language-settings-nonce');
     var languageSettingsNonceValue = aiTranslateAdmin.languageSettingsNonce || '';
+    var strings = (typeof aiTranslateAdmin !== 'undefined' && aiTranslateAdmin.strings) ? aiTranslateAdmin.strings : {};
     
     var apiKeys = {}; // Runtime cache; populated via AJAX on provider switch (keys never in page source)
 
@@ -188,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             var customOpt = document.createElement('option');
             customOpt.value = 'custom';
-            customOpt.textContent = 'Select...';
+            customOpt.textContent = strings.selectCustom || 'Select...';
             if (!model) customOpt.selected = true;
             selectedModel.appendChild(customOpt);
             
@@ -271,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (provider === 'custom') {
                             var customOpt = document.createElement('option');
                             customOpt.value = 'custom';
-                            customOpt.textContent = 'Select...';
+                            customOpt.textContent = strings.selectCustom || 'Select...';
                             if (currentModel === 'custom') customOpt.selected = true;
                             selectedModel.appendChild(customOpt);
                         }
@@ -531,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (selectedProvider === 'custom') {
                             var customOpt = document.createElement('option');
                             customOpt.value = 'custom';
-                            customOpt.textContent = 'Select...';
+                            customOpt.textContent = strings.selectCustom || 'Select...';
                             if (current === 'custom') customOpt.selected = true;
                             selectedModel.appendChild(customOpt);
                         }
@@ -917,7 +918,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             })
             .catch(function (error) {
-                var errorMsg = error.message || 'Unknown error';
+                var errorMsg = error.message || strings.unknownError || 'Unknown error';
                 if (errorMsg.indexOf('<!DOCTYPE') !== -1 || errorMsg.indexOf('<html') !== -1) {
                     errorMsg = 'Server returned HTML error page. Check server logs.';
                 }
@@ -998,7 +999,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Replace the button with a checkmark
                     var actionCell = row.querySelector('td:last-child');
                     if (actionCell) {
-                        actionCell.innerHTML = '<span class="dashicons dashicons-yes-alt" style="color: #46b450;" title="No cache files"></span>';
+                        actionCell.innerHTML = '';
+                        var emptyMark = document.createElement('span');
+                        emptyMark.className = 'dashicons dashicons-yes-alt';
+                        emptyMark.style.color = '#46b450';
+                        emptyMark.title = strings.noCacheFiles || 'No cache files';
+                        actionCell.appendChild(emptyMark);
                     }
 
                     // Highlight the row
@@ -1044,7 +1050,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     var noticeDiv = document.createElement('div');
                     noticeDiv.className = 'notice notice-error is-dismissible';
-                    noticeDiv.innerHTML = '<p>Security token not found. Refresh the page and try again.</p>';
+                    noticeDiv.appendChild(document.createElement('p')).textContent = strings.securityTokenMissing || 'Security token not found. Refresh the page and try again.';
 
                     var cacheTab = document.getElementById('cache');
                     if (cacheTab) {
@@ -1062,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 var originalText = button.textContent;
-                button.textContent = 'Processing...';
+                button.textContent = strings.processing || 'Processing...';
                 button.disabled = true;
 
                 // AJAX request
@@ -1140,7 +1146,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         var noticeDiv = document.createElement('div');
                         noticeDiv.className = 'notice notice-error is-dismissible';
-                        noticeDiv.innerHTML = '<p>An error occurred while clearing the cache: ' + error.message + '</p>';
+                        var cacheErr = (strings.cacheClearError || 'An error occurred while clearing the cache: %s').replace('%s', error.message);
+                        noticeDiv.appendChild(document.createElement('p')).textContent = cacheErr;
 
                         var cacheTab = document.getElementById('cache');
                         if (cacheTab) {
@@ -1192,7 +1199,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 var selectedOption = langSelect.options[langSelect.selectedIndex];
                 if (selectedOption) {
                     var count = selectedOption.getAttribute('data-count');
-                    langCountSpan.textContent = count + ' files in cache';
+                    langCountSpan.textContent = (strings.filesInCache || '%s files in cache').replace('%s', count);
                 }
             }
         });
@@ -1201,7 +1208,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var initialOption = langSelect.options[langSelect.selectedIndex];
             if (initialOption) {
                 var initialCount = initialOption.getAttribute('data-count');
-                langCountSpan.textContent = initialCount + ' files in cache';
+                langCountSpan.textContent = (strings.filesInCache || '%s files in cache').replace('%s', initialCount);
             }
         }
 
@@ -1233,7 +1240,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (apiKey && !apiKey.value.trim()) {
                 var errorMsg = document.createElement('div');
                 errorMsg.className = 'error notice aitranslate-error';
-                errorMsg.innerHTML = '<p>Note: Enter API Key to use translation functionality.</p>';
+                errorMsg.appendChild(document.createElement('p')).textContent = strings.enterApiKeyNotice || 'Note: Enter API Key to use translation functionality.';
                 var generalSection = document.querySelector('#general');
                 if (generalSection) {
                     var formElement = generalSection.querySelector('form');
@@ -1258,19 +1265,27 @@ document.addEventListener('DOMContentLoaded', function () {
             // Check if API is configured
             var apiKey = apiKeyInput ? apiKeyInput.value : '';
             if (!apiKey) {
-                generateContextStatus.innerHTML = '<span style="color:red;">Please configure API key first</span>';
+                generateContextStatus.textContent = '';
+                var ctxWarn = document.createElement('span');
+                ctxWarn.style.color = 'red';
+                ctxWarn.textContent = strings.configureApiKeyFirst || 'Please configure API key first';
+                generateContextStatus.appendChild(ctxWarn);
                 return;
             }
 
             // Check if context field is empty
             if (websiteContextField.value.trim()) {
-                if (!confirm('The context field already has content. Do you want to replace it with a generated suggestion?')) {
+                if (!confirm(strings.confirmReplaceContext || 'The context field already has content. Do you want to replace it with a generated suggestion?')) {
                     return;
                 }
             }
 
             generateContextBtn.disabled = true;
-            generateContextStatus.innerHTML = '<span style="color:blue;">Generating context from homepage...</span>';
+            generateContextStatus.textContent = '';
+            var ctxBusy = document.createElement('span');
+            ctxBusy.style.color = 'blue';
+            ctxBusy.textContent = strings.generatingContext || 'Generating context from homepage...';
+            generateContextStatus.appendChild(ctxBusy);
 
             var formData = new FormData();
             formData.append('action', 'ai_translate_generate_website_context');
@@ -1298,14 +1313,18 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Server response was not ok: ' + response.status);
+                    throw new Error((strings.serverResponseNotOk || 'Server response was not ok: %s').replace('%s', response.status));
                 }
                 return response.json();
             })
             .then(function (data) {
                 if (data.success && data.data && data.data.context) {
                     websiteContextField.value = data.data.context;
-                    generateContextStatus.innerHTML = '<span style="color:green;">✓ Context generated successfully!</span>';
+                    generateContextStatus.textContent = '';
+                    var ctxOk = document.createElement('span');
+                    ctxOk.style.color = 'green';
+                    ctxOk.textContent = strings.contextGenerated || 'Context generated successfully!';
+                    generateContextStatus.appendChild(ctxOk);
                     
                     // Auto-save the form
                     var form = websiteContextField.closest('form');
@@ -1316,26 +1335,34 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     }
                 } else {
-                    var errorMsg = 'Failed to generate context';
+                    var errorMsg = strings.failedGenerateContext || 'Failed to generate context';
                     if (data.data && data.data.message) {
                         errorMsg += ': ' + data.data.message;
                     } else if (data.message) {
                         errorMsg += ': ' + data.message;
                     }
-                    generateContextStatus.innerHTML = '<span style="color:red;">✗ ' + errorMsg + '</span>';
+                    generateContextStatus.textContent = '';
+                    var ctxFail = document.createElement('span');
+                    ctxFail.style.color = 'red';
+                    ctxFail.textContent = errorMsg;
+                    generateContextStatus.appendChild(ctxFail);
                 }
             })
             .catch(function (error) {
                 console.error('AJAX Error:', error);
-                generateContextStatus.innerHTML = '<span style="color:red;">✗ Error generating context: ' + error.message + '</span>';
+                generateContextStatus.textContent = '';
+                var ctxCatch = document.createElement('span');
+                ctxCatch.style.color = 'red';
+                ctxCatch.textContent = (strings.errorGeneratingContext || 'Error generating context:') + ' ' + error.message;
+                generateContextStatus.appendChild(ctxCatch);
             })
             .finally(function () {
                 generateContextBtn.disabled = false;
                 
                 // Clear status message after 5 seconds
                 setTimeout(function () {
-                    if (generateContextStatus.innerHTML.includes('✓')) {
-                        generateContextStatus.innerHTML = '';
+                    if (generateContextStatus.textContent.indexOf(strings.contextGenerated || 'Context generated successfully!') !== -1) {
+                        generateContextStatus.textContent = '';
                     }
                 }, 5000);
             });
@@ -1355,19 +1382,27 @@ document.addEventListener('DOMContentLoaded', function () {
             // Check if API is configured
             var apiKey = apiKeyInput ? apiKeyInput.value : '';
             if (!apiKey) {
-                generateMetaStatus.innerHTML = '<span style="color:red;">Please configure API key first</span>';
+                generateMetaStatus.textContent = '';
+                var metaWarn = document.createElement('span');
+                metaWarn.style.color = 'red';
+                metaWarn.textContent = strings.configureApiKeyFirst || 'Please configure API key first';
+                generateMetaStatus.appendChild(metaWarn);
                 return;
             }
 
             // Check if meta field is empty
             if (homepageMetaField.value.trim()) {
-                if (!confirm('The meta description field already has content. Do you want to replace it with a generated suggestion?')) {
+                if (!confirm(strings.confirmReplaceMeta || 'The meta description field already has content. Do you want to replace it with a generated suggestion?')) {
                     return;
                 }
             }
 
             generateMetaBtn.disabled = true;
-            generateMetaStatus.innerHTML = '<span style="color:blue;">Generating meta description from homepage...</span>';
+            generateMetaStatus.textContent = '';
+            var metaBusy = document.createElement('span');
+            metaBusy.style.color = 'blue';
+            metaBusy.textContent = strings.generatingMeta || 'Generating meta description from homepage...';
+            generateMetaStatus.appendChild(metaBusy);
 
             var formData = new FormData();
             formData.append('action', 'ai_translate_generate_homepage_meta');
@@ -1395,14 +1430,18 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Server response was not ok: ' + response.status);
+                    throw new Error((strings.serverResponseNotOk || 'Server response was not ok: %s').replace('%s', response.status));
                 }
                 return response.json();
             })
             .then(function (data) {
                 if (data.success && data.data && data.data.meta) {
                     homepageMetaField.value = data.data.meta;
-                    generateMetaStatus.innerHTML = '<span style="color:green;">✓ Meta description generated successfully!</span>';
+                    generateMetaStatus.textContent = '';
+                    var metaOk = document.createElement('span');
+                    metaOk.style.color = 'green';
+                    metaOk.textContent = strings.metaGenerated || 'Meta description generated successfully!';
+                    generateMetaStatus.appendChild(metaOk);
                     
                     // Auto-save the form
                     var form = homepageMetaField.closest('form');
@@ -1413,26 +1452,34 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     }
                 } else {
-                    var errorMsg = 'Failed to generate meta description';
+                    var errorMsg = strings.failedGenerateMeta || 'Failed to generate meta description';
                     if (data.data && data.data.message) {
                         errorMsg += ': ' + data.data.message;
                     } else if (data.message) {
                         errorMsg += ': ' + data.message;
                     }
-                    generateMetaStatus.innerHTML = '<span style="color:red;">✗ ' + errorMsg + '</span>';
+                    generateMetaStatus.textContent = '';
+                    var metaFail = document.createElement('span');
+                    metaFail.style.color = 'red';
+                    metaFail.textContent = errorMsg;
+                    generateMetaStatus.appendChild(metaFail);
                 }
             })
             .catch(function (error) {
                 console.error('AJAX Error:', error);
-                generateMetaStatus.innerHTML = '<span style="color:red;">✗ Error generating meta description: ' + error.message + '</span>';
+                generateMetaStatus.textContent = '';
+                var metaCatch = document.createElement('span');
+                metaCatch.style.color = 'red';
+                metaCatch.textContent = (strings.errorGeneratingMeta || 'Error generating meta description:') + ' ' + error.message;
+                generateMetaStatus.appendChild(metaCatch);
             })
             .finally(function () {
                 generateMetaBtn.disabled = false;
                 
                 // Clear status message after 5 seconds
                 setTimeout(function () {
-                    if (generateMetaStatus.innerHTML.includes('✓')) {
-                        generateMetaStatus.innerHTML = '';
+                    if (generateMetaStatus.textContent.indexOf(strings.metaGenerated || 'Meta description generated successfully!') !== -1) {
+                        generateMetaStatus.textContent = '';
                     }
                 }, 5000);
             });
