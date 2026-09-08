@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.3.12
+Stable tag: 2.3.13
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -207,6 +207,12 @@ AI Translate requires an API key from one of the supported providers:
 
 
 ## Changelog
+
+
+
+### 2.3.13
+
+- Fix: nested parent/child pages no longer mix up in translated URLs. Switching language on a parent page could show the child page instead, and the child URL could redirect to the parent. After updating, clear the translation cache for those pages.
 
 
 
