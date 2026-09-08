@@ -254,6 +254,11 @@ final class AI_Slugs
         // Must run after ALL exact matches (translated + source slug); otherwise a shorter
         // slug that happens to be a prefix of the requested slug wins over an exact
         // source-slug match (e.g. 'winkel' [shop] hijacking '/ka/winkelwagen/' [cart]).
+        // Hierarchical paths (parent/child) are not truncated prefixes: 'parent' matching
+        // 'parent/child' would resolve the child URL to the parent page and 301 away.
+        if (strpos($slug, '/') !== false) {
+            return null;
+        }
         // Only match if translated_slug is a prefix of the requested slug (truncated prefix case).
         // A valid prefix is strictly shorter than the requested slug, so filter by CHAR_LENGTH upfront.
         // This avoids fetching the entire language partition — only prefix candidates are returned.

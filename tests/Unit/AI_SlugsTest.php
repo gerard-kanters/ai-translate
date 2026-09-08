@@ -185,6 +185,21 @@ final class AI_SlugsTest extends TestCase
         $this->assertNull($result);
     }
 
+    public function test_hierarchical_path_does_not_fuzzy_match_parent_slug(): void
+    {
+        $this->stubPrepare();
+
+        $this->wpdb->shouldReceive('get_col')->andReturn([]);
+        $this->wpdb->shouldReceive('get_var')->andReturn(null);
+        $this->wpdb->shouldReceive('get_results')->andReturn([]);
+
+        Functions\when('get_post')->justReturn(null);
+
+        // /{lang}/{parent}/{child}/ must not resolve to the parent via prefix match.
+        $result = AI_Slugs::resolve_path_to_post('en', 'ai-tr-parent-test/ai-tr-child-test');
+        $this->assertNull($result);
+    }
+
     public function test_trims_leading_trailing_slashes(): void
     {
         $this->stubPrepare();

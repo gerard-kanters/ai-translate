@@ -1033,16 +1033,25 @@ final class AI_OB
         }
 
         // CRITICAL: For warm cache requests and translated URLs, resolve the post ID from the URL FIRST
-        // This is needed because WordPress query functions (is_singular, get_queried_object_id) 
-        // may not work correctly during warm cache internal requests
+        // This is needed because WordPress query functions (is_singular, get_queried_object_id)
+        // may not work correctly during warm cache internal requests.
+        // Use the last path segment (leaf slug), not the first: hierarchical pages
+        // /{lang}/{parent}/{child}/ must resolve to the child. Using the first segment
+        // made parent and child share one cache entry (parent URL served child HTML).
         $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-        if ($req_uri !== '' && preg_match('#^/([a-z]{2})/([^/?]+)/?#i', $req_uri, $url_match)) {
-            $url_lang = strtolower($url_match[1]);
-            $url_slug = $url_match[2];
-            // Try to resolve the translated slug to a post ID
-            $resolved_id = \AITranslate\AI_Slugs::resolve_path_to_post($url_lang, $url_slug);
-            if ($resolved_id !== null && $resolved_id > 0) {
-                return 'post:' . $resolved_id;
+        if ($req_uri !== '') {
+            $req_path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
+            if ($req_path !== '' && preg_match('#^/([a-z]{2})/(.+)$#i', $req_path, $url_match)) {
+                $url_lang = strtolower($url_match[1]);
+                $url_rest = trim((string) $url_match[2], '/');
+                if ($url_rest !== '') {
+                    $url_parts = explode('/', $url_rest);
+                    $url_slug = (string) end($url_parts);
+                    $resolved_id = \AITranslate\AI_Slugs::resolve_path_to_post($url_lang, $url_slug);
+                    if ($resolved_id !== null && $resolved_id > 0) {
+                        return 'post:' . $resolved_id;
+                    }
+                }
             }
         }
         
