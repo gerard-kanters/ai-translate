@@ -108,6 +108,11 @@ if (!class_exists('AITranslate\\AI_Lang')) {
             return self::$detectable;
         }
 
+        public static function current()
+        {
+            return null;
+        }
+
         /**
          * Mirror of the real AI_Lang::is_rtl(); keep in sync.
          */

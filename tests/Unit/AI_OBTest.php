@@ -233,4 +233,62 @@ final class AI_OBTest extends TestCase
 
         $this->assertSame($html, AI_OB::apply_html_lang_dir($html, 'ar'));
     }
+
+    // ---------------------------------------------------------------
+    //  post_process_cached_content() — admin bar on cached pages
+    // ---------------------------------------------------------------
+
+    public function test_injects_admin_bar_class_and_html_margin_for_logged_in_admin(): void
+    {
+        Functions\when('is_admin_bar_showing')->justReturn(true);
+
+        $html = '<html lang="en-GB"><body class="home hestia"><nav class="navbar navbar-fixed-top">Menu</nav></body></html>';
+        $result = $this->postProcessCached($html);
+
+        $this->assertMatchesRegularExpression('/<body\b[^>]*\bclass="[^"]*\badmin-bar\b/', $result);
+        $this->assertStringContainsString('id="wpadminbar"', $result);
+        $this->assertStringContainsString('html{margin-top:32px!important}', $result);
+        $this->assertStringContainsString('.navbar-fixed-top,.fixed-top{top:32px!important;margin-top:0!important}', $result);
+        $this->assertStringNotContainsString('body{margin-top:32px', $result);
+    }
+
+    public function test_adds_admin_bar_class_when_body_has_no_class(): void
+    {
+        Functions\when('is_admin_bar_showing')->justReturn(true);
+
+        $html = '<html><body><p>tekst</p></body></html>';
+        $result = $this->postProcessCached($html);
+
+        $this->assertMatchesRegularExpression('/<body\b[^>]*\bclass="admin-bar"/', $result);
+        $this->assertStringContainsString('id="wpadminbar"', $result);
+    }
+
+    public function test_does_not_duplicate_admin_bar_class(): void
+    {
+        Functions\when('is_admin_bar_showing')->justReturn(true);
+
+        $html = '<html><body class="admin-bar home"><p>tekst</p></body></html>';
+        $result = $this->postProcessCached($html);
+
+        $this->assertSame(1, preg_match_all('/\badmin-bar\b/', $result));
+        $this->assertStringContainsString('id="wpadminbar"', $result);
+    }
+
+    public function test_does_not_inject_admin_bar_for_visitors(): void
+    {
+        Functions\when('is_admin_bar_showing')->justReturn(false);
+
+        $html = '<html><body class="home hestia"><nav class="navbar">Menu</nav></body></html>';
+        $result = $this->postProcessCached($html);
+
+        $this->assertSame($html, $result);
+        $this->assertStringNotContainsString('wpadminbar', $result);
+        $this->assertStringNotContainsString('admin-bar', $result);
+    }
+
+    private function postProcessCached(string $html): string
+    {
+        $method = new \ReflectionMethod(AI_OB::class, 'post_process_cached_content');
+        return (string) $method->invoke(AI_OB::instance(), $html);
+    }
 }

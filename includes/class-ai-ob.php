@@ -57,6 +57,9 @@ final class AI_OB
 
         if ($should_show_admin_bar && !$has_admin_bar) {
             // Admin should see admin bar but it's not in cached content – add it.
+            // Themes offset sticky/fixed menus with body.admin-bar (Hestia: margin-top 32px).
+            // Without this class the injected bar overlays the menu instead of sitting above it.
+            $html = self::ensure_rtl_class_on_tag($html, 'body', 'admin-bar');
             $admin_bar_html = $this->get_simple_admin_bar_html();
             $html = preg_replace('/(<body[^>]*>)/', '$1' . $admin_bar_html, $html, 1);
         } elseif (!$should_show_admin_bar && $has_admin_bar) {
@@ -215,7 +218,7 @@ final class AI_OB
 
         // Remove inline <style> blocks that belong to the admin bar.
         $html = preg_replace(
-            '/<style\b[^>]*>[\s\S]*?(?:#wpadminbar\b|body\s*\{[^}]*margin-top\s*:\s*32px)[\s\S]*?<\/style>/i',
+            '/<style\b[^>]*>[\s\S]*?(?:#wpadminbar\b|(?:html|body)\s*\{[^}]*margin-top\s*:\s*(?:32|46)px)[\s\S]*?<\/style>/i',
             '',
             $html
         );
@@ -229,11 +232,15 @@ final class AI_OB
     /**
      * Get simple admin bar HTML for cached content.
      *
+     * Uses html { margin-top } like WordPress _admin_bar_bump_cb().
+     * Fixed menus (Hestia .navbar-fixed-top) stay at top:0; theme margin-top does not
+     * move them below a position:fixed admin bar, so this CSS sets top: 32px.
+     *
      * @return string Simple admin bar HTML
      */
     private function get_simple_admin_bar_html()
     {
-        return '<div id="wpadminbar" class="nojq"><div class="quicklinks"><ul class="ab-top-menu"><li><a href="/wp-admin/">Dashboard</a></li><li><a href="/wp-admin/edit.php">Posts</a></li><li><a href="/wp-admin/users.php">Users</a></li><li><a href="/wp-login.php?action=logout">Logout</a></li></ul></div></div><style>#wpadminbar{background:#23282d;height:32px;position:fixed;top:0;left:0;right:0;z-index:99999;font-size:13px}#wpadminbar .quicklinks{padding:0 24px}#wpadminbar .ab-top-menu{margin:0;padding:6px 0;list-style:none}#wpadminbar .ab-top-menu li{float:left;margin:0 6px 0 0}#wpadminbar .ab-top-menu li a{color:#eee;text-decoration:none;padding:4px 8px}#wpadminbar .ab-top-menu li a:hover{background:#32373c}body{margin-top:32px!important}</style>';
+        return '<div id="wpadminbar" class="nojq"><div class="quicklinks"><ul class="ab-top-menu"><li><a href="/wp-admin/">Dashboard</a></li><li><a href="/wp-admin/edit.php">Posts</a></li><li><a href="/wp-admin/users.php">Users</a></li><li><a href="/wp-login.php?action=logout">Logout</a></li></ul></div></div><style>#wpadminbar{background:#23282d;height:32px;position:fixed;top:0;left:0;right:0;z-index:99999;font-size:13px}#wpadminbar .quicklinks{padding:0 24px}#wpadminbar .ab-top-menu{margin:0;padding:6px 0;list-style:none}#wpadminbar .ab-top-menu li{float:left;margin:0 6px 0 0}#wpadminbar .ab-top-menu li a{color:#eee;text-decoration:none;padding:4px 8px}#wpadminbar .ab-top-menu li a:hover{background:#32373c}@media screen{html{margin-top:32px!important}.navbar-fixed-top,.fixed-top{top:32px!important;margin-top:0!important}}@media screen and (max-width:782px){html{margin-top:46px!important}#wpadminbar{height:46px}.navbar-fixed-top,.fixed-top{top:46px!important;margin-top:0!important}}</style>';
     }
 
     /**
@@ -907,26 +914,29 @@ final class AI_OB
     }
 
     /**
-     * Ensure a tag's class attribute contains "rtl" (add class attr if missing).
+     * Ensure a tag's class attribute contains a class (add class attr if missing).
      *
-     * @param string $html Full page HTML.
-     * @param string $tag  Tag name (html|body).
+     * @param string $html  Full page HTML.
+     * @param string $tag   Tag name (html|body).
+     * @param string $class Class to add (default rtl).
      * @return string
      */
-    private static function ensure_rtl_class_on_tag($html, $tag)
+    private static function ensure_rtl_class_on_tag($html, $tag, $class = 'rtl')
     {
         $tag = strtolower((string) $tag);
-        if ($tag === '' || !preg_match('/<(?:' . preg_quote($tag, '/') . ')\b/i', $html)) {
+        $class = strtolower((string) $class);
+        if ($tag === '' || $class === '' || !preg_match('/<(?:' . preg_quote($tag, '/') . ')\b/i', $html)) {
             return $html;
         }
 
+        $classRe = preg_quote($class, '/');
         if (preg_match('/(<' . preg_quote($tag, '/') . '\b[^>]*\sclass=["\'])([^"\']*)(["\'])/i', $html, $m)) {
-            if (preg_match('/(?:^|\s)rtl(?:\s|$)/', $m[2])) {
+            if (preg_match('/(?:^|\s)' . $classRe . '(?:\s|$)/', $m[2])) {
                 return $html;
             }
             return preg_replace(
                 '/(<' . preg_quote($tag, '/') . '\b[^>]*\sclass=["\'])([^"\']*)(["\'])/i',
-                '$1rtl $2$3',
+                '$1' . $class . ' $2$3',
                 $html,
                 1
             );
@@ -934,7 +944,7 @@ final class AI_OB
 
         return preg_replace(
             '/(<' . preg_quote($tag, '/') . '\b)([^>]*)>/i',
-            '$1$2 class="rtl">',
+            '$1$2 class="' . $class . '">',
             $html,
             1
         );
