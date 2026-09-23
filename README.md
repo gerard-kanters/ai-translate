@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.3.13
+Stable tag: 2.3.14
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -207,6 +207,12 @@ AI Translate requires an API key from one of the supported providers:
 
 
 ## Changelog
+
+
+
+### 2.3.14
+
+- Fix: translations no longer stay in the source language when the selected model rejects temperature 0, such as GPT-6 Luna and Sol. Activating a model checks that value; if the model refuses it, later requests omit temperature.
 
 
 

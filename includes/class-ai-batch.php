@@ -256,7 +256,7 @@ final class AI_Batch
                             $userPayload = self::buildUserPayload($batchSegs2);
                             $body = self::buildApiBody($model, $system, $userPayload, $provider, $isResponses);
                             $fallbackHeaders = self::buildApiHeaders($apiKey, $provider, $settings);
-                            $resp = AI_Translate_Core::remote_api_post($endpoint, $fallbackHeaders, $body, $timeoutSeconds);
+                            $resp = self::postTranslation($endpoint, $fallbackHeaders, $body, $timeoutSeconds, $provider, $model);
                             if (is_wp_error($resp)) { continue; }
                             $code = (int) wp_remote_retrieve_response_code($resp);
                             if ($code === 429) {
@@ -312,6 +312,25 @@ final class AI_Batch
                     }
                 }
                 if (!empty($failedIndexes)) {
+                    $temperatureRejected = false;
+                    foreach ($failedIndexes as $fi) {
+                        $failResp = $responses[$fi] ?? null;
+                        $failBody = (is_object($failResp) && property_exists($failResp, 'body')) ? (string) $failResp->body : '';
+                        if (AI_Translate_Core::is_unsupported_temperature_error($failBody)) {
+                            $temperatureRejected = true;
+                            break;
+                        }
+                    }
+                    if ($temperatureRejected) {
+                        AI_Translate_Core::remember_temperature_supported($provider, $model, false);
+                        foreach ($failedIndexes as $fi) {
+                            $decoded = json_decode((string) $requests[$fi]['data'], true);
+                            if (is_array($decoded)) {
+                                unset($decoded['temperature']);
+                                $requests[$fi]['data'] = wp_json_encode($decoded);
+                            }
+                        }
+                    }
                     $retryReqs = [];
                     $retryMetas = [];
                     foreach ($failedIndexes as $fi) {
@@ -391,7 +410,7 @@ final class AI_Batch
             $timeRemaining = $timeLimit > 0 ? ($timeLimit - (microtime(true) - $requestTime)) : 60;
             $safeTimeout = min($timeoutSeconds, max(10, (int)($timeRemaining - 10)));
 
-            $response = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $safeTimeout);
+            $response = self::postTranslation($endpoint, $headers, $body, $safeTimeout, $provider, $model);
             if (is_wp_error($response)) {
                 break;
             }
@@ -404,7 +423,7 @@ final class AI_Batch
                     $isResponses = true;
                     $endpoint = rtrim($baseUrl, '/') . '/responses';
                     $body = self::buildApiBody($model, $system, $userPayload, $provider, true);
-                    $response = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $safeTimeout);
+                    $response = self::postTranslation($endpoint, $headers, $body, $safeTimeout, $provider, $model);
                     if (is_wp_error($response)) {
                         break;
                     }
@@ -578,6 +597,32 @@ final class AI_Batch
      * @param string $provider API provider name.
      * @return array Request body array.
      */
+    /**
+     * Post a translation body. If the model rejects temperature 0, remember that and retry once without it.
+     *
+     * @param string $endpoint API endpoint.
+     * @param array  $headers  Request headers.
+     * @param array  $body     Request body.
+     * @param int    $timeout  Timeout in seconds.
+     * @param string $provider Provider key.
+     * @param string $model    Model ID.
+     * @return array|\WP_Error
+     */
+    private static function postTranslation(string $endpoint, array $headers, array $body, int $timeout, string $provider, string $model)
+    {
+        $resp = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $timeout);
+        if (is_wp_error($resp) || (int) wp_remote_retrieve_response_code($resp) === 200) {
+            return $resp;
+        }
+        $raw = (string) wp_remote_retrieve_body($resp);
+        if (!AI_Translate_Core::is_unsupported_temperature_error($raw)) {
+            return $resp;
+        }
+        AI_Translate_Core::remember_temperature_supported($provider, $model, false);
+        unset($body['temperature']);
+        return AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $timeout);
+    }
+
     private static function buildApiBody(string $model, string $system, string $userPayload, string $provider, bool $isResponses = false): array
     {
         $body = [
@@ -698,7 +743,7 @@ final class AI_Batch
         foreach ($retryChunks as $rc) {
             $userPayload = self::buildUserPayload($rc);
             $body = self::buildApiBody($model, $strictSystem, $userPayload, $provider, $retryIsResponses);
-            $resp = AI_Translate_Core::remote_api_post($endpoint, $headers, $body, $timeoutSeconds);
+            $resp = self::postTranslation($endpoint, $headers, $body, $timeoutSeconds, $provider, $model);
             if (is_wp_error($resp)) {
                 continue;
             }

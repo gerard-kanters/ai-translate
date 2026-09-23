@@ -2860,7 +2860,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
             // Zorg dat we de meest recente settings uit de database lezen
             wp_cache_delete('ai_translate_settings', 'options');
             wp_cache_delete('alloptions', 'options');
-            $current_settings = AI_Translate_Core::settings();
+            $current_settings = AI_Translate_Core::settings(true);
             if (!is_array($current_settings)) {
                 $current_settings = [];
             }
@@ -2885,6 +2885,20 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
             }
             if (is_string($model) && $model !== '') {
                 $updated_settings['models'][$provider_key] = $model;
+            }
+
+            if (
+                $model !== ''
+                && isset($validation_result['temperature_supported'])
+                && is_bool($validation_result['temperature_supported'])
+            ) {
+                if (!isset($updated_settings['temperature_supported']) || !is_array($updated_settings['temperature_supported'])) {
+                    $updated_settings['temperature_supported'] = [];
+                }
+                if (!isset($updated_settings['temperature_supported'][$provider_key]) || !is_array($updated_settings['temperature_supported'][$provider_key])) {
+                    $updated_settings['temperature_supported'][$provider_key] = [];
+                }
+                $updated_settings['temperature_supported'][$provider_key][$model] = $validation_result['temperature_supported'];
             }
             
             if (isset($_POST['custom_model_value'])) {

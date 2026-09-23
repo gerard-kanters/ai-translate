@@ -370,6 +370,63 @@ final class AI_Translate_Core
     }
 
     /**
+     * Whether an API error body rejects the temperature value sent with the request.
+     *
+     * @param string $body Raw HTTP response body.
+     * @return bool
+     */
+    public static function is_unsupported_temperature_error(string $body): bool
+    {
+        $data = json_decode($body, true);
+        $message = '';
+        $param = '';
+        if (is_array($data) && isset($data['error']) && is_array($data['error'])) {
+            $message = strtolower((string) ($data['error']['message'] ?? ''));
+            $param = strtolower((string) ($data['error']['param'] ?? ''));
+        } else {
+            $message = strtolower($body);
+        }
+        if ($param === 'temperature') {
+            return true;
+        }
+        return strpos($message, 'temperature') !== false
+            && (
+                strpos($message, 'unsupported') !== false
+                || strpos($message, 'does not support') !== false
+                || strpos($message, 'not support') !== false
+                || strpos($message, 'only the default') !== false
+            );
+    }
+
+    /**
+     * Remember whether a model accepts temperature 0, for later translation requests.
+     *
+     * @param string $provider Provider key.
+     * @param string $model    Model ID.
+     * @param bool   $supported True when temperature 0 was accepted.
+     * @return void
+     */
+    public static function remember_temperature_supported(string $provider, string $model, bool $supported): void
+    {
+        if ($provider === '' || $model === '') {
+            return;
+        }
+        $settings = self::settings(true);
+        if (($settings['temperature_supported'][$provider][$model] ?? null) === $supported) {
+            return;
+        }
+        if (!isset($settings['temperature_supported']) || !is_array($settings['temperature_supported'])) {
+            $settings['temperature_supported'] = [];
+        }
+        if (!isset($settings['temperature_supported'][$provider]) || !is_array($settings['temperature_supported'][$provider])) {
+            $settings['temperature_supported'][$provider] = [];
+        }
+        $settings['temperature_supported'][$provider][$model] = $supported;
+        update_option('ai_translate_settings', $settings);
+        self::settings(true);
+    }
+
+    /**
      * Adjust an API request body for model-specific requirements.
      *
      * Disables or minimizes reasoning/thinking for translation (cost + latency).
@@ -389,8 +446,16 @@ final class AI_Translate_Core
         $isGemini    = stripos($model, 'gemini') !== false;
         $isReasoning = $isOSeries || $isGpt5 || $isDeepSeekV || $isGemini;
 
-        // GPT-5 / O-series reject temperature=0.
-        if ($isOSeries || $isGpt5) {
+        // Temperature 0 is only omitted when activation in admin proved this model
+        // rejects that value. GPT-5 / O-series stay omitted until that check exists.
+        $omitTemperature = ($isOSeries || $isGpt5);
+        $temperatureCap = self::settings()['temperature_supported'][$provider][$model] ?? null;
+        if ($temperatureCap === false) {
+            $omitTemperature = true;
+        } elseif ($temperatureCap === true) {
+            $omitTemperature = false;
+        }
+        if ($omitTemperature) {
             unset($body['temperature']);
         }
 
@@ -480,7 +545,7 @@ final class AI_Translate_Core
      * @param string $api_key
      * @param string $custom_api_url
      * @param string $model Optional model to test with chat/completions
-     * @return array{ok:bool}
+     * @return array{ok:bool,temperature_supported?:bool}
      * @throws \Exception
      */
     public function validate_api_settings($provider_key, $api_key, $custom_api_url = '', $model = '')
@@ -636,9 +701,39 @@ final class AI_Translate_Core
                     throw new \Exception(esc_html('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500)));
                 }
             }
+
+            // Probe the temperature value used for translations. A rejection does not
+            // fail activation: the model stays usable and later requests omit temperature.
+            $temperatureSupported = null;
+            $tempBody = [
+                'model' => $model,
+                'messages' => [
+                    ['role' => 'user', 'content' => 'Test'],
+                ],
+                'temperature' => 0,
+            ];
+            if (substr($chatEndpoint, -10) === '/responses') {
+                $tempBody = self::convert_body_to_responses($tempBody);
+            }
+            $tempResp = self::remote_api_post($chatEndpoint, $chatHeaders, $tempBody, 20);
+            if (!is_wp_error($tempResp)) {
+                $tempCode = (int) wp_remote_retrieve_response_code($tempResp);
+                if ($tempCode === 200) {
+                    $temperatureSupported = true;
+                } elseif (self::is_unsupported_temperature_error((string) wp_remote_retrieve_body($tempResp))) {
+                    $temperatureSupported = false;
+                }
+                if (is_bool($temperatureSupported)) {
+                    self::remember_temperature_supported($provider_key, $model, $temperatureSupported);
+                }
+            }
         }
 
-        return ['ok' => true];
+        $result = ['ok' => true];
+        if (isset($temperatureSupported) && is_bool($temperatureSupported)) {
+            $result['temperature_supported'] = $temperatureSupported;
+        }
+        return $result;
     }
 
     /**
