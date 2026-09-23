@@ -212,10 +212,7 @@ AI Translate requires an API key from one of the supported providers:
 
 ### 2.3.14
 
-- Fix: translations no longer stay in the source language when the selected model rejects temperature 0, such as GPT-6 Luna and Sol. Activating a model checks that value; if the model refuses it, later requests omit temperature.
-- Fix: Arabic and Hebrew pages no longer stay left-aligned when pasted content carries dir="ltr" on headings, paragraphs or lists. Those leftover attributes are removed; an explicit dir="rtl" on a nested element is kept.
-
-
+- Fix: Support OpenAI GPT-6 which does not support temperature anymore.
 
 ### 2.3.13
 
