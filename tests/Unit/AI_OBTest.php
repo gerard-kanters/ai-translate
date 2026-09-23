@@ -151,6 +151,39 @@ final class AI_OBTest extends TestCase
         $this->assertSame($once, $twice);
     }
 
+    public function test_strips_nested_dir_ltr_for_rtl_target(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body>'
+            . '<h2 dir="ltr">ما هو ASA؟</h2>'
+            . '<p dir="ltr" class="lead">نص</p>'
+            . '<p class="note" dir=\'ltr\'>نص</p>'
+            . '<ul dir="rtl"><li>نص</li></ul>'
+            . '</body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'ar');
+
+        $this->assertStringContainsString('<html', $result);
+        $this->assertMatchesRegularExpression('/<html\b[^>]*\sdir="rtl"/', $result);
+        $this->assertStringNotContainsString('dir="ltr"', $result);
+        $this->assertStringNotContainsString("dir='ltr'", $result);
+        $this->assertStringContainsString('<h2>', $result);
+        $this->assertStringContainsString('<p class="lead">', $result);
+        $this->assertStringContainsString('<p class="note">', $result);
+        $this->assertStringContainsString('<ul dir="rtl">', $result);
+
+        $twice = AI_OB::apply_html_lang_dir($result, 'ar');
+        $this->assertSame($result, $twice);
+    }
+
+    public function test_keeps_nested_dir_ltr_for_ltr_target(): void
+    {
+        $html = '<html lang="nl-NL"><head></head><body><h2 dir="ltr">Wat is ASA?</h2></body></html>';
+
+        $result = AI_OB::apply_html_lang_dir($html, 'de');
+
+        $this->assertStringContainsString('<h2 dir="ltr">', $result);
+    }
+
     public function test_flips_inline_text_align_left_to_right_for_rtl(): void
     {
         $html = '<html lang="nl-NL"><head></head><body><p style="text-align: left;">tekst</p></body></html>';

@@ -826,6 +826,18 @@ final class AI_OB
             }
             $html = self::ensure_rtl_class_on_tag($html, 'html');
             $html = self::ensure_rtl_class_on_tag($html, 'body');
+            // Editors (Google Docs, Word) paste dir="ltr" onto headings, paragraphs
+            // and lists. That attribute overrides dir="rtl" on <html>, so Arabic
+            // and Hebrew stay left-aligned. Drop those leftovers. An explicit
+            // dir="rtl" on a nested element is left in place. <html> is already rtl.
+            $stripped = preg_replace(
+                '/(<(?!html\b)[a-z][^>]*?)\s+dir=(["\'])ltr\2/i',
+                '$1',
+                $html
+            );
+            if (is_string($stripped)) {
+                $html = $stripped;
+            }
             // Page builders often bake style="text-align: left" into content.
             // dir=rtl alone does not override inline styles; flip left → right only
             // (idempotent on cached re-serve via post_process_cached_content).
