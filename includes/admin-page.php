@@ -2719,47 +2719,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     if (!isset($data['data']) || !is_array($data['data'])) {
         wp_send_json_error(['message' => __('Invalid response from API', 'ai-translate')]);
     }
-    $raw_models = $data['data'];
-
-    // Modality filter: use API metadata to keep only text-in / text-out models.
-    // OpenRouter: architecture.output_modalities / input_modalities arrays.
-    // Deepinfra: models without metadata.context_length are non-text (image gen, embeddings).
-    $raw_models = array_filter($raw_models, function ($m) use ($provider_key) {
-        if (!is_array($m)) {
-            return true;
-        }
-        $arch = isset($m['architecture']) && is_array($m['architecture']) ? $m['architecture'] : null;
-        if ($arch !== null) {
-            $output = isset($arch['output_modalities']) && is_array($arch['output_modalities']) ? $arch['output_modalities'] : null;
-            $input  = isset($arch['input_modalities']) && is_array($arch['input_modalities']) ? $arch['input_modalities'] : null;
-            if ($output !== null && !in_array('text', $output, true)) {
-                return false;
-            }
-            if ($input !== null && !in_array('text', $input, true)) {
-                return false;
-            }
-        }
-        if ($provider_key === 'deepinfra' && array_key_exists('metadata', $m)) {
-            $meta = is_array($m['metadata']) ? $m['metadata'] : null;
-            if ($meta === null || empty($meta['context_length'])) {
-                return false;
-            }
-        }
-        return true;
-    });
-
-    $models = array_map(function ($m) {
-        return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
-    }, $raw_models);
-    $models = array_filter($models);
-    // Secondary regex filter for model families known to be incompatible with text translation.
-    $models = array_filter($models, function ($model) {
-        if (preg_match('/^(babbage-|davinci-)/i', $model)) {
-            return false;
-        }
-        return !preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria|sora|computer-use|deep-research)/i', $model);
-    });
-    sort($models);
+    $models = AI_Translate_Core::filter_admin_models($data['data'], $provider_key);
 
     // Place preferred translation models first per provider.
     // Existing saved selections are kept by the UI; this only controls default-first ordering.

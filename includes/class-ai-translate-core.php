@@ -250,6 +250,175 @@ final class AI_Translate_Core
         return '';
     }
 
+    /**
+     * Keep the models the admin dropdown shows: text in and out, no image/audio/embedding families.
+     *
+     * @param array  $rawModels Rows from the provider /models response.
+     * @param string $provider  Provider key.
+     * @return string[] Model IDs.
+     */
+    public static function filter_admin_models(array $rawModels, string $provider): array
+    {
+        $rawModels = array_filter($rawModels, function ($m) use ($provider) {
+            if (!is_array($m)) {
+                return true;
+            }
+            $arch = isset($m['architecture']) && is_array($m['architecture']) ? $m['architecture'] : null;
+            if ($arch !== null) {
+                $output = isset($arch['output_modalities']) && is_array($arch['output_modalities']) ? $arch['output_modalities'] : null;
+                $input  = isset($arch['input_modalities']) && is_array($arch['input_modalities']) ? $arch['input_modalities'] : null;
+                if ($output !== null && !in_array('text', $output, true)) {
+                    return false;
+                }
+                if ($input !== null && !in_array('text', $input, true)) {
+                    return false;
+                }
+            }
+            if ($provider === 'deepinfra' && array_key_exists('metadata', $m)) {
+                $meta = is_array($m['metadata']) ? $m['metadata'] : null;
+                if ($meta === null || empty($meta['context_length'])) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        $models = array_map(function ($m) {
+            return is_array($m) && isset($m['id']) ? $m['id'] : (is_string($m) ? $m : null);
+        }, $rawModels);
+        $models = array_filter($models, function ($model) use ($provider) {
+            if (!is_string($model) || $model === '') {
+                return false;
+            }
+            if (preg_match('/^(babbage-|davinci-)/i', $model)) {
+                return false;
+            }
+            // Image/audio/embedding families (all providers), including Groq Orpheus speech.
+            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria|sora|computer-use|deep-research|orpheus)/i', $model)) {
+                return false;
+            }
+            // Embedding IDs without the word "embedding" (bge/e5/gte/text2vec/…).
+            if (preg_match('/sentence-transformers\/|(?:^|\/|[-_])(?:bge|e5|gte|text2vec)(?:[-_\/]|$)|embed(?:ding)?[-_\/]|[-_\/]embed(?:ding)?(?:[-_\/]|$)|nemotron-embed/i', $model)) {
+                return false;
+            }
+            // OpenRouter batch-only IDs are not chat/completions models.
+            if (preg_match('/:batch$/i', $model)) {
+                return false;
+            }
+            // OpenAI: chat-test failures for instruct / search-preview / chat-latest / pro / live / o3-pro.
+            // Keep bare chat-latest, gpt-4o, gpt-5/mini, gpt-6-luna/sol, o1-pro.
+            if ($provider === 'openai') {
+                if (preg_match('/instruct|search-preview|search-api|-chat-latest|^gpt-live|^o3-pro(?:-|$)/i', $model)) {
+                    return false;
+                }
+                if (preg_match('/^gpt-.*-pro(?:-\d{4}-\d{2}-\d{2})?$/i', $model)) {
+                    return false;
+                }
+            }
+            // OpenRouter: account/policy, harness-only, region, apply-tools, broken chat IDs.
+            if ($provider === 'openrouter') {
+                if (preg_match('/muse-spark|(?:^|\/)sakana\/|relace-apply|thinkingmachines\/inkling(?:-small)?:free/i', $model)) {
+                    return false;
+                }
+                static $openrouterDrop = [
+                    'amazon/nova-premier-v1' => true,
+                    'anthracite-org/magnum-v4-72b' => true,
+                    'baidu/ernie-4.5-vl-424b-a47b' => true,
+                    'cognitivecomputations/dolphin-mistral-24b-venice-edition' => true,
+                    'deepseek/deepseek-chat-v3-0324' => true,
+                    'deepseek/deepseek-r1' => true,
+                    'deepseek/deepseek-r1-distill-llama-70b' => true,
+                    'deepseek/deepseek-v3.2-exp' => true,
+                    'google/gemini-2.5-pro' => true,
+                    'google/gemini-2.5-pro-preview' => true,
+                    'google/gemini-3.1-pro-preview' => true,
+                    'google/gemini-3.1-pro-preview-customtools' => true,
+                    'google/gemini-3.5-flash' => true,
+                    'google/gemini-3.5-flash-lite' => true,
+                    'google/gemini-3.6-flash' => true,
+                    'google/gemini-3.7-flash' => true,
+                    'google/gemini-3.8-flash' => true,
+                    'google/gemma-2-27b-it' => true,
+                    'google/gemma-3-12b-it' => true,
+                    'google/gemma-3-4b-it' => true,
+                    'inclusionai/ling-3.0-flash' => true,
+                    'inclusionai/ling-3.0-flash-fin' => true,
+                    'inclusionai/ling-3.0-flash-fin:free' => true,
+                    'inclusionai/ling-3.0-flash-sante:free' => true,
+                    'inclusionai/ling-3.0-flash-vl' => true,
+                    'kwaipilot/kat-coder-pro-v2.5' => true,
+                    'mancer/weaver' => true,
+                    'meta-llama/llama-4-scout' => true,
+                    'meta-llama/llama-guard-4-12b' => true,
+                    'microsoft/phi-4' => true,
+                    'microsoft/wizardlm-2-8x22b' => true,
+                    'mistralai/mistral-small-24b-instruct-2501' => true,
+                    'moonshotai/kimi-k2' => true,
+                    'moonshotai/kimi-k2-0905' => true,
+                    'moonshotai/kimi-k2-thinking' => true,
+                    'nousresearch/hermes-3-llama-3.1-405b' => true,
+                    'nousresearch/hermes-3-llama-3.1-70b' => true,
+                    'nvidia/nemotron-3.5-content-safety' => true,
+                    'nvidia/nemotron-3.5-lightning:free' => true,
+                    'google/lyria-3-pro-preview' => true,
+                    'openai/gpt-5-pro' => true,
+                    'openai/gpt-5.2-chat' => true,
+                    'openai/gpt-5.2-pro' => true,
+                    'openai/gpt-5.4-pro' => true,
+                    'openai/gpt-5.5-pro' => true,
+                    'openai/o1-pro' => true,
+                    'prism-ml/ternary-bonsai-2-27b' => true,
+                    'qwen/qwen-2.5-72b-instruct' => true,
+                    'qwen/qwen-2.5-7b-instruct' => true,
+                    'qwen/qwen3-32b' => true,
+                    'rekaai/reka-flash-3' => true,
+                    'sao10k/l3.1-euryale-70b' => true,
+                    'sao10k/l3.3-euryale-70b' => true,
+                    'stepfun/step-3.5-flash' => true,
+                    'tencent/hunyuan-a13b-instruct' => true,
+                    'xiaomi/mimo-v2.5' => true,
+                    'xiaomi/mimo-v2.6-pro' => true,
+                    'xiaomi/mimo-v2.6-pro-ultraspeed' => true,
+                    '~z-ai/glm-latest' => true,
+                    'undi95/remm-slerp-l2-13b' => true,
+                ];
+                if (isset($openrouterDrop[$model])) {
+                    return false;
+                }
+            }
+            // DeepInfra: full-context default max_tokens, or chat test timed out at 20s.
+            if ($provider === 'deepinfra') {
+                static $deepinfraDrop = [
+                    'Qwen/Qwen2.5-72B-Instruct' => true,
+                    'Qwen/Qwen3-14B' => true,
+                    'Qwen/Qwen3.5-9B' => true,
+                    'Qwen/Qwen3.8-27B' => true,
+                    'Qwen/Qwen3-30B-A3B' => true,
+                    'Qwen/Qwen3-32B' => true,
+                    'Qwen/Qwen3.6-27B' => true,
+                    'XiaomiMiMo/MiMo-V2.6-Flash' => true,
+                    'deepseek-ai/DeepSeek-R1-0528' => true,
+                    'deepseek-ai/DeepSeek-V3.1' => true,
+                    'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo' => true,
+                    'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo' => true,
+                    'nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B' => true,
+                    'nvidia/NVIDIA-Nemotron-3.5-Lightning' => true,
+                    'openai/gpt-oss-120b-Ultra' => true,
+                    'thinkingmachines/Inkling' => true,
+                    'zai-org/GLM-4.6' => true,
+                    'zai-org/GLM-5.3' => true,
+                ];
+                if (isset($deepinfraDrop[$model])) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        $models = array_values($models);
+        sort($models);
+        return $models;
+    }
+
     // ── Responses API helpers ──────────────────────────────────────────
     // Some models (e.g. OpenAI Codex) only support /v1/responses instead of
     // /v1/chat/completions.  The helpers below detect this automatically from
@@ -617,7 +786,9 @@ final class AI_Translate_Core
         // If model is provided, test the API endpoint to ensure model is actually usable
         if ($model !== '') {
             // Early guard for model families that are known to be non-chat/non-translation models.
-            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria)/i', $model)) {
+            if (preg_match('/(dall-e|whisper|audio|image|realtime|transcribe|tts|embedding|moderation|codex|seedream|bria|:batch$)/i', $model)
+                || preg_match('/sentence-transformers\/|(?:^|\/|[-_])(?:bge|e5|gte|text2vec)(?:[-_\/]|$)|nemotron-embed/i', $model)
+            ) {
                 throw new \Exception(
                     esc_html(sprintf(
                         /* translators: %s is the selected model ID */
@@ -636,6 +807,7 @@ final class AI_Translate_Core
                     ['role' => 'user', 'content' => 'Test'],
                 ],
             ];
+            $chatBody = self::adjust_body_for_model($chatBody, $model, $provider_key);
             if ($endpointPath === '/responses') {
                 $chatBody = self::convert_body_to_responses($chatBody);
             }
@@ -684,10 +856,11 @@ final class AI_Translate_Core
                 if ($chatCode === 404 && self::is_responses_api_error($chatBodyText)) {
                     self::mark_model_responses_api($model);
                     $chatEndpoint = rtrim($base, '/') . '/responses';
-                    $chatBody = self::convert_body_to_responses([
+                    $chatBody = self::adjust_body_for_model([
                         'model' => $model,
                         'messages' => [['role' => 'user', 'content' => 'Test']],
-                    ]);
+                    ], $model, $provider_key);
+                    $chatBody = self::convert_body_to_responses($chatBody);
                     $chatResp = self::remote_api_post($chatEndpoint, $chatHeaders, $chatBody, 20);
                     if (is_wp_error($chatResp)) {
                         throw new \Exception(esc_html('Chat test failed: ' . $chatResp->get_error_message()));
@@ -695,23 +868,36 @@ final class AI_Translate_Core
                     $chatCode = (int) wp_remote_retrieve_response_code($chatResp);
                     if ($chatCode !== 200) {
                         $chatBodyText = (string) wp_remote_retrieve_body($chatResp);
-                        throw new \Exception(esc_html('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500)));
+                        $chatErrorMessage = '';
+                        $chatErrorData = json_decode($chatBodyText, true);
+                        if (
+                            is_array($chatErrorData)
+                            && isset($chatErrorData['error']['message'])
+                            && is_string($chatErrorData['error']['message'])
+                        ) {
+                            $chatErrorMessage = $chatErrorData['error']['message'];
+                        }
+                        $detail = $chatErrorMessage !== '' ? $chatErrorMessage : substr($chatBodyText, 0, 500);
+                        throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . $detail);
                     }
                 } else {
-                    throw new \Exception(esc_html('Chat test failed (HTTP ' . $chatCode . '): ' . substr($chatBodyText, 0, 500)));
+                    $detail = $chatErrorMessage !== '' ? $chatErrorMessage : substr($chatBodyText, 0, 500);
+                    throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . $detail);
                 }
             }
 
             // Probe the temperature value used for translations. A rejection does not
             // fail activation: the model stays usable and later requests omit temperature.
             $temperatureSupported = null;
-            $tempBody = [
+            $tempBody = self::adjust_body_for_model([
                 'model' => $model,
                 'messages' => [
                     ['role' => 'user', 'content' => 'Test'],
                 ],
                 'temperature' => 0,
-            ];
+            ], $model, $provider_key);
+            // Force the probe value even when adjust_body would omit temperature.
+            $tempBody['temperature'] = 0;
             if (substr($chatEndpoint, -10) === '/responses') {
                 $tempBody = self::convert_body_to_responses($tempBody);
             }
