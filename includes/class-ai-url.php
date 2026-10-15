@@ -8,6 +8,33 @@ namespace AITranslate;
 final class AI_URL
 {
     /**
+     * Map theme blog pagination to the native query after translated routing.
+     * Only the configured posts page is affected; paths and IDs come from WordPress.
+     *
+     * @param \WP $wp Parsed request.
+     * @return void
+     */
+    public static function map_blog_pagination($wp)
+    {
+        // Read-only request routing; this parameter does not change stored data.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $page = $wp->query_vars['blogpage'] ?? ($_GET['blogpage'] ?? null);
+        if (is_admin() || !is_scalar($page)) {
+            return;
+        }
+        $posts_page_id = (int) get_option('page_for_posts');
+        if ($posts_page_id <= 0) {
+            return;
+        }
+        $page_path = (string) ($wp->query_vars['pagename'] ?? '');
+        $page_id = (int) ($wp->query_vars['page_id'] ?? 0);
+        if ($page_id !== $posts_page_id && $page_path !== (string) get_page_uri($posts_page_id)) {
+            return;
+        }
+        $wp->query_vars['paged'] = max(1, absint(wp_unslash($page)));
+    }
+
+    /**
      * Rewrite internal links based on current language.
      *
      * @param string $html
@@ -465,6 +492,21 @@ final class AI_URL
         // Strip any leading language from the path to resolve the original post
         $pathNoLang = preg_replace('#^/([a-z]{2})(?=/|$)#i', '', $path);
         if ($pathNoLang === '') $pathNoLang = '/';
+
+        // Taxonomy URLs are archives, not singular posts with the same leaf slug.
+        // Keep their archive path instead of mapping a category to a landing page.
+        foreach (get_taxonomies(['public' => true], 'objects') as $taxonomy) {
+            $base = is_array($taxonomy->rewrite) ? (string) ($taxonomy->rewrite['slug'] ?? '') : '';
+            if ($taxonomy->name === 'category') {
+                $base = (string) get_option('category_base') ?: 'category';
+            } elseif ($taxonomy->name === 'post_tag') {
+                $base = (string) get_option('tag_base') ?: 'tag';
+            }
+            $base = trim($base, '/');
+            if ($base !== '' && str_starts_with(ltrim($pathNoLang, '/'), $base . '/')) {
+                return null;
+            }
+        }
 
         // Resolve by source slug: map any translated slug back to source, then locate post
         $basenameNoLang = trim(basename($pathNoLang), '/');

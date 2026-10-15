@@ -38,6 +38,8 @@ final class AI_404_RecoveryTest extends TestCase
             return parse_url($url, $component);
         });
         Functions\when('get_option')->justReturn(0);
+        Functions\when('get_post_type')->justReturn('page');
+        Functions\when('is_post_type_viewable')->justReturn(true);
         Functions\when('post_type_exists')->justReturn(false);
         Functions\when('get_post_type_object')->alias(function ($type) {
             return (object) ['public' => true, 'rewrite' => false];

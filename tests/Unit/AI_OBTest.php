@@ -271,18 +271,25 @@ final class AI_OBTest extends TestCase
     //  post_process_cached_content() — admin bar on cached pages
     // ---------------------------------------------------------------
 
-    public function test_injects_admin_bar_class_and_html_margin_for_logged_in_admin(): void
+    public function test_restores_native_toolbar_and_assets_from_current_request(): void
     {
         Functions\when('is_admin_bar_showing')->justReturn(true);
 
-        $html = '<html lang="en-GB"><body class="home hestia"><nav class="navbar navbar-fixed-top">Menu</nav></body></html>';
-        $result = $this->postProcessCached($html);
+        $html = '<html lang="en-GB"><head></head><body class="home"><p>Translated page</p></body></html>';
+        $source = '<html><head><link id="admin-bar-css" href="/admin-bar.css"><style>html{margin-top:32px!important}</style></head><body>'
+            . '<div id="wpadminbar"><div><a href="/wp-admin/post.php?post=42&amp;action=edit">Edit Page</a><a href="/wp-login.php?action=logout&amp;_wpnonce=fresh">Logout</a></div></div>'
+            . '<script id="admin-bar-js" src="/admin-bar.js"></script></body></html>';
+        $result = $this->postProcessCached($html, $source);
 
         $this->assertMatchesRegularExpression('/<body\b[^>]*\bclass="[^"]*\badmin-bar\b/', $result);
         $this->assertStringContainsString('id="wpadminbar"', $result);
         $this->assertStringContainsString('html{margin-top:32px!important}', $result);
-        $this->assertStringContainsString('.navbar-fixed-top,.fixed-top{top:32px!important;margin-top:0!important}', $result);
-        $this->assertStringNotContainsString('body{margin-top:32px', $result);
+        $this->assertStringContainsString('Edit Page', $result);
+        $this->assertStringContainsString('_wpnonce=fresh', $result);
+        $this->assertStringContainsString('id="admin-bar-css"', $result);
+        $this->assertStringContainsString('id="admin-bar-js"', $result);
+        $this->assertStringContainsString('Translated page', $result);
+        $this->assertSame(1, substr_count($result, 'id="wpadminbar"'));
     }
 
     public function test_adds_admin_bar_class_when_body_has_no_class(): void
@@ -290,7 +297,7 @@ final class AI_OBTest extends TestCase
         Functions\when('is_admin_bar_showing')->justReturn(true);
 
         $html = '<html><body><p>tekst</p></body></html>';
-        $result = $this->postProcessCached($html);
+        $result = $this->postProcessCached($html, '<html><body><div id="wpadminbar"><div>Current user</div></div></body></html>');
 
         $this->assertMatchesRegularExpression('/<body\b[^>]*\bclass="admin-bar"/', $result);
         $this->assertStringContainsString('id="wpadminbar"', $result);
@@ -301,7 +308,7 @@ final class AI_OBTest extends TestCase
         Functions\when('is_admin_bar_showing')->justReturn(true);
 
         $html = '<html><body class="admin-bar home"><p>tekst</p></body></html>';
-        $result = $this->postProcessCached($html);
+        $result = $this->postProcessCached($html, '<html><body><div id="wpadminbar"><div>Current user</div></div></body></html>');
 
         $this->assertSame(1, preg_match_all('/\badmin-bar\b/', $result));
         $this->assertStringContainsString('id="wpadminbar"', $result);
@@ -319,9 +326,59 @@ final class AI_OBTest extends TestCase
         $this->assertStringNotContainsString('admin-bar', $result);
     }
 
-    private function postProcessCached(string $html): string
+    public function test_replaces_stale_toolbar_and_preserves_unrelated_styles(): void
+    {
+        Functions\when('is_admin_bar_showing')->justReturn(true);
+        $cached = '<html><head><style>.cards{display:grid}</style><style>#wpadminbar{color:red}</style></head><body class="admin-bar home"><div id="wpadminbar"><div>Previous user</div></div><main>Content</main></body></html>';
+        $source = "<html><head></head><body><div id='wpadminbar'><div>Current user</div></div></body></html>";
+        $result = $this->postProcessCached($cached, $source);
+        $this->assertStringNotContainsString('Previous user', $result);
+        $this->assertStringContainsString('Current user', $result);
+        $this->assertStringContainsString('<style>.cards{display:grid}</style>', $result);
+        $this->assertStringNotContainsString('#wpadminbar{color:red}', $result);
+    }
+
+    public function test_visitors_do_not_receive_a_cached_native_toolbar(): void
+    {
+        Functions\when('is_admin_bar_showing')->justReturn(false);
+        $html = "<html><head><style>.theme{color:blue}</style><style>html{margin-top:32px!important}</style></head><body class='admin-bar home'><div id='wpadminbar'><div>Private toolbar</div></div><p>Content</p></body></html>";
+        $result = $this->postProcessCached($html);
+        $this->assertStringNotContainsString('Private toolbar', $result);
+        $this->assertStringNotContainsString('admin-bar', $result);
+        $this->assertStringNotContainsString('margin-top:32px', $result);
+        $this->assertStringContainsString('<style>.theme{color:blue}</style>', $result);
+        $this->assertStringContainsString('<p>Content</p>', $result);
+    }
+
+    public function test_blog_index_is_not_skipped_by_translation_guard(): void
+    {
+        foreach (['is_singular', 'is_search', 'is_front_page', 'is_404', 'is_post_type_archive', 'is_category', 'is_tag', 'is_tax'] as $function) {
+            Functions\when($function)->justReturn(false);
+        }
+        Functions\when('is_home')->justReturn(true);
+        $method = new \ReflectionMethod(AI_OB::class, 'should_skip_page_structure');
+        $this->assertFalse($method->invoke(AI_OB::instance()));
+    }
+
+    public function test_paginated_blog_cache_keys_include_page_number(): void
+    {
+        Functions\when('is_home')->justReturn(true);
+        Functions\when('is_paged')->justReturn(true);
+        Functions\when('get_option')->justReturn(47);
+        $page = 2;
+        Functions\when('get_query_var')->alias(static function () use (&$page) { return $page; });
+        $method = new \ReflectionMethod(AI_OB::class, 'current_route_id');
+        $secondPageKey = $method->invoke(AI_OB::instance());
+        $page = 3;
+        $thirdPageKey = $method->invoke(AI_OB::instance());
+        $this->assertNotSame($secondPageKey, $thirdPageKey);
+        $page = 2;
+        $this->assertSame($secondPageKey, $method->invoke(AI_OB::instance()));
+    }
+
+    private function postProcessCached(string $html, string $source = ''): string
     {
         $method = new \ReflectionMethod(AI_OB::class, 'post_process_cached_content');
-        return (string) $method->invoke(AI_OB::instance(), $html);
+        return (string) $method->invoke(AI_OB::instance(), $html, $source);
     }
 }

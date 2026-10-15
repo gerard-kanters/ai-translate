@@ -1323,6 +1323,7 @@ add_action('wp_head', function () {
  * Ensure that when viewing the posts index (translated posts page) with ?blogpage=N,
  * the main query uses paged=N so page 2+ actually render page 2+ instead of page 1.
  */
+add_action('parse_request', ['\AITranslate\AI_URL', 'map_blog_pagination'], 100);
 
 /**
  * Return the canonical root-relative path for the current page in the original/default language.

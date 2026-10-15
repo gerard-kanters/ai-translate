@@ -161,7 +161,7 @@ final class AI_Slugs
         if (!empty($candidate_ids)) {
             foreach ($candidate_ids as $candidate_id) {
                 $post = get_post((int) $candidate_id);
-                if ($post && $post->post_type !== 'attachment' && empty($post->post_password)) {
+                if ($post && $post->post_status === 'publish' && is_post_type_viewable($post->post_type) && $post->post_type !== 'attachment' && empty($post->post_password)) {
                     return (int) $candidate_id;
                 }
             }
@@ -184,7 +184,7 @@ final class AI_Slugs
                     $post_id = (int) $row['post_id'];
                     // Verify it's not an attachment
                     $post = get_post($post_id);
-                    if ($post && $post->post_type !== 'attachment') {
+                    if ($post && $post->post_status === 'publish' && is_post_type_viewable($post->post_type) && $post->post_type !== 'attachment') {
                         self::fix_encoded_slug_in_db($post_id, $lang, $stored);
                         return $post_id;
                     }
@@ -203,7 +203,7 @@ final class AI_Slugs
             $colLang,
             $lang
         ));
-        if ($post_id) return (int) $post_id;
+        if ($post_id && is_post_type_viewable(get_post_type($post_id))) return (int) $post_id;
         
         // Final fallback: match source slug regardless of language (for posts that might not have translation entry yet)
         $post_id = $wpdb->get_var($wpdb->prepare(
@@ -212,7 +212,7 @@ final class AI_Slugs
             $colSource,
             $slug
         ));
-        if ($post_id) return (int) $post_id;
+        if ($post_id && is_post_type_viewable(get_post_type($post_id))) return (int) $post_id;
 
         // Absolute last fallback: search directly in wp_posts by post_name.
         // Handles fresh installations where the slug map is still empty.
@@ -244,8 +244,10 @@ final class AI_Slugs
                 $stored_decoded = rawurldecode($stored);
                 if ($stored_decoded === $slug_normalized || $stored_decoded === $slug) {
                     $post_id = (int) $row['post_id'];
-                    self::fix_encoded_slug_in_db($post_id, $lang, $stored);
-                    return $post_id;
+                    if (is_post_type_viewable(get_post_type($post_id)) && get_post_type($post_id) !== 'attachment') {
+                        self::fix_encoded_slug_in_db($post_id, $lang, $stored);
+                        return $post_id;
+                    }
                 }
             }
         }
@@ -300,7 +302,7 @@ final class AI_Slugs
             $post_id = (int) $best_match['post_id'];
             // Verify it's not an attachment
             $post = get_post($post_id);
-            if ($post && $post->post_type !== 'attachment') {
+            if ($post && is_post_type_viewable($post->post_type) && $post->post_type !== 'attachment') {
                 // Fix encoded slug in DB if needed
                 $stored_original = isset($best_match[$colTrans]) ? (string) $best_match[$colTrans] : '';
                 if (strpos($stored_original, '%') !== false) {
@@ -422,6 +424,9 @@ final class AI_Slugs
     {
         $post_id = (int) $post_id;
         if ($post_id <= 0) return null;
+        // Menu items and builder templates have titles but no public permalink.
+        // Never let their translated titles claim a real page's route.
+        if (!is_post_type_viewable(get_post_type($post_id)) || get_post_type($post_id) === 'attachment') return null;
         $default = AI_Lang::default();
         if ($default === null) return null;
         // Homepage should always be '/{lang}/'
@@ -581,7 +586,7 @@ final class AI_Slugs
         foreach ($rows as $row) {
             $post_id = (int) $row['post_id'];
             $post = get_post($post_id);
-            if ($post && $post->post_status === 'publish' && $post->post_type !== 'attachment') {
+            if ($post && $post->post_status === 'publish' && is_post_type_viewable($post->post_type) && $post->post_type !== 'attachment') {
                 return $post_id;
             }
         }
@@ -590,7 +595,7 @@ final class AI_Slugs
         foreach ($rows as $row) {
             $post_id = (int) $row['post_id'];
             $post = get_post($post_id);
-            if ($post && $post->post_status === 'publish') {
+            if ($post && $post->post_status === 'publish' && is_post_type_viewable($post->post_type)) {
                 return $post_id;
             }
         }

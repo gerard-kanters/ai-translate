@@ -46,22 +46,38 @@ final class AI_OB
      * @param string $html The cached HTML content
      * @return string Modified HTML with correct admin bar state and updated permalinks
      */
-    private function post_process_cached_content($html)
+    private function post_process_cached_content($html, $source_html = '')
     {
         // Check if current user should see admin bar
         $should_show_admin_bar = function_exists('is_admin_bar_showing') && is_admin_bar_showing();
 
         // Check if admin bar is currently present in HTML
-        $has_admin_bar = strpos($html, 'id="wpadminbar"') !== false;
+        $has_admin_bar = (bool) preg_match('/\bid=["\']wpadminbar["\']/i', $html);
 
 
-        if ($should_show_admin_bar && !$has_admin_bar) {
-            // Admin should see admin bar but it's not in cached content – add it.
-            // Themes offset sticky/fixed menus with body.admin-bar (Hestia: margin-top 32px).
-            // Without this class the injected bar overlays the menu instead of sitting above it.
+        if ($should_show_admin_bar) {
+            // Cached HTML is shared; only use the toolbar rendered for this request.
+            $native_bar = self::extract_admin_bar((string) $source_html);
+            $html = self::strip_admin_bar($html);
             $html = self::ensure_rtl_class_on_tag($html, 'body', 'admin-bar');
-            $admin_bar_html = $this->get_simple_admin_bar_html();
-            $html = preg_replace('/(<body[^>]*>)/', '$1' . $admin_bar_html, $html, 1);
+            $head_assets = '';
+            $footer_assets = '';
+            preg_match_all('/<link\b[^>]*>|<script\b[^>]*>[\s\S]*?<\/script>|<style\b[^>]*>[\s\S]*?<\/style>/i', (string) $source_html, $assets);
+            foreach ($assets[0] as $asset) {
+                if (preg_match('/\bid=["\'](?:admin-bar|dashicons|hoverintent-js|hoverIntent)(?:-[^"\']*)?["\']/i', $asset)) {
+                    if (stripos($asset, '<script') === 0) {
+                        $footer_assets .= $asset;
+                    } else {
+                        $head_assets .= $asset;
+                    }
+                } elseif (stripos($asset, '<style') === 0 && (strpos($asset, '#wpadminbar') !== false || preg_match('/margin-top\s*:\s*(?:32|46)px/i', $asset))) {
+                    $head_assets .= $asset;
+                }
+            }
+            // Remove stale toolbar assets before adding the current request's versions.
+            $html = preg_replace('/<link\b[^>]*\bid=["\'](?:admin-bar|dashicons)(?:-[^"\']*)?["\'][^>]*>|<script\b[^>]*\bid=["\'](?:admin-bar|hoverintent-js|hoverIntent)(?:-[^"\']*)?["\'][^>]*>[\s\S]*?<\/script>/i', '', $html);
+            $html = str_ireplace('</head>', $head_assets . '</head>', $html);
+            $html = str_ireplace('</body>', $native_bar . $footer_assets . '</body>', $html);
         } elseif (!$should_show_admin_bar && $has_admin_bar) {
             // Regular user should NOT see admin bar but it's in cached content – strip it.
             // Uses a depth-counting string traversal instead of DOMDocument to avoid a
@@ -217,11 +233,9 @@ final class AI_OB
         }
 
         // Remove inline <style> blocks that belong to the admin bar.
-        $html = preg_replace(
-            '/<style\b[^>]*>[\s\S]*?(?:#wpadminbar\b|(?:html|body)\s*\{[^}]*margin-top\s*:\s*(?:32|46)px)[\s\S]*?<\/style>/i',
-            '',
-            $html
-        );
+        $html = preg_replace_callback('/<style\b[^>]*>[\s\S]*?<\/style>/i', static function ($match) {
+            return strpos($match[0], '#wpadminbar') !== false || preg_match('/(?:html|body)\s*\{[^}]*margin-top\s*:\s*(?:32|46)px/i', $match[0]) ? '' : $match[0];
+        }, $html);
 
         // Remove admin-bar class from <html> and <body> opening tags.
         $html = preg_replace('/(<(?:html|body)\b[^>]*?)\s*\badmin-bar\b([^>]*>)/i', '$1$2', $html, 2);
@@ -230,17 +244,25 @@ final class AI_OB
     }
 
     /**
-     * Get simple admin bar HTML for cached content.
+     * Extract the native toolbar without changing its links, nonces or menus.
      *
-     * Uses html { margin-top } like WordPress _admin_bar_bump_cb().
-     * Fixed menus (Hestia .navbar-fixed-top) stay at top:0; theme margin-top does not
-     * move them below a position:fixed admin bar, so this CSS sets top: 32px.
-     *
-     * @return string Simple admin bar HTML
+     * @return string Native toolbar HTML from the current request.
      */
-    private function get_simple_admin_bar_html()
+    private static function extract_admin_bar(string $html): string
     {
-        return '<div id="wpadminbar" class="nojq"><div class="quicklinks"><ul class="ab-top-menu"><li><a href="/wp-admin/">Dashboard</a></li><li><a href="/wp-admin/edit.php">Posts</a></li><li><a href="/wp-admin/users.php">Users</a></li><li><a href="/wp-login.php?action=logout">Logout</a></li></ul></div></div><style>#wpadminbar{background:#23282d;height:32px;position:fixed;top:0;left:0;right:0;z-index:99999;font-size:13px}#wpadminbar .quicklinks{padding:0 24px}#wpadminbar .ab-top-menu{margin:0;padding:6px 0;list-style:none}#wpadminbar .ab-top-menu li{float:left;margin:0 6px 0 0}#wpadminbar .ab-top-menu li a{color:#eee;text-decoration:none;padding:4px 8px}#wpadminbar .ab-top-menu li a:hover{background:#32373c}@media screen{html{margin-top:32px!important}.navbar-fixed-top,.fixed-top{top:32px!important;margin-top:0!important}}@media screen and (max-width:782px){html{margin-top:46px!important}#wpadminbar{height:46px}.navbar-fixed-top,.fixed-top{top:46px!important;margin-top:0!important}}</style>';
+        if (!preg_match('/<div\b[^>]*\bid=["\']wpadminbar["\'][^>]*>/i', $html, $opening, PREG_OFFSET_CAPTURE)) {
+            return '';
+        }
+        $start = $opening[0][1];
+        $depth = 0;
+        preg_match_all('/<\/?div\b[^>]*>/i', $html, $tags, PREG_OFFSET_CAPTURE, $start);
+        foreach ($tags[0] as $tag) {
+            $depth += stripos($tag[0], '</div') === 0 ? -1 : 1;
+            if ($depth === 0) {
+                return substr($html, $start, $tag[1] + strlen($tag[0]) - $start);
+            }
+        }
+        return '';
     }
 
     /**
@@ -378,7 +400,7 @@ final class AI_OB
 
             if ($cached !== false) {
                 $processing = false;
-                return $this->post_process_cached_content($cached);
+                return $this->post_process_cached_content($cached, $html);
             }
         }
         
@@ -404,7 +426,7 @@ final class AI_OB
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
                     $processing = false;
-                    return $this->post_process_cached_content($cached);
+                    return $this->post_process_cached_content($cached, $html);
                 }
             }
             $lockAcquired = true;
@@ -599,7 +621,7 @@ final class AI_OB
                 self::release_cache_lock($lockKey);
             }
             $processing = false;
-            return $this->post_process_cached_content($html3); // Return output but don't cache it
+            return $this->post_process_cached_content($html3, $html); // Return output but don't cache it
         }
 
         // Only cache if not bypassed, no dynamic query parameters, and content is cacheable
@@ -612,14 +634,14 @@ final class AI_OB
         if (!$bypassUserCache && !$hasDynamicQueryParams && !$noCachePage && !$isNeverCachedRoute && $isCacheable) {
             $retryKey = 'ai_tr_retry_' . md5($key);
             if ($contentMatchesLang) {
-                AI_Cache::set($key, $html3);
+                AI_Cache::set($key, self::strip_admin_bar($html3));
                 delete_transient($retryKey);
             } else {
                 $retries = (int) get_transient($retryKey);
                 $retries++;
                 set_transient($retryKey, $retries, 14 * DAY_IN_SECONDS);
                 if ($retries >= 3) {
-                    AI_Cache::set($key, $html3);
+                    AI_Cache::set($key, self::strip_admin_bar($html3));
                 }
             }
         }
@@ -630,7 +652,7 @@ final class AI_OB
         }
         
         $processing = false;
-        return $this->post_process_cached_content($html3);
+        return $this->post_process_cached_content($html3, $html);
     }
 
     /**
@@ -970,6 +992,14 @@ final class AI_OB
      */
     private function current_route_id()
     {
+        // Themes can paginate the posts index through query parameters instead
+        // of /page/N/. Give every page number its own cache across both URL forms.
+        if (function_exists('is_home') && is_home() && function_exists('is_paged') && is_paged()) {
+            $posts_page_id = (int) get_option('page_for_posts');
+            $page = max(1, (int) get_query_var('paged', 1));
+            return 'path:' . md5('posts:' . $posts_page_id . ':page:' . $page);
+        }
+
         // Check for search pages first - these need query parameters in route_id
         if (function_exists('is_search') && is_search()) {
             $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
@@ -1316,12 +1346,13 @@ final class AI_OB
         if (function_exists('is_singular') && !is_singular()) {
             $is_search           = function_exists('is_search') && is_search();
             $is_front_page       = function_exists('is_front_page') && is_front_page();
+            $is_blog_index       = function_exists('is_home') && is_home();
             $is_404              = function_exists('is_404') && is_404();
             $is_post_type_archive = function_exists('is_post_type_archive') && is_post_type_archive();
             $is_tax_archive      = (function_exists('is_category') && is_category()) ||
                                    (function_exists('is_tag') && is_tag()) ||
                                    (function_exists('is_tax') && is_tax());
-            if (!$is_search && !$is_front_page && !$is_404 && !$is_post_type_archive && !$is_tax_archive) {
+            if (!$is_search && !$is_front_page && !$is_blog_index && !$is_404 && !$is_post_type_archive && !$is_tax_archive) {
                 return true;
             }
         }
