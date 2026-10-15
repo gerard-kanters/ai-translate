@@ -86,6 +86,25 @@ final class AI_OB
         return $html;
     }
 
+    /** Refresh only enqueued stylesheet tags; leave translated markup untouched. */
+    private static function refresh_cached_stylesheets(string $html, string $source_html): string
+    {
+        $pattern = '/<link\b(?=[^>]*\brel=["\']stylesheet["\'])(?=[^>]*\bid=["\'][^"\']+-css["\'])[^>]*>/i';
+        if (!preg_match_all($pattern, $source_html, $styles) || stripos($html, '</head>') === false) {
+            return $html;
+        }
+        $replacement = implode('', $styles[0]);
+        $inserted = false;
+        $html = preg_replace_callback($pattern, static function () use (&$inserted, $replacement) {
+            if ($inserted) {
+                return '';
+            }
+            $inserted = true;
+            return $replacement;
+        }, $html);
+        return $inserted ? $html : preg_replace('/<\/head>/i', $replacement . "\n</head>", $html, 1);
+    }
+
     /**
      * Replace the WordPress site_url host with the current request host in cached HTML.
      * Prevents cross-origin AJAX failures when a site is accessed via an alias domain.
@@ -378,7 +397,7 @@ final class AI_OB
 
             if ($cached !== false) {
                 $processing = false;
-                return $this->post_process_cached_content($cached);
+                return $this->post_process_cached_content(self::refresh_cached_stylesheets($cached, $html));
             }
         }
         
@@ -404,7 +423,7 @@ final class AI_OB
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
                     $processing = false;
-                    return $this->post_process_cached_content($cached);
+                    return $this->post_process_cached_content(self::refresh_cached_stylesheets($cached, $html));
                 }
             }
             $lockAcquired = true;
