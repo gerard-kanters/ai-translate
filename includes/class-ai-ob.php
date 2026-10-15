@@ -970,6 +970,14 @@ final class AI_OB
      */
     private function current_route_id()
     {
+        // Themes can paginate the posts index through query parameters instead
+        // of /page/N/. Give every page number its own cache across both URL forms.
+        if (function_exists('is_home') && is_home() && function_exists('is_paged') && is_paged()) {
+            $posts_page_id = (int) get_option('page_for_posts');
+            $page = max(1, (int) get_query_var('paged', 1));
+            return 'path:' . md5('posts:' . $posts_page_id . ':page:' . $page);
+        }
+
         // Check for search pages first - these need query parameters in route_id
         if (function_exists('is_search') && is_search()) {
             $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
@@ -1305,8 +1313,8 @@ final class AI_OB
 
     /**
      * PHASE 3: Page structure validation.
-     * Returns true when the current page is not a singular post/page, search result, front page, 404,
-     * or post-type archive (CPT listing pages, WooCommerce shop).
+     * Returns true when the current page is not a singular post/page, search result, front page,
+     * posts index, 404, or post-type archive (CPT listing pages, WooCommerce shop).
      *
      * @return bool
      */
@@ -1316,12 +1324,13 @@ final class AI_OB
         if (function_exists('is_singular') && !is_singular()) {
             $is_search           = function_exists('is_search') && is_search();
             $is_front_page       = function_exists('is_front_page') && is_front_page();
+            $is_blog_index       = function_exists('is_home') && is_home();
             $is_404              = function_exists('is_404') && is_404();
             $is_post_type_archive = function_exists('is_post_type_archive') && is_post_type_archive();
             $is_tax_archive      = (function_exists('is_category') && is_category()) ||
                                    (function_exists('is_tag') && is_tag()) ||
                                    (function_exists('is_tax') && is_tax());
-            if (!$is_search && !$is_front_page && !$is_404 && !$is_post_type_archive && !$is_tax_archive) {
+            if (!$is_search && !$is_front_page && !$is_blog_index && !$is_404 && !$is_post_type_archive && !$is_tax_archive) {
                 return true;
             }
         }

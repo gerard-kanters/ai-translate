@@ -319,6 +319,32 @@ final class AI_OBTest extends TestCase
         $this->assertStringNotContainsString('admin-bar', $result);
     }
 
+    public function test_blog_index_is_not_skipped_by_translation_guard(): void
+    {
+        foreach (['is_singular', 'is_search', 'is_front_page', 'is_404', 'is_post_type_archive', 'is_category', 'is_tag', 'is_tax'] as $function) {
+            Functions\when($function)->justReturn(false);
+        }
+        Functions\when('is_home')->justReturn(true);
+        $method = new \ReflectionMethod(AI_OB::class, 'should_skip_page_structure');
+        $this->assertFalse($method->invoke(AI_OB::instance()));
+    }
+
+    public function test_paginated_blog_cache_keys_include_page_number(): void
+    {
+        Functions\when('is_home')->justReturn(true);
+        Functions\when('is_paged')->justReturn(true);
+        Functions\when('get_option')->justReturn(47);
+        $page = 2;
+        Functions\when('get_query_var')->alias(static function () use (&$page) { return $page; });
+        $method = new \ReflectionMethod(AI_OB::class, 'current_route_id');
+        $secondPageKey = $method->invoke(AI_OB::instance());
+        $page = 3;
+        $thirdPageKey = $method->invoke(AI_OB::instance());
+        $this->assertNotSame($secondPageKey, $thirdPageKey);
+        $page = 2;
+        $this->assertSame($secondPageKey, $method->invoke(AI_OB::instance()));
+    }
+
     private function postProcessCached(string $html): string
     {
         $method = new \ReflectionMethod(AI_OB::class, 'post_process_cached_content');

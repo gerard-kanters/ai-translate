@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.3.14
+Stable tag: 2.3.15
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -209,6 +209,13 @@ AI Translate requires an API key from one of the supported providers:
 ## Changelog
 
 
+
+### 2.3.15
+
+- Fix: a translated blog URL no longer opens an empty page when a menu item uses the same name as the posts page.
+- Fix: the posts page is translated when the homepage is a static page.
+- Fix: theme pagination such as ?blogpage=2 shows that page of posts, and each page is cached separately.
+- Fix: category and tag links keep their archive address when a page has the same name.
 
 ### 2.3.14
 

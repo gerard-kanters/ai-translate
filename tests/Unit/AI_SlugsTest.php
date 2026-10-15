@@ -24,6 +24,10 @@ final class AI_SlugsTest extends TestCase
         // detect_schema() uses transient caching; stub to return 'new' schema
         Functions\when('get_transient')->justReturn('new');
         Functions\when('set_transient')->justReturn(true);
+        Functions\when('is_post_type_viewable')->alias(static function ($type) {
+            return in_array($type, ['post', 'page', 'product', 'attachment'], true);
+        });
+        Functions\when('get_post_type')->justReturn('page');
     }
 
     private function stubPrepare(): void
@@ -46,6 +50,25 @@ final class AI_SlugsTest extends TestCase
     {
         $result = AI_Slugs::resolve_path_to_post('de', '');
         $this->assertNull($result);
+    }
+
+    public function test_menu_item_slug_cannot_shadow_the_posts_page_source_slug(): void
+    {
+        $this->stubPrepare();
+        $this->wpdb->shouldReceive('get_col')->once()->andReturn(['10']);
+        $this->wpdb->shouldReceive('get_results')->once()->andReturn([]);
+        $this->wpdb->shouldReceive('get_var')->once()->andReturn('42');
+        Functions\when('get_post')->justReturn((object) [
+            'post_type' => 'nav_menu_item', 'post_status' => 'publish', 'post_password' => '',
+        ]);
+
+        $this->assertSame(42, AI_Slugs::resolve_path_to_post('de', 'news'));
+    }
+
+    public function test_internal_post_types_do_not_get_translated_slugs(): void
+    {
+        Functions\when('get_post_type')->justReturn('nav_menu_item');
+        $this->assertNull(AI_Slugs::get_or_generate(10, 'de'));
     }
 
     public function test_slash_only_returns_null(): void
