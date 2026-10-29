@@ -1347,3 +1347,15 @@ msgstr "جارٍ التسخين... %1$s / %2$s"
 
 msgid "Cache warmed for %1$s languages (%2$s skipped)"
 msgstr "تم تسخين الذاكرة المؤقتة لـ %1$s لغات (تم تخطي %2$s)"
+
+msgid "Translate new pages in the background"
+msgstr "ترجمة الصفحات الجديدة في الخلفية"
+
+msgid "Translate a page in all languages right after it is published or updated"
+msgstr "ترجمة الصفحة إلى جميع اللغات فور نشرها أو تحديثها"
+
+msgid "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+msgstr "يحصل الزوار على الصفحة المترجمة فورًا بدلًا من انتظار الترجمة الأولى. يستخدم هذا خدمة الترجمة لديك لكل لغة مفعّلة بعد كل حفظ."
+
+msgid "file"
+msgstr "ملف"

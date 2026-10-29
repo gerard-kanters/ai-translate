@@ -71,6 +71,22 @@ final class AI_Batch
         $workSegments = [];
         $cacheHits = 0;
         $cacheMisses = 0;
+
+        // Look every segment up in the persistent store with one query. Translations that only
+        // exist as old ai_tr_seg_* transients are read once and copied into the store.
+        $storeHashes = [];
+        foreach ($segments as $seg) {
+            $lookupText = trim((string) ($seg['text'] ?? ''));
+            if ($lookupText === '' || mb_strlen($lookupText) < 2) {
+                continue;
+            }
+            $storeHashes[] = AI_Segment_Store::hash(isset($seg['type']) ? (string) $seg['type'] : 'node', $lookupText, $targetLang);
+        }
+        $storedTranslations = AI_Segment_Store::get_many($targetLang, $storeHashes, $expiry);
+        $legacyAllowed = AI_Segment_Store::legacy_allowed($targetLang);
+        $legacyHashes = [];
+        $migrateToStore = [];
+
         foreach ($segments as $seg) {
             $type = isset($seg['type']) ? (string)$seg['type'] : 'node';
             $text = (string) ($seg['text'] ?? '');
@@ -78,15 +94,21 @@ final class AI_Batch
             if ($trimmed === '' || mb_strlen($trimmed) < 2) {
                 continue; // skip ultra-short
             }
-            
+
             $key = strtolower($type) . '|' . md5($trimmed);
             if (!isset($primaryByKey[$key])) {
                 $primaryByKey[$key] = (string)$seg['id'];
                 $idsByPrimary[$seg['id']] = [ (string)$seg['id'] ];
                 $primarySegById[$seg['id']] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
                 // check cache and validate for non-Latin target languages
-                $ckey = 'ai_tr_seg_' . $targetLang . '_' . md5($key);
-                $cached = get_transient($ckey);
+                $segHash = AI_Segment_Store::hash($type, $trimmed, $targetLang);
+                $cached = $storedTranslations[$segHash] ?? false;
+                if ($cached === false && $legacyAllowed) {
+                    $cached = get_transient(AI_Segment_Store::legacy_transient_key($targetLang, $segHash));
+                    if ($cached !== false) {
+                        $legacyHashes[$segHash] = true;
+                    }
+                }
                 if ($cached !== false) {
                     $cachedText = (string) $cached;
                     $srcLen = mb_strlen($trimmed);
@@ -141,6 +163,9 @@ final class AI_Batch
                         $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
                     } else {
                         $cachedPrimary[$seg['id']] = $cachedText;
+                        if (isset($legacyHashes[$segHash])) {
+                            $migrateToStore[$segHash] = [ 'text' => $cachedText, 'type' => $type ];
+                        }
                     }
                 } else {
                     $workSegments[] = [ 'id' => (string)$seg['id'], 'text' => $trimmed, 'type' => $type ];
@@ -150,6 +175,9 @@ final class AI_Batch
                 if (!isset($idsByPrimary[$primary])) { $idsByPrimary[$primary] = []; }
                 $idsByPrimary[$primary][] = (string)$seg['id'];
             }
+        }
+        if ($migrateToStore !== []) {
+            AI_Segment_Store::set_many($targetLang, $migrateToStore);
         }
 
         // Skip API calls entirely when everything is already cached
@@ -504,6 +532,134 @@ final class AI_Batch
         return ['segments' => $final, 'map' => []];
     }
 
+    /**
+     * Translate the same segments into several languages at once and put the results in the
+     * segment store, so the normal (sequential) code path that follows finds them in the cache.
+     * Used where a request would otherwise wait for one API round trip per language, such as
+     * the translated slugs of a page that is being published.
+     *
+     * Best effort: a language that fails, or whose answer does not look like a translation, is
+     * left alone and gets translated by the normal path later.
+     *
+     * @param array<int,array{id:string,text:string,type:string}> $segments Segments to translate.
+     * @param string[]                                            $langs    Target languages.
+     * @param string                                              $source   Source language.
+     * @param array                                               $context  Same context translate_plan() takes.
+     * @return int Number of languages that were stored.
+     */
+    public static function prefetch_for_languages(array $segments, array $langs, $source, array $context): int
+    {
+        $settings = AI_Translate_Core::settings();
+        $provider = isset($settings['api_provider']) ? (string) $settings['api_provider'] : '';
+        $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
+        $model = $provider !== '' ? (string) ($models[$provider] ?? '') : '';
+        $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
+        $apiKey = $provider !== '' ? (string) ($apiKeys[$provider] ?? '') : '';
+        if ($provider === '' || $model === '' || $apiKey === '' || !class_exists('\\WpOrg\\Requests\\Requests')) {
+            return 0;
+        }
+        $baseUrl = $provider === 'custom'
+            ? (isset($settings['custom_api_url']) ? (string) $settings['custom_api_url'] : '')
+            : (string) AI_Translate_Core::get_api_url_for_provider($provider);
+        if ($baseUrl === '') {
+            return 0;
+        }
+        $endpointPath = AI_Translate_Core::get_model_endpoint_path($model);
+        $endpoint = rtrim($baseUrl, '/') . $endpointPath;
+        $isResponses = ($endpointPath === '/responses');
+        $expiry = (isset($settings['cache_expiration']) ? (int) $settings['cache_expiration'] : (14 * 24)) * HOUR_IN_SECONDS;
+
+        // Which languages still need work, and for which segments
+        $jobs = [];
+        foreach ($langs as $lang) {
+            $lang = (string) $lang;
+            if ($lang === '') {
+                continue;
+            }
+            $hashes = [];
+            foreach ($segments as $seg) {
+                $hashes[(string) $seg['id']] = AI_Segment_Store::hash((string) $seg['type'], trim((string) $seg['text']), $lang);
+            }
+            $stored = AI_Segment_Store::get_many($lang, array_values($hashes), $expiry);
+            $legacyAllowed = AI_Segment_Store::legacy_allowed($lang);
+            $work = [];
+            foreach ($segments as $seg) {
+                $hash = $hashes[(string) $seg['id']];
+                if (isset($stored[$hash])) {
+                    continue;
+                }
+                if ($legacyAllowed && get_transient(AI_Segment_Store::legacy_transient_key($lang, $hash)) !== false) {
+                    continue;
+                }
+                $work[] = [ 'id' => (string) $seg['id'], 'text' => trim((string) $seg['text']), 'type' => (string) $seg['type'] ];
+            }
+            if ($work !== []) {
+                $jobs[$lang] = $work;
+            }
+        }
+        if ($jobs === []) {
+            return 0;
+        }
+
+        $headers = self::buildApiHeaders($apiKey, $provider, $settings);
+        $stored = 0;
+        foreach (array_chunk($jobs, 13, true) as $chunk) {
+            $requests = [];
+            foreach ($chunk as $lang => $work) {
+                $system = self::buildSystemPrompt($source, $lang, $context);
+                $body = self::buildApiBody($model, $system, self::buildUserPayload($work), $provider, $isResponses);
+                $requests[$lang] = [
+                    'url' => $endpoint,
+                    'headers' => $headers,
+                    'data' => wp_json_encode($body),
+                    'type' => 'POST',
+                    'options' => [ 'timeout' => 45, 'verify' => true ],
+                ];
+            }
+            try {
+                $responses = \WpOrg\Requests\Requests::request_multiple($requests);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            foreach ($responses as $lang => $resp) {
+                $lang = (string) $lang;
+                if (!is_object($resp) || !property_exists($resp, 'status_code') || (int) $resp->status_code !== 200) {
+                    continue;
+                }
+                $content = AI_Translate_Core::extract_message_content(json_decode((string) $resp->body, true));
+                $translations = $content === null ? null : self::parseTranslationResponse($content);
+                if (!is_array($translations)) {
+                    continue;
+                }
+                $primary = [];
+                foreach ($jobs[$lang] as $seg) {
+                    $primary[$seg['id']] = $seg;
+                }
+                $clean = [];
+                foreach ($translations as $id => $value) {
+                    $id = (string) $id;
+                    if (!isset($primary[$id]) || !is_string($value) || trim($value) === '') {
+                        continue;
+                    }
+                    $src = $primary[$id]['text'];
+                    // Same sanity checks the normal path applies to cached translations
+                    if (mb_strlen($src) > 15 && mb_strtolower(trim($value)) === mb_strtolower($src)) {
+                        continue;
+                    }
+                    if (AI_Lang::is_non_latin($lang) && preg_match('/[^\x00-\x7F]/', $value) !== 1) {
+                        continue;
+                    }
+                    $clean[$id] = $value;
+                }
+                if ($clean !== []) {
+                    self::cacheTranslations($clean, $primary, $lang, $expiry);
+                    $stored++;
+                }
+            }
+        }
+        return $stored;
+    }
+
     private static function buildSystemPrompt($source, $target, array $ctx)
     {
         return \AITranslate\AI_Translate_Core::build_translation_system_prompt($source, $target, $ctx);
@@ -562,6 +718,7 @@ final class AI_Batch
     private static function cacheTranslations(array $translations, array $primarySegById, string $targetLang, int $expiry): int
     {
         $count = 0;
+        $storeRows = [];
         foreach ($translations as $pid => $tr) {
             $pid = (string) $pid;
             if (!isset($primarySegById[$pid])) {
@@ -571,8 +728,10 @@ final class AI_Batch
             if ($tr === '') {
                 continue;
             }
-            $key = strtolower($primarySegById[$pid]['type']) . '|' . md5($primarySegById[$pid]['text']);
-            set_transient('ai_tr_seg_' . $targetLang . '_' . md5($key), $tr, $expiry);
+            $storeRows[AI_Segment_Store::hash($primarySegById[$pid]['type'], $primarySegById[$pid]['text'], $targetLang)] = [
+                'text' => $tr,
+                'type' => $primarySegById[$pid]['type'],
+            ];
             if ($primarySegById[$pid]['type'] === 'attr') {
                 $attrKey = function_exists('ai_translate_attr_cache_key')
                     ? ai_translate_attr_cache_key($targetLang, $primarySegById[$pid]['text'])
@@ -585,6 +744,7 @@ final class AI_Batch
             }
             $count++;
         }
+        AI_Segment_Store::set_many($targetLang, $storeRows);
         return $count;
     }
 

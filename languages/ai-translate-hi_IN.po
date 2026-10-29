@@ -1328,3 +1328,15 @@ msgstr "वार्म हो रहा है... %1$s / %2$s"
 
 msgid "Cache warmed for %1$s languages (%2$s skipped)"
 msgstr "%1$s भाषाओं के लिए कैश वार्म किया गया (%2$s छोड़ी गईं)"
+
+msgid "Translate new pages in the background"
+msgstr "नए पेज पृष्ठभूमि में अनुवाद करें"
+
+msgid "Translate a page in all languages right after it is published or updated"
+msgstr "पेज को प्रकाशित या अपडेट करने के तुरंत बाद सभी भाषाओं में अनुवाद करें"
+
+msgid "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+msgstr "आगंतुकों को पहले अनुवाद की प्रतीक्षा किए बिना तुरंत अनुवादित पेज मिलता है। इसमें हर बार सहेजने के बाद सभी सक्षम भाषाओं के लिए आपकी अनुवाद सेवा का उपयोग होता है।"
+
+msgid "file"
+msgstr "फ़ाइल"

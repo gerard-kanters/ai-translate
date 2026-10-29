@@ -637,6 +637,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
+    // The page only ever holds a mask for a saved key (the server swaps it for the real key).
+    // Select it on focus so that typing replaces it instead of appending to it.
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener('focus', function () {
+            if (aiTranslateAdmin.apiKeyMask && this.value === aiTranslateAdmin.apiKeyMask) {
+                this.select();
+            }
+        });
+    }
+
     // Auto-load models when API key is entered (with debounce)
     var apiKeyTimeout;
     if (apiKeyInput) {

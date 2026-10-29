@@ -1305,3 +1305,15 @@ msgstr "预热中... %1$s / %2$s"
 
 msgid "Cache warmed for %1$s languages (%2$s skipped)"
 msgstr "已预热 %1$s 种语言的缓存（跳过 %2$s 种）"
+
+msgid "Translate new pages in the background"
+msgstr "在后台翻译新页面"
+
+msgid "Translate a page in all languages right after it is published or updated"
+msgstr "在页面发布或更新后立即翻译成所有语言"
+
+msgid "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+msgstr "访客可立即看到已翻译的页面，而无需等待首次翻译。每次保存后，将为每种已启用的语言使用您的翻译服务。"
+
+msgid "file"
+msgstr "文件"

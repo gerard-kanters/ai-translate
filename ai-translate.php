@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.17
+ * Version: 2.3.18
  * Requires at least: 6.2
  * Tested up to: 7.1
  * Requires PHP: 8.0
@@ -180,11 +180,14 @@ require_once __DIR__ . '/includes/class-ai-lang.php';
 require_once __DIR__ . '/includes/class-ai-cache.php';
 require_once __DIR__ . '/includes/class-ai-cache-meta.php';
 require_once __DIR__ . '/includes/class-ai-dom.php';
+require_once __DIR__ . '/includes/class-ai-segment-store.php';
 require_once __DIR__ . '/includes/class-ai-batch.php';
 require_once __DIR__ . '/includes/class-ai-seo.php';
 require_once __DIR__ . '/includes/class-ai-url.php';
 require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
+require_once __DIR__ . '/includes/class-ai-prewarm.php';
+\AITranslate\AI_Prewarm::init();
 require_once __DIR__ . '/includes/class-ai-404-recovery.php';
 require_once __DIR__ . '/includes/class-ai-sitemap.php';
 
@@ -546,7 +549,18 @@ register_activation_hook(__FILE__, function () {
 
     // Create cache metadata table
     \AITranslate\AI_Cache_Meta::create_table();
+    // Create the segment store and schedule its daily cleanup
+    \AITranslate\AI_Segment_Store::create_table();
+    \AITranslate\AI_Segment_Store::schedule_purge();
 });
+
+register_deactivation_hook(__FILE__, function () {
+    \AITranslate\AI_Segment_Store::unschedule_purge();
+});
+
+// Daily removal of segments older than the cache duration; also schedules itself for existing installs.
+add_action(\AITranslate\AI_Segment_Store::purge_hook(), ['\\AITranslate\\AI_Segment_Store', 'run_purge']);
+add_action('init', ['\\AITranslate\\AI_Segment_Store', 'schedule_purge']);
 
 /**
  * Map ai_path to WordPress internal query vars.
@@ -1814,8 +1828,14 @@ add_action('rest_api_init', function () {
                 $attrCacheKey = ai_translate_attr_cache_key($lang, $normalized);
                 $cached = ai_translate_get_attr_transient($attrCacheKey);
                 
-                // If not found in JavaScript cache, check PHP translation plan cache
+                // If not found in JavaScript cache, check the PHP translation plan cache (segment store)
                 if ($cached === false) {
+                    $storeHash = \AITranslate\AI_Segment_Store::hash('attr', $normalized, $lang);
+                    $storeHit = \AITranslate\AI_Segment_Store::get_many($lang, [$storeHash], \AITranslate\AI_Translate_Core::cache_expiration_hours() * HOUR_IN_SECONDS);
+                    $cached = $storeHit[$storeHash] ?? false;
+                }
+                // Older installs: the same translation as a transient
+                if ($cached === false && \AITranslate\AI_Segment_Store::legacy_allowed((string) $lang)) {
                     $segCacheKey = ai_translate_seg_attr_cache_key($lang, $normalized);
                     $cached = get_transient($segCacheKey);
                 }
@@ -2905,6 +2925,9 @@ add_action('save_post', function ($post_id, $post, $update) {
     // available languages here fired ~35 sequential API calls in the saving request (slow
     // post saves, painful for WooCommerce bulk imports); other languages generate on demand.
     $langs = array_values(array_unique(array_merge($enabled, $detectable)));
+    // Translate the titles for all languages in parallel first; the loop below then reads them
+    // from the cache instead of waiting for one API round trip per language.
+    \AITranslate\AI_Slugs::prime((int) $post_id, $langs);
     foreach ($langs as $lang) {
         $lang = sanitize_key((string) $lang);
         if ($default !== null && strtolower($lang) === strtolower($default)) continue;

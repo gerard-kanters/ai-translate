@@ -1371,3 +1371,15 @@ msgstr "Preriscaldamento... %1$s / %2$s"
 
 msgid "Cache warmed for %1$s languages (%2$s skipped)"
 msgstr "Cache preriscaldata per %1$s lingue (%2$s saltate)"
+
+msgid "Translate new pages in the background"
+msgstr "Traduci le nuove pagine in background"
+
+msgid "Translate a page in all languages right after it is published or updated"
+msgstr "Traduci una pagina in tutte le lingue subito dopo la pubblicazione o l'aggiornamento"
+
+msgid "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+msgstr "I visitatori ricevono subito la pagina tradotta invece di attendere la prima traduzione. Dopo ogni salvataggio viene usato il tuo servizio di traduzione per ogni lingua attivata."
+
+msgid "file"
+msgstr "file"

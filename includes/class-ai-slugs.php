@@ -555,6 +555,65 @@ final class AI_Slugs
     }
 
     /**
+     * Translate the title behind a post's slug into several languages in parallel and store the
+     * results in the segment cache. get_or_generate() then finds them there, so a loop over many
+     * languages (a page being published) costs one API round trip instead of one per language.
+     *
+     * @param int      $post_id
+     * @param string[] $langs Target languages.
+     * @return void
+     */
+    public static function prime($post_id, array $langs): void
+    {
+        $post_id = (int) $post_id;
+        if ($post_id <= 0 || !is_post_type_viewable(get_post_type($post_id)) || get_post_type($post_id) === 'attachment') {
+            return;
+        }
+        $default = AI_Lang::default();
+        if ($default === null) {
+            return;
+        }
+        $front_id = (int) get_option('page_on_front');
+        if (($front_id > 0 && $post_id === $front_id) || (bool) AI_Translate_Core::get_setting('keep_slugs_in_english', false)) {
+            return;
+        }
+        $source_slug = self::get_source_slug($post_id);
+        if ($source_slug === '') {
+            return;
+        }
+        $version = md5($source_slug);
+        $needed = [];
+        foreach ($langs as $lang) {
+            $lang = sanitize_key((string) $lang);
+            if ($lang === '' || strtolower($lang) === strtolower($default)) {
+                continue;
+            }
+            $row = self::get_row($post_id, $lang);
+            if ($row && isset($row['translated_slug']) && $row['translated_slug'] !== '' && (!isset($row['source_version']) || $row['source_version'] === $version)) {
+                continue;
+            }
+            $needed[] = $lang;
+        }
+        if (count($needed) < 2) {
+            return; // a single language takes the same time on the normal path
+        }
+        // Same text, type and context as get_or_generate() uses, so the cache entry matches.
+        $post_obj = get_post($post_id);
+        $source_title = ($post_obj && isset($post_obj->post_title)) ? (string) $post_obj->post_title : '';
+        $source_for_translation = ($source_title !== '') ? $source_title : $source_slug;
+        $segment_type = ($source_title !== '') ? 'title' : 'meta';
+        AI_Batch::prefetch_for_languages(
+            [ ['id' => 'slug', 'text' => $source_for_translation, 'type' => $segment_type] ],
+            $needed,
+            $default,
+            [
+                'website_context' => AI_Translate_Core::get_website_context(),
+                'is_title' => ($segment_type === 'title'),
+            ]
+        );
+    }
+
+    /**
      * Fallback: find post_id for a translated slug when direct lookup fails.
      * Prefers non-attachment posts (service, page, post).
      * 

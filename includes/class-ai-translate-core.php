@@ -502,10 +502,25 @@ final class AI_Translate_Core
     }
 
     /**
+     * Whether a model ID is in the GPT-5 family or newer (gpt-5, gpt-5.1, gpt-6-luna, gpt-6.1-terra, …).
+     * These are reasoning models: without an explicit reasoning_effort they pick their own default and
+     * spend extra time and output tokens thinking about a translation. gpt-4o / gpt-4.1 do not match.
+     *
+     * @param string $model Model ID (may include a provider prefix such as openai/).
+     * @return bool
+     */
+    public static function is_gpt5_or_newer(string $model): bool
+    {
+        return (bool) preg_match('#(?:^|/)gpt-(?:[5-9]|[1-9]\d)(?:[.\-_/]|$)#i', $model);
+    }
+
+    /**
      * Lowest practical reasoning effort for translation workloads.
      *
-     * GPT-5.1+ (incl. Luna): low — OpenAI's recommended starting point for
-     * latency-sensitive work; more stable than none for translation quality.
+     * GPT-5.1+ and GPT-6+ (incl. Luna, Terra): low — OpenAI's recommended starting point for
+     * latency-sensitive work; more stable than none for translation quality ('minimal' is
+     * rejected by these models; measured: an explicit effort cut a 15-segment call from
+     * 3.7–4.7s to ~2.6s and removed the hidden reasoning tokens).
      * Original GPT-5: minimal (none not supported). O-series: low.
      * gpt-5-pro: high (only supported value). DeepSeek/Gemini: none (off).
      *
@@ -514,7 +529,7 @@ final class AI_Translate_Core
      */
     public static function resolve_min_reasoning_effort(string $model): string
     {
-        $isGpt5    = stripos($model, 'gpt-5') !== false;
+        $isGpt5    = self::is_gpt5_or_newer($model);
         $isOSeries = (bool) preg_match('/(?:^|\/)o\d/i', $model);
         $isPro     = (bool) preg_match('/(?:^|\/|-)pro(?:-|\/|$)/i', $model);
 
@@ -526,13 +541,13 @@ final class AI_Translate_Core
         if ($isOSeries) {
             return 'low';
         }
-        // GPT-5.1+ / Luna: low (better quality/stability than none for translations).
-        // Original GPT-5 family: minimal (lowest supported; none not available).
+        // GPT-5.1+ and GPT-6+ (Luna, Terra, …): low (better quality/stability than none for translations).
+        // Original GPT-5 family (gpt-5, gpt-5-mini, gpt-5-nano): minimal (lowest supported; none not available).
         if ($isGpt5) {
-            if (preg_match('/gpt-5\.(?:[1-9]|\d{2,})/i', $model)) {
-                return 'low';
+            if (preg_match('#(?:^|/)gpt-5(?![.\d])#i', $model)) {
+                return 'minimal';
             }
-            return 'minimal';
+            return 'low';
         }
         // DeepSeek V4, Gemini (via OpenRouter/DeepInfra): fully off.
         return 'none';
@@ -610,8 +625,10 @@ final class AI_Translate_Core
     public static function adjust_body_for_model(array $body, string $model, string $provider): array
     {
         $isOSeries   = (bool) preg_match('/(?:^|\/)o\d/i', $model);
-        $isGpt5      = stripos($model, 'gpt-5') !== false;
-        $isDeepSeekV = (bool) preg_match('/deepseek[-_]?(?:v\d|reasoner)/i', $model);
+        $isGpt5      = self::is_gpt5_or_newer($model);
+        // deepseek-flash (no "v4" in the name) also thinks by default; measured: 3.7–6.3s and
+        // ~3x the output tokens versus 1.9s with thinking disabled.
+        $isDeepSeekV = (bool) preg_match('/deepseek[-_]?(?:v\d|reasoner|flash)/i', $model);
         $isGemini    = stripos($model, 'gemini') !== false;
         $isReasoning = $isOSeries || $isGpt5 || $isDeepSeekV || $isGemini;
 
@@ -1027,6 +1044,9 @@ final class AI_Translate_Core
             '_transient_ai_tr_seg_' . $lang . '_%',
             '_transient_timeout_ai_tr_seg_' . $lang . '_%'
         ));
+        // Segments live in the segment store (the transients above only exist on installs without
+        // an external object cache, or from before the store existed).
+        AI_Segment_Store::delete_lang((string) $lang);
 
         // Attribute keys use dual-write (object cache + DB); delete via helper so both layers clear.
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1080,6 +1100,7 @@ final class AI_Translate_Core
             '_transient_ai_tr_attr_%',
             '_transient_timeout_ai_tr_attr_%'
         ));
+        AI_Segment_Store::delete_all();
         // Flush object cache for AI Translate entries
         wp_cache_flush();
     }
@@ -1248,6 +1269,8 @@ final class AI_Translate_Core
         if ($result !== false) {
             $transients_cleared = (int) $result;
         }
+        // Renamed menu items need fresh translations; the rest of the page text does not.
+        AI_Segment_Store::delete_type('menu');
 
         // Optionally truncate legacy/alternate plugin tables if they exist
         $tablesCleared = [];
@@ -1401,12 +1424,35 @@ final class AI_Translate_Core
      */
     private static function build_glossary_prompt_hint($target_language)
     {
+        $rules = [];
+        foreach (self::glossary_rules((string) $target_language) as [$source, $term]) {
+            $rules[] = sprintf("Translate '%s' exactly as '%s'", $source, $term);
+        }
+        if (empty($rules)) {
+            return '';
+        }
+        return "\n\nTERMINOLOGY (mandatory, override your own choice for these terms):\n- " . implode("\n- ", $rules);
+    }
+
+    /**
+     * Glossary rules that apply to a target language, parsed from the 'glossary' setting.
+     *
+     * @param string $target_language Target language code.
+     * @return array<int,array{0:string,1:string}> List of [source term, required translation].
+     */
+    private static function glossary_rules(string $target_language): array
+    {
+        static $parsed = [];
         $settings = self::settings();
         $raw = isset($settings['glossary']) ? trim((string) $settings['glossary']) : '';
         if ($raw === '') {
-            return '';
+            return [];
         }
         $target = strtolower(trim($target_language));
+        $cacheKey = md5($raw) . '|' . $target;
+        if (isset($parsed[$cacheKey])) {
+            return $parsed[$cacheKey];
+        }
         $rules = [];
         foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
             $line = trim($line);
@@ -1423,15 +1469,38 @@ final class AI_Translate_Core
                 }
                 [$lang, $term] = array_map('trim', explode(':', $pair, 2));
                 if (strtolower($lang) === $target && $term !== '') {
-                    $rules[] = sprintf("Translate '%s' exactly as '%s'", $source, $term);
+                    $rules[] = [$source, $term];
                     break;
                 }
             }
         }
-        if (empty($rules)) {
+        $parsed[$cacheKey] = $rules;
+        return $rules;
+    }
+
+    /**
+     * Short signature of the glossary rules that apply to a text in a target language.
+     * Empty when no rule matches, so segments without glossary terms keep their old cache key.
+     * It becomes part of the stored segment's hash: changing a rule invalidates only the
+     * segments that contain its source term.
+     *
+     * @param string $text            Source text.
+     * @param string $target_language Target language code.
+     * @return string 8 hex characters, or '' when no glossary rule applies.
+     */
+    public static function glossary_signature(string $text, string $target_language): string
+    {
+        $rules = self::glossary_rules($target_language);
+        if ($rules === []) {
             return '';
         }
-        return "\n\nTERMINOLOGY (mandatory, override your own choice for these terms):\n- " . implode("\n- ", $rules);
+        $matched = [];
+        foreach ($rules as [$source, $term]) {
+            if (mb_stripos($text, $source) !== false) {
+                $matched[] = $source . '=' . $term;
+            }
+        }
+        return $matched === [] ? '' : substr(md5(implode("\n", $matched)), 0, 8);
     }
 
     /**

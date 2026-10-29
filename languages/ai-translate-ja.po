@@ -1356,3 +1356,15 @@ msgstr "ウォームアップ中... %1$s / %2$s"
 
 msgid "Cache warmed for %1$s languages (%2$s skipped)"
 msgstr "%1$s 言語のキャッシュをウォームアップしました（%2$s 件スキップ）"
+
+msgid "Translate new pages in the background"
+msgstr "新しいページをバックグラウンドで翻訳"
+
+msgid "Translate a page in all languages right after it is published or updated"
+msgstr "ページの公開または更新の直後に、すべての言語へ翻訳する"
+
+msgid "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+msgstr "訪問者は最初の翻訳を待たずに、翻訳済みのページをすぐに見られます。保存のたびに、有効なすべての言語で翻訳サービスが使用されます。"
+
+msgid "file"
+msgstr "ファイル"

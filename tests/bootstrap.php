@@ -24,6 +24,8 @@ $includes = dirname(__DIR__) . '/includes/';
 require_once $includes . 'class-ai-dom.php';
 require_once $includes . 'class-ai-cache.php';
 require_once $includes . 'class-ai-slugs.php';
+require_once $includes . 'class-ai-segment-store.php';
+require_once $includes . 'class-ai-seo.php';
 require_once $includes . 'class-ai-404-recovery.php';
 require_once $includes . 'class-ai-url.php';
 require_once $includes . 'class-ai-ob.php';

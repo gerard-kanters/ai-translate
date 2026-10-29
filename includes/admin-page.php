@@ -6,6 +6,32 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Shown in the API key field in place of a saved key. The real key never goes to the browser:
+ * the AJAX handlers swap this value for the key stored for the selected provider, and saving the
+ * form with this value left in the field keeps the stored key.
+ */
+const KEY_MASK = '••••••••••••';
+
+/**
+ * The key to use for an AJAX request: the stored key of the provider when the browser sent the
+ * mask or nothing, otherwise the key that was typed in.
+ *
+ * @param string $provider Provider key.
+ * @param string $posted   Value of the api_key field in the request.
+ * @return string
+ */
+function resolve_posted_api_key($provider, $posted)
+{
+    $posted = (string) $posted;
+    if ($posted !== '' && $posted !== KEY_MASK) {
+        return $posted;
+    }
+    $settings = AI_Translate_Core::settings();
+    $api_keys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
+    return (string) ($api_keys[(string) $provider] ?? '');
+}
+
 // Load the core class if it doesn't exist yet.
 // Since this file is in the "includes" folder, the core class is at the same level.
 if (! \class_exists('AI_Translate_Core')) {
@@ -1063,6 +1089,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'generateContextNonce' => wp_create_nonce('generate_website_context_nonce'),
         'generateMetaNonce' => wp_create_nonce('generate_homepage_meta_nonce'),
         'getApiKeyNonce' => wp_create_nonce('ai_translate_get_api_key_nonce'),
+        'apiKeyMask' => KEY_MASK,
         'models' => isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [],
         'customModel' => isset($settings['custom_model']) ? $settings['custom_model'] : '',
         'languageSettingsNonce' => wp_create_nonce('ai_translate_language_settings_nonce'),
@@ -1291,6 +1318,15 @@ add_action('admin_init', function () {
                 $sanitized['stop_translations_except_cache_invalidation'] = false;
             }
 
+            // Warm translations in the background after a post is published or updated (checkbox, off by default)
+            if ($is_form_submit) {
+                $sanitized['prewarm_on_publish'] = isset($input['prewarm_on_publish']);
+            } elseif (array_key_exists('prewarm_on_publish', $input)) {
+                $sanitized['prewarm_on_publish'] = (bool) $input['prewarm_on_publish'];
+            } elseif (!isset($sanitized['prewarm_on_publish'])) {
+                $sanitized['prewarm_on_publish'] = false;
+            }
+
             // Multi-domain caching (checkbox)
             // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
             // Bij AJAX/partial update: alleen updaten als expliciet in input
@@ -1356,7 +1392,7 @@ add_action('admin_init', function () {
             }
 
             // API key per provider
-            if (isset($input['api_key'])) {
+            if (isset($input['api_key']) && trim((string) $input['api_key']) !== KEY_MASK) {
                 $provider_for_key = $sanitized['api_provider'] ?? ($input['api_provider'] ?? ($current_settings['api_provider'] ?? null));
                 if ($provider_for_key) {
                     $key_val = trim(sanitize_text_field($input['api_key']));
@@ -1551,7 +1587,8 @@ add_action('admin_init', function () {
             $current_provider_key = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             // Haal de API-sleutel op uit de nieuwe 'api_keys' array
             $api_keys = $settings['api_keys'] ?? [];
-            $value = $api_keys[$current_provider_key] ?? ''; // Toon de sleutel voor de geselecteerde provider
+            // The saved key itself never goes into the page: show the mask when there is one
+            $value = !empty($api_keys[$current_provider_key]) ? KEY_MASK : '';
             echo '<input type="password" name="ai_translate_settings[api_key]" value="' . esc_attr($value) . '" class="regular-text">';
             echo ' <span id="api-key-request-link-span" style="margin-left:10px;"></span>';
         },
@@ -1878,6 +1915,24 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_cache'
     );
+    add_settings_field(
+        'prewarm_on_publish',
+        __('Translate new pages in the background', 'ai-translate'),
+        function () {
+            $settings = AI_Translate_Core::settings();
+            $raw = $settings['prewarm_on_publish'] ?? false;
+            $value = function_exists('wp_validate_boolean') ? wp_validate_boolean($raw) : (bool) $raw;
+            echo '<label>';
+            echo '<input type="checkbox" name="ai_translate_settings[prewarm_on_publish]" value="1" ' . checked($value, true, false) . '> ';
+            echo esc_html__('Translate a page in all languages right after it is published or updated', 'ai-translate');
+            echo '</label>';
+            echo '<p class="description">';
+            echo esc_html__('Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_cache'
+    );
 
     // WooCommerce Section
     add_settings_section(
@@ -2194,6 +2249,7 @@ function render_admin_page()
                     global $wpdb;
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_ai_tr_seg_%' OR option_name LIKE '_transient_timeout_ai_tr_seg_%'");
+                    \AITranslate\AI_Segment_Store::delete_all();
                     // Clear PHP opcache to ensure new code is active
                     if (function_exists('opcache_reset')) {
                         opcache_reset();
@@ -2419,7 +2475,7 @@ function render_admin_page()
                                             <?php echo esc_html($name); ?> (<?php echo esc_html($code); ?>)
                                         </button>
                                     </td>
-                                    <td><span class="cache-count" data-lang="<?php echo esc_attr($code); ?>"><?php echo intval($count); ?></span> <?php echo esc_html__('files', 'ai-translate'); ?></td>
+                                    <td><span class="cache-count" data-lang="<?php echo esc_attr($code); ?>"><?php echo intval($count); ?></span> <?php echo intval($count) === 1 ? esc_html__('file', 'ai-translate') : esc_html__('files', 'ai-translate'); ?></td>
                                     <td><?php echo esc_html($size_mb); ?> MB</td>
                                     <td><?php echo intval($expired); ?></td>
                                     <td><?php echo esc_html($last_mod); ?></td>
@@ -2443,7 +2499,7 @@ function render_admin_page()
                         <tfoot>
                             <tr>
                                 <th><?php echo esc_html__('Total', 'ai-translate'); ?></th>
-                                <th><span id="table-total-count"><?php echo intval($total_files); ?></span> <?php echo esc_html__('files', 'ai-translate'); ?></th>
+                                <th><span id="table-total-count"><?php echo intval($total_files); ?></span> <?php echo intval($total_files) === 1 ? esc_html__('file', 'ai-translate') : esc_html__('files', 'ai-translate'); ?></th>
                                 <th><?php echo esc_html($total_size_mb); ?> MB</th>
                                 <th><?php echo intval($total_expired); ?></th>
                                 <th><?php echo esc_html($last_modified); ?></th>
@@ -2665,8 +2721,9 @@ add_action('wp_ajax_ai_translate_get_api_key', function () {
     }
     $settings = AI_Translate_Core::settings();
     $api_keys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
-    $key = isset($api_keys[$provider]) ? (string) $api_keys[$provider] : '';
-    wp_send_json_success(['api_key' => $key]);
+    // Only say whether a key exists: the page shows the mask and the server uses the stored key.
+    $has_key = isset($api_keys[$provider]) && (string) $api_keys[$provider] !== '';
+    wp_send_json_success(['api_key' => $has_key ? KEY_MASK : '']);
 });
 
 // --- AJAX handler voor dynamisch ophalen van modellen ---
@@ -2704,6 +2761,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         }
     }
 
+    $api_key = resolve_posted_api_key($provider_key, $api_key);
     if (empty($api_url) || empty($api_key)) {
         wp_send_json_error(['message' => __('API Provider, API Key or Custom API URL is missing or invalid.', 'ai-translate')]);
         return;
@@ -2833,6 +2891,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     if (empty($provider_key)) {
         wp_send_json_error(['message' => 'API Provider ontbreekt.']);
     }
+    $api_key = resolve_posted_api_key($provider_key, $api_key);
     if (empty($api_key)) {
         wp_send_json_error(['message' => 'API Key ontbreekt.']);
     }

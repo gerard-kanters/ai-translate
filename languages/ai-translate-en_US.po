@@ -1345,3 +1345,15 @@ msgstr "Warming... %1$s / %2$s"
 
 msgid "Cache warmed for %1$s languages (%2$s skipped)"
 msgstr "Cache warmed for %1$s languages (%2$s skipped)"
+
+msgid "Translate new pages in the background"
+msgstr "Translate new pages in the background"
+
+msgid "Translate a page in all languages right after it is published or updated"
+msgstr "Translate a page in all languages right after it is published or updated"
+
+msgid "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+msgstr "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+
+msgid "file"
+msgstr "file"

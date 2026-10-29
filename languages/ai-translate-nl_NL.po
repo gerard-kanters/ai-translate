@@ -1360,3 +1360,15 @@ msgstr "Opwarmen... %1$s / %2$s"
 
 msgid "Cache warmed for %1$s languages (%2$s skipped)"
 msgstr "Cache opgewarmd voor %1$s talen (%2$s overgeslagen)"
+
+msgid "Translate new pages in the background"
+msgstr "Nieuwe pagina's op de achtergrond vertalen"
+
+msgid "Translate a page in all languages right after it is published or updated"
+msgstr "Een pagina direct na publiceren of bijwerken in alle talen vertalen"
+
+msgid "Visitors then get the translated page straight away instead of waiting for the first translation. This uses your translation service for every enabled language after each save."
+msgstr "Bezoekers krijgen de vertaalde pagina meteen in plaats van te wachten op de eerste vertaling. Hiervoor wordt na elke opslag uw vertaaldienst gebruikt voor elke ingeschakelde taal."
+
+msgid "file"
+msgstr "bestand"

@@ -61,6 +61,18 @@ if (!class_exists('AITranslate\\AI_Translate_Core')) {
             return '';
         }
 
+        private static $glossary_signature = '';
+
+        public static function glossary_signature(string $text, string $target_language): string
+        {
+            return self::$glossary_signature;
+        }
+
+        public static function _set_glossary_signature(string $signature)
+        {
+            self::$glossary_signature = $signature;
+        }
+
         /** Test helpers to configure stubs */
         public static function _set_site_cache_dir($dir)
         {
@@ -82,6 +94,7 @@ if (!class_exists('AITranslate\\AI_Translate_Core')) {
             self::$settings = [];
             self::$site_cache_dir = '';
             self::$cache_hours = 336;
+            self::$glossary_signature = '';
         }
     }
 }
