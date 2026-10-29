@@ -102,43 +102,76 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        $.ajax({
-            url: ajaxUrl,
-            method: 'POST',
-            data: {
-                action: 'ai_translate_warm_cache',
-                post_id: postId,
-                nonce: nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    // Show success message
+        // The server warms one batch of languages per request (a single request for all
+        // languages outlasts PHP's max_execution_time). Request batches until it reports done.
+        const totals = { warmed: 0, skipped: 0, errors: [] };
+        const spinner = '<span class="dashicons dashicons-update dashicons-spin" style="vertical-align: middle;"></span> ';
+
+        function fail(errorMsg) {
+            alert((aiTranslateCacheTable?.strings?.errorPrefix || 'Error: %s').replace('%s', errorMsg));
+            $button.prop('disabled', false).html(originalText);
+        }
+
+        function warmBatch(offset) {
+            $.ajax({
+                url: ajaxUrl,
+                method: 'POST',
+                data: {
+                    action: 'ai_translate_warm_cache',
+                    post_id: postId,
+                    nonce: nonce,
+                    offset: offset
+                },
+                success: function(response) {
+                    if (!response.success) {
+                        const errorMsg = (response.data && response.data.message) ? response.data.message : (response.data ? response.data : (aiTranslateCacheTable?.strings?.unknownError || 'Unknown error'));
+                        fail(errorMsg);
+                        return;
+                    }
+
+                    const data = response.data;
+                    totals.warmed += data.warmed || 0;
+                    totals.skipped += data.skipped || 0;
+                    totals.errors = totals.errors.concat(data.errors || []);
+
+                    if (!data.done) {
+                        const progressTmpl = aiTranslateCacheTable?.strings?.warmingProgress || 'Warming... %1$s / %2$s';
+                        $button.html(spinner + progressTmpl.replace('%1$s', data.next_offset).replace('%2$s', data.total));
+                        warmBatch(data.next_offset);
+                        return;
+                    }
+
                     const $row = $button.closest('tr');
                     $row.css('background-color', '#d4edda');
-                    
-                    // Show alert
-                    alert(response.data.message);
-                    
+
+                    const doneTmpl = aiTranslateCacheTable?.strings?.warmDone || 'Cache warmed for %1$s languages (%2$s skipped)';
+                    let message = doneTmpl.replace('%1$s', totals.warmed).replace('%2$s', totals.skipped);
+                    if (totals.errors.length) {
+                        message += '. ' + (aiTranslateCacheTable?.strings?.warmWarnings || 'Warnings:') + ' ' + totals.errors.slice(0, 3).join(', ');
+                        if (totals.errors.length > 3) {
+                            message += ' (+' + (totals.errors.length - 3) + ')';
+                        }
+                    }
+                    alert(message);
+
                     // Reload page after short delay to update UI
                     setTimeout(function() {
                         location.reload();
                     }, 1500);
-                } else {
-                    const errorMsg = (response.data && response.data.message) ? response.data.message : (response.data ? response.data : (aiTranslateCacheTable?.strings?.unknownError || 'Unknown error'));
-                    alert((aiTranslateCacheTable?.strings?.errorPrefix || 'Error: %s').replace('%s', errorMsg));
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('AI Translate Warm Cache Error:', {
+                        status: textStatus,
+                        error: errorThrown,
+                        response: jqXHR.responseText
+                    });
+                    alert((aiTranslateCacheTable?.strings?.ajaxError || 'AJAX error: %s').replace('%s', textStatus + ' - ' + errorThrown));
                     $button.prop('disabled', false).html(originalText);
                 }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error('AI Translate Warm Cache Error:', {
-                    status: textStatus,
-                    error: errorThrown,
-                    response: jqXHR.responseText
-                });
-                alert((aiTranslateCacheTable?.strings?.ajaxError || 'AJAX error: %s').replace('%s', textStatus + ' - ' + errorThrown));
-                $button.prop('disabled', false).html(originalText);
-            }
-        });
+            });
+        }
+
+        warmBatch(0);
     });
     
     /**

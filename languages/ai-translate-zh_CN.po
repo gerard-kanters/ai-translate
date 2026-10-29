@@ -1086,7 +1086,7 @@ msgid "files"
 msgstr "文件"
 
 #: includes/admin-page.php:2404
-msgid "Cache clear"
+msgid "Clear Cache"
 msgstr "清除缓存"
 
 #: includes/admin-page.php:2420
@@ -1296,3 +1296,12 @@ msgstr "显示旗帜"
 #: assets/ai-translate-block.js:55
 msgid "AI Language Switcher (rendered on the frontend)"
 msgstr "AI 语言切换器（在前端渲染）"
+
+msgid "Select a model..."
+msgstr "选择模型..."
+
+msgid "Warming... %1$s / %2$s"
+msgstr "预热中... %1$s / %2$s"
+
+msgid "Cache warmed for %1$s languages (%2$s skipped)"
+msgstr "已预热 %1$s 种语言的缓存（跳过 %2$s 种）"

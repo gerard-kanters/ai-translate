@@ -1141,7 +1141,7 @@ msgid "files"
 msgstr "Dateien"
 
 #: includes/admin-page.php:2404
-msgid "Cache clear"
+msgid "Clear Cache"
 msgstr "Cache löschen"
 
 #: includes/admin-page.php:2420
@@ -1370,3 +1370,12 @@ msgstr "Flaggen anzeigen"
 #: assets/ai-translate-block.js:55
 msgid "AI Language Switcher (rendered on the frontend)"
 msgstr "KI-Sprachumschalter (wird im Frontend angezeigt)"
+
+msgid "Select a model..."
+msgstr "Modell auswählen..."
+
+msgid "Warming... %1$s / %2$s"
+msgstr "Wird vorgewärmt … %1$s / %2$s"
+
+msgid "Cache warmed for %1$s languages (%2$s skipped)"
+msgstr "Cache für %1$s Sprachen vorgewärmt (%2$s übersprungen)"

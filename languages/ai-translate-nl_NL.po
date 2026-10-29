@@ -1124,7 +1124,7 @@ msgid "files"
 msgstr "bestanden"
 
 #: includes/admin-page.php:2404
-msgid "Cache clear"
+msgid "Clear Cache"
 msgstr "Cache wissen"
 
 #: includes/admin-page.php:2420
@@ -1351,3 +1351,12 @@ msgstr "Vlaggen tonen"
 #: assets/ai-translate-block.js:55
 msgid "AI Language Switcher (rendered on the frontend)"
 msgstr "AI-taalwisselaar (weergegeven op de frontend)"
+
+msgid "Select a model..."
+msgstr "Kies een model..."
+
+msgid "Warming... %1$s / %2$s"
+msgstr "Opwarmen... %1$s / %2$s"
+
+msgid "Cache warmed for %1$s languages (%2$s skipped)"
+msgstr "Cache opgewarmd voor %1$s talen (%2$s overgeslagen)"

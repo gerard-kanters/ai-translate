@@ -751,30 +751,37 @@ function ajax_warm_post_cache()
     $errors = [];
     $default_lang = \AITranslate\AI_Lang::default();
     
-    // Filter languages to warm (exclude default and already cached)
-    $languages_to_warm = [];
+    // Stable list of target languages (default language excluded). The browser asks for one
+    // batch at a time via 'offset', so a single request never outlasts PHP's max_execution_time
+    // however many languages are enabled.
+    $targets = [];
     foreach ($languages as $lang_code) {
-        // Skip default language
         if ($default_lang && strtolower($lang_code) === strtolower($default_lang)) {
-            $skipped++;
             continue;
         }
-        
-        // Skip if cache already exists
+        $targets[] = $lang_code;
+    }
+    $total_targets = count($targets);
+    $offset = isset($_POST['offset']) ? max(0, (int) $_POST['offset']) : 0;
+    // Batch of 5 parallel translations took ~60s on a slow day; 3 keeps well under the 90s limit.
+    $batch_size = 3;
+    $slice = array_slice($targets, $offset, $batch_size);
+
+    // Skip languages in this slice that are already cached
+    $languages_to_warm = [];
+    foreach ($slice as $lang_code) {
         if (in_array($lang_code, $existing, true)) {
             $skipped++;
             continue;
         }
-        
         $languages_to_warm[] = $lang_code;
     }
-    
-    // Process languages in parallel batches of 5
-    $batch_size = 5;
+
+    // Languages in this batch are requested in parallel
     $path = wp_parse_url($post_url, PHP_URL_PATH);
-    
-    for ($i = 0; $i < count($languages_to_warm); $i += $batch_size) {
-        $batch = array_slice($languages_to_warm, $i, $batch_size);
+
+    if (!empty($languages_to_warm)) {
+        $batch = $languages_to_warm;
         try {
             $results = warm_cache_batch($post_id, $path, $batch);
             foreach ($results as $lang_code => $result) {
@@ -793,16 +800,13 @@ function ajax_warm_post_cache()
     
     // Clear transient cache to force refresh of stats
     delete_transient('ai_translate_cache_table_data');
-    
+
     // Force refresh of cache metadata by ensuring all generated cache files have metadata
     // This ensures the database is in sync with the filesystem
     if ($warmed > 0) {
         $route_id = warm_cache_route_id($post_id);
-        $enabled = \AITranslate\AI_Lang::enabled();
-        $detectable = \AITranslate\AI_Lang::detectable();
-        $all_langs = array_unique(array_merge($enabled, $detectable));
-        
-        foreach ($all_langs as $lang) {
+
+        foreach ($languages_to_warm as $lang) {
             $cache_key = \AITranslate\AI_Cache::key($lang, $route_id, '');
             $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
             
@@ -825,11 +829,16 @@ function ajax_warm_post_cache()
         }
     }
     
+    $next_offset = $offset + count($slice);
+
     wp_send_json_success([
         'message' => $message,
         'warmed' => $warmed,
         'skipped' => $skipped,
-        'errors' => $errors
+        'errors' => $errors,
+        'total' => $total_targets,
+        'next_offset' => $next_offset,
+        'done' => $next_offset >= $total_targets,
     ]);
 }
 
@@ -1006,12 +1015,19 @@ add_action('admin_enqueue_scripts', function ($hook) {
         return;
     }
 
+    // Asset versions follow the file's modification time: a hardcoded version string left
+    // browsers on the old admin JS/CSS after a plugin update.
+    $asset_version = static function ($file) {
+        $mtime = @filemtime(plugin_dir_path(__DIR__) . 'assets/' . $file);
+        return $mtime ? (string) $mtime : '1.0.0';
+    };
+
     // Enqueue CSS
     wp_enqueue_style(
         'ai-translate-admin-css',
         plugin_dir_url(__DIR__) . 'assets/admin-page.css',
         array(),
-        '1.0.0'
+        $asset_version('admin-page.css')
     );
 
     // Enqueue main admin JavaScript
@@ -1019,7 +1035,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-admin-js',
         plugin_dir_url(__DIR__) . 'assets/admin-page.js',
         array('jquery'),
-        '1.0.6',
+        $asset_version('admin-page.js'),
         true
     );
 
@@ -1028,7 +1044,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'ai-translate-cache-table-js',
         plugin_dir_url(__DIR__) . 'assets/admin-cache-table.js',
         array('jquery'),
-        '1.0.1',
+        $asset_version('admin-cache-table.js'),
         true
     );
 
@@ -1060,6 +1076,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'invalidKey' => __('Invalid key', 'ai-translate'),
             'errorLoadingModels' => __('Error loading models', 'ai-translate'),
             'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
+            'selectModel' => __('Select a model...', 'ai-translate'),
             'unknownError' => __('Unknown error', 'ai-translate'),
             'saveSettingsFirst' => __('Save your settings first before opening the menu editor.', 'ai-translate'),
             'requestKey' => __('Request Key', 'ai-translate'),
@@ -1111,6 +1128,9 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'confirm_delete_page' => __('Are you sure you want to delete the cache for this page?', 'ai-translate'),
             'ajaxUrlMissing' => __('Error: AJAX URL not found. Please refresh the page and try again.', 'ai-translate'),
             'warming' => __('Warming...', 'ai-translate'),
+            'warmingProgress' => /* translators: %1$s: languages processed so far, %2$s: total languages */ __('Warming... %1$s / %2$s', 'ai-translate'),
+            'warmDone' => /* translators: %1$s: number of languages warmed, %2$s: number skipped because already cached */ __('Cache warmed for %1$s languages (%2$s skipped)', 'ai-translate'),
+            'warmWarnings' => __('Warnings:', 'ai-translate'),
             'statusOf' => /* translators: %1$s: cached language count, %2$s: total languages */ __('%1$s of %2$s', 'ai-translate'),
             'errorPrefix' => /* translators: %s: error detail */ __('Error: %s', 'ai-translate'),
             'ajaxError' => /* translators: %s: error detail */ __('AJAX error: %s', 'ai-translate'),
@@ -2326,7 +2346,7 @@ function render_admin_page()
                     $total_size_mb = isset($cache_stats['total_size']) ? number_format($cache_stats['total_size'] / (1024 * 1024), 2) : 0;
 
                     // Last update timestamp
-                    $last_modified = isset($cache_stats['last_modified']) ? wp_date('d-m-Y H:i:s', $cache_stats['last_modified']) : __('Unknown', 'ai-translate');
+                    $last_modified = !empty($cache_stats['last_modified']) ? wp_date('d-m-Y H:i:s', $cache_stats['last_modified']) : __('Unknown', 'ai-translate');
                     ?>
 
                     <div class="cache-summary" style="margin-bottom: 15px; display: flex; gap: 20px;">
@@ -2381,7 +2401,8 @@ function render_admin_page()
                                 $details = $languages_details[$code] ?? [];
                                 $size_mb = isset($details['size']) ? number_format($details['size'] / (1024 * 1024), 2) : '0.00';
                                 $expired = isset($details['expired_count']) ? $details['expired_count'] : 0;
-                                $last_mod = isset($details['last_modified']) ? wp_date('d-m-Y H:i:s', $details['last_modified']) : __('N/A', 'ai-translate');
+                                // A cleared language reports last_modified 0 (shown as 01-01-1970); treat that as no data.
+                                $last_mod = !empty($details['last_modified']) ? wp_date('d-m-Y H:i:s', $details['last_modified']) : __('N/A', 'ai-translate');
                             ?>
                                 <tr id="cache-row-<?php echo esc_attr($code); ?>" class="cache-language-row <?php echo ($count > 0) ? 'has-cache' : 'no-cache'; ?>" 
                                     data-language="<?php echo esc_attr(strtolower($name)); ?>"
@@ -2401,7 +2422,7 @@ function render_admin_page()
                                     <td>
                                         <?php if ($count > 0): ?>
                                             <button type="button" class="button button-small quick-clear-cache" data-lang="<?php echo esc_attr($code); ?>">
-                                                <?php echo esc_html__('Cache clear', 'ai-translate'); ?>
+                                                <?php echo esc_html__('Clear Cache', 'ai-translate'); ?>
                                             </button>
                                         <?php else: ?>
                                             <span class="dashicons dashicons-yes-alt" style="color: #46b450;" title="<?php echo esc_attr__('No cache files', 'ai-translate'); ?>"></span>
@@ -2443,6 +2464,10 @@ function render_admin_page()
                         AI_Cache_Meta::sync_from_filesystem();
                         $count = AI_Cache_Meta::populate_existing_cache(true);
                         if ($count > 0) {
+                            // $count counts insert() calls from two overlapping passes (filesystem scan and
+                            // post-based pass), so one file is counted twice. A forced rescan rewrites every
+                            // record, so the table's row count is the number of records added or updated.
+                            $count = max(1, AI_Cache_Meta::get_total_cache_meta_count());
                             echo '<div class="notice notice-success is-dismissible"><p>';
                             echo esc_html(safe_sprintf(/* translators: %d: number value */ __('Cache metadata rescanned: %d cache records added or updated.', 'ai-translate'), $count));
                             echo '</p></div>';
@@ -2556,11 +2581,13 @@ function render_admin_page()
                                 </td>
                                 <td>
                                     <?php
-                                    $percentage = $post->percentage;
-                                    $status_class = '';
-                                    if ($percentage === 100) {
+                                    // Compare the counts, not $post->percentage: that value is not a strict int,
+                                    // so === 100 / === 0 never matched and every row showed the partial colour.
+                                    $cached_count = (int) $post->cached_languages;
+                                    $total_count  = (int) $post->total_languages;
+                                    if ($total_count > 0 && $cached_count >= $total_count) {
                                         $status_class = 'ai-translate-status-100';
-                                    } elseif ($percentage === 0) {
+                                    } elseif ($cached_count === 0) {
                                         $status_class = 'ai-translate-status-0';
                                     } else {
                                         $status_class = 'ai-translate-status-partial';

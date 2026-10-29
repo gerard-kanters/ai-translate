@@ -1119,7 +1119,7 @@ msgid "files"
 msgstr "ファイル"
 
 #: includes/admin-page.php:2404
-msgid "Cache clear"
+msgid "Clear Cache"
 msgstr "キャッシュクリア"
 
 #: includes/admin-page.php:2420
@@ -1347,3 +1347,12 @@ msgstr "フラグを表示"
 #: assets/ai-translate-block.js:55
 msgid "AI Language Switcher (rendered on the frontend)"
 msgstr "AI言語スイッチャー（フロントエンドに表示）"
+
+msgid "Select a model..."
+msgstr "モデルを選択..."
+
+msgid "Warming... %1$s / %2$s"
+msgstr "ウォームアップ中... %1$s / %2$s"
+
+msgid "Cache warmed for %1$s languages (%2$s skipped)"
+msgstr "%1$s 言語のキャッシュをウォームアップしました（%2$s 件スキップ）"

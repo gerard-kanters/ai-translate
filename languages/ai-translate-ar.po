@@ -1117,7 +1117,7 @@ msgid "files"
 msgstr "ملفات"
 
 #: includes/admin-page.php:2404
-msgid "Cache clear"
+msgid "Clear Cache"
 msgstr "مسح التخزين المؤقت"
 
 #: includes/admin-page.php:2420
@@ -1338,3 +1338,12 @@ msgstr "إظهار الأعلام"
 #: assets/ai-translate-block.js:55
 msgid "AI Language Switcher (rendered on the frontend)"
 msgstr "مبدّل اللغة بالذكاء الاصطناعي (يُعرض في الواجهة الأمامية)"
+
+msgid "Select a model..."
+msgstr "اختر نموذجًا..."
+
+msgid "Warming... %1$s / %2$s"
+msgstr "جارٍ التسخين... %1$s / %2$s"
+
+msgid "Cache warmed for %1$s languages (%2$s skipped)"
+msgstr "تم تسخين الذاكرة المؤقتة لـ %1$s لغات (تم تخطي %2$s)"

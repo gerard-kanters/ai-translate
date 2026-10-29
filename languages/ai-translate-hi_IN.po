@@ -1103,7 +1103,7 @@ msgid "files"
 msgstr "फाइलें"
 
 #: includes/admin-page.php:2404
-msgid "Cache clear"
+msgid "Clear Cache"
 msgstr "कैश क्लियर"
 
 #: includes/admin-page.php:2420
@@ -1319,3 +1319,12 @@ msgstr "झंडे दिखाएँ"
 #: assets/ai-translate-block.js:55
 msgid "AI Language Switcher (rendered on the frontend)"
 msgstr "AI भाषा स्विचर (फ्रंटएंड पर दिखाया जाता है)"
+
+msgid "Select a model..."
+msgstr "मॉडल चुनें..."
+
+msgid "Warming... %1$s / %2$s"
+msgstr "वार्म हो रहा है... %1$s / %2$s"
+
+msgid "Cache warmed for %1$s languages (%2$s skipped)"
+msgstr "%1$s भाषाओं के लिए कैश वार्म किया गया (%2$s छोड़ी गईं)"

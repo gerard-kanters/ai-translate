@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.3.15
+Stable tag: 2.3.16
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -209,6 +209,14 @@ AI Translate requires an API key from one of the supported providers:
 ## Changelog
 
 
+
+### 2.3.16
+
+- Fix: switching API provider in the admin no longer sends the previous provider's key to the new provider.
+- Fix: a provider without a saved model no longer gets a model picked and saved automatically.
+- Fix: Warm Cache works in batches with progress and no longer stops with an error after 90 seconds.
+- Fix: the cache status badge is green when all languages are cached, and the rescan message shows the right number of records.
+- Fix: a cleared language shows N/A instead of 01-01-1970, and the admin scripts reload after an update.
 
 ### 2.3.15
 

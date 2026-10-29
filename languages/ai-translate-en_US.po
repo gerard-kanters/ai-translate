@@ -1117,8 +1117,8 @@ msgid "files"
 msgstr "files"
 
 #: includes/admin-page.php:2404
-msgid "Cache clear"
-msgstr "Cache clear"
+msgid "Clear Cache"
+msgstr "Clear Cache"
 
 #: includes/admin-page.php:2420
 msgid "Total"
@@ -1336,3 +1336,12 @@ msgstr "Show flags"
 #: assets/ai-translate-block.js:55
 msgid "AI Language Switcher (rendered on the frontend)"
 msgstr "AI Language Switcher (rendered on the frontend)"
+
+msgid "Select a model..."
+msgstr "Select a model..."
+
+msgid "Warming... %1$s / %2$s"
+msgstr "Warming... %1$s / %2$s"
+
+msgid "Cache warmed for %1$s languages (%2$s skipped)"
+msgstr "Cache warmed for %1$s languages (%2$s skipped)"

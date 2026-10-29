@@ -255,11 +255,27 @@ document.addEventListener('DOMContentLoaded', function () {
         })
             .then(r => r.json())
             .then(function (resp) {
+                // Ignore a late answer for a provider that is no longer selected
+                if (apiProviderSelect && apiProviderSelect.value !== provider) {
+                    return;
+                }
                 if (selectedModel) {
                     if (resp.success && resp.data && resp.data.models) {
                         // Clear dropdown again (to be sure)
                         selectedModel.innerHTML = '';
-                        
+
+                        // No stored model for this provider: do not pick the first one for the user,
+                        // because a valid selection is validated and saved right away.
+                        var hasCurrentModel = resp.data.models.indexOf(currentModel) !== -1;
+                        if (!hasCurrentModel && provider !== 'custom') {
+                            var selectModelOpt = document.createElement('option');
+                            selectModelOpt.value = '';
+                            selectModelOpt.textContent = strings.selectModel || 'Select a model...';
+                            selectModelOpt.disabled = true;
+                            selectModelOpt.selected = true;
+                            selectedModel.appendChild(selectModelOpt);
+                        }
+
                         resp.data.models.forEach(function (modelId) {
                             var opt = document.createElement('option');
                             opt.value = modelId;
@@ -419,7 +435,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateModelField();
             } else {
                 // Fetch from server via AJAX (key never in page source)
-                // Do NOT clear the input yet – keep previous value visible while loading
+                // Clear the input while loading: otherwise the previous provider's key is still in
+                // the field and gets sent to the new provider (model list and validation).
+                apiKeyInput.value = '';
                 var data = new FormData();
                 data.append('action', 'ai_translate_get_api_key');
                 data.append('nonce', aiTranslateAdmin.getApiKeyNonce || '');
@@ -443,6 +461,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             apiKeys[selectedProvider] = '';
                             if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
                                 apiKeyInput.value = '';
+                                updateModelField();
                             }
                             if (apiStatusSpan && resp && resp.data && resp.data.message) {
                                 apiStatusSpan.textContent = resp.data.message;
