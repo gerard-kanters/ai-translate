@@ -610,6 +610,9 @@ final class AI_Translate_Core
         self::settings(true);
     }
 
+    /** Bump when the probe changes in a way that makes earlier results worth measuring again. */
+    private const REASONING_PROBE_VERSION = 1;
+
     /**
      * Parameter sets that providers use to limit or switch off a model's hidden reasoning, in the
      * order the probe tries them. The probe keeps the first one that measurably lowers the
@@ -701,9 +704,13 @@ final class AI_Translate_Core
         };
 
         $baselineData = $send([]);
-        $baseline = $baselineData === null ? null : self::extract_reasoning_tokens($baselineData);
+        if ($baselineData === null) {
+            return null; // the request failed: nothing was measured, so try again next time
+        }
+        $baseline = self::extract_reasoning_tokens($baselineData);
         if ($baseline === null || $baseline < 20) {
-            return null;
+            // Measured: this model does not think (or the provider does not say). Remember that.
+            return ['params' => [], 'baseline_tokens' => (int) $baseline, 'tokens' => (int) $baseline, 'v' => self::REASONING_PROBE_VERSION];
         }
         foreach (self::REASONING_PROBE_CANDIDATES as $candidate) {
             if (microtime(true) - $start > 45) {
@@ -720,10 +727,22 @@ final class AI_Translate_Core
                 $tokens = 0;
             }
             if ($tokens !== null && $tokens <= max(2, intdiv($baseline, 5))) {
-                return ['params' => $candidate, 'baseline_tokens' => $baseline, 'tokens' => $tokens];
+                return ['params' => $candidate, 'baseline_tokens' => $baseline, 'tokens' => $tokens, 'v' => self::REASONING_PROBE_VERSION];
             }
         }
-        return null;
+        // It thinks, but no parameter set helped. Remember that too; the name-based guesses still apply.
+        return ['params' => [], 'baseline_tokens' => $baseline, 'tokens' => $baseline, 'v' => self::REASONING_PROBE_VERSION];
+    }
+
+    /**
+     * Whether the reasoning probe has to run for a model: only when nothing is stored yet (or the
+     * stored result comes from an older version of the probe). The probe costs several requests,
+     * and the settings page validates the connection every time it opens.
+     */
+    public static function reasoning_probe_needed(string $provider, string $model): bool
+    {
+        $stored = self::settings()['reasoning_params'][$provider][$model] ?? null;
+        return !is_array($stored) || (int) ($stored['v'] ?? 0) < self::REASONING_PROBE_VERSION;
     }
 
     /**
@@ -1067,6 +1086,8 @@ final class AI_Translate_Core
             // Probe the temperature value used for translations. A rejection does not
             // fail activation: the model stays usable and later requests omit temperature.
             $temperatureSupported = null;
+            // Known from an earlier activation: do not ask again (this runs every time the settings page opens).
+            $knownTemperature = self::settings()['temperature_supported'][$provider_key][$model] ?? null;
             $tempBody = self::adjust_body_for_model([
                 'model' => $model,
                 'messages' => [
@@ -1079,8 +1100,10 @@ final class AI_Translate_Core
             if (substr($chatEndpoint, -10) === '/responses') {
                 $tempBody = self::convert_body_to_responses($tempBody);
             }
-            $tempResp = self::remote_api_post($chatEndpoint, $chatHeaders, $tempBody, 20);
-            if (!is_wp_error($tempResp)) {
+            $tempResp = is_bool($knownTemperature) ? null : self::remote_api_post($chatEndpoint, $chatHeaders, $tempBody, 20);
+            if (is_bool($knownTemperature)) {
+                $temperatureSupported = $knownTemperature;
+            } elseif ($tempResp !== null && !is_wp_error($tempResp)) {
                 $tempCode = (int) wp_remote_retrieve_response_code($tempResp);
                 if ($tempCode === 200) {
                     $temperatureSupported = true;
@@ -1094,15 +1117,17 @@ final class AI_Translate_Core
 
             // Measure whether this model thinks while it translates and, if so, which parameter
             // stops that. Best effort: a failed probe never fails activation.
+            // Only the first time for a model: this runs every time the settings page opens.
             $reasoningEntry = null;
-            $reasoningProbed = false;
-            try {
-                $reasoningEntry = self::probe_reasoning_params($chatEndpoint, $chatHeaders, $model);
-                self::remember_reasoning_params($provider_key, $model, $reasoningEntry);
-                $reasoningProbed = true;
-            } catch (\Throwable $e) {
-                // Leave whatever is stored for this model as it is.
-                $reasoningProbed = false;
+            if (self::reasoning_probe_needed($provider_key, $model)) {
+                try {
+                    $reasoningEntry = self::probe_reasoning_params($chatEndpoint, $chatHeaders, $model);
+                    if ($reasoningEntry !== null) {
+                        self::remember_reasoning_params($provider_key, $model, $reasoningEntry);
+                    }
+                } catch (\Throwable $e) {
+                    $reasoningEntry = null; // try again next time
+                }
             }
         }
 
@@ -1110,8 +1135,8 @@ final class AI_Translate_Core
         if (isset($temperatureSupported) && is_bool($temperatureSupported)) {
             $result['temperature_supported'] = $temperatureSupported;
         }
-        if (!empty($reasoningProbed)) {
-            $result['reasoning'] = $reasoningEntry ?? null;
+        if (!empty($reasoningEntry) && is_array($reasoningEntry)) {
+            $result['reasoning'] = $reasoningEntry;
         }
         return $result;
     }
