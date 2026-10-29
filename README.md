@@ -214,6 +214,7 @@ AI Translate requires an API key from one of the supported providers:
 
 - Faster: publishing a page takes a few seconds instead of about a minute, and GPT-6 and DeepSeek models translate about a third faster and cheaper.
 - New: optional setting to translate new and updated pages in the background, so visitors never wait for a first translation.
+- Better: when you activate a model, the plugin now tests whether it "thinks" while translating and switches that off where it can. This makes translations faster and cheaper and works for models the plugin does not know by name.
 - Better: translations are kept in the database, so restarting the cache no longer loses them, and clearing the cache really clears them.
 - Better: changing the glossary now updates the texts it applies to.
 - Safer: your saved API key is no longer sent to the browser.

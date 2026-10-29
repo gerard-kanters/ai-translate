@@ -611,6 +611,155 @@ final class AI_Translate_Core
     }
 
     /**
+     * Parameter sets that providers use to limit or switch off a model's hidden reasoning, in the
+     * order the probe tries them. The probe keeps the first one that measurably lowers the
+     * reasoning tokens, so a provider that silently ignores a parameter is skipped.
+     */
+    private const REASONING_PROBE_CANDIDATES = [
+        ['reasoning_effort' => 'low'],
+        ['reasoning_effort' => 'none'],
+        ['reasoning_effort' => 'minimal'],
+        ['reasoning' => ['effort' => 'low']],
+        ['reasoning' => ['effort' => 'none']],
+        ['thinking' => ['type' => 'disabled']],
+        ['reasoning' => ['enabled' => false]],
+    ];
+
+    /**
+     * Number of hidden reasoning tokens a response reports, or null when the provider does not
+     * report them (chat/completions and /responses use different fields).
+     *
+     * @param mixed $data Decoded JSON response.
+     * @return int|null
+     */
+    public static function extract_reasoning_tokens($data): ?int
+    {
+        if (!is_array($data) || !isset($data['usage']) || !is_array($data['usage'])) {
+            return null;
+        }
+        $usage = $data['usage'];
+        foreach (['completion_tokens_details', 'output_tokens_details'] as $details) {
+            if (isset($usage[$details]) && is_array($usage[$details]) && isset($usage[$details]['reasoning_tokens'])) {
+                return (int) $usage[$details]['reasoning_tokens'];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find out how to keep a model from thinking when it translates, by measuring.
+     *
+     * Sends one translation request without any reasoning parameter and reads the reasoning
+     * tokens from the response. A model that does not think (or a provider that does not report
+     * tokens) needs nothing, so null comes back. Otherwise the candidate parameter sets are tried
+     * one by one until one cuts the reasoning tokens to a fifth or less; that set is returned.
+     * The result is stored by remember_reasoning_params() and used by adjust_body_for_model().
+     *
+     * @param string $endpoint   Full chat/completions or /responses URL.
+     * @param array  $headers    Request headers.
+     * @param string $model      Model ID.
+     * @return array{params:array,baseline_tokens:int,tokens:int}|null
+     */
+    public static function probe_reasoning_params(string $endpoint, array $headers, string $model): ?array
+    {
+        $isResponses = substr($endpoint, -10) === '/responses';
+        $start = microtime(true);
+        // A model that thinks a lot can take 20+ seconds for the baseline request alone.
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(150);
+        }
+        $payload = wp_json_encode([
+            'segments' => [
+                ['id' => 't1', 'text' => 'Samenwerken in een veilige digitale werkomgeving', 'type' => 'node'],
+                ['id' => 't2', 'text' => 'Beheer documenten, groepen en discussies op één plek.', 'type' => 'node'],
+                ['id' => 't3', 'text' => 'Kies een pakket dat bij uw organisatie past.', 'type' => 'node'],
+                ['id' => 't4', 'text' => 'Neem contact met ons op voor een demonstratie.', 'type' => 'node'],
+                ['id' => 't5', 'text' => 'Werk op uw laptop, telefoon of tablet.', 'type' => 'node'],
+                ['id' => 't6', 'text' => 'Start vandaag nog met een gratis proefperiode.', 'type' => 'node'],
+            ],
+            'instruction' => 'Translate every segment from Dutch to Swedish. Return ONLY valid JSON in this exact format: {"translations": {"<id>": "<translated_text>"}}.',
+        ]);
+        $send = static function (array $extra) use ($endpoint, $headers, $model, $payload, $isResponses) {
+            $body = [
+                'model' => $model,
+                'messages' => [
+                    ['role' => 'system', 'content' => 'You are a professional translator. Follow the instruction exactly.'],
+                    ['role' => 'user', 'content' => $payload],
+                ],
+            ];
+            foreach ($extra as $key => $value) {
+                $body[$key] = $value;
+            }
+            if ($isResponses) {
+                $body = self::convert_body_to_responses($body);
+            }
+            $resp = self::remote_api_post($endpoint, $headers, $body, 25);
+            if (is_wp_error($resp) || (int) wp_remote_retrieve_response_code($resp) !== 200) {
+                return null;
+            }
+            return json_decode((string) wp_remote_retrieve_body($resp), true);
+        };
+
+        $baselineData = $send([]);
+        $baseline = $baselineData === null ? null : self::extract_reasoning_tokens($baselineData);
+        if ($baseline === null || $baseline < 20) {
+            return null;
+        }
+        foreach (self::REASONING_PROBE_CANDIDATES as $candidate) {
+            if (microtime(true) - $start > 45) {
+                break;
+            }
+            $data = $send($candidate);
+            if ($data === null) {
+                continue; // the model rejected this parameter
+            }
+            $tokens = self::extract_reasoning_tokens($data);
+            if ($tokens === null && isset($data['usage'])) {
+                // The baseline reported reasoning tokens, so a response that leaves the field out
+                // (DeepSeek does this once thinking is off) did not reason.
+                $tokens = 0;
+            }
+            if ($tokens !== null && $tokens <= max(2, intdiv($baseline, 5))) {
+                return ['params' => $candidate, 'baseline_tokens' => $baseline, 'tokens' => $tokens];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Store (or, with null, forget) the reasoning parameters found for a model.
+     *
+     * @param string     $provider Provider key.
+     * @param string     $model    Model ID.
+     * @param array|null $entry    Result of probe_reasoning_params().
+     * @return void
+     */
+    public static function remember_reasoning_params(string $provider, string $model, ?array $entry): void
+    {
+        if ($provider === '' || $model === '') {
+            return;
+        }
+        $settings = self::settings(true);
+        $current = $settings['reasoning_params'][$provider][$model] ?? null;
+        if ($current === $entry) {
+            return;
+        }
+        if (!isset($settings['reasoning_params']) || !is_array($settings['reasoning_params'])) {
+            $settings['reasoning_params'] = [];
+        }
+        if (!isset($settings['reasoning_params'][$provider]) || !is_array($settings['reasoning_params'][$provider])) {
+            $settings['reasoning_params'][$provider] = [];
+        }
+        if ($entry === null) {
+            unset($settings['reasoning_params'][$provider][$model]);
+        } else {
+            $settings['reasoning_params'][$provider][$model] = $entry;
+        }
+        update_option('ai_translate_settings', $settings);
+        self::settings(true);
+    }
+
+    /**
      * Adjust an API request body for model-specific requirements.
      *
      * Disables or minimizes reasoning/thinking for translation (cost + latency).
@@ -643,6 +792,18 @@ final class AI_Translate_Core
         }
         if ($omitTemperature) {
             unset($body['temperature']);
+        }
+
+        // Parameters the activation probe measured to work for this exact model win over the
+        // name-based guesses below.
+        $learned = self::settings()['reasoning_params'][$provider][$model] ?? null;
+        if (is_array($learned) && !empty($learned['params']) && is_array($learned['params'])) {
+            foreach ($learned['params'] as $key => $value) {
+                if (!isset($body[$key])) {
+                    $body[$key] = $value;
+                }
+            }
+            return $body;
         }
 
         if (
@@ -930,11 +1091,27 @@ final class AI_Translate_Core
                     self::remember_temperature_supported($provider_key, $model, $temperatureSupported);
                 }
             }
+
+            // Measure whether this model thinks while it translates and, if so, which parameter
+            // stops that. Best effort: a failed probe never fails activation.
+            $reasoningEntry = null;
+            $reasoningProbed = false;
+            try {
+                $reasoningEntry = self::probe_reasoning_params($chatEndpoint, $chatHeaders, $model);
+                self::remember_reasoning_params($provider_key, $model, $reasoningEntry);
+                $reasoningProbed = true;
+            } catch (\Throwable $e) {
+                // Leave whatever is stored for this model as it is.
+                $reasoningProbed = false;
+            }
         }
 
         $result = ['ok' => true];
         if (isset($temperatureSupported) && is_bool($temperatureSupported)) {
             $result['temperature_supported'] = $temperatureSupported;
+        }
+        if (!empty($reasoningProbed)) {
+            $result['reasoning'] = $reasoningEntry ?? null;
         }
         return $result;
     }

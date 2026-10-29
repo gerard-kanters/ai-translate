@@ -1524,6 +1524,15 @@ add_action('admin_init', function () {
                 $sanitized['switcher_position'] = 'bottom-left';
             }
 
+            // Results of the model probes (temperature, reasoning parameters). The plugin writes
+            // them itself when a model is activated; without this they would be dropped in admin
+            // requests, because only the keys handled above survive. The settings form never posts them.
+            foreach (['temperature_supported', 'reasoning_params'] as $probe_key) {
+                if (isset($input[$probe_key]) && is_array($input[$probe_key])) {
+                    $sanitized[$probe_key] = $input[$probe_key];
+                }
+            }
+
             return $sanitized;
         }
     ]);
@@ -2949,6 +2958,21 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
                     $updated_settings['temperature_supported'][$provider_key] = [];
                 }
                 $updated_settings['temperature_supported'][$provider_key][$model] = $validation_result['temperature_supported'];
+            }
+
+            // Reasoning parameters measured by the activation probe (null: the model needs none)
+            if ($model !== '' && array_key_exists('reasoning', $validation_result)) {
+                if (!isset($updated_settings['reasoning_params']) || !is_array($updated_settings['reasoning_params'])) {
+                    $updated_settings['reasoning_params'] = [];
+                }
+                if (!isset($updated_settings['reasoning_params'][$provider_key]) || !is_array($updated_settings['reasoning_params'][$provider_key])) {
+                    $updated_settings['reasoning_params'][$provider_key] = [];
+                }
+                if (is_array($validation_result['reasoning'])) {
+                    $updated_settings['reasoning_params'][$provider_key][$model] = $validation_result['reasoning'];
+                } else {
+                    unset($updated_settings['reasoning_params'][$provider_key][$model]);
+                }
             }
             
             if (isset($_POST['custom_model_value'])) {
