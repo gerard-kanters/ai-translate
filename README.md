@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.3.16
+Stable tag: 2.3.17
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -209,6 +209,12 @@ AI Translate requires an API key from one of the supported providers:
 ## Changelog
 
 
+
+### 2.3.17
+
+- Fix: translating a new page is faster. Title, meta description, Twitter Card and JSON-LD texts are translated in the same step as the page instead of in extra steps afterwards.
+- Fix: a page title that was already translated is no longer sent to the AI again, which gave odd double translations.
+- Fix: Warm Cache runs several languages at the same time, so a new page with 37 languages takes about 40 seconds instead of several minutes. It also no longer waits half a second per language.
 
 ### 2.3.16
 

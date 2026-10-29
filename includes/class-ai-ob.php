@@ -498,7 +498,15 @@ final class AI_OB
         }
 
         $plan = AI_DOM::plan($html);
-        $res = AI_Batch::translate_plan($plan, AI_Lang::default(), $lang, $this->site_context());
+        // Meta texts (title, description, Twitter Cards, JSON-LD) are translated later in separate
+        // sequential rounds; adding them here puts them in the same parallel API stage. AI_DOM::merge()
+        // only reads the ids of $plan, so the extra segments do not affect the page.
+        $apiPlan = $plan;
+        $metaSegments = AI_SEO::prefetch_segments($html, $lang);
+        if (!empty($metaSegments) && isset($apiPlan['segments']) && is_array($apiPlan['segments'])) {
+            $apiPlan['segments'] = array_merge($apiPlan['segments'], $metaSegments);
+        }
+        $res = AI_Batch::translate_plan($apiPlan, AI_Lang::default(), $lang, $this->site_context());
         $translations = is_array(($res['segments'] ?? null)) ? $res['segments'] : [];
         if (empty($translations)) {
             if ($lockAcquired) {
@@ -507,6 +515,7 @@ final class AI_OB
             $processing = false;
             return $html;
         } else {
+            AI_SEO::mark_translated($translations, (string) $lang);
             $merged = AI_DOM::merge($plan, $translations, $lang);
             // Preserve original <body> framing to avoid theme conflicts: replace only inner body
             $html2 = $merged;

@@ -613,13 +613,17 @@ final class AI_SEO
      * @param string   $default Source language.
      * @param string   $lang    Target language.
      */
-    private static function batchTranslateMeta(array $texts, $default, $lang): void
+    /**
+     * Turn meta texts into translate_plan() segments: skips empty strings, slug-like tokens and
+     * texts already in the per-request cache, and de-duplicates.
+     *
+     * @param string[] $texts
+     * @param string   $lang
+     * @param string   $idPrefix Prefix for the segment ids.
+     * @return array<int, array{id:string,text:string,type:string}>
+     */
+    private static function buildMetaSegments(array $texts, $lang, string $idPrefix): array
     {
-        if (empty($texts) || !is_string($default) || !is_string($lang)
-            || $default === '' || $lang === '' || strtolower($lang) === strtolower($default)) {
-            return;
-        }
-
         $segments = [];
         $seen = [];
         $idx = 0;
@@ -635,9 +639,107 @@ final class AI_SEO
                 continue;
             }
             $seen[$dedupKey] = true;
-            $segments[] = ['id' => 's' . $idx, 'text' => $text, 'type' => 'node'];
+            $segments[] = ['id' => $idPrefix . $idx, 'text' => $text, 'type' => 'node'];
             $idx++;
         }
+        return $segments;
+    }
+
+    /**
+     * Register texts the page translation already produced in the target language, so the meta
+     * pass does not send them to the API again. The head is translated together with the page
+     * (title, meta description), and inject_dom() then collects those translated strings as if they
+     * were source text: one extra sequential API round trip per page, for a result that is the same
+     * text. Short or single-word strings are left out: they may be source text that does need
+     * translating (for example a breadcrumb "Home" next to a menu item that kept the English word).
+     *
+     * @param array<string,mixed> $translations Segment id => translated text.
+     * @param string              $lang         Target language.
+     */
+    public static function mark_translated(array $translations, $lang): void
+    {
+        if (!is_string($lang) || $lang === '') {
+            return;
+        }
+        foreach ($translations as $value) {
+            if (!is_string($value)) {
+                continue;
+            }
+            $trimmed = trim($value);
+            if (mb_strlen($trimmed) < 12 || !preg_match('/\s/', $trimmed)) {
+                continue;
+            }
+            self::$metaTranslationCache[$lang . '|' . md5($trimmed)] = $trimmed;
+            if ($trimmed !== $value) {
+                self::$metaTranslationCache[$lang . '|' . md5($value)] = $value;
+            }
+        }
+    }
+
+    /**
+     * Segments for the meta texts that inject_dom(), translateTwitterCards() and translateJsonLd()
+     * translate later, each in its own sequential API round trip. Adding these to the page's own
+     * translate_plan() call translates them in the same parallel stage; the later calls then find
+     * every text in the segment cache and make no API request.
+     *
+     * @param string $html Page HTML in the default language.
+     * @param string $lang Target language.
+     * @return array<int, array{id:string,text:string,type:string}>
+     */
+    public static function prefetch_segments($html, $lang): array
+    {
+        $default = AI_Lang::default();
+        if ($default === null || !is_string($html) || $html === '' || strtolower((string) $lang) === strtolower((string) $default)) {
+            return [];
+        }
+
+        $texts = [];
+
+        // <title>, meta description, og:description, og:image:alt, post title (same source as inject_dom)
+        try {
+            $doc = new \DOMDocument();
+            $internalErrors = libxml_use_internal_errors(true);
+            $doc->loadHTML('<?xml encoding="utf-8" ?>' . self::ensureUtf8($html), LIBXML_HTML_NODEFDTD);
+            libxml_clear_errors();
+            libxml_use_internal_errors($internalErrors);
+            $texts = self::collectMetaTexts($doc, new \DOMXPath($doc));
+        } catch (\Throwable $e) {
+            $texts = [];
+        }
+
+        // Twitter Card tags (same pattern as translateTwitterCards)
+        $twitterNames = ['twitter:text:title', 'twitter:title', 'twitter:description', 'twitter:image:alt'];
+        $names = implode('|', array_map(function ($n) { return preg_quote($n, '#'); }, $twitterNames));
+        if (preg_match_all('#<meta\s+name="(?:' . $names . ')"\s+content="([^"]+)"[^>]*>#i', $html, $twitterMatches) && !empty($twitterMatches[1])) {
+            foreach ($twitterMatches[1] as $raw) {
+                $decoded = html_entity_decode($raw, ENT_QUOTES, 'UTF-8');
+                if (trim($decoded) !== '') {
+                    $texts[] = $decoded;
+                }
+            }
+        }
+
+        // JSON-LD (same collector as translateJsonLd)
+        if (preg_match_all('#<script\b[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>#is', $html, $ldBlocks) && !empty($ldBlocks[1])) {
+            foreach ($ldBlocks[1] as $raw) {
+                $json = json_decode($raw, true);
+                if (is_array($json)) {
+                    self::collectJsonLdTexts($json, $texts);
+                }
+            }
+        }
+
+        return self::buildMetaSegments($texts, $lang, 'pf');
+    }
+
+    private static function batchTranslateMeta(array $texts, $default, $lang): void
+    {
+        if (empty($texts) || !is_string($default) || !is_string($lang)
+            || $default === '' || $lang === '' || strtolower($lang) === strtolower($default)) {
+            return;
+        }
+
+        $segments = self::buildMetaSegments($texts, $lang, 's');
 
         if (empty($segments)) {
             return;

@@ -102,17 +102,64 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        // The server warms one batch of languages per request (a single request for all
-        // languages outlasts PHP's max_execution_time). Request batches until it reports done.
+        // One language per request with several requests in flight at once, like a crawler: a batch
+        // that waits for its slowest language leaves most of the time idle, and one request for all
+        // languages outlasts PHP's max_execution_time. The first response reports the total.
+        const poolSize = 4;
         const totals = { warmed: 0, skipped: 0, errors: [] };
         const spinner = '<span class="dashicons dashicons-update dashicons-spin" style="vertical-align: middle;"></span> ';
+        let nextOffset = 0;
+        let total = null;
+        let done = 0;
+        let running = 0;
+        let pendingRetries = 0;
+        let finished = false;
 
-        function fail(errorMsg) {
-            alert((aiTranslateCacheTable?.strings?.errorPrefix || 'Error: %s').replace('%s', errorMsg));
-            $button.prop('disabled', false).html(originalText);
+        function showProgress() {
+            if (total === null) {
+                return;
+            }
+            const progressTmpl = aiTranslateCacheTable?.strings?.warmingProgress || 'Warming... %1$s / %2$s';
+            $button.html(spinner + progressTmpl.replace('%1$s', Math.min(done, total)).replace('%2$s', total));
         }
 
-        function warmBatch(offset) {
+        function finish() {
+            if (finished) {
+                return;
+            }
+            finished = true;
+
+            const $row = $button.closest('tr');
+            $row.css('background-color', totals.errors.length ? '#fff3cd' : '#d4edda');
+
+            const doneTmpl = aiTranslateCacheTable?.strings?.warmDone || 'Cache warmed for %1$s languages (%2$s skipped)';
+            let message = doneTmpl.replace('%1$s', totals.warmed).replace('%2$s', totals.skipped);
+            if (totals.errors.length) {
+                message += '. ' + (aiTranslateCacheTable?.strings?.warmWarnings || 'Warnings:') + ' ' + totals.errors.slice(0, 3).join(', ');
+                if (totals.errors.length > 3) {
+                    message += ' (+' + (totals.errors.length - 3) + ')';
+                }
+            }
+            alert(message);
+
+            // Reload page after short delay to update UI
+            setTimeout(function() {
+                location.reload();
+            }, 1500);
+        }
+
+        // Start the next language, or finish when none are left and nothing is running.
+        function pump() {
+            while (running < poolSize && total !== null && nextOffset < total) {
+                request(nextOffset++, 0);
+            }
+            if (total !== null && nextOffset >= total && running === 0 && pendingRetries === 0) {
+                finish();
+            }
+        }
+
+        function request(offset, attempt) {
+            running++;
             $.ajax({
                 url: ajaxUrl,
                 method: 'POST',
@@ -120,58 +167,65 @@ jQuery(document).ready(function($) {
                     action: 'ai_translate_warm_cache',
                     post_id: postId,
                     nonce: nonce,
-                    offset: offset
+                    offset: offset,
+                    limit: 1
                 },
                 success: function(response) {
-                    if (!response.success) {
-                        const errorMsg = (response.data && response.data.message) ? response.data.message : (response.data ? response.data : (aiTranslateCacheTable?.strings?.unknownError || 'Unknown error'));
-                        fail(errorMsg);
-                        return;
-                    }
-
-                    const data = response.data;
-                    totals.warmed += data.warmed || 0;
-                    totals.skipped += data.skipped || 0;
-                    totals.errors = totals.errors.concat(data.errors || []);
-
-                    if (!data.done) {
-                        const progressTmpl = aiTranslateCacheTable?.strings?.warmingProgress || 'Warming... %1$s / %2$s';
-                        $button.html(spinner + progressTmpl.replace('%1$s', data.next_offset).replace('%2$s', data.total));
-                        warmBatch(data.next_offset);
-                        return;
-                    }
-
-                    const $row = $button.closest('tr');
-                    $row.css('background-color', '#d4edda');
-
-                    const doneTmpl = aiTranslateCacheTable?.strings?.warmDone || 'Cache warmed for %1$s languages (%2$s skipped)';
-                    let message = doneTmpl.replace('%1$s', totals.warmed).replace('%2$s', totals.skipped);
-                    if (totals.errors.length) {
-                        message += '. ' + (aiTranslateCacheTable?.strings?.warmWarnings || 'Warnings:') + ' ' + totals.errors.slice(0, 3).join(', ');
-                        if (totals.errors.length > 3) {
-                            message += ' (+' + (totals.errors.length - 3) + ')';
+                    running--;
+                    if (response && response.success && response.data) {
+                        const data = response.data;
+                        if (total === null) {
+                            total = data.total;
                         }
+                        totals.warmed += data.warmed || 0;
+                        totals.skipped += data.skipped || 0;
+                        totals.errors = totals.errors.concat(data.errors || []);
+                        done++;
+                        showProgress();
+                    } else if (total === null) {
+                        // The first request failed (permissions, nonce, no languages): nothing to continue with.
+                        const errorMsg = (response && response.data && response.data.message) ? response.data.message : (aiTranslateCacheTable?.strings?.unknownError || 'Unknown error');
+                        alert((aiTranslateCacheTable?.strings?.errorPrefix || 'Error: %s').replace('%s', errorMsg));
+                        $button.prop('disabled', false).html(originalText);
+                        return;
+                    } else {
+                        const errorMsg = (response && response.data && response.data.message) ? response.data.message : (aiTranslateCacheTable?.strings?.unknownError || 'Unknown error');
+                        totals.errors.push(errorMsg);
+                        done++;
                     }
-                    alert(message);
-
-                    // Reload page after short delay to update UI
-                    setTimeout(function() {
-                        location.reload();
-                    }, 1500);
+                    pump();
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
+                    running--;
                     console.error('AI Translate Warm Cache Error:', {
                         status: textStatus,
                         error: errorThrown,
                         response: jqXHR.responseText
                     });
-                    alert((aiTranslateCacheTable?.strings?.ajaxError || 'AJAX error: %s').replace('%s', textStatus + ' - ' + errorThrown));
-                    $button.prop('disabled', false).html(originalText);
+                    // A PHP-FPM reload or a timeout kills one request: retry that language once.
+                    if (attempt < 1) {
+                        pendingRetries++;
+                        setTimeout(function() {
+                            pendingRetries--;
+                            request(offset, attempt + 1);
+                        }, 2000);
+                        return;
+                    }
+                    if (total === null) {
+                        alert((aiTranslateCacheTable?.strings?.ajaxError || 'AJAX error: %s').replace('%s', textStatus + ' - ' + errorThrown));
+                        $button.prop('disabled', false).html(originalText);
+                        return;
+                    }
+                    totals.errors.push((aiTranslateCacheTable?.strings?.ajaxError || 'AJAX error: %s').replace('%s', textStatus + ' - ' + errorThrown));
+                    done++;
+                    pump();
                 }
             });
         }
 
-        warmBatch(0);
+        // The first request (language 0) reports the total; the pool fills up after it.
+        nextOffset = 1;
+        request(0, 0);
     });
     
     /**

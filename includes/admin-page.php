@@ -369,7 +369,7 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
                     'Cookie'                    => 'ai_translate_lang=' . rawurlencode($lang_code),
                 ],
                 'options' => [
-                    'timeout'         => 90,
+                    'timeout'         => 100, // below the 150s set_time_limit of the AJAX request
                     'connect_timeout' => 10,
                     'redirects'       => 5,
                     'verify'          => true,
@@ -448,9 +448,8 @@ function warm_cache_batch($post_id, $base_path, $lang_codes)
         // Accept 200 as success (unless it's an error page), and 404 for 404 page warming
         $is_success = ($http_code === 200 && !$is_error_page) || ($post_id === -1 && $http_code === 404);
         if ($is_success) {
-            // Wait a moment for async cache writes to complete
-            usleep(500000); // 0.5 second
-            
+            // The cache file is written before the response ends, so check right away and only
+            // wait (below) when it is not there yet. A fixed pause per language added 0.5s each.
             $route_id = warm_cache_route_id($post_id);
             $cache_key = \AITranslate\AI_Cache::key($lang_code, $route_id, '');
             $cache_file = \AITranslate\AI_Cache::get_file_path($cache_key);
@@ -763,8 +762,13 @@ function ajax_warm_post_cache()
     }
     $total_targets = count($targets);
     $offset = isset($_POST['offset']) ? max(0, (int) $_POST['offset']) : 0;
-    // Batch of 5 parallel translations took ~60s on a slow day; 3 keeps well under the 90s limit.
-    $batch_size = 3;
+    // The browser sizes batches to how long the previous one took (slow models get fewer
+    // languages per request, fast models more), so no provider needs special handling.
+    $batch_size = isset($_POST['limit']) ? max(1, min(6, (int) $_POST['limit'])) : 3;
+    // Let this request outlast PHP's default limit; each HTTP request inside is capped lower (warm_cache_batch).
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(150);
+    }
     $slice = array_slice($targets, $offset, $batch_size);
 
     // Skip languages in this slice that are already cached
