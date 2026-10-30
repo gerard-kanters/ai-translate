@@ -135,6 +135,14 @@ if (!class_exists('AITranslate\\AI_Lang')) {
         }
 
         /**
+         * Simplified mirror of AI_Lang::is_non_latin() (the real list is longer).
+         */
+        public static function is_non_latin($lang): bool
+        {
+            return in_array(strtolower(trim((string) $lang)), ['ar', 'he', 'ru', 'uk', 'el', 'zh', 'ja', 'ko', 'hi', 'th'], true);
+        }
+
+        /**
          * Mirror of AI_Lang::sync_wp_text_direction(); no-op in unit tests.
          */
         public static function sync_wp_text_direction($lang)

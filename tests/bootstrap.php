@@ -18,6 +18,7 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 // Stub plugin classes that are dependencies (not under test themselves)
 require_once __DIR__ . '/stubs/class-stubs.php';
+require_once __DIR__ . '/stubs/wp-rest-stubs.php';
 
 // Load the actual plugin classes being tested
 $includes = dirname(__DIR__) . '/includes/';
@@ -26,6 +27,7 @@ require_once $includes . 'class-ai-dom.php';
 require_once $includes . 'class-ai-cache.php';
 require_once $includes . 'class-ai-slugs.php';
 require_once $includes . 'class-ai-segment-store.php';
+require_once $includes . 'class-ai-rest-strings.php';
 require_once $includes . 'class-ai-seo.php';
 require_once $includes . 'class-ai-404-recovery.php';
 require_once $includes . 'class-ai-url.php';

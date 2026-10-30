@@ -334,7 +334,7 @@ final class AI_Batch
                                 $translationsPrimary[(string)$k] = $translated;
                             }
                         }
-                        self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
+                        self::cacheTranslations($translations, $primarySegById, $targetLang);
                     } else {
                         $failedIndexes[] = (int)$idx;
                     }
@@ -388,7 +388,7 @@ final class AI_Batch
                                                 $translationsPrimary[(string)$k] = $translated;
                                             }
                                         }
-                                        self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
+                                        self::cacheTranslations($translations, $primarySegById, $targetLang);
                                     }
                                 }
                             } else {
@@ -488,7 +488,7 @@ final class AI_Batch
             foreach ($translations as $k => $v) {
                 $translationsPrimary[(string) $k] = (string) $v;
             }
-            self::cacheTranslations($translations, $primarySegById, $targetLang, $expiry);
+            self::cacheTranslations($translations, $primarySegById, $targetLang);
         }
         
         return self::finalizePrimaryTranslations($translationsPrimary, $cachedPrimary, $primarySegById, $idsByPrimary, $targetLang, $identicalWhitelist, $system, $model, $provider, $apiKey, $endpoint, $timeoutSeconds, $settings, $target, $expiry);
@@ -515,7 +515,7 @@ final class AI_Batch
                 $translationsPrimary[(string) $k] = $v;
             }
         }
-        self::cacheTranslations($translationsPrimary, $primarySegById, $targetLang, $expiry);
+        self::cacheTranslations($translationsPrimary, $primarySegById, $targetLang);
         foreach ($cachedPrimary as $pid => $tr) {
             $translationsPrimary[$pid] = $tr;
         }
@@ -652,7 +652,7 @@ final class AI_Batch
                     $clean[$id] = $value;
                 }
                 if ($clean !== []) {
-                    self::cacheTranslations($clean, $primary, $lang, $expiry);
+                    self::cacheTranslations($clean, $primary, $lang);
                     $stored++;
                 }
             }
@@ -707,15 +707,14 @@ final class AI_Batch
     }
 
     /**
-     * Persist translated segments to transient cache.
+     * Persist translated segments to the segment store.
      *
      * @param array  $translations  Associative array of pid => translated text.
      * @param array  $primarySegById Metadata for each primary segment.
      * @param string $targetLang     Target language code.
-     * @param int    $expiry         Cache expiry in seconds.
      * @return int   Number of newly cached entries.
      */
-    private static function cacheTranslations(array $translations, array $primarySegById, string $targetLang, int $expiry): int
+    private static function cacheTranslations(array $translations, array $primarySegById, string $targetLang): int
     {
         $count = 0;
         $storeRows = [];
@@ -732,16 +731,6 @@ final class AI_Batch
                 'text' => $tr,
                 'type' => $primarySegById[$pid]['type'],
             ];
-            if ($primarySegById[$pid]['type'] === 'attr') {
-                $attrKey = function_exists('ai_translate_attr_cache_key')
-                    ? ai_translate_attr_cache_key($targetLang, $primarySegById[$pid]['text'])
-                    : 'ai_tr_attr_' . $targetLang . '_' . md5($primarySegById[$pid]['text']);
-                if (function_exists('ai_translate_set_attr_transient')) {
-                    ai_translate_set_attr_transient($attrKey, $tr, $expiry);
-                } else {
-                    set_transient($attrKey, $tr, $expiry);
-                }
-            }
             $count++;
         }
         AI_Segment_Store::set_many($targetLang, $storeRows);
