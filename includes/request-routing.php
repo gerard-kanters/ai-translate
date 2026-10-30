@@ -446,11 +446,7 @@ add_action('parse_request', function ($wp) {
                 if ($potential_slug === '') {
                     $cpt_obj = get_post_type_object($detected_post_type);
                     if ($cpt_obj && $cpt_obj->has_archive) {
-                        $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
-                        $wp->query_vars['post_type'] = $detected_post_type;
-                        $wp->is_archive  = true;
-                        $wp->is_singular = false;
-                        $wp->is_404      = false;
+                        ai_translate_route_to_archive($wp, $detected_post_type);
                         return;
                     }
                     nocache_headers();
@@ -477,11 +473,7 @@ add_action('parse_request', function ($wp) {
             $detected_rewrite_slug = $cpt_match['rewrite_slug'];
             $cpt_obj = get_post_type_object($detected_post_type);
             if ($cpt_obj && $cpt_obj->has_archive) {
-                $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
-                $wp->query_vars['post_type'] = $detected_post_type;
-                $wp->is_archive   = true;
-                $wp->is_singular  = false;
-                $wp->is_404       = false;
+                ai_translate_route_to_archive($wp, $detected_post_type);
                 return;
             }
             nocache_headers();
@@ -497,18 +489,7 @@ add_action('parse_request', function ($wp) {
     // instead of serving a 404.
     if (!$post_id && $detected_post_type && $slug_used_for_lookup !== null && $slug_used_for_lookup !== '') {
         $candidate_ids = \AITranslate\AI_Slugs::find_post_ids_by_translated_slug($slug_used_for_lookup);
-        $unique_target = null;
-        foreach ($candidate_ids as $cid) {
-            $cp = get_post((int) $cid);
-            if ($cp && $cp->post_status === 'publish' && $cp->post_type === $detected_post_type) {
-                if ($unique_target === null) {
-                    $unique_target = (int) $cid;
-                } elseif ($unique_target !== (int) $cid) {
-                    $unique_target = null; // ambiguous: multiple posts share this old slug
-                    break;
-                }
-            }
-        }
+        $unique_target = ai_translate_unique_published_post($candidate_ids, $detected_post_type);
         if ($unique_target !== null) {
             $post_id = $unique_target;
             $expected_post_type = $detected_post_type;
@@ -528,18 +509,7 @@ add_action('parse_request', function ($wp) {
     if (!$post_id && strpos($rest, '/') === false) {
         $candidate_ids = \AITranslate\AI_Slugs::find_post_ids_by_translated_slug($rest);
         if (!empty($candidate_ids)) {
-            $unique_target = null;
-            foreach ($candidate_ids as $cid) {
-                $cp = get_post((int) $cid);
-                if ($cp && $cp->post_status === 'publish' && $cp->post_type !== 'attachment') {
-                    if ($unique_target === null) {
-                        $unique_target = (int) $cid;
-                    } elseif ($unique_target !== (int) $cid) {
-                        $unique_target = null;
-                        break;
-                    }
-                }
-            }
+            $unique_target = ai_translate_unique_published_post($candidate_ids);
             if ($unique_target !== null) {
                 $post_id = $unique_target;
                 $slug_used_for_lookup = $rest;
@@ -553,11 +523,7 @@ add_action('parse_request', function ($wp) {
     if (!$post_id && strpos($rest, '/') === false) {
         $cpt_archive_type = ai_translate_detect_cpt_archive($rest);
         if ($cpt_archive_type) {
-            $wp->query_vars = array_diff_key($wp->query_vars, ['ai_translate_path' => 1, 'name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
-            $wp->query_vars['post_type'] = $cpt_archive_type;
-            $wp->is_archive  = true;
-            $wp->is_singular = false;
-            $wp->is_404      = false;
+            ai_translate_route_to_archive($wp, $cpt_archive_type);
             return;
         }
     }
@@ -618,7 +584,7 @@ add_action('parse_request', function ($wp) {
                 }
             }
         }
-        $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
+        $wp->query_vars = ai_translate_clear_post_query_vars($wp->query_vars);
         $posts_page_id = (int) get_option('page_for_posts');
 
         if ($expected_post_type && post_type_exists($expected_post_type)) {
@@ -678,22 +644,8 @@ add_action('parse_request', function ($wp) {
             $post = get_page_by_path($sourcePath, OBJECT, array_values($public_types));
             if ($post) {
                 $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1]);
-                $posts_page_id = (int) get_option('page_for_posts');
-                if ($post->post_type === 'page') {
-                    if ($posts_page_id > 0 && (int)$post->ID === $posts_page_id) {
-                        $wp->query_vars['pagename'] = (string) get_page_uri($posts_page_id);
-                        $wp->is_home = true;
-                        $wp->is_page = false;
-                        $wp->is_singular = false;
-                    } else {
-                        $wp->query_vars['page_id'] = (int) $post->ID;
-                        $wp->is_page = true;
-                    }
-                } else {
-                    $wp->query_vars['p'] = (int) $post->ID;
-                    $wp->query_vars['post_type'] = $post->post_type;
-                    $wp->is_single = true;
-                }
+                ai_translate_route_to_post($wp, $post);
+                // Also for the posts page: this path has always ended with is_singular set
                 $wp->is_singular = true;
                 $wp->is_404 = false;
                 return;
@@ -734,32 +686,15 @@ add_action('parse_request', function ($wp) {
         if (!$post) {
             $resolved_term = ai_translate_resolve_term_from_path($rest);
             if ($resolved_term) {
-                $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
+                $wp->query_vars = ai_translate_clear_post_query_vars($wp->query_vars);
                 $wp->query_vars = ai_translate_apply_resolved_term_to_vars($wp->query_vars, $resolved_term);
                 $wp->is_404 = false;
                 return;
             }
         }
         if ($post && isset($post->ID) && isset($post->post_type) && $post->post_type !== 'attachment') {
-            $wp->query_vars = array_diff_key($wp->query_vars, ['name' => 1, 'pagename' => 1, 'page_id' => 1, 'p' => 1, 'post_type' => 1]);
-            $posts_page_id = (int) get_option('page_for_posts');
-            if ($post->post_type === 'page') {
-                if ($posts_page_id > 0 && (int) $post->ID === $posts_page_id) {
-                    $wp->query_vars['pagename'] = (string) get_page_uri($posts_page_id);
-                    $wp->is_home = true;
-                    $wp->is_page = false;
-                    $wp->is_singular = false;
-                } else {
-                    $wp->query_vars['page_id'] = (int) $post->ID;
-                    $wp->is_page = true;
-                    $wp->is_singular = true;
-                }
-            } else {
-                $wp->query_vars['p'] = (int) $post->ID;
-                $wp->query_vars['post_type'] = $post->post_type;
-                $wp->is_single = true;
-                $wp->is_singular = true;
-            }
+            $wp->query_vars = ai_translate_clear_post_query_vars($wp->query_vars);
+            ai_translate_route_to_post($wp, $post);
             $wp->is_404 = false;
             return;
         }
