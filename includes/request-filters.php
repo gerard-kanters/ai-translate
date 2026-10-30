@@ -205,12 +205,7 @@ function ai_translate_is_editor_context()
  */
 function ai_translate_is_xml_request()
 {
-    $reqPathRaw = esc_url_raw(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '')));
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqPathRaw, '%25') !== false) {
-        $reqPathRaw = urldecode($reqPathRaw);
-    }
-    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_request_path();
 
     // Check if path ends with .xml
     if (preg_match('/\.xml$/i', $reqPath)) {

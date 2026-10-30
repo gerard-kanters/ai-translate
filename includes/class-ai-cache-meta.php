@@ -422,23 +422,6 @@ class AI_Cache_Meta
     }
 
     /**
-     * Delete cache metadata for a specific language
-     *
-     * @param string $language_code Language code
-     * @return int Number of records deleted
-     */
-    public static function delete_by_language($language_code)
-    {
-        global $wpdb;
-        
-        return (int) $wpdb->delete(
-            self::get_table_name(),
-            array('language_code' => $language_code),
-            array('%s')
-        );
-    }
-
-    /**
      * Delete cache metadata for a specific cache file
      *
      * @param string $cache_file Full path to cache file

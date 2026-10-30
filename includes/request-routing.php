@@ -18,11 +18,7 @@ add_action('parse_request', function ($wp) {
     if (is_admin() || wp_doing_ajax() || ai_translate_is_xml_request()) {
         return;
     }
-    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-    if (strpos($reqUriRaw, '%25') !== false) {
-        $reqUriRaw = urldecode($reqUriRaw);
-    }
-    $request_path = ai_translate_strip_site_path(wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/');
+    $request_path = ai_translate_request_path(true);
     if (!is_string($request_path) || $request_path === '' || $request_path === '/') {
         return;
     }
@@ -63,12 +59,7 @@ add_action('parse_request', function ($wp) {
     if (ai_translate_is_xml_request()) {
         return;
     }
-    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqUriRaw, '%25') !== false) {
-        $reqUriRaw = urldecode($reqUriRaw);
-    }
-    $request_path = ai_translate_strip_site_path(wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/');
+    $request_path = ai_translate_request_path(true);
     if (!is_string($request_path)) {
         $request_path = '/';
     }
@@ -129,12 +120,7 @@ add_action('parse_request', function ($wp) {
     if (ai_translate_is_xml_request()) {
         return;
     }
-    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqUriRaw, '%25') !== false) {
-        $reqUriRaw = urldecode($reqUriRaw);
-    }
-    $path = ai_translate_strip_site_path(wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/');
+    $path = ai_translate_request_path(true);
     if (!is_string($path) || $path === '/') {
         return;
     }
@@ -401,11 +387,7 @@ add_action('parse_request', function ($wp) {
     if (ai_translate_is_xml_request()) {
         return;
     }
-    $reqUriRaw = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqUriRaw, '%25') !== false) {
-        $reqUriRaw = urldecode($reqUriRaw);
-    }
+    $reqUriRaw = ai_translate_request_uri();
     $path = ai_translate_strip_site_path(wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/');
     if (!is_string($path) || $path === '/') {
         return;

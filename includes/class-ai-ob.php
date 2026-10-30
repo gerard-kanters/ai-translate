@@ -331,11 +331,7 @@ final class AI_OB
         $bypassUserCache = false;
 
         $route = $this->current_route_id();
-        $url = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-        // URL decode only if double-encoded (contains %25)
-        if (strpos($url, '%25') !== false) {
-            $url = urldecode($url);
-        }
+        $url = ai_translate_request_uri('/');
         // Allow cache bypass via nocache parameter for authenticated admins only
         $nocache = (isset($_GET['nocache']) || isset($_GET['no_cache'])) && current_user_can('manage_options');
         
@@ -1008,11 +1004,7 @@ final class AI_OB
 
         // Check for search pages first - these need query parameters in route_id
         if (function_exists('is_search') && is_search()) {
-            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-            // URL decode only if double-encoded (contains %25)
-            if (strpos($req, '%25') !== false) {
-                $req = urldecode($req);
-            }
+            $req = ai_translate_request_uri('/');
             // For search: include query parameters (especially 's' parameter) in route_id
             // This ensures different search terms get different caches
             $req = preg_replace('#/+#', '/', $req);
@@ -1050,10 +1042,7 @@ final class AI_OB
         // with page 1 (same key) and corrupt the cache-meta row for the post, which
         // tracks exactly one file per (post, language) for invalidation/warming.
         if (function_exists('is_paged') && is_paged()) {
-            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-            if (strpos($req, '%25') !== false) {
-                $req = urldecode($req);
-            }
+            $req = ai_translate_request_uri('/');
             $req_path = (string) wp_parse_url($req, PHP_URL_PATH);
             if ($req_path === '') {
                 $req_path = '/';
@@ -1073,10 +1062,7 @@ final class AI_OB
         if ((function_exists('is_category') && is_category()) ||
             (function_exists('is_tag') && is_tag()) ||
             (function_exists('is_tax') && is_tax())) {
-            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-            if (strpos($req, '%25') !== false) {
-                $req = urldecode($req);
-            }
+            $req = ai_translate_request_uri('/');
             $req_path = (string) wp_parse_url($req, PHP_URL_PATH);
             if ($req_path === '') {
                 $req_path = '/';
@@ -1169,11 +1155,7 @@ final class AI_OB
         
         // Fallback: Try to find post by URL path for edge cases where is_singular() fails
         // This prevents duplicate caches for the same page
-        $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-        // URL decode only if double-encoded (contains %25)
-        if (strpos($req, '%25') !== false) {
-            $req = urldecode($req);
-        }
+        $req = ai_translate_request_uri('/');
         if ($req !== '') {
             // Normalize: remove query string and fragments for path lookup
             $path = (string) wp_parse_url($req, PHP_URL_PATH);
@@ -1376,11 +1358,7 @@ final class AI_OB
     private function should_skip_file_types($html)
     {
         // Skip XML files and sitemaps
-        $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-        // URL decode only if double-encoded (contains %25)
-        if (strpos($req_uri, '%25') !== false) {
-            $req_uri = urldecode($req_uri);
-        }
+        $req_uri = ai_translate_request_uri();
         $reqPath = (string) wp_parse_url($req_uri, PHP_URL_PATH);
         if (preg_match('/\.xml$/i', $reqPath) ||
             isset($_GET['sitemap']) ||

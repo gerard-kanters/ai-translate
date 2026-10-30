@@ -75,11 +75,7 @@ add_action('template_redirect', function () {
     if (!isset($_SERVER['REQUEST_URI'])) {
         return;
     }
-    $reqUriRaw = esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI']));
-    if (strpos($reqUriRaw, '%25') !== false) {
-        $reqUriRaw = urldecode($reqUriRaw);
-    }
-    $request_path = ai_translate_strip_site_path((string) (wp_parse_url($reqUriRaw, PHP_URL_PATH) ?: '/'));
+    $request_path = ai_translate_request_path(true);
 
     $target_url = \AITranslate\AI_404_Recovery::resolve($request_path);
     if (!is_string($target_url) || $target_url === '') {
@@ -126,18 +122,13 @@ add_action('template_redirect', function () {
         return;
     }
 
-    $reqPathRaw = esc_url_raw(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '')));
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqPathRaw, '%25') !== false) {
-        $reqPathRaw = urldecode($reqPathRaw);
-    }
-    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_request_path();
     $defaultLang = \AITranslate\AI_Lang::default();
     
     // CRITICAL: If we're on /{default}/ and cookie doesn't match, render page FIRST
     // This prevents redirect before cookie is set
-    if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
-        $langFromUrl = strtolower(sanitize_key($m[1]));
+    $langFromUrl = ai_translate_lang_in_path($reqPath);
+    if ($langFromUrl !== null) {
         if ($defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
             $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
             // If cookie doesn't match, set language and render page (don't redirect yet)
@@ -164,9 +155,8 @@ add_action('template_redirect', function () {
     // Check if we just switched languages - switcher has HIGHEST priority!
 
     // Extract language from URL
-    $langFromUrl = null;
-    if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
-        $langFromUrl = strtolower(sanitize_key($m[1]));
+    $langFromUrl = ai_translate_lang_in_path($reqPath);
+    if ($langFromUrl !== null) {
         
         // SECURITY: Prevent unauthorized translation by blocking non-enabled/non-detectable languages
         // If language is in URL but not enabled or detectable, return 404 to prevent API costs
@@ -254,12 +244,7 @@ add_action('template_redirect', function () {
         // Use cookie language if available, otherwise use URL language, otherwise default
         $searchLang = $cookieLang !== '' ? $cookieLang : ($langFromUrl !== null ? $langFromUrl : (string) $defaultLang);
         if ($searchLang !== '' && $defaultLang && strtolower($searchLang) !== strtolower((string) $defaultLang)) {
-            $reqUriRaw = esc_url_raw(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '')));
-            // URL decode only if double-encoded (contains %25 indicating double encoding)
-            if (strpos($reqUriRaw, '%25') !== false) {
-                $reqUriRaw = urldecode($reqUriRaw);
-            }
-            $pathNow = ai_translate_strip_site_path((string) wp_parse_url($reqUriRaw, PHP_URL_PATH));
+            $pathNow = ai_translate_request_path();
             if ($pathNow === '' || $pathNow === '/' || !preg_match('#^/([a-z]{2})(?:/|$)#i', $pathNow)) {
                 $base = home_url('/' . $searchLang . '/');
                 $target = add_query_arg($_GET, $base);

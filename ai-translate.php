@@ -178,6 +178,7 @@ define('AI_TRANSLATE_PLUGIN_FILE', __FILE__);
 
 require_once __DIR__ . '/includes/class-ai-translate-core.php';
 require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/request-path.php';
 require_once __DIR__ . '/includes/admin-page.php';
 require_once __DIR__ . '/includes/class-ai-lang.php';
 require_once __DIR__ . '/includes/class-ai-cache.php';

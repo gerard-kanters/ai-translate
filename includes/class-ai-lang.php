@@ -47,11 +47,7 @@ final class AI_Lang
             $hasLangInUrl = true;
         } else {
             // Fallback: parse leading /xx/ from request URI if present
-            $req = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-            // URL decode only if double-encoded (contains %25)
-            if (strpos($req, '%25') !== false) {
-                $req = urldecode($req);
-            }
+            $req = ai_translate_request_uri();
             if ($req !== '') {
                 if (preg_match('#^/([a-z]{2})(?:/|$)#i', $req, $m)) {
                     $lang = strtolower($m[1]);

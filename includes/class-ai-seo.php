@@ -9,40 +9,6 @@ final class AI_SEO
 {
     /** @var array<string,string> In-request translation cache keyed by "{lang}|{md5(text)}". */
     private static $metaTranslationCache = [];
-    /**
-     * Inject hreflang tags as plain text without DOM parsing.
-     * This prevents JavaScript and other scripts from being corrupted.
-     *
-     * @param string $html
-     * @param string $lang
-     * @return string
-     */
-    public static function inject_hreflang_only($html, $lang)
-    {
-        if (is_admin()) {
-            return $html;
-        }
-
-        $default = AI_Lang::default();
-        if ($lang === null) {
-            return $html;
-        }
-
-        // Generate hreflang tags as text
-        $hreflangTags = self::generateHreflangTags($lang, $default);
-        
-        // Inject before </head> tag as plain text
-        if (stripos($html, '</head>') !== false) {
-            $html = preg_replace(
-                '#</head>#i',
-                "\n" . $hreflangTags . "\n</head>",
-                $html,
-                1
-            );
-        }
-        
-        return $html;
-    }
 
     /**
      * Inject hreflang/canonical and translate simple meta labels.
@@ -1063,11 +1029,7 @@ final class AI_SEO
         if (is_front_page() || is_home()) {
             return home_url('/');
         }
-        $req_uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '/';
-        // URL decode only if double-encoded (contains %25)
-        if (strpos($req_uri, '%25') !== false) {
-            $req_uri = urldecode($req_uri);
-        }
+        $req_uri = ai_translate_request_uri('/');
         $path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
         if ($path === '') { $path = '/'; }
         return home_url($path);

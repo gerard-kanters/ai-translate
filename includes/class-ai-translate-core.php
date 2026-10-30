@@ -1291,14 +1291,6 @@ final class AI_Translate_Core
     }
 
     /**
-     * Clear all caches except slug map (DB table).
-     */
-    public function clear_all_cache_except_slugs()
-    {
-        $this->clear_all_cache(true);
-    }
-
-    /**
      * Clear AI Translate transient caches (segment + attribute) except slugs.
      * Only deletes transients owned by this plugin, not those of other plugins.
      */

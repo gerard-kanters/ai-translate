@@ -26,12 +26,7 @@ add_filter('pre_handle_404', function ($preempt, $wp_query) {
     if (!$wp_query->is_404()) {
         return $preempt;
     }
-    $reqPathRaw = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash((string) $_SERVER['REQUEST_URI'])) : '';
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqPathRaw, '%25') !== false) {
-        $reqPathRaw = urldecode($reqPathRaw);
-    }
-    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_request_path();
     if ($reqPath === '' || !preg_match('#^/([a-z]{2})(?:/(.*))?$#i', $reqPath, $m)) {
         return $preempt;
     }
@@ -174,16 +169,8 @@ add_filter('home_url', function ($url, $path, $scheme) {
     }
     
     // Extract language from current URL if present
-    $reqPathRaw = esc_url_raw(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '')));
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqPathRaw, '%25') !== false) {
-        $reqPathRaw = urldecode($reqPathRaw);
-    }
-    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
-    $langFromUrl = null;
-    if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
-        $langFromUrl = strtolower(sanitize_key($m[1]));
-    }
+    $reqPath = ai_translate_request_path();
+    $langFromUrl = ai_translate_lang_in_path($reqPath);
     
     // Only modify if we're currently on a language-prefixed page
     if ($langFromUrl === null) {

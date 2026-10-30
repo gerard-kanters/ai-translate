@@ -70,29 +70,6 @@ final class AI_Cache
     }
     
     /**
-     * Check if cache file exists and is expired.
-     *
-     * @param string $key
-     * @return bool True if cache exists and is expired, false otherwise
-     */
-    public static function is_expired(string $key): bool
-    {
-        $file = self::file_path($key);
-        if (!is_file($file)) {
-            return false; // File doesn't exist, so not expired
-        }
-        
-        $expiry_seconds = AI_Translate_Core::cache_expiration_hours() * HOUR_IN_SECONDS;
-        $mtime = @filemtime($file);
-        if ($mtime) {
-            $age_seconds = time() - (int) $mtime;
-            return $age_seconds > $expiry_seconds;
-        }
-        
-        return false;
-    }
-    
-    /**
      * Delete a cached file by key.
      *
      * @param string $key

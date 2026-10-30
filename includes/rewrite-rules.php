@@ -121,16 +121,11 @@ add_action('init', function () {
  * This runs BEFORE redirect_canonical to prevent redirect before cookie is set
  */
 add_filter('do_redirect_guess_404_permalink', function ($do_redirect) {
-    $reqPathRaw = esc_url_raw(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '')));
-    // URL decode only if double-encoded (contains %25 indicating double encoding)
-    if (strpos($reqPathRaw, '%25') !== false) {
-        $reqPathRaw = urldecode($reqPathRaw);
-    }
-    $reqPath = ai_translate_strip_site_path((string) wp_parse_url($reqPathRaw, PHP_URL_PATH));
+    $reqPath = ai_translate_request_path();
     $defaultLang = \AITranslate\AI_Lang::default();
     
-    if ($reqPath !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $reqPath, $m)) {
-        $langFromUrl = strtolower(sanitize_key($m[1]));
+    $langFromUrl = ai_translate_lang_in_path($reqPath);
+    if ($langFromUrl !== null) {
         if ($defaultLang && strtolower($langFromUrl) === strtolower((string) $defaultLang)) {
             $cookieLang = isset($_COOKIE['ai_translate_lang']) ? strtolower(sanitize_key((string) $_COOKIE['ai_translate_lang'])) : '';
             // If cookie doesn't match, block redirect so page can render and set cookie
@@ -153,8 +148,8 @@ add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
     }
     $req = (string) $requested_url;
     $path = ai_translate_strip_site_path((string) wp_parse_url($req, PHP_URL_PATH));
-    if ($path !== '' && preg_match('#^/([a-z]{2})(?:/|$)#i', $path, $m)) {
-        $langFromUrl = strtolower(sanitize_key($m[1]));
+    $langFromUrl = ai_translate_lang_in_path($path);
+    if ($langFromUrl !== null) {
         $defaultLang = \AITranslate\AI_Lang::default();
 
         // If this is the default language, ALWAYS block redirect to allow page to render

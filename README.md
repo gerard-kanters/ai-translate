@@ -212,10 +212,11 @@ AI Translate requires an API key from one of the supported providers:
 
 ### 2.4.0
 
-- Safer: the public translation endpoint now only accepts languages your site offers, limits requests per visitor and per hour, and a cache file can only be deleted from the cache folder.
+- Safer: the translation endpoint for page texts only accepts languages your site offers and limits requests per visitor and per hour. A cache file can only be deleted from the cache folder.
 - Safer: unknown language codes in a URL no longer cost translation credits.
-- Faster: page address (slug) translations for existing pages are prepared in the background instead of while a page loads.
-- Better: opening the General tab no longer shows "API settings saved" unless something actually changed.
+- Faster: translated page addresses for existing pages are prepared in the background, not while a page loads.
+- Better: opening the General tab no longer shows "API settings saved" unless something changed. Cache messages show the language and number of files again.
+- Under the hood: the admin settings, the admin page, the text translation endpoint and the main plugin file are split into smaller parts, with tests for the settings and the endpoint.
 
 ### 2.3.18
 
