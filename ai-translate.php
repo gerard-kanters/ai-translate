@@ -180,6 +180,7 @@ require_once __DIR__ . '/includes/class-ai-translate-core.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/request-path.php';
 require_once __DIR__ . '/includes/routing-query.php';
+require_once __DIR__ . '/includes/language-redirect.php';
 require_once __DIR__ . '/includes/admin-page.php';
 require_once __DIR__ . '/includes/class-ai-lang.php';
 require_once __DIR__ . '/includes/class-ai-cache.php';

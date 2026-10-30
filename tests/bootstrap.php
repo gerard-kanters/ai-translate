@@ -25,6 +25,7 @@ $includes = dirname(__DIR__) . '/includes/';
 require_once $includes . 'helpers.php';
 require_once $includes . 'request-path.php';
 require_once $includes . 'routing-query.php';
+require_once $includes . 'language-redirect.php';
 require_once $includes . 'class-ai-dom.php';
 require_once $includes . 'class-ai-cache.php';
 require_once $includes . 'class-ai-slugs.php';
