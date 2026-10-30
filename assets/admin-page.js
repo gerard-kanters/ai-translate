@@ -47,6 +47,23 @@ document.addEventListener('DOMContentLoaded', function () {
     var languageSettingsNonceValue = aiTranslateAdmin.languageSettingsNonce || '';
     var strings = (typeof aiTranslateAdmin !== 'undefined' && aiTranslateAdmin.strings) ? aiTranslateAdmin.strings : {};
     
+    // The settings page checks the saved settings every time it opens. That check stays quiet and
+    // saves nothing: only a change made by the user (provider, model, key, custom fields) is saved
+    // and reported. Script-made changes (isTrusted false) do not count as the user's.
+    var apiSettingsTouched = false;
+    [apiProviderSelect, selectedModel, apiKeyInput, customModelInput, customApiUrlInput].forEach(function (el) {
+        if (!el) {
+            return;
+        }
+        var mark = function (e) {
+            if (e && e.isTrusted) {
+                apiSettingsTouched = true;
+            }
+        };
+        el.addEventListener('change', mark);
+        el.addEventListener('input', mark);
+    });
+
     var apiKeys = {}; // Runtime cache; populated via AJAX on provider switch (keys never in page source)
 
     /**
@@ -730,7 +747,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         pendingApiPayload = null;
-        setApiStatus(aiTranslateAdmin.strings.validatingApi || 'Validating API settings...', 'validating');
+        // Untouched settings: only check them, say nothing unless something is wrong
+        var silent = !apiSettingsTouched;
+        if (!silent) {
+            setApiStatus(aiTranslateAdmin.strings.validatingApi || 'Validating API settings...', 'validating');
+        }
 
         var data = new FormData();
         data.append('action', 'ai_translate_validate_api');
@@ -739,7 +760,7 @@ document.addEventListener('DOMContentLoaded', function () {
         data.append('api_key', payload.apiKey);
         data.append('model', payload.model);
         data.append('api_url', payload.apiUrl);
-        data.append('save_settings', '1');
+        data.append('save_settings', silent ? '0' : '1');
 
         if (payload.provider === 'custom' && customApiUrlInput) {
             data.append('custom_api_url_value', customApiUrlInput.value);
@@ -774,7 +795,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (resp.success) {
                     apiKeys[payload.provider] = payload.apiKey;
                     lastApiPayloadHash = payloadHash;
-                    setApiStatus(aiTranslateAdmin.strings.validationSaved || 'Connection and model OK. API settings saved.', 'success');
+                    if (!silent) {
+                        setApiStatus(aiTranslateAdmin.strings.validationSaved || 'Connection and model OK. API settings saved.', 'success');
+                    } else if (apiStatusSpan && apiStatusSpan.classList.contains('ai-translate-api-status--validating')) {
+                        setApiStatus('', '');
+                    }
                 } else {
                     var errorMessage = (resp.data && resp.data.message) ? resp.data.message : (aiTranslateAdmin.strings.validationError || 'Validation failed');
                     setApiStatus(errorMessage, 'error');
@@ -805,7 +830,9 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        setApiStatus(aiTranslateAdmin.strings.validatingApi || 'Validating API settings...', 'validating');
+        if (apiSettingsTouched) {
+            setApiStatus(aiTranslateAdmin.strings.validatingApi || 'Validating API settings...', 'validating');
+        }
 
         pendingApiPayload = payload;
         apiValidationTimer = setTimeout(function () {

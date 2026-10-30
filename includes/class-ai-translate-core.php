@@ -682,7 +682,7 @@ final class AI_Translate_Core
             ],
             'instruction' => 'Translate every segment from Dutch to Swedish. Return ONLY valid JSON in this exact format: {"translations": {"<id>": "<translated_text>"}}.',
         ]);
-        $send = static function (array $extra) use ($endpoint, $headers, $model, $payload, $isResponses) {
+        $send = static function (array $extra, int $timeout = 30) use ($endpoint, $headers, $model, $payload, $isResponses) {
             $body = [
                 'model' => $model,
                 'messages' => [
@@ -696,14 +696,15 @@ final class AI_Translate_Core
             if ($isResponses) {
                 $body = self::convert_body_to_responses($body);
             }
-            $resp = self::remote_api_post($endpoint, $headers, $body, 25);
+            $resp = self::remote_api_post($endpoint, $headers, $body, $timeout);
             if (is_wp_error($resp) || (int) wp_remote_retrieve_response_code($resp) !== 200) {
                 return null;
             }
             return json_decode((string) wp_remote_retrieve_body($resp), true);
         };
 
-        $baselineData = $send([]);
+        // The baseline is the slow one: a model that thinks hard can need a minute.
+        $baselineData = $send([], 70);
         if ($baselineData === null) {
             return null; // the request failed: nothing was measured, so try again next time
         }

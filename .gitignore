@@ -13,3 +13,6 @@ update_readme_translations.py
 composer.lock
 AGENTS.md
 claude.md
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

@@ -21,6 +21,7 @@ require_once __DIR__ . '/stubs/class-stubs.php';
 
 // Load the actual plugin classes being tested
 $includes = dirname(__DIR__) . '/includes/';
+require_once $includes . 'helpers.php';
 require_once $includes . 'class-ai-dom.php';
 require_once $includes . 'class-ai-cache.php';
 require_once $includes . 'class-ai-slugs.php';

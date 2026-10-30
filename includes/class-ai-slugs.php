@@ -480,6 +480,12 @@ final class AI_Slugs
             return null;
         }
 
+        // The language usually comes from the URL. A code the site does not offer ("/zz/contact/")
+        // must not cost a translation call or leave rows behind. Existing mappings (above) still work.
+        if (!lang_is_offered($lang)) {
+            return $source_slug;
+        }
+
         // Translate the post TITLE (natural language) instead of the slug-string itself.
         // LLMs handle real prose far better than slug-fragments and the result is then
         // converted to a URL-safe slug locally via sanitize_title()/Unicode fallback.
@@ -552,6 +558,103 @@ final class AI_Slugs
         self::upsert_row($post_id, $lang, $source_slug, $translated_slug, $version);
         
         return $translated_slug;
+    }
+
+    public const WARMUP_HOOK = 'ai_translate_slug_warmup';
+    private const WARMUP_LOCK = 'ai_translate_slug_warmup_lock';
+    private const WARMUP_BATCH = 25;
+    private const WARMUP_MAX_POSTS = 1000;
+
+    /**
+     * Queue the one-time slug warm-up (hooked to init). It used to run inside the request of
+     * whoever visited first after installing: up to 1000 pages x every language, one API call at
+     * a time, with no time limit, and the "done" flag was only set at the very end, so every
+     * following request started over. It now runs in WP-Cron, a batch at a time.
+     */
+    public static function schedule_warmup(): void
+    {
+        if (get_option('ai_translate_slug_warmup_done') || get_transient(self::WARMUP_LOCK)) {
+            return;
+        }
+        if (!wp_next_scheduled(self::WARMUP_HOOK, [0])) {
+            wp_schedule_single_event(time() + 15, self::WARMUP_HOOK, [0]);
+        }
+    }
+
+    /**
+     * Cron callback: generate the translated slugs of published pages and posts (so that
+     * language-prefixed URLs resolve before the first visit) for one batch, then queue the next.
+     *
+     * @param int $offset Index in the list of published pages and posts to continue from.
+     */
+    public static function run_warmup($offset = 0): void
+    {
+        if (get_option('ai_translate_slug_warmup_done')) {
+            return;
+        }
+        $default = AI_Lang::default();
+        $langs = [];
+        foreach (array_unique(array_merge(
+            (array) AI_Translate_Core::enabled_languages(),
+            (array) AI_Translate_Core::detectable_languages()
+        )) as $lang) {
+            $lang = sanitize_key((string) $lang);
+            if ($lang !== '' && ($default === null || strtolower($lang) !== strtolower($default))) {
+                $langs[] = $lang;
+            }
+        }
+        if ($default === null || $langs === []) {
+            update_option('ai_translate_slug_warmup_done', 1);
+            return;
+        }
+        // Without a translation service every slug would be stored as its source: wait until one is set up.
+        $settings = AI_Translate_Core::settings();
+        $provider = (string) ($settings['api_provider'] ?? '');
+        if ($provider === '' || empty($settings['models'][$provider]) || empty($settings['api_keys'][$provider])) {
+            return;
+        }
+
+        $offset = max(0, (int) $offset);
+        if ($offset >= self::WARMUP_MAX_POSTS) {
+            update_option('ai_translate_slug_warmup_done', 1);
+            delete_transient(self::WARMUP_LOCK);
+            return;
+        }
+        set_transient(self::WARMUP_LOCK, 1, 15 * MINUTE_IN_SECONDS);
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(280);
+        }
+        $pages = get_posts([
+            'post_type' => ['page', 'post'],
+            'post_status' => 'publish',
+            'posts_per_page' => self::WARMUP_BATCH,
+            'offset' => $offset,
+            'fields' => 'ids',
+            'orderby' => 'ID',
+            'order' => 'ASC',
+            'no_found_rows' => true,
+            'update_post_term_cache' => false,
+            'update_post_meta_cache' => false,
+        ]);
+        if (empty($pages)) {
+            update_option('ai_translate_slug_warmup_done', 1);
+            delete_transient(self::WARMUP_LOCK);
+            return;
+        }
+        $deadline = microtime(true) + 150;
+        $processed = 0;
+        foreach ($pages as $pid) {
+            if ($processed > 0 && microtime(true) > $deadline) {
+                break;
+            }
+            // All languages in parallel first; the loop then reads them from the segment cache
+            self::prime((int) $pid, $langs);
+            foreach ($langs as $lang) {
+                self::get_or_generate((int) $pid, $lang);
+            }
+            $processed++;
+        }
+        wp_schedule_single_event(time() + 10, self::WARMUP_HOOK, [$offset + $processed]);
     }
 
     /**

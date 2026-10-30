@@ -311,13 +311,15 @@ function ajax_delete_cache_file()
     $cache_base = trailingslashit($uploads['basedir']) . 'ai-translate/cache/';
     $cache_file_normalized = wp_normalize_path($cache_file);
     
-    // Security check: ensure file is within cache directory
-    if (strpos($cache_file_normalized, wp_normalize_path($cache_base)) !== 0) {
+    // Security check: ensure the file really is inside the cache directory. A prefix comparison of
+    // the given string is not enough: "…/cache/../wp-config.php" starts with the cache path but
+    // points outside it, so both sides are resolved first (also resolves symlinks).
+    if (!path_is_inside($cache_file_normalized, $cache_base)) {
         wp_send_json_error(array('message' => __('Invalid cache file path', 'ai-translate')));
         return;
     }
-    
-    if (!file_exists($cache_file_normalized)) {
+
+    if (!is_file($cache_file_normalized)) {
         wp_send_json_error(array('message' => __('Cache file not found', 'ai-translate')));
         return;
     }

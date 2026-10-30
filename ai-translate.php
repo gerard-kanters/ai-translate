@@ -5,7 +5,7 @@
  * Description: AI based translation plugin. Adding 35 languages in a few clicks. Fast caching, SEO-friendly, and cost-effective.
  * Author: NetCare
  * Author URI: https://netcare.nl/
- * Version: 2.3.18
+ * Version: 2.4.0
  * Requires at least: 6.2
  * Tested up to: 7.1
  * Requires PHP: 8.0
@@ -175,6 +175,7 @@ add_action('admin_init', function() {
 
 // Include core/admin and runtime classes.
 require_once __DIR__ . '/includes/class-ai-translate-core.php';
+require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/admin-page.php';
 require_once __DIR__ . '/includes/class-ai-lang.php';
 require_once __DIR__ . '/includes/class-ai-cache.php';
@@ -1686,17 +1687,17 @@ add_action('rest_api_init', function () {
         'args' => [],
         'callback' => function (\WP_REST_Request $request) {
             $is_bot_request = (bool) $request->get_param('_ai_tr_bot_no_nonce');
-            // Rate limiting: max 60 requests per minute per IP.
+            // Rate limiting: max 30 requests per minute per IP.
             // This endpoint is called by client-side JavaScript for UI attribute translation.
             // Warm cache does not trigger this endpoint (server-side only, no JS execution).
-            // 60/min is generous enough for normal browsing (2-3 calls per page load).
+            // 30/min is generous enough for normal browsing (2-3 calls per page load).
+            // REMOTE_ADDR only: forwarded-for headers can be set by the client. Behind a proxy that
+            // does not restore the visitor address, visitors share one counter (the hourly budget below
+            // is what protects the translation spend either way).
             $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'unknown';
-            $rate_key = 'ai_tr_rate_' . md5($ip);
-            $rate_count = (int) get_transient($rate_key);
-            if ($rate_count >= 30) {
+            if (!\AITranslate\rate_limit_hit('rest-ip-' . $ip, 30, 60)) {
                 return new \WP_REST_Response(['error' => 'Rate limit exceeded'], 429);
             }
-            set_transient($rate_key, $rate_count + 1, 60);
 
             $arr = $request->get_param('strings');
             if (!is_array($arr)) {
@@ -1767,8 +1768,14 @@ add_action('rest_api_init', function () {
                 }
             }
             $default = \AITranslate\AI_Lang::default();
-            
+
             if ($lang === null || $default === null) {
+                return new \WP_REST_Response(['success' => true, 'data' => ['map' => []]], 200);
+            }
+            // Only languages this site actually offers: the language comes from the request, and
+            // without this anyone could have page strings translated into any code, at the site
+            // owner's cost, and stored under it.
+            if (!\AITranslate\lang_is_offered($lang)) {
                 return new \WP_REST_Response(['success' => true, 'data' => ['map' => []]], 200);
             }
             if (strtolower($lang) === strtolower($default)) {
@@ -1948,12 +1955,15 @@ add_action('rest_api_init', function () {
                         }
                     }
                     if ($referer !== '' && ai_translate_is_same_site_url($referer)) {
-                        // Get page HTML (cached using same expiration as translations)
-                        $page_cache_key = 'ai_tr_page_html_' . md5($referer);
+                        // Get page HTML. Query string and fragment are dropped: the Referer is client
+                        // supplied, so every "?x=N" would otherwise be a new fetch of the site and a new
+                        // stored copy of the page.
+                        $page_url = (string) strtok($referer, '?#');
+                        $page_cache_key = 'ai_tr_page_html_' . md5($page_url);
                         $page_html = get_transient($page_cache_key);
                         if ($page_html === false) {
                             // Fetch page HTML
-                            $response = wp_remote_get($referer, array(
+                            $response = wp_remote_get($page_url, array(
                                 'timeout' => 5,
                                 'sslverify' => true,
                                 'headers' => array(
@@ -1962,9 +1972,8 @@ add_action('rest_api_init', function () {
                             ));
                             if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
                                 $page_html = wp_remote_retrieve_body($response);
-                                // Cache using same expiration as translations
-                                $expiry = max(1, \AITranslate\AI_Translate_Core::cache_expiration_hours()) * HOUR_IN_SECONDS;
-                                set_transient($page_cache_key, $page_html, $expiry);
+                                // Only needed to check that requested strings occur on the page: keep it for hours, not months
+                                set_transient($page_cache_key, $page_html, 6 * HOUR_IN_SECONDS);
                             } else {
                                 // Security: if page HTML cannot be fetched, block translation to prevent abuse
                                 $toTranslate = [];
@@ -2007,6 +2016,21 @@ add_action('rest_api_init', function () {
                 }
             }
             
+            // Site-wide cap on strings this endpoint may send to the translation service per hour.
+            // Anonymous visitors can reach it, so the per-IP limit alone does not bound the spend.
+            // Filter 'ai_translate_rest_hourly_string_budget': 0 or less turns the cap off.
+            if (!empty($toTranslate) && !$stop_translations) {
+                $hourly_budget = (int) apply_filters('ai_translate_rest_hourly_string_budget', 1500);
+                if ($hourly_budget > 0 && !\AITranslate\rate_limit_hit('rest-strings-hour', $hourly_budget, HOUR_IN_SECONDS, count($toTranslate))) {
+                    // Budget used up: answer with the source texts, nothing is sent out
+                    foreach ($toTranslate as $id => $origNormalized) {
+                        $originalText = isset($textsOriginal[$origNormalized]) ? $textsOriginal[$origNormalized] : $origNormalized;
+                        $map[$originalText] = $originalText;
+                    }
+                    $toTranslate = [];
+                }
+            }
+
             // Only make API call if there are still segments to translate and stop_translations is not enabled
             if (!empty($toTranslate) && !$stop_translations) {
                     $plan = ['segments' => []];
@@ -3166,53 +3190,9 @@ add_action('edit_comment', function ($comment_id) {
  * language-prefixed URLs immediately resolve (prevents blank pages before first visit).
  * Mirrors robustness in the original implementation by pre-seeding the slug map.
  */
-add_action('init', function () {
-    if (get_option('ai_translate_slug_warmup_done')) {
-        return;
-    }
-    // Only run on front-end to avoid slowing down admin
-    if (is_admin()) {
-        return;
-    }
-    $default = \AITranslate\AI_Lang::default();
-    if ($default === null) {
-        update_option('ai_translate_slug_warmup_done', 1);
-        return;
-    }
-    $enabled = \AITranslate\AI_Translate_Core::enabled_languages();
-    $detectable = \AITranslate\AI_Translate_Core::detectable_languages();
-    $langs = array_values(array_unique(array_merge($enabled, $detectable)));
-    if (empty($langs)) {
-        update_option('ai_translate_slug_warmup_done', 1);
-        return;
-    }
-    // Warmup all published pages and posts so reverse mapping works immediately
-    $pages = get_posts(array(
-        'post_type' => array('page', 'post'),
-        'post_status' => 'publish',
-        'posts_per_page' => 1000, // Limit to prevent memory issues
-        'fields' => 'ids',
-        'orderby' => 'ID',
-        'order' => 'ASC',
-        'no_found_rows' => true, // Performance optimization
-        'update_post_term_cache' => false,
-        'update_post_meta_cache' => false,
-    ));
-    if (empty($pages)) {
-        update_option('ai_translate_slug_warmup_done', 1);
-        return;
-    }
-    foreach ($pages as $pid) {
-        foreach ($langs as $lang) {
-            $lang = sanitize_key((string) $lang);
-            if (strtolower($lang) === strtolower($default)) {
-                continue;
-            }
-            \AITranslate\AI_Slugs::get_or_generate((int) $pid, $lang);
-        }
-    }
-    update_option('ai_translate_slug_warmup_done', 1);
-}, 99);
+// Runs in WP-Cron, a batch at a time (see AI_Slugs::run_warmup); init only queues it.
+add_action(\AITranslate\AI_Slugs::WARMUP_HOOK, ['\\AITranslate\\AI_Slugs', 'run_warmup'], 10, 1);
+add_action('init', ['\\AITranslate\\AI_Slugs', 'schedule_warmup'], 99);
 
 /**
  * Intercept imminent 404s and remap translated slugs to source before WP renders a 404.
