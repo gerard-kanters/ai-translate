@@ -718,8 +718,8 @@ final class AI_Translate_Core
             return json_decode((string) wp_remote_retrieve_body($resp), true);
         };
 
-        // The baseline is the slow one: a model that thinks hard can need a minute.
-        $baselineData = $send([], 70);
+        // The baseline is the slow one: a model that thinks hard can need half a minute.
+        $baselineData = $send([], 40);
         if ($baselineData === null) {
             return null; // the request failed: nothing was measured, so try again next time
         }
@@ -759,6 +759,26 @@ final class AI_Translate_Core
     {
         $stored = self::settings()['reasoning_params'][$provider][$model] ?? null;
         return !is_array($stored) || (int) ($stored['v'] ?? 0) < self::REASONING_PROBE_VERSION;
+    }
+
+    /**
+     * Whether the reasoning probe failed for this model in the last hour (no answer or an error).
+     * Without this a model that cannot translate, or answers too slowly, is probed again on every
+     * validation, which makes the settings page wait for the probe's timeout each time.
+     */
+    public static function reasoning_probe_failed_recently(string $provider, string $model): bool
+    {
+        return get_transient(self::reasoning_probe_failure_key($provider, $model)) !== false;
+    }
+
+    public static function note_reasoning_probe_failure(string $provider, string $model): void
+    {
+        set_transient(self::reasoning_probe_failure_key($provider, $model), 1, HOUR_IN_SECONDS);
+    }
+
+    private static function reasoning_probe_failure_key(string $provider, string $model): string
+    {
+        return 'ai_tr_probe_fail_' . md5($provider . '|' . $model);
     }
 
     /**
@@ -1135,14 +1155,17 @@ final class AI_Translate_Core
             // stops that. Best effort: a failed probe never fails activation.
             // Only the first time for a model: this runs every time the settings page opens.
             $reasoningEntry = null;
-            if (self::reasoning_probe_needed($provider_key, $model)) {
+            if (self::reasoning_probe_needed($provider_key, $model) && !self::reasoning_probe_failed_recently($provider_key, $model)) {
                 try {
                     $reasoningEntry = self::probe_reasoning_params($chatEndpoint, $chatHeaders, $model);
-                    if ($reasoningEntry !== null) {
-                        self::remember_reasoning_params($provider_key, $model, $reasoningEntry);
-                    }
                 } catch (\Throwable $e) {
-                    $reasoningEntry = null; // try again next time
+                    $reasoningEntry = null;
+                }
+                if ($reasoningEntry !== null) {
+                    self::remember_reasoning_params($provider_key, $model, $reasoningEntry);
+                } else {
+                    // Nothing was measured: try again in an hour, not on every validation
+                    self::note_reasoning_probe_failure($provider_key, $model);
                 }
             }
         }
