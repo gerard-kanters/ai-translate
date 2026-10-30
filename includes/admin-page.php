@@ -2261,10 +2261,6 @@ function render_admin_page()
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_ai_tr_seg_%' OR option_name LIKE '_transient_timeout_ai_tr_seg_%'");
                     \AITranslate\AI_Segment_Store::delete_all();
-                    // Clear PHP opcache to ensure new code is active
-                    if (function_exists('opcache_reset')) {
-                        opcache_reset();
-                    }
                     echo '<div class="notice notice-success"><p>' . esc_html__('All language caches and translation transients cleared. Menu and slug cache preserved.', 'ai-translate') . '</p></div>';
                 }
                 ?>
@@ -2756,7 +2752,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         }
     }
     if (empty($provider_key)) {
-        wp_send_json_error(['message' => 'API Provider ontbreekt.']);
+        wp_send_json_error(['message' => __('API provider is missing.', 'ai-translate')]);
     }
     
     $api_url = AI_Translate_Core::get_api_url_for_provider($provider_key);
@@ -2900,14 +2896,14 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         }
     }
     if (empty($provider_key)) {
-        wp_send_json_error(['message' => 'API Provider ontbreekt.']);
+        wp_send_json_error(['message' => __('API provider is missing.', 'ai-translate')]);
     }
     $api_key = resolve_posted_api_key($provider_key, $api_key);
     if (empty($api_key)) {
-        wp_send_json_error(['message' => 'API Key ontbreekt.']);
+        wp_send_json_error(['message' => __('API key is missing.', 'ai-translate')]);
     }
     if ($provider_key === 'custom' && empty($custom_api_url_value)) {
-        wp_send_json_error(['message' => 'Custom API URL ontbreekt voor provider custom.']);
+        wp_send_json_error(['message' => __('Custom API URL is missing for the custom provider.', 'ai-translate')]);
     }
 
     $core = AI_Translate_Core::get_instance();

@@ -1148,7 +1148,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (data.success) {
                             var noticeDiv = document.createElement('div');
                             noticeDiv.className = 'notice notice-success is-dismissible';
-                            noticeDiv.innerHTML = '<p>' + data.data.message + '</p>';
+                            var successP = document.createElement('p');
+                            successP.textContent = data.data.message;
+                            noticeDiv.appendChild(successP);
 
                             var cacheTab = document.getElementById('cache');
                             if (cacheTab) {
@@ -1178,7 +1180,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                             var noticeDiv = document.createElement('div');
                             noticeDiv.className = 'notice notice-error is-dismissible';
-                            noticeDiv.innerHTML = '<p>' + errorMsg + '</p>';
+                            var errorP = document.createElement('p');
+                            errorP.textContent = errorMsg;
+                            noticeDiv.appendChild(errorP);
 
                             var cacheTab = document.getElementById('cache');
                             if (cacheTab) {

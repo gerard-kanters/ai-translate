@@ -1141,12 +1141,12 @@ class AI_Cache_Meta
         
         $table_name = self::get_table_name();
         
-        // Try to query the table - if it fails, it doesn't exist
+        // Probe for one row: a COUNT(*) scans the whole table on every admin request.
+        // If the query fails, the table does not exist.
         $wpdb->suppress_errors();
-        $result = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i LIMIT 1", $table_name));
+        $wpdb->get_var($wpdb->prepare("SELECT 1 FROM %i LIMIT 1", $table_name));
         $wpdb->suppress_errors(false);
-        
-        // If query failed, table doesn't exist
+
         if ($wpdb->last_error) {
             $wpdb->last_error = ''; // Clear error
             self::create_table();
