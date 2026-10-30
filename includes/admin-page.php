@@ -54,7 +54,7 @@ if (! \class_exists('AI_Translate_Core')) {
  */
 function safe_sprintf($format, ...$args) {
     // Count printf-style placeholders (%s, %d, %u, %i, %f) in the format string
-    $placeholder_count = preg_match_all('/%[sduif]/', $format);
+    $placeholder_count = preg_match_all('/%(?:\d+\$)?[sduif]/', $format);
 
     // If no placeholders, return the format as-is
     if ($placeholder_count === 0) {
@@ -75,9 +75,9 @@ function safe_sprintf($format, ...$args) {
         // Too few arguments - replace placeholders with available args, strip the rest
         $result = $format;
         foreach ($args as $arg) {
-            $result = preg_replace('/%[sduif]/', (string) $arg, $result, 1);
+            $result = preg_replace('/%(?:\d+\$)?[sduif]/', (string) $arg, $result, 1);
         }
-        $result = preg_replace('/%[sduif]/', '', $result);
+        $result = preg_replace('/%(?:\d+\$)?[sduif]/', '', $result);
         return $result;
     }
 }
