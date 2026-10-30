@@ -189,6 +189,7 @@ require_once __DIR__ . '/includes/class-ai-ob.php';
 require_once __DIR__ . '/includes/class-ai-slugs.php';
 require_once __DIR__ . '/includes/class-ai-prewarm.php';
 require_once __DIR__ . '/includes/class-ai-rest-strings.php';
+require_once __DIR__ . '/includes/class-ai-settings-sanitizer.php';
 \AITranslate\AI_Prewarm::init();
 require_once __DIR__ . '/includes/class-ai-404-recovery.php';
 require_once __DIR__ . '/includes/class-ai-sitemap.php';

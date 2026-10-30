@@ -7,6 +7,13 @@ if (!defined('ABSPATH')) {
 }
 
 /**
+ * Shown in the API key field in place of a saved key. The real key never goes to the browser:
+ * the AJAX handlers swap this value for the key stored for the selected provider, and saving the
+ * form with this value left in the field keeps the stored key.
+ */
+const KEY_MASK = '••••••••••••';
+
+/**
  * Small helpers that guard public and admin entry points. Kept apart from the files that
  * register hooks so that they can be unit tested.
  */

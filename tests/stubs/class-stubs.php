@@ -61,6 +61,11 @@ if (!class_exists('AITranslate\\AI_Translate_Core')) {
             return '';
         }
 
+        public static function get_api_providers(): array
+        {
+            return ['openai' => [], 'deepseek' => [], 'custom' => []];
+        }
+
         private static $glossary_signature = '';
 
         public static function glossary_signature(string $text, string $target_language): string

@@ -7,13 +7,6 @@ if (! defined('ABSPATH')) {
 }
 
 /**
- * Shown in the API key field in place of a saved key. The real key never goes to the browser:
- * the AJAX handlers swap this value for the key stored for the selected provider, and saving the
- * form with this value left in the field keeps the stored key.
- */
-const KEY_MASK = '••••••••••••';
-
-/**
  * The key to use for an AJAX request: the stored key of the provider when the browser sent the
  * mask or nothing, otherwise the key that was typed in.
  *
@@ -1172,373 +1165,11 @@ add_action('admin_enqueue_scripts', function ($hook) {
     ));
 });
 
-// Register settings (without the shortcodes section)
-add_action('admin_init', function () {
-    register_setting('ai_translate', 'ai_translate_settings', [
-        'sanitize_callback' => function ($input) {
-            // Start from existing settings to avoid accidental defaults.
-            $current_settings = AI_Translate_Core::settings();
-            $sanitized = is_array($current_settings) ? $current_settings : [];
-
-            // Detecteer of dit een volledige formulier-submit is (niet AJAX)
-            // Dit is cruciaal om te weten of input in 'dagen' (form) of 'uren' (intern/AJAX) is
-            // en of checkboxes die afwezig zijn als FALSE moeten worden beschouwd.
-            $is_form_submit = isset($input['_form_submit']) && $input['_form_submit'] === '1';
-
-            // Ensure expected arrays exist
-            if (!isset($sanitized['api_keys']) || !is_array($sanitized['api_keys'])) {
-                $sanitized['api_keys'] = [];
-            }
-            if (!isset($sanitized['models']) || !is_array($sanitized['models'])) {
-                $sanitized['models'] = [];
-            }
-
-            // API keys array (handle direct updates/AJAX)
-            if (isset($input['api_keys']) && is_array($input['api_keys'])) {
-                foreach ($input['api_keys'] as $pk => $kv) {
-                    $sanitized['api_keys'][$pk] = sanitize_text_field($kv);
-                }
-            }
-
-            // Models array (handle direct updates/AJAX)
-            if (isset($input['models']) && is_array($input['models'])) {
-                foreach ($input['models'] as $pk => $m) {
-                    $sanitized['models'][$pk] = sanitize_text_field($m);
-                }
-            }
-
-            // Provider
-            $valid_providers = array_keys(AI_Translate_Core::get_api_providers());
-            if (isset($input['api_provider'])) {
-                $prov = sanitize_text_field($input['api_provider']);
-                if (in_array($prov, $valid_providers, true)) {
-                    $sanitized['api_provider'] = $prov;
-                } else {
-                    add_settings_error(
-                        'ai_translate_settings',
-                        'invalid_api_provider',
-                        __('Invalid API provider selected.', 'ai-translate'),
-                        'error'
-                    );
-                }
-            }
-
-            // legacy key removal
-            if (isset($input['api_url'])) {
-                unset($input['api_url']);
-            }
-
-            // Custom API URL
-            if (isset($input['custom_api_url'])) {
-                $raw_url = esc_url_raw(trim($input['custom_api_url']));
-                // Auto-correct: strip common endpoint paths the plugin appends automatically.
-                $stripped = preg_replace('#/(chat/completions|responses)/?$#i', '', $raw_url);
-                if ($stripped !== $raw_url) {
-                    add_settings_error(
-                        'ai_translate_settings',
-                        'custom_url_auto_corrected',
-                        sprintf(
-                            /* translators: %s: corrected base URL */
-                            __('The custom API URL was automatically corrected to the base URL: %s (the plugin appends /chat/completions automatically).', 'ai-translate'),
-                            esc_html($stripped)
-                        ),
-                        'updated'
-                    );
-                }
-                $sanitized['custom_api_url'] = $stripped;
-            }
-            if (($sanitized['api_provider'] ?? null) === 'custom') {
-                if (empty($sanitized['custom_api_url'])) {
-                    add_settings_error(
-                        'ai_translate_settings',
-                        'custom_url_required',
-                        __('Custom API URL is required for the custom provider.', 'ai-translate'),
-                        'error'
-                    );
-                } elseif (strpos($sanitized['custom_api_url'], 'googleapis.com') !== false) {
-                    add_settings_error(
-                        'ai_translate_settings',
-                        'custom_url_not_openai_compatible',
-                        __('Google API is not OpenAI compatible. Use Openrouter or Deepinfra for Gemini.', 'ai-translate'),
-                        'error'
-                    );
-                }
-            }
-
-            // Cache expiration (days → hours), minimum 14 days
-            if ($is_form_submit && isset($input['cache_expiration'])) {
-                // Form submit: input is in dagen -> converteer naar uren
-                $cache_days = intval($input['cache_expiration']);
-                if ($cache_days < 14) {
-                    add_settings_error(
-                        'ai_translate_settings',
-                        'cache_duration_too_low',
-                        __('Cache duration cannot be less than 14 days. It has been automatically set to 14 days.', 'ai-translate'),
-                        'warning'
-                    );
-                    $cache_days = 14;
-                }
-                $sanitized['cache_expiration'] = $cache_days * 24;
-            } elseif (array_key_exists('cache_expiration', $input)) {
-                // Not a form submit (e.g. AJAX or internal update): input is already in hours (from current settings)
-                // Just keep the value as is (validation for bounds happens later if needed)
-                $sanitized['cache_expiration'] = (int) $input['cache_expiration'];
-            } else {
-                // Validate existing value even when not in input
-                $existing = isset($sanitized['cache_expiration']) ? (int) $sanitized['cache_expiration'] : null;
-                if ($existing === null || $existing < (14 * 24) || $existing > (365 * 24)) {
-                     // Invalid or missing value - reset to default
-                     $sanitized['cache_expiration'] = 14 * 24;
-                }
-            }
-                        
-            if (isset($sanitized['cache_expiration']) && $sanitized['cache_expiration'] > 50000) {
-                 $sanitized['cache_expiration'] = 14 * 24;
-            }
-
-            // Auto-clear pages on menu update (checkbox)
-            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
-            // Bij AJAX/partial update: alleen updaten als expliciet in input
-            if ($is_form_submit) {
-                $sanitized['auto_clear_pages_on_menu_update'] = isset($input['auto_clear_pages_on_menu_update']);
-            } elseif (array_key_exists('auto_clear_pages_on_menu_update', $input)) {
-                $sanitized['auto_clear_pages_on_menu_update'] = (bool) $input['auto_clear_pages_on_menu_update'];
-            } elseif (!isset($sanitized['auto_clear_pages_on_menu_update'])) {
-                // Initialiseer als nog niet gezet
-                $sanitized['auto_clear_pages_on_menu_update'] = true;
-            }
-
-            // Stop translations except cache invalidation (checkbox)
-            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
-            // Bij AJAX/partial update: alleen updaten als expliciet in input
-            if ($is_form_submit) {
-                $sanitized['stop_translations_except_cache_invalidation'] = isset($input['stop_translations_except_cache_invalidation']);
-            } elseif (array_key_exists('stop_translations_except_cache_invalidation', $input)) {
-                $sanitized['stop_translations_except_cache_invalidation'] = (bool) $input['stop_translations_except_cache_invalidation'];
-            } elseif (!isset($sanitized['stop_translations_except_cache_invalidation'])) {
-                // Initialiseer als nog niet gezet
-                $sanitized['stop_translations_except_cache_invalidation'] = false;
-            }
-
-            // Warm translations in the background after a post is published or updated (checkbox, off by default)
-            if ($is_form_submit) {
-                $sanitized['prewarm_on_publish'] = isset($input['prewarm_on_publish']);
-            } elseif (array_key_exists('prewarm_on_publish', $input)) {
-                $sanitized['prewarm_on_publish'] = (bool) $input['prewarm_on_publish'];
-            } elseif (!isset($sanitized['prewarm_on_publish'])) {
-                $sanitized['prewarm_on_publish'] = false;
-            }
-
-            // Multi-domain caching (checkbox)
-            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
-            // Bij AJAX/partial update: alleen updaten als expliciet in input
-            if ($is_form_submit) {
-                $sanitized['multi_domain_caching'] = isset($input['multi_domain_caching']);
-            } elseif (array_key_exists('multi_domain_caching', $input)) {
-                $sanitized['multi_domain_caching'] = (bool) $input['multi_domain_caching'];
-            } elseif (!isset($sanitized['multi_domain_caching'])) {
-                $sanitized['multi_domain_caching'] = false;
-            }
-
-            // Keep URL slugs in default language (checkbox)
-            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
-            // Bij AJAX/partial update: alleen updaten als expliciet in input
-            if ($is_form_submit) {
-                $sanitized['keep_slugs_in_english'] = isset($input['keep_slugs_in_english']);
-            } elseif (array_key_exists('keep_slugs_in_english', $input)) {
-                $sanitized['keep_slugs_in_english'] = (bool) $input['keep_slugs_in_english'];
-            } elseif (!isset($sanitized['keep_slugs_in_english'])) {
-                $sanitized['keep_slugs_in_english'] = false;
-            }
-
-            // WooCommerce: keep product names untranslated (checkbox)
-            // Bij formulier-submit: checkbox is aangevinkt als key bestaat, anders uitgevinkt
-            // Bij AJAX/partial update: alleen updaten als expliciet in input
-            if ($is_form_submit) {
-                $sanitized['woocommerce_keep_product_names'] = isset($input['woocommerce_keep_product_names']);
-            } elseif (array_key_exists('woocommerce_keep_product_names', $input)) {
-                $sanitized['woocommerce_keep_product_names'] = (bool) $input['woocommerce_keep_product_names'];
-            } elseif (!isset($sanitized['woocommerce_keep_product_names'])) {
-                $sanitized['woocommerce_keep_product_names'] = false;
-            }
-
-            // Glossary: forced term translations per language (textarea)
-            if (array_key_exists('glossary', $input)) {
-                $sanitized['glossary'] = sanitize_textarea_field((string) $input['glossary']);
-            } elseif (!isset($sanitized['glossary'])) {
-                $sanitized['glossary'] = '';
-            }
-
-            // Model selection (per provider)
-            if (isset($input['selected_model'])) {
-                $selected_provider = $sanitized['api_provider'] ?? ($current_settings['api_provider'] ?? null);
-                $model_to_store = null;
-                if ($input['selected_model'] === 'custom') {
-                    if (!empty($input['custom_model'])) {
-                        $model_to_store = trim($input['custom_model']);
-                    } else {
-                        add_settings_error(
-                            'ai_translate_settings',
-                            'custom_model_required',
-                            __('Custom model name is required when selecting a custom model.', 'ai-translate'),
-                            'error'
-                        );
-                    }
-                } else {
-                    $model_to_store = trim(sanitize_text_field($input['selected_model']));
-                }
-                if ($selected_provider && $model_to_store !== null) {
-                    $sanitized['models'][$selected_provider] = $model_to_store;
-                    $sanitized['selected_model'] = $model_to_store;
-                }
-            }
-
-            // API key per provider
-            if (isset($input['api_key']) && trim((string) $input['api_key']) !== KEY_MASK) {
-                $provider_for_key = $sanitized['api_provider'] ?? ($input['api_provider'] ?? ($current_settings['api_provider'] ?? null));
-                if ($provider_for_key) {
-                    $key_val = trim(sanitize_text_field($input['api_key']));
-                    $sanitized['api_keys'][$provider_for_key] = $key_val;
-                    if ($key_val === '') {
-                        add_settings_error(
-                            'ai_translate_settings',
-                            'api_key_missing',
-                            __('API key is required for the selected provider.', 'ai-translate'),
-                            'error'
-                        );
-                    }
-                }
-            }
-
-            // Homepage meta description (per-domain when multi-domain caching is enabled)
-            $multi_domain = isset($sanitized['multi_domain_caching']) ? (bool) $sanitized['multi_domain_caching'] : false;
-            if (isset($input['homepage_meta_description'])) {
-                if ($multi_domain) {
-                    // Multi-domain caching: store per-domain meta description
-                    $active_domain = '';
-                    if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-                        if (strpos($active_domain, ':') !== false) {
-                            $active_domain = strtok($active_domain, ':');
-                        }
-                    }
-                    if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-                    }
-                    if (empty($active_domain)) {
-                        $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
-                        if (empty($active_domain)) {
-                            $active_domain = 'default';
-                        }
-                    }
-                    
-                    // Initialize per-domain array if not exists
-                    if (!isset($sanitized['homepage_meta_description_per_domain']) || !is_array($sanitized['homepage_meta_description_per_domain'])) {
-                        $sanitized['homepage_meta_description_per_domain'] = [];
-                    }
-                    
-                    // Store meta description for current domain
-                    $sanitized['homepage_meta_description_per_domain'][$active_domain] = sanitize_textarea_field($input['homepage_meta_description']);
-                } else {
-                    // Single domain: use global meta description
-                    $sanitized['homepage_meta_description'] = sanitize_textarea_field($input['homepage_meta_description']);
-                }
-            }
-
-            // Website context per-domain array: direct overname van $input als deze is gezet
-            // Dit is voor AJAX calls die direct de per-domain array updaten
-            if (isset($input['website_context_per_domain']) && is_array($input['website_context_per_domain'])) {
-                // AJAX/direct call: overschrijf per-domain array volledig
-                $sanitized['website_context_per_domain'] = [];
-                foreach ($input['website_context_per_domain'] as $domain => $context) {
-                    $sanitized['website_context_per_domain'][sanitize_text_field($domain)] = sanitize_textarea_field($context);
-                }
-            }
-            
-            // Website context (per-domain when multi-domain caching is enabled)
-            // Dit is voor form submissions met een enkele website_context value
-            if (isset($input['website_context'])) {
-                if ($multi_domain) {
-                    // Multi-domain caching: store per-domain website context
-                    $active_domain = '';
-                    if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
-                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST']));
-                        if (strpos($active_domain, ':') !== false) {
-                            $active_domain = strtok($active_domain, ':');
-                        }
-                    }
-                    if (empty($active_domain) && isset($_SERVER['SERVER_NAME']) && !empty($_SERVER['SERVER_NAME'])) {
-                        $active_domain = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
-                    }
-                    if (empty($active_domain)) {
-                        $active_domain = wp_parse_url(home_url(), PHP_URL_HOST);
-                        if (empty($active_domain)) {
-                            $active_domain = 'default';
-                        }
-                    }
-                    
-                    // Initialize per-domain array if not exists
-                    if (!isset($sanitized['website_context_per_domain']) || !is_array($sanitized['website_context_per_domain'])) {
-                        $sanitized['website_context_per_domain'] = [];
-                    }
-                    
-                    // Store website context for current domain
-                    $sanitized['website_context_per_domain'][$active_domain] = sanitize_textarea_field($input['website_context']);
-                } else {
-                    // Single domain: use global website context
-                    $sanitized['website_context'] = sanitize_textarea_field($input['website_context']);
-                }
-            }
-
-            // Default language
-            if (isset($input['default_language'])) {
-                $sanitized['default_language'] = sanitize_text_field($input['default_language']);
-            }
-
-            // Enabled / detectable languages: on full form submit, missing array = all unchecked.
-            // AJAX/partial updates only overwrite when the key is present.
-            if ($is_form_submit) {
-                $sanitized['enabled_languages'] = (isset($input['enabled_languages']) && is_array($input['enabled_languages']))
-                    ? array_values(array_unique(array_map('sanitize_text_field', $input['enabled_languages'])))
-                    : [];
-                $sanitized['detectable_languages'] = (isset($input['detectable_languages']) && is_array($input['detectable_languages']))
-                    ? array_values(array_unique(array_map('sanitize_text_field', $input['detectable_languages'])))
-                    : [];
-            } else {
-                if (isset($input['enabled_languages']) && is_array($input['enabled_languages'])) {
-                    $sanitized['enabled_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['enabled_languages'])));
-                }
-                if (isset($input['detectable_languages']) && is_array($input['detectable_languages'])) {
-                    $sanitized['detectable_languages'] = array_values(array_unique(array_map('sanitize_text_field', $input['detectable_languages'])));
-                }
-            }
-
-            // Switcher position
-            if (isset($input['switcher_position'])) {
-                $valid_positions = array('bottom-left', 'bottom-right', 'top-left', 'top-right', 'none');
-                $position = sanitize_text_field($input['switcher_position']);
-                if (in_array($position, $valid_positions, true)) {
-                    $sanitized['switcher_position'] = $position;
-                } else {
-                    $sanitized['switcher_position'] = 'bottom-left';
-                }
-            } elseif (!isset($sanitized['switcher_position'])) {
-                $sanitized['switcher_position'] = 'bottom-left';
-            }
-
-            // Results of the model probes (temperature, reasoning parameters). The plugin writes
-            // them itself when a model is activated; without this they would be dropped in admin
-            // requests, because only the keys handled above survive. The settings form never posts them.
-            foreach (['temperature_supported', 'reasoning_params'] as $probe_key) {
-                if (isset($input[$probe_key]) && is_array($input[$probe_key])) {
-                    $sanitized[$probe_key] = $input[$probe_key];
-                }
-            }
-
-            return $sanitized;
-        }
-    ]);
-
+/**
+ * API settings section: provider, key and model.
+ */
+function register_api_settings_section()
+{
     // API Settings Section
     add_settings_section(
         'ai_translate_api',
@@ -1633,7 +1264,13 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_api'
     );
+}
 
+/**
+ * Language settings section: default, enabled and detectable languages, switcher.
+ */
+function register_language_settings_section()
+{
     // Language Settings Section
     add_settings_section(
         'ai_translate_languages',
@@ -1815,7 +1452,13 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_languages'
     );
+}
 
+/**
+ * Cache settings section: duration, menu updates, stopping translations, background warming.
+ */
+function register_cache_settings_section()
+{
     // Cache Settings Section
     add_settings_section(
         'ai_translate_cache',
@@ -1944,7 +1587,13 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_cache'
     );
+}
 
+/**
+ * WooCommerce settings section.
+ */
+function register_woocommerce_settings_section()
+{
     // WooCommerce Section
     add_settings_section(
         'ai_translate_woocommerce',
@@ -1969,7 +1618,13 @@ add_action('admin_init', function () {
         'ai-translate',
         'ai_translate_woocommerce'
     );
+}
 
+/**
+ * Advanced settings section: website context, glossary, homepage meta, slugs.
+ */
+function register_advanced_settings_section()
+{
     // Advanced Settings Section
     add_settings_section(
         'ai_translate_advanced',
@@ -2101,7 +1756,18 @@ add_action('admin_init', function () {
         'ai_translate_advanced'
     );
     // --- End Website Context Field ---
+}
 
+// Register settings (without the shortcodes section)
+add_action('admin_init', function () {
+    register_setting('ai_translate', 'ai_translate_settings', [
+        'sanitize_callback' => [AI_Settings_Sanitizer::class, 'sanitize'],
+    ]);
+    register_api_settings_section();
+    register_language_settings_section();
+    register_cache_settings_section();
+    register_woocommerce_settings_section();
+    register_advanced_settings_section();
 });
 
 /**
