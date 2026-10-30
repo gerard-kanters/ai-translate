@@ -44,10 +44,7 @@ final class AI_Batch
             return ['segments' => [], 'map' => []];
         }
 
-        $baseUrl = \AITranslate\AI_Translate_Core::get_api_url_for_provider($provider);
-        if ($provider === 'custom') {
-            $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
-        }
+        $baseUrl = \AITranslate\AI_Translate_Core::api_base_url($provider, $settings);
         if ($baseUrl === '') {
             return ['segments' => [], 'map' => []];
         }
@@ -558,9 +555,7 @@ final class AI_Batch
         if ($provider === '' || $model === '' || $apiKey === '' || !class_exists('\\WpOrg\\Requests\\Requests')) {
             return 0;
         }
-        $baseUrl = $provider === 'custom'
-            ? (isset($settings['custom_api_url']) ? (string) $settings['custom_api_url'] : '')
-            : (string) AI_Translate_Core::get_api_url_for_provider($provider);
+        $baseUrl = AI_Translate_Core::api_base_url($provider, $settings);
         if ($baseUrl === '') {
             return 0;
         }

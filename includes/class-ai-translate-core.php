@@ -251,6 +251,21 @@ final class AI_Translate_Core
     }
 
     /**
+     * Base URL of the API for a provider: the provider's own, or for "custom" the URL from the settings.
+     *
+     * @param string $provider Provider key.
+     * @param array  $settings Plugin settings.
+     * @return string Empty when there is none.
+     */
+    public static function api_base_url($provider, array $settings): string
+    {
+        if ($provider === 'custom') {
+            return isset($settings['custom_api_url']) ? (string) $settings['custom_api_url'] : '';
+        }
+        return (string) self::get_api_url_for_provider($provider);
+    }
+
+    /**
      * Keep the models the admin dropdown shows: text in and out, no image/audio/embedding families.
      *
      * @param array  $rawModels Rows from the provider /models response.
@@ -1957,10 +1972,7 @@ final class AI_Translate_Core
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
 
         // Custom provider settings
-        $baseUrl = self::get_api_url_for_provider($provider);
-        if ($provider === 'custom') {
-            $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
-        }
+        $baseUrl = self::api_base_url($provider, $settings);
 
         // 2. Prepare content - use provided domain
         $content = $this->get_clean_homepage_content($domain);
@@ -2095,10 +2107,7 @@ final class AI_Translate_Core
         $targetLangName = $this->get_language_name($default_lang);
 
         // Custom provider settings
-        $baseUrl = self::get_api_url_for_provider($provider);
-        if ($provider === 'custom') {
-            $baseUrl = isset($settings['custom_api_url']) ? (string)$settings['custom_api_url'] : '';
-        }
+        $baseUrl = self::api_base_url($provider, $settings);
 
         // 2. Prepare content - use provided domain or active domain
         $content = $this->get_clean_homepage_content($domain);
