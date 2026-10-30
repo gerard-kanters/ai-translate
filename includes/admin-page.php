@@ -1771,14 +1771,13 @@ add_action('admin_init', function () {
 });
 
 /**
- * Render the AI Translate admin page (tabs: General, Cache).
+ * Load the plugin text domain for the user's locale (exact locale, then base locale, then language),
+ * so the admin page follows the user language and not the site language.
  *
- * Contains WordPress settings API sections/fields and cache management UI.
- * Uses nonces and capability checks for all mutating actions.
+ * @return void
  */
-function render_admin_page()
+function load_admin_textdomain()
 {
-    // Load textdomain with user locale for admin pages
     if (is_user_logged_in()) {
         $user_locale = get_user_locale();
         $plugin_dir = plugin_dir_path(dirname(__FILE__));
@@ -1819,6 +1818,15 @@ function render_admin_page()
             }
         }
     }
+}
+
+/**
+ * Handle the "clear cache for one language" form and build the notice for the result.
+ *
+ * @return string HTML of the notice, empty when the form was not posted.
+ */
+function handle_clear_language_cache_form()
+{
     $cache_language_message = '';
     if (
         isset($_POST['clear_cache_language']) &&
@@ -1880,37 +1888,17 @@ function render_admin_page()
             </div>';
         }
     }
+    return $cache_language_message;
+}
 
-    // Determine active tab
-    $active_tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'general';
+/**
+ * Section: clear all language caches (handles its own form post).
+ *
+ * @return void
+ */
+function render_clear_all_caches_section()
+{
 ?>
-    <div class="wrap">
-        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-        <?php settings_errors(); // Display admin notices, including those from add_settings_error ?>
-        <!-- Tab navigation -->
-        <h2 class="nav-tab-wrapper">
-            <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo esc_attr($active_tab === 'general' ? 'nav-tab-active' : ''); ?>"><?php echo esc_html__('General', 'ai-translate'); ?></a>
-            <a href="?page=ai-translate&tab=cache" class="nav-tab <?php echo esc_attr($active_tab === 'cache' ? 'nav-tab-active' : ''); ?>"><?php echo esc_html__('Cache', 'ai-translate'); ?></a>
-
-        </h2>
-        <div id="tab-content">
-            <div id="general" class="tab-panel" style="<?php echo esc_attr($active_tab === 'general' || $active_tab === 'logs' ? 'display:block;' : 'display:none;'); ?>"> <?php // Logs tab now refers to general ?>
-                <form method="post" action="options.php">
-                    <?php
-                    settings_fields('ai_translate');
-                    do_settings_sections('ai-translate');
-                    ?>
-                    <!-- Hidden field to indicate this is a full form submit (not AJAX) -->
-                    <input type="hidden" name="ai_translate_settings[_form_submit]" value="1">
-                    <?php
-                    submit_button();
-                    ?>
-                </form>
-            </div>
-              <div id="cache" class="tab-panel" style="<?php echo esc_attr($active_tab === 'cache' ? 'display:block;' : 'display:none;'); ?>">
-                <h2><?php echo esc_html__('Cache Management', 'ai-translate'); ?></h2>
-                <?php wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce'); // Nonce for AJAX clear language cache ?>
-                
                 <!-- Clear all caches -->
                 <h3><?php echo esc_html__('Clear all language caches', 'ai-translate'); ?></h3>
                 <p><?php echo esc_html__('Clear all language caches.', 'ai-translate'); ?> <strong><?php echo esc_html__('Menu and slug cache are preserved to maintain URL stability.', 'ai-translate'); ?></strong></p>
@@ -1934,9 +1922,17 @@ function render_admin_page()
                     <?php wp_nonce_field('clear_cache_action', 'clear_cache_nonce'); ?>
                     <?php submit_button(__('Clear all language caches', 'ai-translate'), 'delete', 'clear_cache', false); ?>
                 </form>
+<?php
+}
 
-                <hr style="margin: 20px 0;">
-
+/**
+ * Section: clear the menu cache (handles its own form post).
+ *
+ * @return void
+ */
+function render_clear_menu_cache_section()
+{
+?>
                 <!-- Clear menu cache (including menu translation tables) -->
                 <h3><?php echo esc_html__('Clear menu cache', 'ai-translate'); ?></h3>
                 <p><?php echo esc_html__('Clear menu caches including all menu-item translations. This will force fresh translations for all menu items. Languages and Slug map are not affected.', 'ai-translate'); ?></p>
@@ -1968,9 +1964,17 @@ function render_admin_page()
                     <?php wp_nonce_field('clear_menu_cache_action', 'clear_menu_cache_nonce'); ?>
                     <?php submit_button(__('Clear menu cache', 'ai-translate'), 'delete', 'clear_menu_cache', false); ?>
                 </form>
+<?php
+}
 
-                <hr style="margin: 20px 0;">
-
+/**
+ * Section: clear the slug cache (handles its own form post).
+ *
+ * @return void
+ */
+function render_clear_slug_cache_section()
+{
+?>
                 <!-- Clear slug cache (truncate slug table) -->
                 <h3><?php echo esc_html__('Clear slug cache', 'ai-translate'); ?></h3>
                 <p><?php echo esc_html__('Clear the slug table used for translated URLs. Language and menu caches are not affected.', 'ai-translate'); ?></p>
@@ -1996,10 +2000,17 @@ function render_admin_page()
                     <?php wp_nonce_field('clear_slug_cache_action', 'clear_slug_cache_nonce'); ?>
                     <?php submit_button(__('Clear slug cache', 'ai-translate'), 'delete', 'clear_slug_cache', false); ?>
                 </form>
+<?php
+}
 
-                <hr style="margin: 20px 0;">
-
-                
+/**
+ * Section: cache per language, with the result of a form post and the cache statistics.
+ *
+ * @return void
+ */
+function render_language_cache_section($active_tab, $cache_language_message)
+{
+?>
                 <h3><?php echo esc_html__('Clear cache per language', 'ai-translate'); ?></h3>
                 <?php
                 if (!empty($cache_language_message)) {
@@ -2182,10 +2193,17 @@ function render_admin_page()
                         </tfoot>
                     </table>
                 </div>
+<?php
+}
 
-                <hr style="margin: 30px 0;">
-
-                <!-- Cache Management Table -->
+/**
+ * Section: translated pages overview with per-page cache actions.
+ *
+ * @return void
+ */
+function render_pages_overview_section($active_tab)
+{
+?>
                 <h3><?php echo esc_html__('Translated Pages Overview', 'ai-translate'); ?></h3>
                 <p><?php echo esc_html__('Manage cache per page or blog. Delete cache to retranslate, or warm cache to proactively generate translations.', 'ai-translate'); ?></p>
                 
@@ -2373,6 +2391,68 @@ function render_admin_page()
                     </div>
                 </div>
                 <?php endif; ?>
+<?php
+}
+
+
+/**
+ * Render the AI Translate admin page (tabs: General, Cache).
+ *
+ * Contains WordPress settings API sections/fields and cache management UI.
+ * Uses nonces and capability checks for all mutating actions.
+ */
+function render_admin_page()
+{
+    load_admin_textdomain();
+    $cache_language_message = handle_clear_language_cache_form();
+
+    // Determine active tab
+    $active_tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'general';
+?>
+    <div class="wrap">
+        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <?php settings_errors(); // Display admin notices, including those from add_settings_error ?>
+        <!-- Tab navigation -->
+        <h2 class="nav-tab-wrapper">
+            <a href="?page=ai-translate&tab=general" class="nav-tab <?php echo esc_attr($active_tab === 'general' ? 'nav-tab-active' : ''); ?>"><?php echo esc_html__('General', 'ai-translate'); ?></a>
+            <a href="?page=ai-translate&tab=cache" class="nav-tab <?php echo esc_attr($active_tab === 'cache' ? 'nav-tab-active' : ''); ?>"><?php echo esc_html__('Cache', 'ai-translate'); ?></a>
+
+        </h2>
+        <div id="tab-content">
+            <div id="general" class="tab-panel" style="<?php echo esc_attr($active_tab === 'general' || $active_tab === 'logs' ? 'display:block;' : 'display:none;'); ?>"> <?php // Logs tab now refers to general ?>
+                <form method="post" action="options.php">
+                    <?php
+                    settings_fields('ai_translate');
+                    do_settings_sections('ai-translate');
+                    ?>
+                    <!-- Hidden field to indicate this is a full form submit (not AJAX) -->
+                    <input type="hidden" name="ai_translate_settings[_form_submit]" value="1">
+                    <?php
+                    submit_button();
+                    ?>
+                </form>
+            </div>
+              <div id="cache" class="tab-panel" style="<?php echo esc_attr($active_tab === 'cache' ? 'display:block;' : 'display:none;'); ?>">
+                <h2><?php echo esc_html__('Cache Management', 'ai-translate'); ?></h2>
+                <?php wp_nonce_field('clear_cache_language_action', 'clear_cache_language_nonce'); // Nonce for AJAX clear language cache ?>
+                
+                <?php render_clear_all_caches_section(); ?>
+
+                <hr style="margin: 20px 0;">
+
+                <?php render_clear_menu_cache_section(); ?>
+
+                <hr style="margin: 20px 0;">
+
+                <?php render_clear_slug_cache_section(); ?>
+
+                <hr style="margin: 20px 0;">
+
+                <?php render_language_cache_section($active_tab, $cache_language_message); ?>
+
+                <hr style="margin: 30px 0;">
+
+                <?php render_pages_overview_section($active_tab); ?>
             </div>
         </div>
     </div>
