@@ -216,7 +216,13 @@ AI Translate requires an API key from one of the supported providers:
 - Safer: unknown language codes in a URL no longer cost translation credits.
 - Faster: translated page addresses for existing pages are prepared in the background, not while a page loads.
 - Better: opening the General tab no longer shows "API settings saved" unless something changed. Cache messages show the language and number of files again.
-- Under the hood: the admin settings, the admin page, the text translation endpoint and the main plugin file are split into smaller parts, with tests for the settings and the endpoint.
+- Fix: titles under "Related posts" (Jetpack) and similar texts that your browser shows after the page has loaded are translated again, also on pages with a Japanese, Korean, Russian or other non-Latin address, and also in the tooltip of the link.
+- Fix: short titles are translated as titles. Before, a title of up to four words could come back as a lowercase, hyphenated web address.
+- Fix: a search with several words in another language is translated properly and finds the same results as in your own language.
+- Better: search engines now start the translation of those titles too, so they see the translated page.
+- Better: an address with a language that your site does not offer gives a plain "not found", without a redirect first.
+- Better: validating a model no longer repeats a test that already failed.
+- Under the hood: the admin settings, the admin page, the text translation endpoint, the routing and the main plugin file are split into smaller parts, with tests for each.
 
 ### 2.3.18
 
