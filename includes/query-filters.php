@@ -59,8 +59,10 @@ add_action('pre_get_posts', function ($query) {
     $ctx = array(
         'website_context' => (string) \AITranslate\AI_Translate_Core::get_setting('website_context', ''),
     );
+    // Type "node": the prompt reads "meta" as a URL slug, so a term of several words came back
+    // hyphenated ("Digitale-tweelingen") and then found nothing.
     $plan = array('segments' => array(
-        array('id' => 'q1', 'text' => $original, 'type' => 'meta'),
+        array('id' => 'q1', 'text' => $original, 'type' => 'node'),
     ));
     $res = \AITranslate\AI_Batch::translate_plan($plan, $current, $default, $ctx);
     $translated = '';
