@@ -114,6 +114,27 @@ final class CatalogTitleStringsTest extends TestCase
         $this->assertFalse(ai_translate_is_known_title_or_term_string('Vertaal dit zomaar even voor mij'));
     }
 
+    private function keepOnPage(array $texts, string $referer): array
+    {
+        $method = new \ReflectionMethod(\AITranslate\AI_REST_Strings::class, 'keep_strings_on_page');
+        return $method->invoke(null, $texts, $referer);
+    }
+
+    public function test_a_crawler_without_referer_still_gets_the_titles_of_the_site_translated(): void
+    {
+        // Googlebot renders the page and asks for the related-post titles, but may send no Referer:
+        // then the page cannot be fetched, yet a title of the site's own content is still accepted.
+        $this->rows = ["post_title IN ('Cybersecurity en de architectuur van de toekomst'"];
+        Functions\when('get_option')->justReturn([]);
+
+        $kept = $this->keepOnPage([
+            's1' => 'Cybersecurity en de architectuur van de toekomst',
+            's2' => 'Vertaal dit zomaar even voor mij',
+        ], '');
+
+        $this->assertSame(['s1' => 'Cybersecurity en de architectuur van de toekomst'], $kept);
+    }
+
     public function test_empty_and_overlong_text_is_refused_without_a_query(): void
     {
         $this->assertFalse(ai_translate_is_known_title_or_term_string(''));

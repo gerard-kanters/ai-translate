@@ -40,9 +40,9 @@ final class AI_REST_Strings
      */
     public static function permission(\WP_REST_Request $request)
     {
-        // Bot check first: bots get cached answers only, no need for referer/nonce
+        // Crawlers are served like visitors, so that they also start the translation of what a page
+        // loads in the browser. They do not always send a Referer or a nonce, so those are not required.
         if (\ai_translate_is_known_bot_ua()) {
-            $request->set_param('_ai_tr_bot_no_nonce', 1);
             return true;
         }
         // Referer check: must originate from this site (exact host, not prefix match)
@@ -76,8 +76,6 @@ final class AI_REST_Strings
 
     public static function handle(\WP_REST_Request $request): \WP_REST_Response
     {
-        $is_bot_request = (bool) $request->get_param('_ai_tr_bot_no_nonce');
-
         // REMOTE_ADDR only: forwarded-for headers can be set by the client. Behind a proxy that
         // does not restore the visitor address, visitors share one counter (the hourly budget
         // below is what protects the translation spend either way).
@@ -102,9 +100,8 @@ final class AI_REST_Strings
         }
 
         $expiry = max(1, AI_Translate_Core::cache_expiration_hours()) * HOUR_IN_SECONDS;
-        // With translations stopped, or for bots, only what is cached is answered; the rest comes back as source text.
-        $stop_translations = (bool) AI_Translate_Core::get_setting('stop_translations_except_cache_invalidation', false);
-        $skip_api = $stop_translations || $is_bot_request;
+        // With translations stopped, only what is cached is answered; the rest comes back as source text.
+        $skip_api = (bool) AI_Translate_Core::get_setting('stop_translations_except_cache_invalidation', false);
 
         $map = [];
         $toTranslate = [];
@@ -366,12 +363,10 @@ final class AI_REST_Strings
      */
     private static function keep_strings_on_page(array $toTranslate, string $referer): array
     {
-        if ($referer === '' || !\ai_translate_is_same_site_url($referer)) {
-            return [];
-        }
-        $html = self::page_html($referer);
-        if ($html === false || $html === '') {
-            return [];
+        // Without a usable page (a crawler may send no Referer) only the site's own content is accepted
+        $html = $referer !== '' && \ai_translate_is_same_site_url($referer) ? self::page_html($referer) : false;
+        if ($html === false) {
+            $html = '';
         }
         $kept = [];
         foreach ($toTranslate as $id => $text) {
