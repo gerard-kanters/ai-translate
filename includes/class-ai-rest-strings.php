@@ -369,10 +369,10 @@ final class AI_REST_Strings
                 self::occurs_in_html($text, $html)
                 // Client-side rendered UI strings (e.g. WooCommerce block cart/checkout) are not in the
                 // server HTML: check them against the shipped catalog, the catalog with placeholders
-                // filled in (AJAX notices with a product name), and product and term names in the database.
+                // filled in (AJAX notices with a product name), and titles and term names in the database.
                 || \ai_translate_is_known_catalog_string($text)
                 || \ai_translate_matches_catalog_pattern($text)
-                || \ai_translate_is_known_product_or_term_string($text)
+                || \ai_translate_is_known_title_or_term_string($text)
             ) {
                 $kept[$id] = $text;
             }

@@ -11,16 +11,6 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Check whether a string is a known source string (msgid) in the translation
- * catalog (.pot) shipped by an active plugin. Used to validate client-side
- * rendered UI strings (e.g. WooCommerce block cart/checkout) that are absent
- * from the server-rendered HTML, without opening the batch-strings endpoint
- * up as a free-form translation proxy.
- *
- * @param string $text Normalized source string.
- * @return bool
- */
-/**
  * Discover .pot catalogs shipped by active plugins (shared by the catalog validators).
  *
  * @return string[] Readable .pot file paths.
@@ -119,6 +109,16 @@ function ai_translate_get_catalog_templates()
     return $templates;
 }
 
+/**
+ * Check whether a string is a known source string (msgid) in the translation
+ * catalog (.pot) shipped by an active plugin. Used to validate client-side
+ * rendered UI strings (e.g. WooCommerce block cart/checkout) that are absent
+ * from the server-rendered HTML, without opening the batch-strings endpoint
+ * up as a free-form translation proxy.
+ *
+ * @param string $text Normalized source string.
+ * @return bool
+ */
 function ai_translate_is_known_catalog_string($text)
 {
     $text = (string) $text;
@@ -181,20 +181,44 @@ function ai_translate_matches_catalog_pattern($text)
 }
 
 /**
- * Whether a string exists as a product/variation title or taxonomy term name.
- * WooCommerce block cart/checkout renders product names and attribute values
- * client-side via the Store API, so they fail both the page-HTML and catalog
- * checks. Validating against the site's own database keeps the batch-strings
- * endpoint closed for arbitrary text while covering catalog content. Returns
- * false without querying when WooCommerce is not active.
+ * The forms a rendered title can have in the database. WordPress turns " - " into an en dash,
+ * straight quotes into curly ones and "..." into an ellipsis when it prints a title, so a title
+ * read back from the page (Jetpack Related Posts builds its links in the browser) differs from
+ * the stored one.
+ *
+ * @param string $text Title as shown on the page.
+ * @return string[] The text itself, and the text with the typographic characters undone when that differs.
+ */
+function ai_translate_title_lookup_forms($text)
+{
+    $text = (string) $text;
+    $plain = strtr($text, [
+        "\u{2013}" => '-',
+        "\u{2014}" => '--',
+        "\u{2018}" => "'",
+        "\u{2019}" => "'",
+        "\u{201C}" => '"',
+        "\u{201D}" => '"',
+        "\u{2026}" => '...',
+        "\u{00D7}" => 'x',
+    ]);
+    return $plain === $text ? [$text] : [$text, $plain];
+}
+
+/**
+ * Whether a string is the title of published content on this site or a taxonomy term name.
+ * Text that is not in the server-rendered HTML but is the site's own content is rendered in the
+ * browser: WooCommerce block cart/checkout shows product names and attribute values, Jetpack
+ * Related Posts shows post titles. Checking the site's own database keeps the batch-strings
+ * endpoint closed for arbitrary text while covering that content.
  *
  * @param string $text Normalized source string.
  * @return bool
  */
-function ai_translate_is_known_product_or_term_string($text)
+function ai_translate_is_known_title_or_term_string($text)
 {
     $text = trim((string) $text);
-    if ($text === '' || mb_strlen($text) > 150 || !post_type_exists('product')) {
+    if ($text === '' || mb_strlen($text) > 150) {
         return false;
     }
     static $cache = [];
@@ -202,16 +226,20 @@ function ai_translate_is_known_product_or_term_string($text)
         return $cache[$text];
     }
     global $wpdb;
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded lookup, static-cached per request
+    $forms = ai_translate_title_lookup_forms($text);
+    $in_titles = implode(', ', array_fill(0, count($forms), '%s'));
+    $types = array_values(array_diff(array_unique(array_merge(array_values((array) get_post_types(['public' => true])), ['product_variation'])), ['attachment']));
+    $in_types = implode(', ', array_fill(0, count($types), '%s'));
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- bounded lookup, static-cached per request; every value is a placeholder
     $found = (bool) $wpdb->get_var($wpdb->prepare(
-        "SELECT 1 FROM $wpdb->posts WHERE post_type IN ('product','product_variation') AND post_status = 'publish' AND post_title = %s LIMIT 1",
-        $text
+        "SELECT 1 FROM $wpdb->posts WHERE post_type IN ($in_types) AND post_status = 'publish' AND post_title IN ($in_titles) LIMIT 1",
+        array_merge($types, $forms)
     ));
     if (!$found) {
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- bounded lookup, static-cached per request
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- bounded lookup, static-cached per request
         $found = (bool) $wpdb->get_var($wpdb->prepare(
-            "SELECT 1 FROM $wpdb->terms WHERE name = %s LIMIT 1",
-            $text
+            "SELECT 1 FROM $wpdb->terms WHERE name IN ($in_titles) LIMIT 1",
+            $forms
         ));
     }
     $cache[$text] = $found;
