@@ -396,6 +396,11 @@ add_action('parse_request', function ($wp) {
         return;
     }
     $lang = strtolower($m[1]);
+    // Two letters that are not a language this site offers are no language prefix: /zz/blog/ stays a 404
+    // instead of being resolved through the slug map and redirected to another URL that is a 404 as well.
+    if (!\AITranslate\lang_is_offered($lang)) {
+        return;
+    }
     $rest = isset($m[2]) ? (string) $m[2] : '';
     $rest = trim($rest, '/');
     if ($rest === '') {
