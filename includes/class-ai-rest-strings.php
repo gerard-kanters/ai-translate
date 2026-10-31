@@ -87,6 +87,7 @@ final class AI_REST_Strings
         $referer = self::normalize_referer(self::request_referer());
         $prepared = self::prepare_texts($request->get_param('strings'));
         $originals = $prepared['originals'];
+        $aliases = $prepared['aliases'];
 
         $lang = self::resolve_language(sanitize_key((string) ($request->get_param('lang') ?? '')), $referer);
         $default = AI_Lang::default();
@@ -96,7 +97,7 @@ final class AI_REST_Strings
             return self::respond([]);
         }
         if (strtolower($lang) === strtolower($default)) {
-            return self::respond(self::source_map(array_keys($originals), $originals));
+            return self::respond(self::add_aliases(self::source_map(array_keys($originals), $originals), $originals, $aliases));
         }
 
         $expiry = max(1, AI_Translate_Core::cache_expiration_hours()) * HOUR_IN_SECONDS;
@@ -139,7 +140,7 @@ final class AI_REST_Strings
         if (!empty($toTranslate)) {
             $map += self::translate($toTranslate, $originals, (string) $default, (string) $lang, $expiry);
         }
-        return self::respond($map);
+        return self::respond(self::add_aliases($map, $originals, $aliases));
     }
 
     /**
@@ -196,8 +197,9 @@ final class AI_REST_Strings
     public static function prepare_texts($strings): array
     {
         $originals = [];
+        $aliases = [];
         if (!is_array($strings)) {
-            return ['originals' => $originals];
+            return ['originals' => $originals, 'aliases' => $aliases];
         }
         foreach (array_slice($strings, 0, self::MAX_STRINGS) as $s) {
             if (!is_string($s) || mb_strlen($s) > self::MAX_LENGTH) {
@@ -207,12 +209,38 @@ final class AI_REST_Strings
             if ($original === '') {
                 continue;
             }
-            $normalized = preg_replace('/\s+/u', ' ', $original);
+            // Entities are decoded: a tooltip can still hold "&#8211;" where the title has the dash itself
+            $normalized = preg_replace('/\s+/u', ' ', html_entity_decode($original, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             if (!isset($originals[$normalized])) {
                 $originals[$normalized] = $original;
+            } elseif ($originals[$normalized] !== $original && !in_array($original, $aliases[$normalized] ?? [], true)) {
+                $aliases[$normalized][] = $original;
             }
         }
-        return ['originals' => $originals];
+        return ['originals' => $originals, 'aliases' => $aliases];
+    }
+
+    /**
+     * Give the other posted forms of a text the same answer as the first one: the page script looks
+     * a text up by the form it posted.
+     *
+     * @param array<string,string>        $map       Posted form => translation.
+     * @param array<string,string>        $originals Normalized text => first posted form.
+     * @param array<string,array<string>> $aliases   Normalized text => further posted forms.
+     * @return array<string,string>
+     */
+    public static function add_aliases(array $map, array $originals, array $aliases): array
+    {
+        foreach ($aliases as $normalized => $forms) {
+            $first = $originals[$normalized] ?? null;
+            if ($first === null || !array_key_exists($first, $map)) {
+                continue;
+            }
+            foreach ($forms as $form) {
+                $map[$form] = $map[$first];
+            }
+        }
+        return $map;
     }
 
     /**
@@ -272,15 +300,6 @@ final class AI_REST_Strings
             $translation = preg_replace('/\s*\([^)]*\)\s*$/u', '', $translation);
         } while (preg_match('/\s*\([^)]*\)\s*$/u', $translation));
         return trim($translation);
-    }
-
-    /**
-     * Segment type for the translation prompt: sentences are "node", short UI labels "meta".
-     */
-    public static function segment_type(string $text): string
-    {
-        $words = preg_split('/\s+/', trim($text), -1, PREG_SPLIT_NO_EMPTY);
-        return count($words) > 4 ? 'node' : 'meta';
     }
 
     /**
@@ -402,9 +421,11 @@ final class AI_REST_Strings
      */
     private static function translate(array $toTranslate, array $originals, string $default, string $lang, int $expiry): array
     {
+        // Always "node": the prompt reads "meta" as a URL slug (short, hyphenated, lower case), which
+        // turned titles of up to four words into slugs such as "gemelli-digitali".
         $plan = ['segments' => []];
         foreach ($toTranslate as $id => $text) {
-            $plan['segments'][] = ['id' => $id, 'text' => $text, 'type' => self::segment_type($text)];
+            $plan['segments'][] = ['id' => $id, 'text' => $text, 'type' => 'node'];
         }
         $ctx = ['website_context' => AI_Translate_Core::get_website_context()];
         $res = AI_Batch::translate_plan($plan, $default, $lang, $ctx);

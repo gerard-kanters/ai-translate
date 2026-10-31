@@ -27,6 +27,39 @@ final class AI_RESTStringsTest extends TestCase
         $this->assertSame(['Naam' => 'Naam', 'Zoek in de winkel' => "Zoek   in\n de  winkel"], $out['originals']);
     }
 
+    public function test_html_entities_are_decoded_for_the_lookup_but_the_posted_form_is_kept(): void
+    {
+        // Jetpack puts the title in the tooltip with the entity still in it ("&#8211;"): the answer must
+        // be keyed by that form, while the text that is looked up and translated is the title itself.
+        $out = AI_REST_Strings::prepare_texts(['AI-Translate &#8211; Ga internationaal', 'Zoek &amp; vind']);
+
+        $this->assertSame(
+            ['AI-Translate – Ga internationaal' => 'AI-Translate &#8211; Ga internationaal', 'Zoek & vind' => 'Zoek &amp; vind'],
+            $out['originals']
+        );
+    }
+
+    public function test_a_title_and_its_entity_form_are_translated_once_but_both_get_an_answer(): void
+    {
+        // The link text and its tooltip are posted together
+        $out = AI_REST_Strings::prepare_texts(['AIR – Je beste collega', 'AIR &#8211; Je beste collega']);
+
+        $this->assertSame(['AIR – Je beste collega' => 'AIR – Je beste collega'], $out['originals']);
+        $this->assertSame(['AIR – Je beste collega' => ['AIR &#8211; Je beste collega']], $out['aliases']);
+
+        $map = AI_REST_Strings::add_aliases(['AIR – Je beste collega' => 'AIR – Ihr bester Kollege'], $out['originals'], $out['aliases']);
+
+        $this->assertSame(
+            ['AIR – Je beste collega' => 'AIR – Ihr bester Kollege', 'AIR &#8211; Je beste collega' => 'AIR – Ihr bester Kollege'],
+            $map
+        );
+    }
+
+    public function test_an_alias_of_a_text_without_translation_adds_nothing(): void
+    {
+        $this->assertSame([], AI_REST_Strings::add_aliases([], ['A b' => 'A b'], ['A b' => ['A  b']]));
+    }
+
     public function test_the_first_posted_form_is_kept_for_the_answer(): void
     {
         $out = AI_REST_Strings::prepare_texts(['Zoek  veld', 'Zoek veld']);
@@ -175,14 +208,8 @@ final class AI_RESTStringsTest extends TestCase
     }
 
     // ---------------------------------------------------------------
-    //  segment_type() / occurs_in_html()
+    //  occurs_in_html()
     // ---------------------------------------------------------------
-
-    public function test_sentences_are_nodes_and_labels_are_meta(): void
-    {
-        $this->assertSame('meta', AI_REST_Strings::segment_type('Zoek in de winkel'));
-        $this->assertSame('node', AI_REST_Strings::segment_type('Zoek in de hele winkel nu'));
-    }
 
     public function test_strings_are_found_in_the_page_html_regardless_of_case_and_regex_characters(): void
     {
