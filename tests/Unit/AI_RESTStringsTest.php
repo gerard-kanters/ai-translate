@@ -137,6 +137,22 @@ final class AI_RESTStringsTest extends TestCase
         $this->assertTrue(AI_REST_Strings::translation_is_usable(str_repeat('Привет мир. ', 15), 'ru'));
     }
 
+    public function test_a_slug_cached_for_a_title_is_not_served_as_its_translation(): void
+    {
+        // Earlier versions cached some titles as the slug form of the translation
+        $this->assertFalse(AI_REST_Strings::translation_is_usable('ai-시뮬레이션-엔진', 'ko', 'AI Simulation Engine'));
+        $this->assertFalse(AI_REST_Strings::translation_is_usable('gemelli-digitali', 'it', 'Digitale tweelingen'));
+        $this->assertFalse(AI_REST_Strings::translation_is_usable('openai-o3', 'it', 'OpenAI o3'));
+    }
+
+    public function test_real_translations_with_a_hyphen_are_served(): void
+    {
+        $this->assertTrue(AI_REST_Strings::translation_is_usable('AI-simuleringsmotor', 'da', 'AI Simulation Engine'), 'capitals: not a slug');
+        $this->assertTrue(AI_REST_Strings::translation_is_usable('AI 시뮬레이션 엔진', 'ko', 'AI Simulation Engine'));
+        $this->assertTrue(AI_REST_Strings::translation_is_usable('mon-compte', 'fr', 'mon-compte'), 'the source is a slug itself');
+        $this->assertTrue(AI_REST_Strings::translation_is_usable('e-mail', 'fr', 'E-mail'), 'a single word has no slug form');
+    }
+
     // ---------------------------------------------------------------
     //  strip_model_annotation()
     // ---------------------------------------------------------------

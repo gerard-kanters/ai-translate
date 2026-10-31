@@ -109,7 +109,7 @@ final class AI_REST_Strings
         foreach (array_keys($originals) as $normalized) {
             $normalized = (string) $normalized;
             $cached = self::lookup($lang, $normalized, $expiry);
-            if ($cached !== false && ($skip_api || self::translation_is_usable((string) $cached, $lang))) {
+            if ($cached !== false && ($skip_api || self::translation_is_usable((string) $cached, $lang, $normalized))) {
                 $map[$originals[$normalized]] = (string) $cached;
                 continue;
             }
@@ -235,10 +235,18 @@ final class AI_REST_Strings
      * Whether a cached translation can be served. Long texts for a non-Latin language that are
      * mostly Latin letters are treated as failed translations (the model returned the source).
      * Short texts are exempt: brand names and codes stay Latin. A translation identical to the
-     * source is fine (the text was already in the target language).
+     * source is fine (the text was already in the target language). The slug of a translation is
+     * never usable for a text of several words: earlier versions cached some titles that way
+     * ("gemelli-digitali" for "Digitale tweelingen").
      */
-    public static function translation_is_usable(string $cached, string $lang): bool
+    public static function translation_is_usable(string $cached, string $lang, string $source = ''): bool
     {
+        if (
+            preg_match('/\s/u', $source) === 1
+            && preg_match('/^[\p{Ll}\p{Lo}\p{N}]+(?:-[\p{Ll}\p{Lo}\p{N}]+)+$/u', $cached) === 1
+        ) {
+            return false;
+        }
         $len = mb_strlen($cached);
         if ($len <= 100 || !AI_Lang::is_non_latin($lang)) {
             return true;
