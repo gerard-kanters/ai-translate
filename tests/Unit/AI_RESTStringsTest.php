@@ -70,6 +70,27 @@ final class AI_RESTStringsTest extends TestCase
         );
     }
 
+    public function test_the_referer_of_a_page_with_a_non_latin_slug_keeps_its_percent_codes(): void
+    {
+        // sanitize_text_field() removes %XX octets, which cut "/ja/product/asa-%E8%87%AA/" down to
+        // "/ja/product/asa-/": the page was then not found and no string on it was translated.
+        Functions\when('wp_unslash')->returnArg();
+        Functions\when('sanitize_text_field')->alias(static fn($v) => preg_replace('/%[a-f0-9]{2}/i', '', (string) $v));
+        Functions\when('esc_url_raw')->returnArg();
+        $_SERVER['HTTP_REFERER'] = 'https://example.test/ja/product/asa-%E8%87%AA%E5%BE%8B/';
+
+        $this->assertSame('https://example.test/ja/product/asa-%E8%87%AA%E5%BE%8B/', AI_REST_Strings::request_referer());
+
+        unset($_SERVER['HTTP_REFERER']);
+    }
+
+    public function test_without_a_referer_the_request_referer_is_empty(): void
+    {
+        unset($_SERVER['HTTP_REFERER']);
+
+        $this->assertSame('', AI_REST_Strings::request_referer());
+    }
+
     public function test_a_referer_without_path_or_empty_is_left_alone(): void
     {
         $this->assertSame('', AI_REST_Strings::normalize_referer(''));
@@ -173,6 +194,7 @@ final class AI_RESTStringsTest extends TestCase
         $_SERVER['REMOTE_ADDR'] = '203.0.113.7';
         $_SERVER['HTTP_REFERER'] = 'https://example.com/de/';
         Functions\when('sanitize_text_field')->returnArg();
+        Functions\when('esc_url_raw')->returnArg();
         Functions\when('wp_unslash')->returnArg();
         Functions\when('sanitize_key')->alias(static fn($k) => strtolower(preg_replace('/[^a-z0-9_\-]/i', '', (string) $k)));
         Functions\when('wp_using_ext_object_cache')->justReturn(false);

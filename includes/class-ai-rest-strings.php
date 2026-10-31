@@ -46,7 +46,7 @@ final class AI_REST_Strings
             return true;
         }
         // Referer check: must originate from this site (exact host, not prefix match)
-        $referer = isset($_SERVER['HTTP_REFERER']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_REFERER'])) : '';
+        $referer = self::request_referer();
         if ($referer === '' || !\ai_translate_is_same_site_url($referer)) {
             return new \WP_Error('rest_forbidden', 'Invalid referer', ['status' => 403]);
         }
@@ -86,7 +86,7 @@ final class AI_REST_Strings
             return new \WP_REST_Response(['error' => 'Rate limit exceeded'], 429);
         }
 
-        $referer = self::normalize_referer(isset($_SERVER['HTTP_REFERER']) ? sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_REFERER'])) : '');
+        $referer = self::normalize_referer(self::request_referer());
         $prepared = self::prepare_texts($request->get_param('strings'));
         $originals = $prepared['originals'];
 
@@ -143,6 +143,16 @@ final class AI_REST_Strings
             $map += self::translate($toTranslate, $originals, (string) $default, (string) $lang, $expiry);
         }
         return self::respond($map);
+    }
+
+    /**
+     * The Referer of the request, sanitized as a URL. Not with sanitize_text_field(): that removes
+     * percent-encoded characters, so the page of a language with a non-Latin slug (Japanese,
+     * Russian, ...) could not be found again from its Referer.
+     */
+    public static function request_referer(): string
+    {
+        return isset($_SERVER['HTTP_REFERER']) ? esc_url_raw(wp_unslash((string) $_SERVER['HTTP_REFERER'])) : '';
     }
 
     /**
