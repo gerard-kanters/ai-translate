@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.4.0
+Stable tag: 2.4.1
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -209,6 +209,10 @@ AI Translate requires an API key from one of the supported providers:
 ## Changelog
 
 
+
+### 2.4.1
+
+- Safer: on sites without a persistent object cache, many requests at the same moment can no longer get past the limits on the translation endpoint (per visitor per minute and the hourly budget). Every request is now counted.
 
 ### 2.4.0
 

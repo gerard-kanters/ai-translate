@@ -38,9 +38,10 @@ function path_is_inside($path, $base)
 }
 
 /**
- * Count hits against a limit within a time window. Atomic when a persistent object cache is
- * present (increment on the cache server); otherwise it falls back to a transient, which two
- * simultaneous requests can both read before either writes.
+ * Count hits against a limit within a time window. The increment is atomic: on the cache server
+ * when a persistent object cache is present, otherwise in one SQL statement on the options table.
+ * Only when neither works does it fall back to a transient, which two simultaneous requests can
+ * both read before either writes. A call over the limit is counted as well.
  *
  * @param string $bucket Name of the counter (a hash of it is used as key).
  * @param int    $limit  Maximum total within the window.
@@ -65,12 +66,62 @@ function rate_limit_hit($bucket, $limit, $window, $amount = 1)
             return (int) $count <= (int) $limit;
         }
     }
+    $count = rate_limit_count_in_database($key, $amount, (int) $window);
+    if ($count !== null) {
+        return $count <= (int) $limit;
+    }
+    // No usable database: a transient, which two simultaneous requests can both read before either writes
     $count = (int) get_transient($key);
     if ($count + $amount > (int) $limit) {
         return false;
     }
     set_transient($key, $count + $amount, (int) $window);
     return true;
+}
+
+/**
+ * Raise a counter in the options table and return its new value. The increment is one SQL statement,
+ * so simultaneous requests are all counted. The row belongs to one window: its name ends in the time at
+ * which the window ends, and rows of finished windows are removed now and then.
+ *
+ * @return int|null The counter after this call, or null when the database cannot be used.
+ */
+function rate_limit_count_in_database($key, $amount, $window)
+{
+    global $wpdb;
+    if (!is_object($wpdb) || !isset($wpdb->options) || !method_exists($wpdb, 'query')) {
+        return null;
+    }
+    $now = time();
+    $name = $key . '_' . ((int) floor($now / max(1, $window)) + 1) * max(1, $window);
+
+    // LAST_INSERT_ID(expr) keeps the value this statement produced for this connection, so the count is
+    // exactly the one after our own increment, not one that others have raised in the meantime.
+    $done = $wpdb->query($wpdb->prepare(
+        "INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %d, 'no') ON DUPLICATE KEY UPDATE option_value = LAST_INSERT_ID(option_value + %d)",
+        $name,
+        $amount,
+        $amount
+    ));
+    if ($done === false) {
+        return null;
+    }
+    // MySQL reports 1 for a new row (the count is our amount) and 2 for an updated one
+    $count = (int) $done === 1 ? $amount : $wpdb->get_var('SELECT LAST_INSERT_ID()');
+    if ($count === null || (int) $count < 1) {
+        return null;
+    }
+
+    // At most every five minutes: remove the rows of windows that have ended
+    if (get_transient('ai_rl_cleanup') === false) {
+        set_transient('ai_rl_cleanup', 1, 300);
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND CAST(SUBSTRING_INDEX(option_name, '_', -1) AS UNSIGNED) < %d",
+            $wpdb->esc_like('ai_rl_') . '%',
+            $now
+        ));
+    }
+    return (int) $count;
 }
 
 /**
