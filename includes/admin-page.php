@@ -2567,10 +2567,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     // Existing saved selections are kept by the UI; this only controls default-first ordering.
     $preferred_model_patterns = [
         'openai' => [
-            '/gpt[-\s_.]*5\.6[-\s_.]*luna/i',
+            '/gpt[-\s_.]*(5\.)?6[-\s_.]*luna/i',
         ],
         'openrouter' => [
-            '/openai\/gpt[-\s_.]*5\.6[-\s_.]*luna/i',
+            '/openai\/gpt[-\s_.]*(5\.)?6[-\s_.]*luna/i',
         ],
         'deepinfra' => [
             '/^deepseek-ai\/DeepSeek-V4-Flash$/i',
@@ -2583,6 +2583,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         ],
     ];
 
+    $preferred_model_found = null;
     if (isset($preferred_model_patterns[$provider_key])) {
         $preferred_index = false;
         foreach ($preferred_model_patterns[$provider_key] as $pattern) {
@@ -2598,9 +2599,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
             unset($models[$preferred_index]);
             array_unshift($models, $preferred_model);
             $models = array_values($models);
+            $preferred_model_found = $preferred_model;
         }
     }
-    wp_send_json_success(['models' => $models]);
+    wp_send_json_success(['models' => $models, 'preferred' => $preferred_model_found]);
 });
 
 // --- AJAX handler voor dynamisch ophalen van custom URL ---

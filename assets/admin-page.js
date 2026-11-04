@@ -284,6 +284,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         // No stored model for this provider: do not pick the first one for the user,
                         // because a valid selection is validated and saved right away.
                         var hasCurrentModel = resp.data.models.indexOf(currentModel) !== -1;
+                        // Nothing remembered for this provider: use the provider's preferred model
+                        if (!hasCurrentModel && provider !== 'custom' && resp.data.preferred &&
+                            resp.data.models.indexOf(resp.data.preferred) !== -1) {
+                            currentModel = resp.data.preferred;
+                            hasCurrentModel = true;
+                            modelsPerProvider[provider] = currentModel;
+                        }
                         if (!hasCurrentModel && provider !== 'custom') {
                             var selectModelOpt = document.createElement('option');
                             selectModelOpt.value = '';
@@ -639,6 +646,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (selectedModel) {
         selectedModel.addEventListener('focus', loadModels);
         selectedModel.addEventListener('change', function () {
+            // Remember the choice for this provider, so switching providers and back keeps it
+            var p = apiProviderSelect ? apiProviderSelect.value : '';
+            if (p && selectedModel.value && selectedModel.value !== 'custom') {
+                modelsPerProvider[p] = selectedModel.value;
+            }
             toggleCustomModelField();
             scheduleApiValidation();
         });
