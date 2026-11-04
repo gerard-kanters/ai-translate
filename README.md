@@ -1,4 +1,4 @@
-=== AI Translate: Affordable Context-Aware Translation ===
+=== AI Translate: Free AI Translation, You Pick the Model ===
 Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
@@ -9,7 +9,7 @@ License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
 Plugin homepage: [https://wordpress.org/plugins/ai-translate](https://wordpress.org/plugins/ai-translate)
 
-Translate your site using AI in any language. Fast caching, SEO-friendly and cost-effective. Auto detect browser language.
+Translate your WordPress site into any language. The plugin is free; you only pay your AI provider for the tokens you use. Fast caching, SEO-friendly, automatic browser language detection.
 
 ## Description
 
