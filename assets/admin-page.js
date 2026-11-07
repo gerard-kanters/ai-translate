@@ -275,9 +275,16 @@ document.addEventListener('DOMContentLoaded', function () {
             // Trigger change event
             var event = new Event('change');
             selectedModel.dispatchEvent(event);
+
+            // Show the provider's own model list right away (the key field is filled by a request of its own).
+            setTimeout(function () {
+                if (apiProviderSelect && apiProviderSelect.value === 'custom' && customApiUrlInput &&
+                    customApiUrlInput.value.trim() !== '' && apiKeyInput && apiKeyInput.value !== '') {
+                    loadModelsForProvider('custom', modelsPerProvider.custom || '');
+                }
+            }, 700);
         } else {
             // No provider selected
-            var strings = aiTranslateAdmin.strings || {};
             var placeholderOpt = document.createElement('option');
             placeholderOpt.value = '';
             placeholderOpt.textContent = strings.selectApiProviderFirst || 'Select API Provider first...';
@@ -833,6 +840,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!payload) {
             return;
         }
+        // A check queued before the provider or model changed is stale: the change schedules its own check.
+        if ((apiProviderSelect && apiProviderSelect.value !== payload.provider) ||
+            (selectedModel && payload.rawModelValue !== undefined && selectedModel.value !== payload.rawModelValue)) {
+            return;
+        }
         pendingApiPayload = null;
         // Untouched settings: only check them, say nothing unless something is wrong
         var silent = !apiSettingsTouched;
@@ -904,12 +916,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     var errorMessage = (resp.data && resp.data.message) ? resp.data.message : (aiTranslateAdmin.strings.validationError || 'Validation failed');
                     setApiStatus(errorMessage, 'error');
-                    // The saved model does not exist at this (custom) API: load its list and take the preferred model.
-                    if (payload.provider === 'custom' && /not found in available models list/i.test(errorMessage) && !payload.retriedModels) {
-                        modelsPerProvider.custom = '';
-                        if (customModelInput) customModelInput.value = '';
-                        loadModelsForProvider('custom', '');
-                    }
                 }
             })
             .catch(function (error) {
