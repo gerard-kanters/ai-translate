@@ -47,3 +47,26 @@ function mandatory_reasoning_retry(array $data): ?array
     }
     return null;
 }
+
+/**
+ * Estimate reasoning tokens for providers that do not report them (Anthropic's OpenAI-compatible
+ * endpoint, models that write their thinking into the text): output tokens that the visible
+ * answer does not account for. The answer is counted at 3 characters per token, which errs
+ * towards "no thinking"; small differences are ignored.
+ *
+ * @param array  $data        Decoded response.
+ * @param string $visibleText The answer without thinking blocks.
+ */
+function estimate_hidden_reasoning_tokens(array $data, string $visibleText): int
+{
+    $usage = $data['usage'] ?? null;
+    if (!is_array($usage)) {
+        return 0;
+    }
+    $out = $usage['completion_tokens'] ?? ($usage['output_tokens'] ?? null);
+    if (!is_numeric($out)) {
+        return 0;
+    }
+    $hidden = (int) $out - (int) ceil(mb_strlen($visibleText) / 3);
+    return $hidden >= 40 ? $hidden : 0;
+}

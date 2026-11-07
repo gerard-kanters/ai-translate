@@ -1002,6 +1002,35 @@ document.addEventListener('DOMContentLoaded', function () {
             customHostTimer = setTimeout(reloadCustomModelsOnHostChange, 900);
         });
         customApiUrlInput.addEventListener('change', reloadCustomModelsOnHostChange);
+
+        // A datalist only lists the entries that match what is already in the field. On a double-click or
+        // the arrow-down key, empty the field for a moment so every known URL is offered; the old value
+        // comes back when nothing was chosen.
+        var urlBeforeChoice = null;
+        var showAllUrlChoices = function () {
+            if (urlBeforeChoice !== null || customApiUrlInput.value === '') return;
+            urlBeforeChoice = customApiUrlInput.value;
+            customApiUrlInput.dataset.placeholder = customApiUrlInput.placeholder;
+            customApiUrlInput.placeholder = urlBeforeChoice;
+            customApiUrlInput.value = '';
+        };
+        var restoreUrl = function () {
+            if (urlBeforeChoice === null) return;
+            if (customApiUrlInput.value === '') customApiUrlInput.value = urlBeforeChoice;
+            customApiUrlInput.placeholder = customApiUrlInput.dataset.placeholder || '';
+            urlBeforeChoice = null;
+        };
+        customApiUrlInput.addEventListener('dblclick', showAllUrlChoices);
+        customApiUrlInput.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown') showAllUrlChoices();
+        });
+        customApiUrlInput.addEventListener('blur', function () {
+            // Give a click on a datalist entry time to arrive first.
+            setTimeout(restoreUrl, 200);
+        });
+        customApiUrlInput.addEventListener('input', function () {
+            if (customApiUrlInput.value !== '') urlBeforeChoice = null;
+        });
     }
 
     var languageSectionDefs = {

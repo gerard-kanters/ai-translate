@@ -877,6 +877,11 @@ final class AI_Translate_Core
             return null; // the request failed: nothing was measured, so try again next time
         }
         $baseline = self::extract_reasoning_tokens($baselineData);
+        $baselineReported = $baseline !== null;
+        if ($baseline === null) {
+            // Not reported (e.g. Anthropic): estimate it from the output tokens the answer does not explain.
+            $baseline = \AITranslate\estimate_hidden_reasoning_tokens($baselineData, (string) self::extract_message_content($baselineData));
+        }
         if ($baseline === null || $baseline < 20) {
             // Measured: this model does not think (or the provider does not say). Remember that.
             return ['params' => [], 'baseline_tokens' => (int) $baseline, 'tokens' => (int) $baseline, 'v' => self::REASONING_PROBE_VERSION];
@@ -893,6 +898,9 @@ final class AI_Translate_Core
                 continue; // the model rejected this parameter
             }
             $tokens = self::extract_reasoning_tokens($data);
+            if ($tokens === null && !$baselineReported) {
+                $tokens = \AITranslate\estimate_hidden_reasoning_tokens($data, (string) self::extract_message_content($data));
+            }
             if ($tokens === null && isset($data['usage'])) {
                 // The baseline reported reasoning tokens, so a response that leaves the field out
                 // (DeepSeek does this once thinking is off) did not reason.
