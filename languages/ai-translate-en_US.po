@@ -571,9 +571,8 @@ msgstr ""
 "Reasoning/thinking is turned off when the provider allows it (otherwise the "
 "lowest supported effort is used) to keep translations fast and cheap."
 
-#, php-format
-msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
-msgstr "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
+msgid "Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically."
+msgstr "Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically."
 
 #: includes/admin-page.php:1524
 msgid "API Key"

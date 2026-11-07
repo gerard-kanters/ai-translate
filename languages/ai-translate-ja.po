@@ -577,9 +577,8 @@ msgstr ""
 "プロバイダーが許可する場合は推論/thinkingをオフにします（許可されない場合はサ"
 "ポートされる最小effortを使用）。翻訳を速く安く保つためです。"
 
-#, php-format
-msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
-msgstr "APIプロバイダーのベースURLを入力してください。プラグインが /chat/completions を自動的に付加します。OpenRouterの例: %s。Anthropic（Claude）はOpenAI互換エンドポイント https://api.anthropic.com/v1 で利用できます"
+msgid "Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically."
+msgstr "APIプロバイダーのベースURLを入力するか、矢印から既知のものを選択してください。プラグインが /chat/completions を自動的に付加します。"
 
 #: includes/admin-page.php:1524
 msgid "API Key"

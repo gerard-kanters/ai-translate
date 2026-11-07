@@ -45,6 +45,7 @@ final class ThinkingOutputTest extends TestCase
     {
         $text = str_repeat('x', 300); // ~100 tokens of answer
         $this->assertSame(0, \AITranslate\estimate_hidden_reasoning_tokens(['usage' => ['completion_tokens' => 110]], $text));
+        $this->assertSame(0, \AITranslate\estimate_hidden_reasoning_tokens(['usage' => ['completion_tokens' => 150]], $text)); // +50: punctuation, not thinking
         $this->assertSame(400, \AITranslate\estimate_hidden_reasoning_tokens(['usage' => ['completion_tokens' => 500]], $text));
         $this->assertSame(0, \AITranslate\estimate_hidden_reasoning_tokens([], $text));
     }

@@ -577,9 +577,8 @@ msgstr ""
 "(anders wordt de laagste ondersteunde effort gebruikt) zodat vertalingen "
 "snel en goedkoop blijven."
 
-#, php-format
-msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
-msgstr "Voer de basis-URL van je API-provider in. De plugin voegt /chat/completions automatisch toe. Voorbeeld voor OpenRouter: %s. Anthropic (Claude) werkt via het OpenAI-compatibele endpoint: https://api.anthropic.com/v1"
+msgid "Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically."
+msgstr "Voer de basis-URL van je API-provider in, of kies een bekende met het pijltje. De plugin voegt /chat/completions automatisch toe."
 
 #: includes/admin-page.php:1524
 msgid "API Key"

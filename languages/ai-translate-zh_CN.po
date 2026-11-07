@@ -566,9 +566,8 @@ msgstr ""
 "在提供商允许时关闭推理/thinking（否则使用所支持的最低 effort），以使翻译保持"
 "快速且便宜。"
 
-#, php-format
-msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
-msgstr "请输入您的 API 提供商的基础 URL。插件会自动追加 /chat/completions。OpenRouter 示例：%s。Anthropic（Claude）通过其兼容 OpenAI 的端点使用：https://api.anthropic.com/v1"
+msgid "Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically."
+msgstr "请输入您的 API 提供商的基础 URL，或通过箭头选择已知的 URL。插件会自动追加 /chat/completions。"
 
 #: includes/admin-page.php:1524
 msgid "API Key"

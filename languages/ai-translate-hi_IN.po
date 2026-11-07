@@ -571,9 +571,8 @@ msgstr ""
 "जब प्रदाता अनुमति देता है तो reasoning/thinking बंद रहता है (अन्यथा न्यूनतम समर्थित "
 "effort उपयोग होता है) ताकि अनुवाद तेज़ और सस्ते रहें।"
 
-#, php-format
-msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
-msgstr "अपने API प्रदाता का बेस URL दर्ज करें। प्लगइन अपने आप /chat/completions जोड़ देता है। OpenRouter के लिए उदाहरण: %s। Anthropic (Claude) अपने OpenAI-संगत एंडपॉइंट के ज़रिए काम करता है: https://api.anthropic.com/v1"
+msgid "Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically."
+msgstr "अपने API प्रदाता का बेस URL दर्ज करें या तीर से कोई ज्ञात URL चुनें। प्लगइन अपने आप /chat/completions जोड़ देता है।"
 
 #: includes/admin-page.php:1524
 msgid "API Key"

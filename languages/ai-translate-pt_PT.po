@@ -582,9 +582,8 @@ msgstr ""
 "contrário é usado o esforço mínimo suportado) para manter as traduções "
 "rápidas e económicas."
 
-#, php-format
-msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
-msgstr "Introduza o URL base do seu fornecedor de API. O plugin acrescenta /chat/completions automaticamente. Exemplo para OpenRouter: %s. A Anthropic (Claude) funciona através do seu endpoint compatível com OpenAI: https://api.anthropic.com/v1"
+msgid "Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically."
+msgstr "Introduza o URL base do seu fornecedor de API ou escolha um conhecido com a seta. O plugin acrescenta /chat/completions automaticamente."
 
 #: includes/admin-page.php:1524
 msgid "API Key"

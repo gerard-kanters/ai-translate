@@ -1003,34 +1003,53 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         customApiUrlInput.addEventListener('change', reloadCustomModelsOnHostChange);
 
-        // A datalist only lists the entries that match what is already in the field. On a double-click or
-        // the arrow-down key, empty the field for a moment so every known URL is offered; the old value
-        // comes back when nothing was chosen.
-        var urlBeforeChoice = null;
-        var showAllUrlChoices = function () {
-            if (urlBeforeChoice !== null || customApiUrlInput.value === '') return;
-            urlBeforeChoice = customApiUrlInput.value;
-            customApiUrlInput.dataset.placeholder = customApiUrlInput.placeholder;
-            customApiUrlInput.placeholder = urlBeforeChoice;
-            customApiUrlInput.value = '';
-        };
-        var restoreUrl = function () {
-            if (urlBeforeChoice === null) return;
-            if (customApiUrlInput.value === '') customApiUrlInput.value = urlBeforeChoice;
-            customApiUrlInput.placeholder = customApiUrlInput.dataset.placeholder || '';
-            urlBeforeChoice = null;
-        };
-        customApiUrlInput.addEventListener('dblclick', showAllUrlChoices);
-        customApiUrlInput.addEventListener('keydown', function (e) {
-            if (e.key === 'ArrowDown') showAllUrlChoices();
-        });
-        customApiUrlInput.addEventListener('blur', function () {
-            // Give a click on a datalist entry time to arrive first.
-            setTimeout(restoreUrl, 200);
-        });
-        customApiUrlInput.addEventListener('input', function () {
-            if (customApiUrlInput.value !== '') urlBeforeChoice = null;
-        });
+        // Menu with the known API URLs. The browser's own list only shows entries that match the text
+        // already in the field, so it is useless once a URL is filled in.
+        (function () {
+            var choicesEl = document.getElementById('ai_translate_api_url_choices');
+            var choices = [];
+            try { choices = JSON.parse(choicesEl ? choicesEl.textContent : '[]') || []; } catch (e) { choices = []; }
+            if (!choices.length || !customApiUrlInput.parentNode) return;
+
+            var wrap = document.createElement('span');
+            wrap.style.cssText = 'position:relative;display:inline-block;';
+            customApiUrlInput.parentNode.insertBefore(wrap, customApiUrlInput);
+            wrap.appendChild(customApiUrlInput);
+
+            var toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.setAttribute('aria-label', 'API URLs');
+            toggle.textContent = '\u25BE';
+            toggle.style.cssText = 'position:absolute;right:1px;top:1px;bottom:1px;width:28px;border:0;background:transparent;cursor:pointer;font-size:14px;color:#50575e;';
+            wrap.appendChild(toggle);
+
+            var list = document.createElement('ul');
+            list.style.cssText = 'display:none;position:absolute;z-index:100;left:0;right:0;top:100%;margin:2px 0 0;padding:4px 0;background:#fff;border:1px solid #8c8f94;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.15);max-height:260px;overflow:auto;';
+            choices.forEach(function (url) {
+                var li = document.createElement('li');
+                li.textContent = url;
+                li.style.cssText = 'margin:0;padding:6px 10px;cursor:pointer;font-size:13px;';
+                li.addEventListener('mouseenter', function () { li.style.background = '#f0f0f1'; });
+                li.addEventListener('mouseleave', function () { li.style.background = ''; });
+                li.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    customApiUrlInput.value = url;
+                    list.style.display = 'none';
+                    customApiUrlInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    customApiUrlInput.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                list.appendChild(li);
+            });
+            wrap.appendChild(list);
+
+            toggle.addEventListener('click', function () {
+                list.style.display = list.style.display === 'none' ? 'block' : 'none';
+            });
+            document.addEventListener('click', function (e) {
+                if (!wrap.contains(e.target)) list.style.display = 'none';
+            });
+            customApiUrlInput.style.paddingRight = '32px';
+        })();
     }
 
     var languageSectionDefs = {

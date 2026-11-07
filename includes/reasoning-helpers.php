@@ -67,6 +67,10 @@ function estimate_hidden_reasoning_tokens(array $data, string $visibleText): int
     if (!is_numeric($out)) {
         return 0;
     }
-    $hidden = (int) $out - (int) ceil(mb_strlen($visibleText) / 3);
-    return $hidden >= 40 ? $hidden : 0;
+    $visible = (int) ceil(mb_strlen($visibleText) / 3);
+    $hidden = (int) $out - $visible;
+    // Counting characters per token is rough (JSON punctuation and accents cost more tokens). Only call it
+    // thinking when the output is at least twice what the answer explains: Claude's plain answers
+    // measured 40 tokens over the estimate, real thinking is a multiple of the answer.
+    return ($hidden >= 60 && $hidden >= $visible) ? $hidden : 0;
 }

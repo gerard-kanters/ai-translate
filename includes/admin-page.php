@@ -1199,10 +1199,9 @@ function register_api_settings_section()
             echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
-            echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://api.perplexity.ai" class="regular-text" autocomplete="off" id="ai_translate_custom_api_url" list="ai_translate_api_url_choices">';
-            // Known OpenAI-compatible endpoints to pick from (the field still takes any URL).
-            echo '<datalist id="ai_translate_api_url_choices">';
-            foreach ([
+            echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://api.perplexity.ai" class="regular-text" autocomplete="off" id="ai_translate_custom_api_url">';
+            // Known OpenAI-compatible endpoints to pick from; the script shows them in a menu (the field still takes any URL).
+            echo '<script type="application/json" id="ai_translate_api_url_choices">' . wp_json_encode([
                 'https://openrouter.ai/api/v1/',
                 'https://api.anthropic.com/v1/',
                 'https://api.openai.com/v1/',
@@ -1211,11 +1210,8 @@ function register_api_settings_section()
                 'https://api.together.xyz/v1/',
                 'https://api.x.ai/v1/',
                 'https://api.fireworks.ai/inference/v1/',
-            ] as $ai_translate_url_choice) {
-                echo '<option value="' . esc_attr($ai_translate_url_choice) . '"></option>';
-            }
-            echo '</datalist>';
-            $description_text = /* translators: %s: string value */ esc_html__('Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1', 'ai-translate');
+            ]) . '</script>';
+            $description_text = esc_html__('Enter the base URL of your API provider, or pick a known one with the arrow. The plugin appends /chat/completions automatically.', 'ai-translate');
             $url_link = '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>';
 
             // Count %s placeholders in the translated string to prevent sprintf errors

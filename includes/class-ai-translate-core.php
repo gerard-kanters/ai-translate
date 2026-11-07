@@ -774,7 +774,7 @@ final class AI_Translate_Core
     }
 
     /** Bump when the probe changes in a way that makes earlier results worth measuring again. */
-    private const REASONING_PROBE_VERSION = 1;
+    private const REASONING_PROBE_VERSION = 2;
 
     /**
      * Parameter sets that providers use to limit or switch off a model's hidden reasoning, in the
