@@ -170,6 +170,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var note = document.getElementById('ai-translate-thinking-warning');
         var strings = aiTranslateAdmin.strings || {};
         var model = selectedModel.value;
+        if (model === 'custom' && customModelInput) {
+            model = customModelInput.value.trim();
+        }
         if (!Object.prototype.hasOwnProperty.call(alwaysThinkingModels, model)) {
             if (note) note.style.display = 'none';
             return;
@@ -313,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         // because a valid selection is validated and saved right away.
                         var hasCurrentModel = resp.data.models.indexOf(currentModel) !== -1;
                         // Nothing remembered for this provider: use the provider's preferred model
-                        if (!hasCurrentModel && provider !== 'custom' && resp.data.preferred &&
+                        if (!hasCurrentModel && resp.data.preferred &&
                             resp.data.models.indexOf(resp.data.preferred) !== -1) {
                             currentModel = resp.data.preferred;
                             hasCurrentModel = true;
@@ -389,6 +392,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                 manualOpt.selected = true;
                                 selectedModel.appendChild(manualOpt);
                             }
+                            alwaysThinkingModels = {};
+                            updateThinkingWarning();
                             if (customModelDiv) customModelDiv.style.display = '';
                             if (apiStatusSpan) apiStatusSpan.textContent = errorMessage || (strings.enterModelManually || 'Enter model name manually');
                         } else {
@@ -642,6 +647,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                 manualOpt2.selected = true;
                                 selectedModel.appendChild(manualOpt2);
                             }
+                            alwaysThinkingModels = {};
+                            updateThinkingWarning();
                             if (customModelDiv) customModelDiv.style.display = '';
                             if (apiStatusSpan) apiStatusSpan.textContent = errorMessage || (strings.enterModelManually || 'Enter model name manually');
                         } else {
@@ -901,6 +908,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (customModelInput) {
         customModelInput.addEventListener('input', function () {
+            updateThinkingWarning();
             scheduleApiValidation();
         });
     }

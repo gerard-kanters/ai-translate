@@ -2533,16 +2533,35 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
         $headers['X-Title'] = 'AI Translate';
     }
+    $is_anthropic = $provider_key === 'custom' && AI_Translate_Core::is_anthropic_url($api_url);
+    if ($is_anthropic) {
+        $headers['x-api-key'] = $api_key;
+        $headers['anthropic-version'] = '2023-06-01';
+    }
     $response = wp_remote_get($endpoint, [
         'headers' => $headers,
         'timeout' => 20,
         'sslverify' => true,
     ]);
+    // Anthropic does not always return a model list on its OpenAI-compatible endpoint: offer known models.
+    $anthropic_fallback = static function () {
+        wp_send_json_success([
+            'models' => AI_Translate_Core::ANTHROPIC_FALLBACK_MODELS,
+            'preferred' => AI_Translate_Core::ANTHROPIC_FALLBACK_MODELS[0],
+            'always_thinking' => (object) [],
+        ]);
+    };
     if (is_wp_error($response)) {
+        if ($is_anthropic) {
+            $anthropic_fallback();
+        }
         wp_send_json_error(['message' => $response->get_error_message()]);
     }
     $code = wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
+    if ($is_anthropic && $code !== 200 && $code !== 401 && $code !== 403) {
+        $anthropic_fallback();
+    }
     if ($code !== 200) {
         // Check if error is due to invalid API key (401, 403)
         $isInvalidKey = ($code === 401 || $code === 403);
@@ -2565,6 +2584,9 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         wp_send_json_error(['message' => __('Invalid response from API', 'ai-translate')]);
     }
     $models = AI_Translate_Core::filter_admin_models($data['data'], $provider_key);
+    if ($is_anthropic && $models === []) {
+        $anthropic_fallback();
+    }
 
     // Place preferred translation models first per provider.
     // Existing saved selections are kept by the UI; this only controls default-first ordering.
@@ -2588,6 +2610,9 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     ];
 
     $preferred_model_found = null;
+    if ($is_anthropic) {
+        $preferred_model_patterns['custom'] = ['/^claude-haiku-5-5$/i'];
+    }
     if (isset($preferred_model_patterns[$provider_key])) {
         $preferred_index = false;
         foreach ($preferred_model_patterns[$provider_key] as $pattern) {

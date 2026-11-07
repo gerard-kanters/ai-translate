@@ -24,6 +24,14 @@ final class AI_Translate_Core
         return self::$instance;
     }
 
+    /** Models offered for Anthropic when its API gives no usable model list. First one is the default. */
+    public const ANTHROPIC_FALLBACK_MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-fable-5-1'];
+
+    public static function is_anthropic_url(string $url): bool
+    {
+        return stripos($url, 'api.anthropic.com') !== false;
+    }
+
     public static function build_api_headers(string $api_key, string $provider, array $settings = []): array
     {
         $headers = [
@@ -31,6 +39,11 @@ final class AI_Translate_Core
             'Content-Type' => 'application/json',
         ];
         $custom = isset($settings['custom_api_url']) ? (string) $settings['custom_api_url'] : '';
+        if ($provider === 'custom' && self::is_anthropic_url($custom)) {
+            // Anthropic also expects its own headers (the Bearer header alone is not accepted everywhere).
+            $headers['x-api-key'] = $api_key;
+            $headers['anthropic-version'] = '2023-06-01';
+        }
         if ($provider === 'openrouter' || ($provider === 'custom' && strpos($custom, 'openrouter.ai') !== false)) {
             $headers['HTTP-Referer'] = 'https://github.com/gerard-kanters/ai-translate';
             $headers['X-Title'] = 'AI Translate';
