@@ -322,6 +322,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             hasCurrentModel = true;
                             modelsPerProvider[provider] = currentModel;
                         }
+                        if (!hasCurrentModel && provider === 'custom' && resp.data.models.length) {
+                            currentModel = resp.data.models[0];
+                            hasCurrentModel = true;
+                            modelsPerProvider[provider] = currentModel;
+                        }
                         if (!hasCurrentModel && provider !== 'custom') {
                             var selectModelOpt = document.createElement('option');
                             selectModelOpt.value = '';
@@ -865,6 +870,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     var errorMessage = (resp.data && resp.data.message) ? resp.data.message : (aiTranslateAdmin.strings.validationError || 'Validation failed');
                     setApiStatus(errorMessage, 'error');
+                    // The saved model does not exist at this (custom) API: load its list and take the preferred model.
+                    if (payload.provider === 'custom' && /not found in available models list/i.test(errorMessage) && !payload.retriedModels) {
+                        modelsPerProvider.custom = '';
+                        if (customModelInput) customModelInput.value = '';
+                        loadModelsForProvider('custom', '');
+                    }
                 }
             })
             .catch(function (error) {

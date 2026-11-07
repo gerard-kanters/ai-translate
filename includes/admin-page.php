@@ -1234,8 +1234,7 @@ function register_api_settings_section()
             $api_keys = $settings['api_keys'] ?? [];
             // The saved key itself never goes into the page: show the mask when there is one
             $value = !empty($api_keys[$current_provider_key]) ? KEY_MASK : '';
-            // Not a login: stop browsers from treating the URL field above as a username and the key as a password.
-            echo '<input type="password" name="ai_translate_settings[api_key]" id="ai_translate_api_key" value="' . esc_attr($value) . '" class="regular-text" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">';
+            echo '<input type="password" name="ai_translate_settings[api_key]" id="ai_translate_api_key" value="' . esc_attr($value) . '" class="regular-text">';
             echo ' <span id="api-key-request-link-span" style="margin-left:10px;"></span>';
         },
         'ai-translate',
@@ -1249,6 +1248,7 @@ function register_api_settings_section()
             $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $models = isset($settings['models']) ? $settings['models'] : [];
             $selected_model = $current_provider !== '' ? ($models[$current_provider] ?? '') : '';
+            $selected_model = $current_provider !== '' ? AI_Translate_Core::effective_model((string) $current_provider, (string) $selected_model) : '';
             $custom_model = isset($settings['custom_model']) ? $settings['custom_model'] : '';
             echo '<select name="ai_translate_settings[selected_model]" id="selected_model">';
             echo '<option value="" ' . selected($selected_model, '', false) . ' disabled hidden>' . esc_html__('— Select model —', 'ai-translate') . '</option>';
@@ -2612,7 +2612,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
 
     $preferred_model_found = null;
     if ($is_anthropic) {
-        $preferred_model_patterns['custom'] = ['/^claude-haiku-5-5$/i'];
+        $preferred_model_patterns['custom'] = ['/^claude-haiku-5-5(?:-\d+)?$/i', '/^claude-haiku/i', '/^claude-sonnet/i', '/^claude/i'];
     }
     if (isset($preferred_model_patterns[$provider_key])) {
         $preferred_index = false;

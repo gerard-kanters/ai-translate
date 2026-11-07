@@ -116,6 +116,10 @@ final class AI_Translate_Core
      */
     public static function effective_model(string $provider, string $model): string
     {
+        if ($provider === 'custom' && $model !== '' && self::is_anthropic_url((string) (self::settings()['custom_api_url'] ?? ''))) {
+            // Anthropic only has Claude models: a model left over from another API host cannot work.
+            return stripos($model, 'claude') === 0 ? $model : self::ANTHROPIC_FALLBACK_MODELS[0];
+        }
         if ($model === '' || !isset(self::DEFAULT_MODELS[$provider])) {
             return $model;
         }
