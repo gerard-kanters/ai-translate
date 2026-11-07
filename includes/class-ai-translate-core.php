@@ -1157,10 +1157,19 @@ final class AI_Translate_Core
         if (!is_array($entry)) {
             return null;
         }
-        if (!empty($entry['params'])) {
-            return 'limited';
+        // The provider refused to run without thinking: it always thinks.
+        if (!empty($entry['mandatory'])) {
+            return 'always';
         }
-        return ((int) ($entry['baseline_tokens'] ?? 0)) > 0 ? 'always' : null;
+        $baseline = (int) ($entry['baseline_tokens'] ?? 0);
+        if (!empty($entry['params'])) {
+            // Thinking is only "off" when (nearly) nothing is left of it. A model that still spends
+            // over 100 tokens, and over a tenth of what it used before, only thinks less at its lowest
+            // setting (o3 at effort "low" is an example): it cannot be switched off.
+            $left = (int) ($entry['tokens'] ?? 0);
+            return ($left > 100 && $left * 10 > $baseline) ? 'always' : 'limited';
+        }
+        return $baseline > 0 ? 'always' : null;
     }
 
     /**
@@ -1579,7 +1588,7 @@ final class AI_Translate_Core
             $skipProbe = $thinkingHint !== null && !$thinkingHint['thinks'];
             // Measuring a thinking model (the probe tries parameter sets until one works) can take minutes. Run it
             // as a one-off WP-Cron event, so the settings page does not wait. This works on any PHP setup.
-            if (!$skipProbe && $thinkingHint !== null && $thinkingHint['thinks']) {
+            if (!$skipProbe) {
                 if (
                     self::reasoning_probe_needed($provider_key, $model)
                     && !self::reasoning_probe_failed_recently($provider_key, $model)
