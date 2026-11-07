@@ -131,7 +131,7 @@ final class AI_Translate_Core
         'openrouter' => 'openai/gpt-6-luna',
         'deepinfra' => 'deepseek-ai/DeepSeek-V4-Flash',
         'deepseek' => 'deepseek-v4-flash',
-        'groq' => 'qwen/qwen3.8-27b',
+        'groq' => 'openai/gpt-oss-120b',
     ];
 
     /**

@@ -2618,9 +2618,9 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         'deepseek' => [
             '/^deepseek-v4-flash$/i',
         ],
-        // gpt-oss-120b always thinks on Groq (only low/medium/high exist, never off); Qwen 3.8 27B does not think.
+        // gpt-oss-120b thinks on Groq (only low/medium/high exist), but it is the cheapest good choice there.
         'groq' => [
-            '/^qwen\/qwen3\.8-27b$/i',
+            '/^openai\/gpt-oss-120b$/i',
         ],
     ];
 

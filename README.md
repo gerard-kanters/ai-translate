@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.4.1
+Stable tag: 2.4.2
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -175,7 +175,7 @@ Each visitor's language preference is remembered for future visits.
 - **💡 OpenAI**: `gpt-5.4-mini` Pretty good for most languages and reasonably priced.
 - **💰 Deepseek**: `deepseek-chat` - Slower, but more cost-effective.
 - **🔧 OpenRouter**: Select google/gemini-3.1-flash-lite which has a very good price/performance ratio.
-- **💡 Groq**: Select qwen/qwen3.8-27b  Extremely fast, pretty cheap and very good in translating.
+- **💡 Groq**: Select openai/gpt-oss-120b  Extremely fast, pretty cheap and very good in translating.
 
 Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing. 
 
@@ -209,6 +209,16 @@ AI Translate requires an API key from one of the supported providers:
 ## Changelog
 
 
+
+### 2.4.2
+
+- Better: clearer messages when the provider rejects the API key (401/403), has no credit left (402/429) or limits requests, with a hint for Anthropic (Claude) as a custom API.
+- Better: checking an API and model no longer times out on slow "thinking" models, and busy providers are retried.
+- New: the plugin measures whether a model thinks while it translates and warns when it always does. Models that refuse to run without thinking (some Gemini versions) now work.
+- New: the price per million tokens is shown under the model list when the provider gives it.
+- New: a custom API keeps one API key per host (OpenRouter, Anthropic, ...), has a menu with known URLs, offers the Claude models for Anthropic and picks a sensible default model.
+- Better: thinking text some models put in the answer is removed from translations, and a saved model that is no longer offered falls back to the provider's default.
+- Models that are not text models (music, video, safety filters) are no longer offered.
 
 ### 2.4.1
 
