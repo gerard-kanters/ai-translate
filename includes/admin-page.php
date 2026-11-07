@@ -1234,6 +1234,9 @@ function register_api_settings_section()
             $api_keys = $settings['api_keys'] ?? [];
             // The saved key itself never goes into the page: show the mask when there is one
             $value = !empty($api_keys[$current_provider_key]) ? KEY_MASK : '';
+            // Not a login. An invisible dummy "username" field takes the username role, so the browser does not
+            // treat the API URL field above as one (which gave username suggestions on that field).
+            echo '<input type="text" name="ai_translate_dummy_user" value="" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">';
             echo '<input type="password" name="ai_translate_settings[api_key]" id="ai_translate_api_key" value="' . esc_attr($value) . '" class="regular-text">';
             echo ' <span id="api-key-request-link-span" style="margin-left:10px;"></span>';
         },
@@ -2674,6 +2677,21 @@ add_action('wp_ajax_ai_translate_get_custom_url', function () {
 
 
 // --- AJAX handler voor API validatie ---
+// The page asks for the background measurement of a thinking model until it is there.
+add_action('wp_ajax_ai_translate_thinking_state', function () {
+    check_ajax_referer('ai_translate_validate_api_nonce', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => __('Insufficient permissions.', 'ai-translate')]);
+    }
+    $provider = isset($_POST['api_provider']) ? sanitize_text_field(wp_unslash($_POST['api_provider'])) : '';
+    $model = isset($_POST['model']) ? trim(sanitize_text_field(wp_unslash($_POST['model']))) : '';
+    $state = AI_Translate_Core::measured_thinking_state($provider, $model);
+    wp_send_json_success([
+        'pending' => AI_Translate_Core::reasoning_probe_pending($provider, $model),
+        'always_thinking' => $state === null ? null : ($state === 'always'),
+    ]);
+});
+
 add_action('wp_ajax_ai_translate_validate_api', function () {
     check_ajax_referer('ai_translate_validate_api_nonce', 'nonce'); // Add nonce verification
     if (!current_user_can('manage_options')) {
@@ -2888,6 +2906,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         wp_send_json_success([
             'message' => __('API and model are working. API settings have been saved.', 'ai-translate'),
             'always_thinking' => $thinking_state === null ? null : ($thinking_state === 'always'),
+            'probe_pending' => AI_Translate_Core::reasoning_probe_pending((string) $provider_key, (string) $model),
         ]);
 
     } catch (\Exception $e) {

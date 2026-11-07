@@ -193,6 +193,37 @@ document.addEventListener('DOMContentLoaded', function () {
         note.style.display = 'block';
     }
 
+    // A thinking model is measured in the background: ask for the result until it is there.
+    var thinkingPollTimer = null;
+    function pollThinkingState(provider, model, attempt) {
+        clearTimeout(thinkingPollTimer);
+        if (attempt > 45 || !model) return;
+        thinkingPollTimer = setTimeout(function () {
+            var data = new FormData();
+            data.append('action', 'ai_translate_thinking_state');
+            data.append('nonce', aiTranslateAdmin.validateApiNonce);
+            data.append('api_provider', provider);
+            data.append('model', model);
+            fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: data })
+                .then(function (r) { return r.json(); })
+                .then(function (resp) {
+                    if (!resp || !resp.success || !resp.data) return;
+                    if (resp.data.always_thinking === true) {
+                        if (!Object.prototype.hasOwnProperty.call(alwaysThinkingModels, model)) {
+                            alwaysThinkingModels[model] = null;
+                        }
+                        updateThinkingWarning();
+                    } else if (resp.data.always_thinking === false) {
+                        delete alwaysThinkingModels[model];
+                        updateThinkingWarning();
+                    } else if (resp.data.pending) {
+                        pollThinkingState(provider, model, attempt + 1);
+                    }
+                })
+                .catch(function () {});
+        }, 4000);
+    }
+
     function toggleGpt5Warning() {
         var gpt5Warning = document.getElementById('openai_gpt5_warning');
         if (gpt5Warning && apiProviderSelect) {
@@ -859,6 +890,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             delete alwaysThinkingModels[payload.model];
                         }
                         updateThinkingWarning();
+                    }
+                    if (resp.data && resp.data.probe_pending) {
+                        pollThinkingState(payload.provider, payload.model, 0);
                     }
                     apiKeys[payload.provider] = payload.apiKey;
                     lastApiPayloadHash = payloadHash;

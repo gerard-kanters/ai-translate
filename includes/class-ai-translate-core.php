@@ -132,27 +132,53 @@ final class AI_Translate_Core
     /** Cron hook that measures reasoning behaviour of a thinking model in the background. */
     public const PROBE_HOOK = 'ai_translate_probe_reasoning';
 
-    /**
-     * Queue a background reasoning probe. The cron event carries no credentials: the job reads the
-     * saved API key, so nothing is queued when the key being validated is not the saved one.
-     */
-    public static function schedule_reasoning_probe(string $provider, string $apiKey, string $model): bool
+    /** @var array<int,array{0:string,1:string}> Probes requested during this request, queued once settings are saved. */
+    private static $probeRequests = [];
+
+    private static function probe_pending_key(string $provider, string $model): string
     {
-        $saved = (string) (self::settings(true)['api_keys'][$provider] ?? '');
-        if ($saved === '' || !hash_equals($saved, $apiKey) || !function_exists('wp_schedule_single_event')) {
+        return 'ai_tr_probe_pending_' . md5($provider . '|' . $model);
+    }
+
+    /** Whether a background probe for this model is queued or running (the page polls for its result). */
+    public static function reasoning_probe_pending(string $provider, string $model): bool
+    {
+        return get_transient(self::probe_pending_key($provider, $model)) !== false;
+    }
+
+    /**
+     * Ask for a background reasoning probe. It is queued at the end of the request, after the settings
+     * were saved, because the job reads the saved API key (the cron event carries no credentials).
+     */
+    public static function request_reasoning_probe(string $provider, string $model): bool
+    {
+        if (!function_exists('wp_schedule_single_event')) {
             return false;
         }
-        $args = [$provider, $model];
-        if (wp_next_scheduled(self::PROBE_HOOK, $args) !== false) {
-            return true;
+        if (self::$probeRequests === []) {
+            add_action('shutdown', [self::class, 'flush_reasoning_probes']);
         }
-        if (wp_schedule_single_event(time(), self::PROBE_HOOK, $args) === false) {
-            return false;
+        self::$probeRequests[] = [$provider, $model];
+        set_transient(self::probe_pending_key($provider, $model), 1, 10 * MINUTE_IN_SECONDS);
+        return true;
+    }
+
+    public static function flush_reasoning_probes(): void
+    {
+        $requests = self::$probeRequests;
+        self::$probeRequests = [];
+        foreach ($requests as [$provider, $model]) {
+            $saved = (string) (self::settings(true)['api_keys'][$provider] ?? '');
+            $args = [$provider, $model];
+            $queued = $saved !== '' && (wp_next_scheduled(self::PROBE_HOOK, $args) !== false
+                || wp_schedule_single_event(time(), self::PROBE_HOOK, $args) !== false);
+            if (!$queued) {
+                delete_transient(self::probe_pending_key($provider, $model));
+            }
         }
-        if (function_exists('spawn_cron')) {
+        if ($requests !== [] && function_exists('spawn_cron')) {
             spawn_cron();
         }
-        return true;
     }
 
     /** Cron callback for PROBE_HOOK. */
@@ -164,6 +190,7 @@ final class AI_Translate_Core
         $key = (string) ($settings['api_keys'][$provider] ?? '');
         $base = $provider === 'custom' ? (string) ($settings['custom_api_url'] ?? '') : self::get_api_url_for_provider($provider);
         if ($key === '' || $base === '' || $model === '') {
+            delete_transient(self::probe_pending_key($provider, $model));
             return;
         }
         if (function_exists('set_time_limit')) {
@@ -179,6 +206,7 @@ final class AI_Translate_Core
         if ($entry !== null) {
             self::remember_reasoning_params($provider, $model, $entry);
         }
+        delete_transient(self::probe_pending_key($provider, $model));
     }
 
     /**
@@ -1555,7 +1583,7 @@ final class AI_Translate_Core
                 if (
                     self::reasoning_probe_needed($provider_key, $model)
                     && !self::reasoning_probe_failed_recently($provider_key, $model)
-                    && self::schedule_reasoning_probe($provider_key, $api_key, $model)
+                    && self::request_reasoning_probe((string) $provider_key, (string) $model)
                 ) {
                     // Mark it as tried first, so a second validation does not start another probe.
                     self::note_reasoning_probe_failure($provider_key, $model);
