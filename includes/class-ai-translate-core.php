@@ -24,6 +24,30 @@ final class AI_Translate_Core
         return self::$instance;
     }
 
+    /** Lowercase host of an API URL ('' when there is none). */
+    public static function api_host(string $url): string
+    {
+        return \AITranslate\api_host($url);
+    }
+
+    /** Where the key of a provider is stored: custom APIs get one key per host. */
+    public static function api_key_slot(string $provider, string $customUrl = ''): string
+    {
+        return \AITranslate\api_key_slot($provider, $customUrl);
+    }
+
+    /** The saved API key for a provider (custom APIs: the key of the host in $customUrl or the saved URL). */
+    public static function api_key_for(array $settings, string $provider, ?string $customUrl = null): string
+    {
+        return \AITranslate\api_key_for($settings, $provider, $customUrl);
+    }
+
+    /** Store a key (custom APIs: under their host). */
+    public static function store_api_key(array &$settings, string $provider, string $key, string $customUrl = ''): void
+    {
+        \AITranslate\store_api_key($settings, $provider, $key, $customUrl);
+    }
+
     /** Models offered for Anthropic when its API gives no usable model list. First one is the default. */
     public const ANTHROPIC_FALLBACK_MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-fable-5-1'];
 
@@ -168,7 +192,7 @@ final class AI_Translate_Core
         $requests = self::$probeRequests;
         self::$probeRequests = [];
         foreach ($requests as [$provider, $model]) {
-            $saved = (string) (self::settings(true)['api_keys'][$provider] ?? '');
+            $saved = self::api_key_for(self::settings(true), $provider);
             $args = [$provider, $model];
             $queued = $saved !== '' && (wp_next_scheduled(self::PROBE_HOOK, $args) !== false
                 || wp_schedule_single_event(time(), self::PROBE_HOOK, $args) !== false);
@@ -187,7 +211,7 @@ final class AI_Translate_Core
         $provider = (string) $provider;
         $model = (string) $model;
         $settings = self::settings(true);
-        $key = (string) ($settings['api_keys'][$provider] ?? '');
+        $key = self::api_key_for($settings, $provider);
         $base = $provider === 'custom' ? (string) ($settings['custom_api_url'] ?? '') : self::get_api_url_for_provider($provider);
         if ($key === '' || $base === '' || $model === '') {
             delete_transient(self::probe_pending_key($provider, $model));
@@ -1177,7 +1201,9 @@ final class AI_Translate_Core
             $left = (int) ($entry['tokens'] ?? 0);
             return ($left > 100 && $left * 10 > $baseline) ? 'always' : 'limited';
         }
-        return $baseline > 0 ? 'always' : null;
+        // Under 20 reasoning tokens is no thinking (the probe uses the same limit): a few tokens of "reasoning"
+        // are reported by models such as Claude Fable 5, which do not think when they translate.
+        return $baseline >= 20 ? 'always' : null;
     }
 
     /**
@@ -2436,7 +2462,7 @@ final class AI_Translate_Core
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
         $model = $provider !== '' ? self::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
-        $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
+        $apiKey = $provider !== '' ? self::api_key_for($settings, $provider) : '';
 
         // Custom provider settings
         $baseUrl = self::api_base_url($provider, $settings);
@@ -2567,7 +2593,7 @@ final class AI_Translate_Core
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
         $model = $provider !== '' ? self::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
-        $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
+        $apiKey = $provider !== '' ? self::api_key_for($settings, $provider) : '';
         
         // Target language (default language of the site)
         $default_lang = isset($settings['default_language']) ? (string)$settings['default_language'] : 'en';

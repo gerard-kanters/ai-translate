@@ -26,6 +26,7 @@ require_once $includes . 'helpers.php';
 require_once $includes . 'request-path.php';
 require_once $includes . 'routing-query.php';
 require_once $includes . 'reasoning-helpers.php';
+require_once $includes . 'api-keys.php';
 require_once $includes . 'language-redirect.php';
 require_once $includes . 'catalog-strings.php';
 require_once $includes . 'class-ai-dom.php';

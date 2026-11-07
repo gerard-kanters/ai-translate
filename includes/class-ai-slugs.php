@@ -610,7 +610,7 @@ final class AI_Slugs
         // Without a translation service every slug would be stored as its source: wait until one is set up.
         $settings = AI_Translate_Core::settings();
         $provider = (string) ($settings['api_provider'] ?? '');
-        if ($provider === '' || empty($settings['models'][$provider]) || empty($settings['api_keys'][$provider])) {
+        if ($provider === '' || empty($settings['models'][$provider]) || AI_Translate_Core::api_key_for($settings, $provider) === '') {
             return;
         }
 

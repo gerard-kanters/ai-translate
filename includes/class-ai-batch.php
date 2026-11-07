@@ -34,7 +34,7 @@ final class AI_Batch
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
         $model = $provider !== '' ? AI_Translate_Core::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
-        $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
+        $apiKey = $provider !== '' ? AI_Translate_Core::api_key_for($settings, $provider) : '';
 
         if (empty($segments)) {
             return ['segments' => [], 'map' => []];
@@ -551,7 +551,7 @@ final class AI_Batch
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
         $model = $provider !== '' ? AI_Translate_Core::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
-        $apiKey = $provider !== '' ? (string) ($apiKeys[$provider] ?? '') : '';
+        $apiKey = $provider !== '' ? AI_Translate_Core::api_key_for($settings, $provider) : '';
         if ($provider === '' || $model === '' || $apiKey === '' || !class_exists('\\WpOrg\\Requests\\Requests')) {
             return 0;
         }

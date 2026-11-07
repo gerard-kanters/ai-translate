@@ -528,12 +528,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 500);
 
     // Function to update the API key field
+    // A custom API has one key per host (OpenRouter and Anthropic each keep their own).
+    function keyCacheId(provider) {
+        if (provider === 'custom' && customApiUrlInput) {
+            var host = apiHostOf(customApiUrlInput.value);
+            return host ? 'custom@' + host : 'custom';
+        }
+        return provider;
+    }
+
     function updateApiKeyField() {
         if (apiProviderSelect && apiKeyInput) {
             var selectedProvider = apiProviderSelect.value;
-            if (apiKeys[selectedProvider] !== undefined) {
+            var cacheId = keyCacheId(selectedProvider);
+            if (apiKeys[cacheId] !== undefined) {
                 // Use runtime cache if already fetched this session
-                apiKeyInput.value = apiKeys[selectedProvider];
+                apiKeyInput.value = apiKeys[cacheId];
                 updateModelField();
             } else {
                 // Fetch from server via AJAX (key never in page source)
@@ -544,6 +554,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 data.append('action', 'ai_translate_get_api_key');
                 data.append('nonce', aiTranslateAdmin.getApiKeyNonce || '');
                 data.append('provider', selectedProvider);
+                if (selectedProvider === 'custom' && customApiUrlInput) {
+                    data.append('custom_api_url_value', customApiUrlInput.value);
+                }
                 fetch(aiTranslateAdmin.ajaxUrl || ajaxurl, {
                     method: 'POST',
                     credentials: 'same-origin',
@@ -553,15 +566,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(function (resp) {
                         if (resp && resp.success && resp.data && resp.data.api_key !== undefined) {
                             var key = resp.data.api_key;
-                            apiKeys[selectedProvider] = key;
-                            if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
+                            apiKeys[cacheId] = key;
+                            if (apiProviderSelect && apiProviderSelect.value === selectedProvider && keyCacheId(selectedProvider) === cacheId && apiKeyInput) {
                                 apiKeyInput.value = key;
                                 // Reload models now that the key is available
                                 updateModelField();
                             }
                         } else {
-                            apiKeys[selectedProvider] = '';
-                            if (apiProviderSelect && apiProviderSelect.value === selectedProvider && apiKeyInput) {
+                            apiKeys[cacheId] = '';
+                            if (apiProviderSelect && apiProviderSelect.value === selectedProvider && keyCacheId(selectedProvider) === cacheId && apiKeyInput) {
                                 apiKeyInput.value = '';
                                 updateModelField();
                             }
@@ -906,7 +919,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (resp.data && resp.data.probe_pending) {
                         pollThinkingState(payload.provider, payload.model, 0);
                     }
-                    apiKeys[payload.provider] = payload.apiKey;
+                    apiKeys[keyCacheId(payload.provider)] = payload.apiKey;
                     lastApiPayloadHash = payloadHash;
                     if (!silent) {
                         setApiStatus(aiTranslateAdmin.strings.validationSaved || 'Connection and model OK. API settings saved.', 'success');
@@ -992,7 +1005,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         alwaysThinkingModels = {};
         updateThinkingWarning();
-        loadModelsForProvider('custom', '');
+        // The new host has its own key: fetch it (shows nothing when there is none), then load the models.
+        updateApiKeyField();
     }
 
     if (customApiUrlInput) {

@@ -12,17 +12,17 @@ if (! defined('ABSPATH')) {
  *
  * @param string $provider Provider key.
  * @param string $posted   Value of the api_key field in the request.
+ * @param string|null $custom_url Custom API URL the key belongs to (custom provider only).
  * @return string
  */
-function resolve_posted_api_key($provider, $posted)
+function resolve_posted_api_key($provider, $posted, $custom_url = null)
 {
     $posted = (string) $posted;
     if ($posted !== '' && $posted !== KEY_MASK) {
         return $posted;
     }
-    $settings = AI_Translate_Core::settings();
-    $api_keys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
-    return (string) ($api_keys[(string) $provider] ?? '');
+    $custom_url = ($custom_url === null || $custom_url === '') ? null : (string) $custom_url;
+    return AI_Translate_Core::api_key_for(AI_Translate_Core::settings(), (string) $provider, $custom_url);
 }
 
 // Load the core class if it doesn't exist yet.
@@ -1244,7 +1244,7 @@ function register_api_settings_section()
             // Haal de API-sleutel op uit de nieuwe 'api_keys' array
             $api_keys = $settings['api_keys'] ?? [];
             // The saved key itself never goes into the page: show the mask when there is one
-            $value = !empty($api_keys[$current_provider_key]) ? KEY_MASK : '';
+            $value = AI_Translate_Core::api_key_for($settings, (string) $current_provider_key) !== '' ? KEY_MASK : '';
             // Not a login. An invisible dummy "username" field takes the username role, so the browser does not
             // treat the API URL field above as one (which gave username suggestions on that field).
             echo '<input type="text" name="ai_translate_dummy_user" value="" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">';
@@ -2491,9 +2491,9 @@ add_action('wp_ajax_ai_translate_get_api_key', function () {
         wp_send_json_error(['message' => __('Provider missing.', 'ai-translate')]);
     }
     $settings = AI_Translate_Core::settings();
-    $api_keys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
+    $key_url = isset($_POST['custom_api_url_value']) ? esc_url_raw(trim(sanitize_text_field(wp_unslash($_POST['custom_api_url_value'])))) : null;
     // Only say whether a key exists: the page shows the mask and the server uses the stored key.
-    $has_key = isset($api_keys[$provider]) && (string) $api_keys[$provider] !== '';
+    $has_key = AI_Translate_Core::api_key_for($settings, $provider, $key_url) !== '';
     wp_send_json_success(['api_key' => $has_key ? KEY_MASK : '']);
 });
 
@@ -2532,7 +2532,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         }
     }
 
-    $api_key = resolve_posted_api_key($provider_key, $api_key);
+    $api_key = resolve_posted_api_key($provider_key, $api_key, $provider_key === 'custom' ? $api_url : null);
     if (empty($api_url) || empty($api_key)) {
         wp_send_json_error(['message' => __('API Provider, API Key or Custom API URL is missing or invalid.', 'ai-translate')]);
         return;
@@ -2721,8 +2721,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
         $provider_key = $settings['api_provider'] ?? '';
         if ($provider_key !== '') {
             if (empty($api_key)) {
-                $api_keys = $settings['api_keys'] ?? [];
-                $api_key = $api_keys[$provider_key] ?? '';
+                $api_key = AI_Translate_Core::api_key_for($settings, (string) $provider_key, $custom_api_url_value !== '' ? $custom_api_url_value : null);
             }
             if (empty($model)) { $model = $settings['selected_model'] ?? ''; }
             if (empty($custom_api_url_value)) { $custom_api_url_value = $settings['custom_api_url'] ?? ''; }
@@ -2731,7 +2730,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
     if (empty($provider_key)) {
         wp_send_json_error(['message' => __('API provider is missing.', 'ai-translate')]);
     }
-    $api_key = resolve_posted_api_key($provider_key, $api_key);
+    $api_key = resolve_posted_api_key($provider_key, $api_key, $provider_key === 'custom' ? $custom_api_url_value : null);
     if (empty($api_key)) {
         wp_send_json_error(['message' => __('API key is missing.', 'ai-translate')]);
     }
@@ -2765,7 +2764,7 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
             }
 
             // Update alleen de API-gerelateerde velden
-            $updated_settings['api_keys'][$provider_key] = $api_key;
+            AI_Translate_Core::store_api_key($updated_settings, (string) $provider_key, (string) $api_key, (string) $custom_api_url_value);
             $updated_settings['api_provider'] = $provider_key;
             $updated_settings['selected_model'] = $model;
 

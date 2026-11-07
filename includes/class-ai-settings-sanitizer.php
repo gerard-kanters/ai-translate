@@ -236,7 +236,14 @@ final class AI_Settings_Sanitizer
             return;
         }
         $key = trim(sanitize_text_field($input['api_key']));
-        $s['api_keys'][$provider] = $key;
+        // A custom API keeps one key per host: the key belongs to the URL being saved.
+        $keyStore = [
+            'api_keys' => isset($s['api_keys']) && is_array($s['api_keys']) ? $s['api_keys'] : (isset($current['api_keys']) && is_array($current['api_keys']) ? $current['api_keys'] : []),
+            'custom_api_url' => (string) ($current['custom_api_url'] ?? ''),
+        ];
+        $newUrl = isset($input['custom_api_url']) ? (string) $input['custom_api_url'] : (string) ($current['custom_api_url'] ?? '');
+        store_api_key($keyStore, (string) $provider, $key, $newUrl);
+        $s['api_keys'] = $keyStore['api_keys'];
         if ($key === '') {
             self::error('api_key_missing', __('API key is required for the selected provider.', 'ai-translate'));
         }
