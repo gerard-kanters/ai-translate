@@ -529,9 +529,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Function to update the API key field
     // A custom API has one key per host (OpenRouter and Anthropic each keep their own).
-    function keyCacheId(provider) {
+    function keyCacheId(provider, url) {
         if (provider === 'custom' && customApiUrlInput) {
-            var host = apiHostOf(customApiUrlInput.value);
+            var host = apiHostOf(url !== undefined ? url : customApiUrlInput.value);
             return host ? 'custom@' + host : 'custom';
         }
         return provider;
@@ -904,6 +904,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 return response.json();
             })
             .then(function (resp) {
+                // The answer belongs to another provider, host or model than the page shows now: ignore it.
+                if (apiProviderSelect && apiProviderSelect.value !== payload.provider) {
+                    return;
+                }
+                if (payload.provider === 'custom' && apiHostOf(payload.apiUrl) !== apiHostOf(customApiUrlInput ? customApiUrlInput.value : '')) {
+                    return;
+                }
                 if (resp.success) {
                     // A measurement for this model overrides what the model list suggested
                     if (resp.data && typeof resp.data.always_thinking === 'boolean') {
@@ -919,7 +926,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (resp.data && resp.data.probe_pending) {
                         pollThinkingState(payload.provider, payload.model, 0);
                     }
-                    apiKeys[keyCacheId(payload.provider)] = payload.apiKey;
+                    // Cache the key under the host it was validated for: the URL field may have changed while the check ran.
+                    apiKeys[keyCacheId(payload.provider, payload.apiUrl)] = payload.apiKey;
                     lastApiPayloadHash = payloadHash;
                     if (!silent) {
                         setApiStatus(aiTranslateAdmin.strings.validationSaved || 'Connection and model OK. API settings saved.', 'success');

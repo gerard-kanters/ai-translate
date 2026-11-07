@@ -1248,7 +1248,7 @@ function register_api_settings_section()
             // Not a login. An invisible dummy "username" field takes the username role, so the browser does not
             // treat the API URL field above as one (which gave username suggestions on that field).
             echo '<input type="text" name="ai_translate_dummy_user" value="" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">';
-            echo '<input type="password" name="ai_translate_settings[api_key]" id="ai_translate_api_key" value="' . esc_attr($value) . '" class="regular-text" autocomplete="off" data-lpignore="true" data-1p-ignore="true">';
+            echo '<input type="password" name="ai_translate_settings[api_key]" id="ai_translate_api_key" value="' . esc_attr($value) . '" class="regular-text" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true">';
             echo ' <span id="api-key-request-link-span" style="margin-left:10px;"></span>';
         },
         'ai-translate',
