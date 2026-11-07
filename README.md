@@ -9,7 +9,7 @@ License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
 Plugin homepage: [https://wordpress.org/plugins/ai-translate](https://wordpress.org/plugins/ai-translate)
 
-Translate your WordPress site into any language. The plugin is free; you only pay your AI provider for the tokens you use. Fast caching, SEO-friendly, automatic browser language detection.
+Translate your WordPress site into any language with the AI model of your choice. Free plugin, you only pay for tokens. Fast, SEO-friendly.
 
 ## Description
 
