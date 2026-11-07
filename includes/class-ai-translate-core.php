@@ -47,15 +47,45 @@ final class AI_Translate_Core
      * @param int          $timeout Request timeout in seconds.
      * @return array|\WP_Error
      */
-    public static function remote_api_post(string $endpoint, array $headers, $body, int $timeout = 45)
+    public static function remote_api_post(string $endpoint, array $headers, $body, int $timeout = 45, bool $adaptReasoning = true)
     {
-        return wp_remote_post($endpoint, [
-            'headers' => $headers,
-            'timeout' => $timeout,
-            'connect_timeout' => min(10, max(1, $timeout)),
-            'sslverify' => true,
-            'body' => is_string($body) ? $body : wp_json_encode($body),
-        ]);
+        $send = static function ($payload) use ($endpoint, $headers, $timeout) {
+            return wp_remote_post($endpoint, [
+                'headers' => $headers,
+                'timeout' => $timeout,
+                'connect_timeout' => min(10, max(1, $timeout)),
+                'sslverify' => true,
+                'body' => is_string($payload) ? $payload : wp_json_encode($payload),
+            ]);
+        };
+        $resp = $send($body);
+        if (!$adaptReasoning || is_wp_error($resp) || (int) wp_remote_retrieve_response_code($resp) !== 400) {
+            return $resp;
+        }
+        // Some models (e.g. Gemini via OpenRouter) cannot switch thinking off. Retry once with the
+        // lowest effort the model accepts and remember it, so the next request is right at once.
+        $text = (string) wp_remote_retrieve_body($resp);
+        if (!\AITranslate\is_mandatory_reasoning_error($text)) {
+            return $resp;
+        }
+        $data = is_string($body) ? json_decode($body, true) : $body;
+        if (!is_array($data)) {
+            return $resp;
+        }
+        $adapted = \AITranslate\mandatory_reasoning_retry($data);
+        if ($adapted === null) {
+            return $resp;
+        }
+        [$data, $learned] = $adapted;
+        $retry = $send($data);
+        if (!is_wp_error($retry) && (int) wp_remote_retrieve_response_code($retry) === 200 && $learned !== []) {
+            $provider = (string) (self::settings()['api_provider'] ?? '');
+            $model = (string) ($data['model'] ?? '');
+            if ($provider !== '' && $model !== '') {
+                self::remember_reasoning_params($provider, $model, ['params' => $learned, 'v' => self::REASONING_PROBE_VERSION, 'mandatory' => true]);
+            }
+        }
+        return $retry;
     }
 
     /**
@@ -330,9 +360,9 @@ final class AI_Translate_Core
                     return false;
                 }
             }
-            // OpenRouter: account/policy, harness-only, region, apply-tools, broken chat IDs.
+            // OpenRouter: account/policy, harness-only, region, apply-tools, broken chat IDs, media/stealth/tool models.
             if ($provider === 'openrouter') {
-                if (preg_match('/muse-spark|(?:^|\/)sakana\/|relace-apply|thinkingmachines\/inkling(?:-small)?:free/i', $model)) {
+                if (preg_match('/muse-spark|(?:^|\/)sakana\/|relace-apply|thinkingmachines\/inkling(?:-small)?:free|lyria|gemini-omni|nano-banana|bodybuilder|scaledown|^stealth\/|ripple-65b|prompt-guard/i', $model)) {
                     return false;
                 }
                 static $openrouterDrop = [
@@ -400,6 +430,10 @@ final class AI_Translate_Core
                 if (isset($openrouterDrop[$model])) {
                     return false;
                 }
+            }
+            // Groq: safety classifiers (not chat models) and a model that writes its thinking into the text.
+            if ($provider === 'groq' && preg_match('/prompt-guard|safeguard|^qwen\/qwen3\.6-27b$/i', $model)) {
+                return false;
             }
             // DeepInfra: full-context default max_tokens, or chat test timed out at 20s.
             if ($provider === 'deepinfra') {
@@ -610,19 +644,21 @@ final class AI_Translate_Core
         if ($provider === '' || $model === '') {
             return;
         }
-        $settings = self::settings(true);
-        if (($settings['temperature_supported'][$provider][$model] ?? null) === $supported) {
-            return;
-        }
-        if (!isset($settings['temperature_supported']) || !is_array($settings['temperature_supported'])) {
-            $settings['temperature_supported'] = [];
-        }
-        if (!isset($settings['temperature_supported'][$provider]) || !is_array($settings['temperature_supported'][$provider])) {
-            $settings['temperature_supported'][$provider] = [];
-        }
-        $settings['temperature_supported'][$provider][$model] = $supported;
-        update_option('ai_translate_settings', $settings);
-        self::settings(true);
+        self::with_settings_lock(static function () use ($provider, $model, $supported) {
+            $settings = self::settings(true);
+            if (($settings['temperature_supported'][$provider][$model] ?? null) === $supported) {
+                return;
+            }
+            if (!isset($settings['temperature_supported']) || !is_array($settings['temperature_supported'])) {
+                $settings['temperature_supported'] = [];
+            }
+            if (!isset($settings['temperature_supported'][$provider]) || !is_array($settings['temperature_supported'][$provider])) {
+                $settings['temperature_supported'][$provider] = [];
+            }
+            $settings['temperature_supported'][$provider][$model] = $supported;
+            update_option('ai_translate_settings', $settings);
+            self::settings(true);
+        });
     }
 
     /** Bump when the probe changes in a way that makes earlier results worth measuring again. */
@@ -711,7 +747,7 @@ final class AI_Translate_Core
             if ($isResponses) {
                 $body = self::convert_body_to_responses($body);
             }
-            $resp = self::remote_api_post($endpoint, $headers, $body, $timeout);
+            $resp = self::remote_api_post($endpoint, $headers, $body, $timeout, false);
             if (is_wp_error($resp) || (int) wp_remote_retrieve_response_code($resp) !== 200) {
                 return null;
             }
@@ -721,6 +757,11 @@ final class AI_Translate_Core
         // The baseline is the slow one: a model that thinks hard can need half a minute.
         $baselineData = $send([], 40);
         if ($baselineData === null) {
+            // One failed request is often a busy moment at the provider: try once more before giving up.
+            sleep(2);
+            $baselineData = $send([], 40);
+        }
+        if ($baselineData === null) {
             return null; // the request failed: nothing was measured, so try again next time
         }
         $baseline = self::extract_reasoning_tokens($baselineData);
@@ -728,8 +769,11 @@ final class AI_Translate_Core
             // Measured: this model does not think (or the provider does not say). Remember that.
             return ['params' => [], 'baseline_tokens' => (int) $baseline, 'tokens' => (int) $baseline, 'v' => self::REASONING_PROBE_VERSION];
         }
+        $budgetSpent = false;
+        $best = null; // the candidate that lowered the reasoning most, kept in case none reaches a fifth
         foreach (self::REASONING_PROBE_CANDIDATES as $candidate) {
-            if (microtime(true) - $start > 45) {
+            if (microtime(true) - $start > 100) { // under the 150 s limit set above
+                $budgetSpent = true;
                 break;
             }
             $data = $send($candidate);
@@ -745,6 +789,19 @@ final class AI_Translate_Core
             if ($tokens !== null && $tokens <= max(2, intdiv($baseline, 5))) {
                 return ['params' => $candidate, 'baseline_tokens' => $baseline, 'tokens' => $tokens, 'v' => self::REASONING_PROBE_VERSION];
             }
+            if ($tokens !== null && ($best === null || $tokens < $best['tokens'])) {
+                $best = ['params' => $candidate, 'baseline_tokens' => $baseline, 'tokens' => $tokens, 'v' => self::REASONING_PROBE_VERSION];
+            }
+        }
+        // No candidate reached a fifth, but one cut the reasoning by at least 60%: that is still a switch
+        // worth using (a model such as gpt-oss-120b on Groq only goes from ~300 to ~70 tokens at 'low').
+        if ($best !== null && $best['tokens'] <= intdiv($baseline * 2, 5)) {
+            return $best;
+        }
+        if ($budgetSpent) {
+            // Not every candidate was tried (a slow baseline used up the time), so "nothing helped"
+            // would be a guess: report that nothing was measured and try again later.
+            return null;
         }
         // It thinks, but no parameter set helped. Remember that too; the name-based guesses still apply.
         return ['params' => [], 'baseline_tokens' => $baseline, 'tokens' => $baseline, 'v' => self::REASONING_PROBE_VERSION];
@@ -782,6 +839,41 @@ final class AI_Translate_Core
     }
 
     /**
+     * Run a read-modify-write of the settings option while holding a short lock.
+     *
+     * Probe results are written from several requests at once (validations and background
+     * probes). Without a lock each one reads the whole option, adds its own entry and writes it
+     * back, so a slower request overwrites the entries of the others.
+     *
+     * @param callable $callback Receives nothing; reads settings(true) itself and writes.
+     * @return void
+     */
+    private static function with_settings_lock(callable $callback): void
+    {
+        $lock = 'ai_translate_settings_lock';
+        $held = false;
+        for ($i = 0; $i < 100; $i++) {
+            if (add_option($lock, (string) time(), '', 'no')) {
+                $held = true;
+                break;
+            }
+            // A lock older than 30 seconds belongs to a request that died.
+            if (time() - (int) get_option($lock, 0) > 30) {
+                delete_option($lock);
+                continue;
+            }
+            usleep(100000);
+        }
+        try {
+            $callback();
+        } finally {
+            if ($held) {
+                delete_option($lock);
+            }
+        }
+    }
+
+    /**
      * Store (or, with null, forget) the reasoning parameters found for a model.
      *
      * @param string     $provider Provider key.
@@ -794,24 +886,26 @@ final class AI_Translate_Core
         if ($provider === '' || $model === '') {
             return;
         }
-        $settings = self::settings(true);
-        $current = $settings['reasoning_params'][$provider][$model] ?? null;
-        if ($current === $entry) {
-            return;
-        }
-        if (!isset($settings['reasoning_params']) || !is_array($settings['reasoning_params'])) {
-            $settings['reasoning_params'] = [];
-        }
-        if (!isset($settings['reasoning_params'][$provider]) || !is_array($settings['reasoning_params'][$provider])) {
-            $settings['reasoning_params'][$provider] = [];
-        }
-        if ($entry === null) {
-            unset($settings['reasoning_params'][$provider][$model]);
-        } else {
-            $settings['reasoning_params'][$provider][$model] = $entry;
-        }
-        update_option('ai_translate_settings', $settings);
-        self::settings(true);
+        self::with_settings_lock(static function () use ($provider, $model, $entry) {
+            $settings = self::settings(true);
+            $current = $settings['reasoning_params'][$provider][$model] ?? null;
+            if ($current === $entry) {
+                return;
+            }
+            if (!isset($settings['reasoning_params']) || !is_array($settings['reasoning_params'])) {
+                $settings['reasoning_params'] = [];
+            }
+            if (!isset($settings['reasoning_params'][$provider]) || !is_array($settings['reasoning_params'][$provider])) {
+                $settings['reasoning_params'][$provider] = [];
+            }
+            if ($entry === null) {
+                unset($settings['reasoning_params'][$provider][$model]);
+            } else {
+                $settings['reasoning_params'][$provider][$model] = $entry;
+            }
+            update_option('ai_translate_settings', $settings);
+            self::settings(true);
+        });
     }
 
     /**
@@ -912,7 +1006,7 @@ final class AI_Translate_Core
         }
         // Standard chat/completions format
         if (isset($data['choices'][0]['message']['content'])) {
-            return (string) $data['choices'][0]['message']['content'];
+            return \AITranslate\strip_thinking_blocks((string) $data['choices'][0]['message']['content']);
         }
         // Responses API format
         if (isset($data['output']) && is_array($data['output'])) {
@@ -923,19 +1017,187 @@ final class AI_Translate_Core
                 ) {
                     foreach ($output['content'] as $item) {
                         if (isset($item['type']) && $item['type'] === 'output_text' && isset($item['text'])) {
-                            return (string) $item['text'];
+                            return \AITranslate\strip_thinking_blocks((string) $item['text']);
                         }
                     }
                 }
             }
         }
         if (isset($data['output_text'])) {
-            return (string) $data['output_text'];
+            return \AITranslate\strip_thinking_blocks((string) $data['output_text']);
         }
         return null;
     }
 
     // ── End Responses API helpers ────────────────────────────────────────
+
+    /**
+     * What the activation probe measured for a model: 'limited' when a parameter switches (most of)
+     * its thinking off, 'always' when thinking was measured and nothing helped, null when unknown.
+     *
+     * @param string $provider Provider key.
+     * @param string $model    Model ID.
+     * @return string|null
+     */
+    public static function measured_thinking_state(string $provider, string $model): ?string
+    {
+        $entry = self::settings()['reasoning_params'][$provider][$model] ?? null;
+        if (!is_array($entry)) {
+            return null;
+        }
+        if (!empty($entry['params'])) {
+            return 'limited';
+        }
+        return ((int) ($entry['baseline_tokens'] ?? 0)) > 0 ? 'always' : null;
+    }
+
+    /**
+     * Read from the provider's model list whether a model thinks, and whether that can be limited.
+     *
+     * DeepInfra tags models "reasoning" and, when an effort parameter works, "reasoning_effort".
+     * OpenRouter lists "reasoning" / "reasoning_effort" / "include_reasoning" in supported_parameters.
+     * Other providers give no such data.
+     *
+     * @param string     $provider  Provider key.
+     * @param array|null $modelData Row of the model from the /models response.
+     * @return array{thinks:bool,can_limit:bool}|null Null when the list does not say.
+     */
+    public static function model_thinking_hint(string $provider, $modelData): ?array
+    {
+        if (!is_array($modelData)) {
+            return null;
+        }
+        if ($provider === 'deepinfra' && isset($modelData['metadata']['tags']) && is_array($modelData['metadata']['tags'])) {
+            $tags = $modelData['metadata']['tags'];
+            return [
+                'thinks' => in_array('reasoning', $tags, true) || in_array('reasoning_effort', $tags, true),
+                'can_limit' => in_array('reasoning_effort', $tags, true),
+            ];
+        }
+        if ($provider === 'openrouter' && isset($modelData['supported_parameters']) && is_array($modelData['supported_parameters'])) {
+            $params = $modelData['supported_parameters'];
+            $effort = in_array('reasoning_effort', $params, true);
+            return [
+                'thinks' => $effort || in_array('reasoning', $params, true) || in_array('include_reasoning', $params, true),
+                'can_limit' => $effort,
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * Start a streaming chat request and stop as soon as the provider has accepted it.
+     *
+     * Returns an array shaped like a wp_remote_* response, so wp_remote_retrieve_* work on it.
+     * HTTP 200 means key, model and balance were accepted. Error statuses keep their body.
+     *
+     * @param string $endpoint Full chat/completions or /responses URL.
+     * @param array  $headers  Request headers.
+     * @param array  $body     Request body (stream is switched on here).
+     * @param int    $timeout  Seconds to wait for the provider to answer at all.
+     * @return array|\WP_Error
+     */
+    private static function stream_start_probe(string $endpoint, array $headers, array $body, int $timeout = 30)
+    {
+        $body['stream'] = true;
+        $lines = [];
+        foreach ($headers as $name => $value) {
+            $lines[] = $name . ': ' . $value;
+        }
+        $code = 0;
+        $buffer = '';
+        $ch = curl_init($endpoint);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => wp_json_encode($body),
+            CURLOPT_HTTPHEADER => $lines,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_HEADERFUNCTION => static function ($handle, $line) use (&$code) {
+                if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
+                    $code = (int) $m[1];
+                }
+                return strlen($line);
+            },
+            CURLOPT_WRITEFUNCTION => static function ($handle, $data) use (&$code, &$buffer) {
+                if ($code === 200) {
+                    return 0; // accepted: stop reading, the answer itself is not needed
+                }
+                $buffer .= $data;
+                return strlen($data);
+            },
+        ]);
+        curl_exec($ch);
+        $errno = curl_errno($ch);
+        $error = curl_error($ch);
+        if ($code === 0) {
+            return new \WP_Error('http_request_failed', $error !== '' ? $error : 'cURL error ' . $errno);
+        }
+        return ['response' => ['code' => $code], 'body' => $buffer];
+    }
+
+    /**
+     * Whether a chat test result is worth another try: a timeout, or a busy/overloaded provider.
+     *
+     * @param array|\WP_Error $resp Result of the request.
+     * @return bool
+     */
+    private static function is_transient_failure($resp): bool
+    {
+        if (is_wp_error($resp)) {
+            return stripos($resp->get_error_message(), 'timed out') !== false;
+        }
+        return self::is_transient_busy_response($resp);
+    }
+
+    /**
+     * Whether a response is a temporary capacity problem (busy model, overloaded provider)
+     * rather than a bad key or an empty balance.
+     *
+     * @param array $resp Response from wp_remote_*.
+     * @return bool
+     */
+    private static function is_transient_busy_response($resp): bool
+    {
+        $code = (int) wp_remote_retrieve_response_code($resp);
+        if (in_array($code, [502, 503, 504], true)) {
+            return true;
+        }
+        if ($code !== 429) {
+            return false;
+        }
+        $h = strtolower((string) wp_remote_retrieve_body($resp));
+        foreach (['credit', 'quota', 'billing', 'insufficient'] as $needle) {
+            if (strpos($h, $needle) !== false) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Turn a failed chat test into a message that tells the user what to do.
+     *
+     * @param int    $code         HTTP status of the chat test.
+     * @param string $detail       Error message returned by the provider.
+     * @param string $provider_key Provider key.
+     * @return string
+     */
+    private static function friendly_chat_test_error(int $code, string $detail, string $provider_key): string
+    {
+        $raw = sprintf('Chat test failed (HTTP %d): %s', $code, $detail);
+        $haystack = strtolower($detail);
+        if ($code === 401 || $code === 403) {
+            return $raw . ' — ' . __('The provider rejected the API key. Check that the key is complete (no missing or extra characters), that it belongs to the selected provider, and that it has not been deleted or revoked.', 'ai-translate');
+        }
+        if ($code === 402 || ($code === 429 && (strpos($haystack, 'credit') !== false || strpos($haystack, 'quota') !== false || strpos($haystack, 'billing') !== false || strpos($haystack, 'insufficient') !== false))) {
+            return $raw . ' — ' . __('The API key is valid, but the account has no credit left. Add credit or a payment method at your provider (API credit is separate from a chat subscription such as ChatGPT Plus) and try again.', 'ai-translate');
+        }
+        if ($code === 429) {
+            return $raw . ' — ' . __('The provider is rate limiting requests. Wait a moment and try again.', 'ai-translate');
+        }
+        return $raw;
+    }
 
     /**
      * Validate API settings by performing a light request to the provider.
@@ -1043,8 +1305,51 @@ final class AI_Translate_Core
             $chatBody = self::adjust_body_for_model($chatBody, $model, $provider_key);
             if ($endpointPath === '/responses') {
                 $chatBody = self::convert_body_to_responses($chatBody);
+            } elseif ($provider_key !== 'openai') {
+                // The test only has to prove the key and model work. Without a cap, gateways such as
+                // DeepInfra default to the full context and a thinking model can exceed the timeout.
+                // OpenAI is skipped: its newer models reject max_tokens.
+                $chatBody['max_tokens'] = 64;
             }
-            $chatResp = self::remote_api_post($chatEndpoint, $chatHeaders, $chatBody, 20);
+            // A model the provider lists as thinking can need longer before the first byte.
+            $thinkingHint = self::model_thinking_hint((string) $provider_key, $modelData ?? null);
+            // A thinking model can sit in the provider's queue for a long time before it produces a
+            // token, so a full answer is no proof of anything. Open a streaming request instead: the
+            // provider answers 401/404/429 at once for a bad key, model or balance, and 200 once it
+            // accepts the request. That is all the validation needs.
+            $useStream = $thinkingHint !== null && $thinkingHint['thinks'] && function_exists('curl_init');
+            $chatTimeout = 20;
+            $chatResp = $useStream
+                ? self::stream_start_probe($chatEndpoint, $chatHeaders, $chatBody, 30)
+                : self::remote_api_post($chatEndpoint, $chatHeaders, $chatBody, $chatTimeout);
+            // Providers such as DeepInfra answer 429 "Model busy" or 503 while a model is briefly
+            // at capacity, and a busy provider can time out. Retry twice with a short pause before reporting a failure.
+            for ($attempt = 1; $attempt <= 2 && self::is_transient_failure($chatResp); $attempt++) {
+                sleep($attempt * 2);
+                $chatResp = $useStream
+                    ? self::stream_start_probe($chatEndpoint, $chatHeaders, $chatBody, 30)
+                    : self::remote_api_post($chatEndpoint, $chatHeaders, $chatBody, $chatTimeout);
+            }
+            // Models such as some Gemini versions refuse "thinking off": retry with the lowest effort.
+            if (!is_wp_error($chatResp) && (int) wp_remote_retrieve_response_code($chatResp) === 400
+                && \AITranslate\is_mandatory_reasoning_error((string) wp_remote_retrieve_body($chatResp))
+            ) {
+                $adapted = \AITranslate\mandatory_reasoning_retry($chatBody);
+                if ($adapted !== null) {
+                    $retryResp = $useStream
+                        ? self::stream_start_probe($chatEndpoint, $chatHeaders, $adapted[0], 30)
+                        : self::remote_api_post($chatEndpoint, $chatHeaders, $adapted[0], $chatTimeout, false);
+                    if (!is_wp_error($retryResp) && (int) wp_remote_retrieve_response_code($retryResp) === 200) {
+                        $chatBody = $adapted[0];
+                        $chatResp = $retryResp;
+                        self::remember_reasoning_params((string) $provider_key, (string) $model, [
+                            'params' => $adapted[1],
+                            'v' => self::REASONING_PROBE_VERSION,
+                            'mandatory' => true,
+                        ]);
+                    }
+                }
+            }
             if (is_wp_error($chatResp)) {
                 throw new \Exception(esc_html('Chat test failed: ' . $chatResp->get_error_message()));
             }
@@ -1111,11 +1416,11 @@ final class AI_Translate_Core
                             $chatErrorMessage = $chatErrorData['error']['message'];
                         }
                         $detail = $chatErrorMessage !== '' ? $chatErrorMessage : substr($chatBodyText, 0, 500);
-                        throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . $detail);
+                        throw new \Exception(esc_html(self::friendly_chat_test_error((int) $chatCode, (string) $detail, (string) $provider_key)));
                     }
                 } else {
                     $detail = $chatErrorMessage !== '' ? $chatErrorMessage : substr($chatBodyText, 0, 500);
-                    throw new \Exception('Chat test failed (HTTP ' . $chatCode . '): ' . $detail);
+                    throw new \Exception(esc_html(self::friendly_chat_test_error((int) $chatCode, (string) $detail, (string) $provider_key)));
                 }
             }
 
@@ -1135,8 +1440,10 @@ final class AI_Translate_Core
             $tempBody['temperature'] = 0;
             if (substr($chatEndpoint, -10) === '/responses') {
                 $tempBody = self::convert_body_to_responses($tempBody);
+            } elseif ($provider_key !== 'openai') {
+                $tempBody['max_tokens'] = 64;
             }
-            $tempResp = is_bool($knownTemperature) ? null : self::remote_api_post($chatEndpoint, $chatHeaders, $tempBody, 20);
+            $tempResp = (is_bool($knownTemperature) || !empty($useStream)) ? null : self::remote_api_post($chatEndpoint, $chatHeaders, $tempBody, 20);
             if (is_bool($knownTemperature)) {
                 $temperatureSupported = $knownTemperature;
             } elseif ($tempResp !== null && !is_wp_error($tempResp)) {
@@ -1155,7 +1462,36 @@ final class AI_Translate_Core
             // stops that. Best effort: a failed probe never fails activation.
             // Only the first time for a model: this runs every time the settings page opens.
             $reasoningEntry = null;
-            if (self::reasoning_probe_needed($provider_key, $model) && !self::reasoning_probe_failed_recently($provider_key, $model)) {
+            // The model list already says this model does not think: nothing to measure. A thinking model is
+            // still measured, because the list does not show every parameter that can switch thinking off.
+            $skipProbe = $thinkingHint !== null && !$thinkingHint['thinks'];
+            // Measuring a thinking model (the probe tries parameter sets until one works) can take minutes. Do it after the answer has been sent, so the
+            // settings page does not wait. Without fastcgi_finish_request it cannot run unnoticed.
+            if (!$skipProbe && $thinkingHint !== null && $thinkingHint['thinks']) {
+                if (
+                    function_exists('fastcgi_finish_request')
+                    && self::reasoning_probe_needed($provider_key, $model)
+                    && !self::reasoning_probe_failed_recently($provider_key, $model)
+                ) {
+                    // Mark it as tried first, so a second validation does not start another probe.
+                    self::note_reasoning_probe_failure($provider_key, $model);
+                    $probeEndpoint = $chatEndpoint;
+                    $probeHeaders = $chatHeaders;
+                    add_action('shutdown', static function () use ($probeEndpoint, $probeHeaders, $model, $provider_key) {
+                        fastcgi_finish_request();
+                        try {
+                            $entry = self::probe_reasoning_params($probeEndpoint, $probeHeaders, (string) $model);
+                        } catch (\Throwable $e) {
+                            $entry = null;
+                        }
+                        if ($entry !== null) {
+                            self::remember_reasoning_params((string) $provider_key, (string) $model, $entry);
+                        }
+                    });
+                }
+                $skipProbe = true;
+            }
+            if (!$skipProbe && self::reasoning_probe_needed($provider_key, $model) && !self::reasoning_probe_failed_recently($provider_key, $model)) {
                 try {
                     $reasoningEntry = self::probe_reasoning_params($chatEndpoint, $chatHeaders, $model);
                 } catch (\Throwable $e) {
@@ -2257,4 +2593,4 @@ final class AI_Translate_Core
         // If AI is configured but failed, throw exception instead of using fallback
         throw new \Exception('AI generation failed but no error was caught');
     }
-}
+}

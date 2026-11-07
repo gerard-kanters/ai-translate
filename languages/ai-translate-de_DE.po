@@ -583,14 +583,9 @@ msgstr ""
 "wird der niedrigste unterstützte Aufwand verwendet), damit Übersetzungen "
 "schnell und günstig bleiben."
 
-#. translators: %s: string value
-#: includes/admin-page.php:1498
-msgid ""
-"Enter the base URL of your API provider. The plugin appends /chat/"
-"completions automatically. Example for OpenRouter: %s"
-msgstr ""
-"Geben Sie die Basis-URL Ihres API-Anbieters ein. Das Plugin hängt /chat/"
-"completions automatisch an. Beispiel für OpenRouter: %s"
+#, php-format
+msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
+msgstr "Gib die Basis-URL deines API-Anbieters ein. Das Plugin hängt /chat/completions automatisch an. Beispiel für OpenRouter: %s. Anthropic (Claude) funktioniert über den OpenAI-kompatiblen Endpunkt: https://api.anthropic.com/v1"
 
 #: includes/admin-page.php:1524
 msgid "API Key"
@@ -1391,3 +1386,19 @@ msgstr "Besucher erhalten die übersetzte Seite sofort, statt auf die erste Übe
 
 msgid "file"
 msgstr "Datei"
+
+msgid "The provider rejected the API key. Check that the key is complete (no missing or extra characters), that it belongs to the selected provider, and that it has not been deleted or revoked."
+msgstr "Der Anbieter hat den API-Schlüssel abgelehnt. Prüfe, ob der Schlüssel vollständig ist (keine fehlenden oder zusätzlichen Zeichen), zum gewählten Anbieter gehört und nicht gelöscht oder widerrufen wurde."
+
+msgid "The API key is valid, but the account has no credit left. Add credit or a payment method at your provider (API credit is separate from a chat subscription such as ChatGPT Plus) and try again."
+msgstr "Der API-Schlüssel ist gültig, aber das Konto hat kein Guthaben mehr. Lade Guthaben auf oder hinterlege eine Zahlungsmethode bei deinem Anbieter (API-Guthaben ist unabhängig von einem Chat-Abonnement wie ChatGPT Plus) und versuche es erneut."
+
+msgid "The provider is rate limiting requests. Wait a moment and try again."
+msgstr "Der Anbieter begrenzt die Anfragen. Warte einen Moment und versuche es erneut."
+
+msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
+msgstr "Dieses Modell denkt immer und der Anbieter bietet keine Möglichkeit, das abzuschalten. Es ist langsam, für Übersetzungen teuer und kann in ein Zeitlimit laufen. Ein Modell ohne Denken ist die bessere Wahl."
+
+#, php-format
+msgid "Output price: $%s per million tokens."
+msgstr "Ausgabepreis: $%s pro Million Tokens."

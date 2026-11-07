@@ -577,14 +577,9 @@ msgstr ""
 "(anders wordt de laagste ondersteunde effort gebruikt) zodat vertalingen "
 "snel en goedkoop blijven."
 
-#. translators: %s: string value
-#: includes/admin-page.php:1498
-msgid ""
-"Enter the base URL of your API provider. The plugin appends /chat/"
-"completions automatically. Example for OpenRouter: %s"
-msgstr ""
-"Voer de basis-URL van je API-provider in. De plugin voegt /chat/completions "
-"automatisch toe. Voorbeeld voor OpenRouter: %s"
+#, php-format
+msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
+msgstr "Voer de basis-URL van je API-provider in. De plugin voegt /chat/completions automatisch toe. Voorbeeld voor OpenRouter: %s. Anthropic (Claude) werkt via het OpenAI-compatibele endpoint: https://api.anthropic.com/v1"
 
 #: includes/admin-page.php:1524
 msgid "API Key"
@@ -1372,3 +1367,19 @@ msgstr "Bezoekers krijgen de vertaalde pagina meteen in plaats van te wachten op
 
 msgid "file"
 msgstr "bestand"
+
+msgid "The provider rejected the API key. Check that the key is complete (no missing or extra characters), that it belongs to the selected provider, and that it has not been deleted or revoked."
+msgstr "De provider heeft de API-sleutel geweigerd. Controleer of de sleutel compleet is (geen ontbrekende of extra tekens), bij de gekozen provider hoort en niet is verwijderd of ingetrokken."
+
+msgid "The API key is valid, but the account has no credit left. Add credit or a payment method at your provider (API credit is separate from a chat subscription such as ChatGPT Plus) and try again."
+msgstr "De API-sleutel is geldig, maar het account heeft geen tegoed meer. Voeg tegoed of een betaalmethode toe bij je provider (API-tegoed staat los van een chatabonnement zoals ChatGPT Plus) en probeer het opnieuw."
+
+msgid "The provider is rate limiting requests. Wait a moment and try again."
+msgstr "De provider beperkt het aantal verzoeken. Wacht even en probeer het opnieuw."
+
+msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
+msgstr "Dit model denkt altijd en de provider biedt geen manier om dat uit te zetten. Het is traag, duur voor vertalingen en kan een time-out geven. Een model zonder denken is een betere keuze."
+
+#, php-format
+msgid "Output price: $%s per million tokens."
+msgstr "Outputprijs: $%s per miljoen tokens."

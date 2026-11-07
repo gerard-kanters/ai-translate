@@ -577,14 +577,9 @@ msgstr ""
 "プロバイダーが許可する場合は推論/thinkingをオフにします（許可されない場合はサ"
 "ポートされる最小effortを使用）。翻訳を速く安く保つためです。"
 
-#. translators: %s: string value
-#: includes/admin-page.php:1498
-msgid ""
-"Enter the base URL of your API provider. The plugin appends /chat/"
-"completions automatically. Example for OpenRouter: %s"
-msgstr ""
-"APIプロバイダーのベースURLを入力してください。プラグインは /chat/completions "
-"を自動で付加します。OpenRouterの例: %s"
+#, php-format
+msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
+msgstr "APIプロバイダーのベースURLを入力してください。プラグインが /chat/completions を自動的に付加します。OpenRouterの例: %s。Anthropic（Claude）はOpenAI互換エンドポイント https://api.anthropic.com/v1 で利用できます"
 
 #: includes/admin-page.php:1524
 msgid "API Key"
@@ -1368,3 +1363,19 @@ msgstr "訪問者は最初の翻訳を待たずに、翻訳済みのページを
 
 msgid "file"
 msgstr "ファイル"
+
+msgid "The provider rejected the API key. Check that the key is complete (no missing or extra characters), that it belongs to the selected provider, and that it has not been deleted or revoked."
+msgstr "プロバイダーがAPIキーを拒否しました。キーが完全であること（文字の欠落や余分がないこと）、選択したプロバイダーのものであること、削除または失効していないことを確認してください。"
+
+msgid "The API key is valid, but the account has no credit left. Add credit or a payment method at your provider (API credit is separate from a chat subscription such as ChatGPT Plus) and try again."
+msgstr "APIキーは有効ですが、アカウントの残高がありません。プロバイダーで残高または支払い方法を追加してから、もう一度お試しください（APIの残高はChatGPT Plusなどのチャット契約とは別です）。"
+
+msgid "The provider is rate limiting requests. Wait a moment and try again."
+msgstr "プロバイダーがリクエストを制限しています。しばらく待ってからもう一度お試しください。"
+
+msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
+msgstr "このモデルは常に思考し、プロバイダー側でそれをオフにする方法がありません。翻訳には遅く、コストが高く、タイムアウトする場合があります。思考しないモデルを選ぶことをおすすめします。"
+
+#, php-format
+msgid "Output price: $%s per million tokens."
+msgstr "出力価格: 100万トークンあたり$%s。"

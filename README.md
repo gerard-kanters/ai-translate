@@ -175,7 +175,7 @@ Each visitor's language preference is remembered for future visits.
 - **💡 OpenAI**: `gpt-5.4-mini` Pretty good for most languages and reasonably priced.
 - **💰 Deepseek**: `deepseek-chat` - Slower, but more cost-effective.
 - **🔧 OpenRouter**: Select google/gemini-3.1-flash-lite which has a very good price/performance ratio.
-- **💡 Groq**: Select openai/gpt-oss-120b  Extremely fast, pretty cheap and very good in translating.
+- **💡 Groq**: Select qwen/qwen3.8-27b  Extremely fast, pretty cheap and very good in translating.
 
 Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing. 
 

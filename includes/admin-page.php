@@ -1103,6 +1103,9 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'errorLoadingModels' => __('Error loading models', 'ai-translate'),
             'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
             'selectModel' => __('Select a model...', 'ai-translate'),
+            'alwaysThinkingWarning' => __('This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice.', 'ai-translate'),
+            /* translators: %s: price in dollars per million output tokens */
+            'alwaysThinkingPrice' => __('Output price: $%s per million tokens.', 'ai-translate'),
             'unknownError' => __('Unknown error', 'ai-translate'),
             'saveSettingsFirst' => __('Save your settings first before opening the menu editor.', 'ai-translate'),
             'requestKey' => __('Request Key', 'ai-translate'),
@@ -1197,7 +1200,7 @@ function register_api_settings_section()
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
             echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://api.perplexity.ai" class="regular-text">';
-            $description_text = /* translators: %s: string value */ esc_html__('Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s', 'ai-translate');
+            $description_text = /* translators: %s: string value */ esc_html__('Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1', 'ai-translate');
             $url_link = '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>';
 
             // Count %s placeholders in the translated string to prevent sprintf errors
@@ -2578,8 +2581,9 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         'deepseek' => [
             '/^deepseek-v4-flash$/i',
         ],
+        // gpt-oss-120b always thinks on Groq (only low/medium/high exist, never off); Qwen 3.8 27B does not think.
         'groq' => [
-            '/openai\/gpt[-\s_.]*oss[-\s_.]*120b/i',
+            '/^qwen\/qwen3\.8-27b$/i',
         ],
     ];
 
@@ -2602,7 +2606,33 @@ add_action('wp_ajax_ai_translate_get_models', function () {
             $preferred_model_found = $preferred_model;
         }
     }
-    wp_send_json_success(['models' => $models, 'preferred' => $preferred_model_found]);
+    // Models measured as always thinking (thinking on, and no parameter lowered it): the UI warns about these.
+    $always_thinking = [];
+    $wanted = array_flip($models);
+    foreach ($data['data'] as $row) {
+        if (!is_array($row) || !isset($row['id'], $wanted[$row['id']])) {
+            continue;
+        }
+        // Only a measurement says a model always thinks. The provider's tags do not: of the DeepInfra
+        // models tagged as thinking without an effort switch, none that was measured turned out to
+        // think by default, and several accept a parameter that turns thinking off.
+        if (AI_Translate_Core::measured_thinking_state($provider_key, (string) $row['id']) !== 'always') {
+            continue;
+        }
+        // Output price per million tokens, when the provider lists it.
+        $price = null;
+        if (isset($row['metadata']['pricing']['output_tokens']) && is_numeric($row['metadata']['pricing']['output_tokens'])) {
+            $price = (float) $row['metadata']['pricing']['output_tokens'];
+        } elseif (isset($row['pricing']['completion']) && is_numeric($row['pricing']['completion'])) {
+            $price = (float) $row['pricing']['completion'] * 1000000;
+        }
+        $always_thinking[(string) $row['id']] = $price !== null ? round($price, 2) : null;
+    }
+    wp_send_json_success([
+        'models' => $models,
+        'preferred' => $preferred_model_found,
+        'always_thinking' => (object) $always_thinking,
+    ]);
 });
 
 // --- AJAX handler voor dynamisch ophalen van custom URL ---
@@ -2827,7 +2857,12 @@ add_action('wp_ajax_ai_translate_validate_api', function () {
             // Sla de instellingen op via update_option
             update_option('ai_translate_settings', $updated_settings);
         }
-        wp_send_json_success(['message' => __('API and model are working. API settings have been saved.', 'ai-translate')]);
+        // Tell the page what was measured, so its warning matches (true = always thinks, false = can be limited).
+        $thinking_state = AI_Translate_Core::measured_thinking_state((string) $provider_key, (string) $model);
+        wp_send_json_success([
+            'message' => __('API and model are working. API settings have been saved.', 'ai-translate'),
+            'always_thinking' => $thinking_state === null ? null : ($thinking_state === 'always'),
+        ]);
 
     } catch (\Exception $e) {
         wp_send_json_error(['message' => __('API validation failed:', 'ai-translate') . ' ' . $e->getMessage()]);

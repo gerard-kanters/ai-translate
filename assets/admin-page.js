@@ -162,6 +162,34 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Models the provider says always think (id => output price per million tokens or null)
+    var alwaysThinkingModels = {};
+
+    function updateThinkingWarning() {
+        if (!selectedModel) return;
+        var note = document.getElementById('ai-translate-thinking-warning');
+        var strings = aiTranslateAdmin.strings || {};
+        var model = selectedModel.value;
+        if (!Object.prototype.hasOwnProperty.call(alwaysThinkingModels, model)) {
+            if (note) note.style.display = 'none';
+            return;
+        }
+        if (!note) {
+            note = document.createElement('div');
+            note.id = 'ai-translate-thinking-warning';
+            note.className = 'ai-translate-api-status ai-translate-api-status--validating';
+            note.style.cssText = 'display:block;margin-top:8px;max-width:600px;';
+            selectedModel.parentNode.insertBefore(note, selectedModel.nextSibling);
+        }
+        var text = strings.alwaysThinkingWarning || 'This model always thinks and cannot be switched off. It is slow and expensive for translations.';
+        var price = alwaysThinkingModels[model];
+        if (price !== null && price !== undefined && strings.alwaysThinkingPrice) {
+            text += ' ' + strings.alwaysThinkingPrice.replace('%s', price);
+        }
+        note.textContent = text;
+        note.style.display = 'block';
+    }
+
     function toggleGpt5Warning() {
         var gpt5Warning = document.getElementById('openai_gpt5_warning');
         if (gpt5Warning && apiProviderSelect) {
@@ -307,6 +335,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             if (modelId === currentModel) opt.selected = true;
                             selectedModel.appendChild(opt);
                         });
+                        alwaysThinkingModels = resp.data.always_thinking || {};
+                        updateThinkingWarning();
 
                         // Only add "custom" option for custom provider
                         if (provider === 'custom') {
@@ -569,6 +599,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             if (modelId === current) opt.selected = true;
                             selectedModel.appendChild(opt);
                         });
+                        alwaysThinkingModels = resp.data.always_thinking || {};
+                        updateThinkingWarning();
 
                         // Only add "custom" option for custom provider
                         var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
@@ -805,6 +837,17 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(function (resp) {
                 if (resp.success) {
+                    // A measurement for this model overrides what the model list suggested
+                    if (resp.data && typeof resp.data.always_thinking === 'boolean') {
+                        if (resp.data.always_thinking) {
+                            if (!Object.prototype.hasOwnProperty.call(alwaysThinkingModels, payload.model)) {
+                                alwaysThinkingModels[payload.model] = null;
+                            }
+                        } else {
+                            delete alwaysThinkingModels[payload.model];
+                        }
+                        updateThinkingWarning();
+                    }
                     apiKeys[payload.provider] = payload.apiKey;
                     lastApiPayloadHash = payloadHash;
                     if (!silent) {
@@ -850,6 +893,10 @@ document.addEventListener('DOMContentLoaded', function () {
         apiValidationTimer = setTimeout(function () {
             runApiValidation(payload, payloadHash);
         }, 600);
+    }
+
+    if (selectedModel) {
+        selectedModel.addEventListener('change', updateThinkingWarning);
     }
 
     if (customModelInput) {

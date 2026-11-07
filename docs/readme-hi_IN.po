@@ -312,8 +312,8 @@ msgstr "<strong>🔧 कस्टम</strong>: OpenRouter का उपयोग
 msgid "<strong>🔧 OpenRouter</strong>: Select google/gemini-2.5-flash-lite which has the best price/performance"
 msgstr "<strong>🔧 OpenRouter</strong>: google/gemini-2.5-flash-lite चुनें जिसमें सबसे अच्छा मूल्य/प्रदर्शन है"
 
-msgid "<strong>💡 Groq</strong>: Select openai/gpt-oss-120b  which is fast and the cheapest option. "
-msgstr "<strong>💡 Groq</strong>: openai/gpt-oss-120b चुनें; तेज़ और सबसे सस्ता विकल्प।"
+msgid "<strong>💡 Groq</strong>: Select qwen/qwen3.8-27b  which is fast and the cheapest option. "
+msgstr "<strong>💡 Groq</strong>: qwen/qwen3.8-27b चुनें; तेज़ और सबसे सस्ता विकल्प।"
 
 msgid "Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing."
 msgstr "Gemini flash अब उपलब्ध सर्वोत्तम मूल्य प्रदर्शन मॉडल है। यह तेज़ है, सभी भाषाओं का समर्थन करता है और कम मूल्य निर्धारण है।"

@@ -573,14 +573,9 @@ msgstr ""
 "يُوقَف الاستدلال/thinking عندما يسمح المزوّد بذلك (وإلا يُستخدم أدنى جهد مدعوم) "
 "لإبقاء الترجمات سريعة ورخيصة."
 
-#. translators: %s: string value
-#: includes/admin-page.php:1498
-msgid ""
-"Enter the base URL of your API provider. The plugin appends /chat/"
-"completions automatically. Example for OpenRouter: %s"
-msgstr ""
-"أدخل عنوان الأساس لمزوّد API. تضيف الإضافة /chat/completions تلقائيًا. مثال لـ "
-"OpenRouter: %s"
+#, php-format
+msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
+msgstr "أدخل عنوان URL الأساسي لمزوّد API الخاص بك. تضيف الإضافة /chat/completions تلقائيًا. مثال لـ OpenRouter: %s. يعمل Anthropic (Claude) عبر نقطة النهاية المتوافقة مع OpenAI: https://api.anthropic.com/v1"
 
 #: includes/admin-page.php:1524
 msgid "API Key"
@@ -1359,3 +1354,19 @@ msgstr "يحصل الزوار على الصفحة المترجمة فورًا ب
 
 msgid "file"
 msgstr "ملف"
+
+msgid "The provider rejected the API key. Check that the key is complete (no missing or extra characters), that it belongs to the selected provider, and that it has not been deleted or revoked."
+msgstr "رفض المزوّد مفتاح API. تحقق من أن المفتاح كامل (دون أحرف ناقصة أو زائدة) وأنه يخص المزوّد المحدد وأنه لم يُحذف أو يُلغَ."
+
+msgid "The API key is valid, but the account has no credit left. Add credit or a payment method at your provider (API credit is separate from a chat subscription such as ChatGPT Plus) and try again."
+msgstr "مفتاح API صالح، لكن الحساب لا يملك رصيدًا. أضف رصيدًا أو وسيلة دفع لدى مزوّدك (رصيد API منفصل عن اشتراك المحادثة مثل ChatGPT Plus) ثم حاول مرة أخرى."
+
+msgid "The provider is rate limiting requests. Wait a moment and try again."
+msgstr "يقوم المزوّد بتحديد عدد الطلبات. انتظر قليلًا ثم حاول مرة أخرى."
+
+msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
+msgstr "هذا النموذج يفكّر دائمًا ولا يوفّر المزوّد طريقة لإيقاف ذلك. إنه بطيء ومكلف للترجمة وقد تنتهي مهلته. النموذج الذي لا يفكّر خيار أفضل."
+
+#, php-format
+msgid "Output price: $%s per million tokens."
+msgstr "سعر المخرجات: $%s لكل مليون رمز."

@@ -571,14 +571,9 @@ msgstr ""
 "जब प्रदाता अनुमति देता है तो reasoning/thinking बंद रहता है (अन्यथा न्यूनतम समर्थित "
 "effort उपयोग होता है) ताकि अनुवाद तेज़ और सस्ते रहें।"
 
-#. translators: %s: string value
-#: includes/admin-page.php:1498
-msgid ""
-"Enter the base URL of your API provider. The plugin appends /chat/"
-"completions automatically. Example for OpenRouter: %s"
-msgstr ""
-"अपने API प्रदाता का बेस URL दर्ज करें। प्लगइन /chat/completions अपने आप जोड़ता है। "
-"OpenRouter का उदाहरण: %s"
+#, php-format
+msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
+msgstr "अपने API प्रदाता का बेस URL दर्ज करें। प्लगइन अपने आप /chat/completions जोड़ देता है। OpenRouter के लिए उदाहरण: %s। Anthropic (Claude) अपने OpenAI-संगत एंडपॉइंट के ज़रिए काम करता है: https://api.anthropic.com/v1"
 
 #: includes/admin-page.php:1524
 msgid "API Key"
@@ -1340,3 +1335,19 @@ msgstr "आगंतुकों को पहले अनुवाद की �
 
 msgid "file"
 msgstr "फ़ाइल"
+
+msgid "The provider rejected the API key. Check that the key is complete (no missing or extra characters), that it belongs to the selected provider, and that it has not been deleted or revoked."
+msgstr "प्रदाता ने API कुंजी अस्वीकार कर दी। जाँचें कि कुंजी पूरी है (कोई अक्षर छूटा या अतिरिक्त न हो), चुने गए प्रदाता की है, और हटाई या रद्द नहीं की गई है।"
+
+msgid "The API key is valid, but the account has no credit left. Add credit or a payment method at your provider (API credit is separate from a chat subscription such as ChatGPT Plus) and try again."
+msgstr "API कुंजी मान्य है, लेकिन खाते में क्रेडिट नहीं बचा है। अपने प्रदाता पर क्रेडिट या भुगतान विधि जोड़ें (API क्रेडिट, ChatGPT Plus जैसी चैट सदस्यता से अलग होता है) और फिर कोशिश करें।"
+
+msgid "The provider is rate limiting requests. Wait a moment and try again."
+msgstr "प्रदाता अनुरोधों को सीमित कर रहा है। थोड़ी देर प्रतीक्षा करें और फिर कोशिश करें।"
+
+msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
+msgstr "यह मॉडल हमेशा सोचता है और प्रदाता इसे बंद करने का कोई तरीका नहीं देता। यह धीमा है, अनुवादों के लिए महँगा है और टाइमआउट हो सकता है। बिना सोचने वाला मॉडल बेहतर विकल्प है।"
+
+#, php-format
+msgid "Output price: $%s per million tokens."
+msgstr "आउटपुट मूल्य: प्रति दस लाख टोकन $%s।"

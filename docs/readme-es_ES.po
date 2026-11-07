@@ -324,8 +324,8 @@ msgstr "<strong>🔧 OpenRouter</strong>: Selecciona google/gemini-2.5-flash-lit
 msgid "<strong>💡 Groq</strong>: Select LLama 3.1/8b which is fast and the cheapest option. It does not support all languages."
 msgstr "<strong>💡 Groq</strong>: Selecciona LLama 3.1/8b que es rápido y la opción más barata. No admite todos los idiomas."
 
-msgid "<strong>💡 Groq</strong>: Select openai/gpt-oss-120b  which is fast and the cheapest option. "
-msgstr "<strong>💡 Groq</strong>: Selecciona openai/gpt-oss-120b; es rápido y la opción más barata."
+msgid "<strong>💡 Groq</strong>: Select qwen/qwen3.8-27b  which is fast and the cheapest option. "
+msgstr "<strong>💡 Groq</strong>: Selecciona qwen/qwen3.8-27b; es rápido y la opción más barata."
 
 msgid "Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing."
 msgstr "Gemini flash es el mejor modelo de relación precio-rendimiento disponible ahora. Es rápido, admite todos los idiomas y tiene precios bajos."

@@ -315,8 +315,8 @@ msgstr "<strong>🔧 Personalizzato</strong>: Usa OpenRouter e seleziona google/
 msgid "<strong>🔧 OpenRouter</strong>: Select google/gemini-2.5-flash-lite which has the best price/performance"
 msgstr "<strong>🔧 OpenRouter</strong>: Seleziona google/gemini-2.5-flash-lite che ha il miglior rapporto prezzo/prestazioni"
 
-msgid "<strong>💡 Groq</strong>: Select openai/gpt-oss-120b  which is fast and the cheapest option. "
-msgstr "<strong>💡 Groq</strong>: Seleziona openai/gpt-oss-120b, veloce e l'opzione più economica."
+msgid "<strong>💡 Groq</strong>: Select qwen/qwen3.8-27b  which is fast and the cheapest option. "
+msgstr "<strong>💡 Groq</strong>: Seleziona qwen/qwen3.8-27b, veloce e l'opzione più economica."
 
 msgid "Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing."
 msgstr "Gemini flash è il miglior modello rapporto qualità-prezzo disponibile ora. È veloce, supporta tutte le lingue e ha prezzi bassi."

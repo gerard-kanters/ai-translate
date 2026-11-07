@@ -566,14 +566,9 @@ msgstr ""
 "在提供商允许时关闭推理/thinking（否则使用所支持的最低 effort），以使翻译保持"
 "快速且便宜。"
 
-#. translators: %s: string value
-#: includes/admin-page.php:1498
-msgid ""
-"Enter the base URL of your API provider. The plugin appends /chat/"
-"completions automatically. Example for OpenRouter: %s"
-msgstr ""
-"输入 API 提供商的基址 URL。插件会自动追加 /chat/completions。OpenRouter 示"
-"例：%s"
+#, php-format
+msgid "Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1"
+msgstr "请输入您的 API 提供商的基础 URL。插件会自动追加 /chat/completions。OpenRouter 示例：%s。Anthropic（Claude）通过其兼容 OpenAI 的端点使用：https://api.anthropic.com/v1"
 
 #: includes/admin-page.php:1524
 msgid "API Key"
@@ -1317,3 +1312,19 @@ msgstr "访客可立即看到已翻译的页面，而无需等待首次翻译。
 
 msgid "file"
 msgstr "文件"
+
+msgid "The provider rejected the API key. Check that the key is complete (no missing or extra characters), that it belongs to the selected provider, and that it has not been deleted or revoked."
+msgstr "提供商拒绝了该 API 密钥。请检查密钥是否完整（没有缺失或多余的字符）、是否属于所选提供商，以及是否已被删除或撤销。"
+
+msgid "The API key is valid, but the account has no credit left. Add credit or a payment method at your provider (API credit is separate from a chat subscription such as ChatGPT Plus) and try again."
+msgstr "API 密钥有效，但账户已没有余额。请在提供商处充值或添加付款方式（API 余额与 ChatGPT Plus 等聊天订阅是分开的），然后重试。"
+
+msgid "The provider is rate limiting requests. Wait a moment and try again."
+msgstr "提供商正在限制请求频率。请稍等片刻后重试。"
+
+msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
+msgstr "该模型总是会进行思考，提供商也没有关闭思考的方式。它速度慢、翻译成本高，并且可能超时。不带思考的模型是更好的选择。"
+
+#, php-format
+msgid "Output price: $%s per million tokens."
+msgstr "输出价格：每百万 token $%s。"
