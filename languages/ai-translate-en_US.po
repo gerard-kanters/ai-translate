@@ -1367,3 +1367,7 @@ msgstr "This model always thinks and that cannot be switched off. Thinking model
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "Output price: $%s per million tokens."
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "Price: $%1$s input / $%2$s output per million tokens."

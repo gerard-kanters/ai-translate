@@ -1382,3 +1382,7 @@ msgstr "Dit model denkt altijd en dat kan niet worden uitgezet. Denkmodellen heb
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "Outputprijs: $%s per miljoen tokens."
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "Prijs: $%1$s invoer / $%2$s uitvoer per miljoen tokens."

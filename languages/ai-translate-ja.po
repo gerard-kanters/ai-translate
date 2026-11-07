@@ -1378,3 +1378,7 @@ msgstr "このモデルは常に思考し、オフにすることはできませ
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "出力価格: 100万トークンあたり$%s。"
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "価格：入力 $%1$s / 出力 $%2$s（100万トークンあたり）。"

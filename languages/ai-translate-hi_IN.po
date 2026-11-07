@@ -1350,3 +1350,7 @@ msgstr "यह मॉडल हमेशा सोचता है और इस
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "आउटपुट मूल्य: प्रति दस लाख टोकन $%s।"
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "मूल्य: इनपुट $%1$s / आउटपुट $%2$s प्रति दस लाख टोकन।"

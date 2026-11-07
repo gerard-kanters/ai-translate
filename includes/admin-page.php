@@ -1104,8 +1104,8 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
             'selectModel' => __('Select a model...', 'ai-translate'),
             'alwaysThinkingWarning' => __('This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive.', 'ai-translate'),
-            /* translators: %s: price in dollars per million output tokens */
-            'alwaysThinkingPrice' => __('Output price: $%s per million tokens.', 'ai-translate'),
+            /* translators: 1: input price, 2: output price, both in dollars per million tokens */
+            'modelPrice' => __('Price: $%1$s input / $%2$s output per million tokens.', 'ai-translate'),
             'unknownError' => __('Unknown error', 'ai-translate'),
             'saveSettingsFirst' => __('Save your settings first before opening the menu editor.', 'ai-translate'),
             'requestKey' => __('Request Key', 'ai-translate'),
@@ -2668,16 +2668,33 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         if (AI_Translate_Core::measured_thinking_state($provider_key, (string) $row['id']) !== 'always') {
             continue;
         }
-        // Output price per million tokens, when the provider lists it.
         $price = null;
-        if (isset($row['metadata']['pricing']['output_tokens']) && is_numeric($row['metadata']['pricing']['output_tokens'])) {
-            $price = (float) $row['metadata']['pricing']['output_tokens'];
-        } elseif (isset($row['pricing']['completion']) && is_numeric($row['pricing']['completion'])) {
-            $price = (float) $row['pricing']['completion'] * 1000000;
-        }
         $always_thinking[(string) $row['id']] = $price !== null ? round($price, 2) : null;
     }
+    // Prices per million tokens, only for models where the provider's list says what they cost.
+    $prices = [];
+    foreach ($data['data'] as $row) {
+        if (!is_array($row) || !isset($row['id'], $wanted[$row['id']])) {
+            continue;
+        }
+        $in = null;
+        $out = null;
+        if (isset($row['metadata']['pricing']['input_tokens'], $row['metadata']['pricing']['output_tokens'])
+            && is_numeric($row['metadata']['pricing']['input_tokens']) && is_numeric($row['metadata']['pricing']['output_tokens'])) {
+            $in = (float) $row['metadata']['pricing']['input_tokens'];
+            $out = (float) $row['metadata']['pricing']['output_tokens'];
+        } elseif (isset($row['pricing']['prompt'], $row['pricing']['completion'])
+            && is_numeric($row['pricing']['prompt']) && is_numeric($row['pricing']['completion'])
+            && (float) $row['pricing']['prompt'] >= 0 && (float) $row['pricing']['completion'] >= 0) {
+            $in = (float) $row['pricing']['prompt'] * 1000000;
+            $out = (float) $row['pricing']['completion'] * 1000000;
+        }
+        if ($in !== null && $out !== null) {
+            $prices[(string) $row['id']] = ['in' => round($in, 3), 'out' => round($out, 3)];
+        }
+    }
     wp_send_json_success([
+        'prices' => (object) $prices,
         'models' => $models,
         'preferred' => $preferred_model_found,
         'always_thinking' => (object) $always_thinking,

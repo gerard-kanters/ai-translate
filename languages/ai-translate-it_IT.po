@@ -1393,3 +1393,7 @@ msgstr "Questo modello ragiona sempre e non è possibile disattivarlo. I modelli
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "Prezzo di output: $%s per milione di token."
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "Prezzo: $%1$s in ingresso / $%2$s in uscita per milione di token."

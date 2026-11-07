@@ -1369,3 +1369,7 @@ msgstr "هذا النموذج يفكّر دائمًا ولا يمكن إيقاف
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "سعر المخرجات: $%s لكل مليون رمز."
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "السعر: $%1$s للإدخال / $%2$s للإخراج لكل مليون رمز."

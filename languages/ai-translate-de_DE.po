@@ -1401,3 +1401,7 @@ msgstr "Dieses Modell denkt immer, und das lässt sich nicht abschalten. Denkmod
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "Ausgabepreis: $%s pro Million Tokens."
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "Preis: $%1$s Eingabe / $%2$s Ausgabe pro Million Tokens."

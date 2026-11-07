@@ -162,11 +162,43 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Models the provider says always think (id => output price per million tokens or null)
+    // Models the provider says always think (id => null)
     var alwaysThinkingModels = {};
+
+    // Prices (dollars per million tokens) the provider lists: id => {in, out}. Only filled when the list has them.
+    var modelPrices = {};
+
+    function formatPrice(n) {
+        return String(Math.round(n * 1000) / 1000);
+    }
+
+    function updateModelPrice() {
+        if (!selectedModel) return;
+        var line = document.getElementById('ai-translate-model-price');
+        var strings = aiTranslateAdmin.strings || {};
+        var model = selectedModel.value;
+        if (model === 'custom' && customModelInput) {
+            model = customModelInput.value.trim();
+        }
+        var price = Object.prototype.hasOwnProperty.call(modelPrices, model) ? modelPrices[model] : null;
+        if (!price || !strings.modelPrice) {
+            if (line) line.style.display = 'none';
+            return;
+        }
+        if (!line) {
+            line = document.createElement('div');
+            line.id = 'ai-translate-model-price';
+            line.className = 'description';
+            line.style.cssText = 'margin-top:6px;';
+            selectedModel.parentNode.insertBefore(line, selectedModel.nextSibling);
+        }
+        line.textContent = strings.modelPrice.replace('%1$s', formatPrice(price.in)).replace('%2$s', formatPrice(price.out));
+        line.style.display = 'block';
+    }
 
     function updateThinkingWarning() {
         if (!selectedModel) return;
+        updateModelPrice();
         var note = document.getElementById('ai-translate-thinking-warning');
         var strings = aiTranslateAdmin.strings || {};
         var model = selectedModel.value;
@@ -185,10 +217,6 @@ document.addEventListener('DOMContentLoaded', function () {
             selectedModel.parentNode.insertBefore(note, selectedModel.nextSibling);
         }
         var text = strings.alwaysThinkingWarning || 'This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive.';
-        var price = alwaysThinkingModels[model];
-        if (price !== null && price !== undefined && strings.alwaysThinkingPrice) {
-            text += ' ' + strings.alwaysThinkingPrice.replace('%s', price);
-        }
         note.textContent = text;
         note.style.display = 'block';
     }
@@ -382,6 +410,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedModel.appendChild(opt);
                         });
                         alwaysThinkingModels = resp.data.always_thinking || {};
+                        modelPrices = resp.data.prices || {};
                         updateThinkingWarning();
                         // The list is in: the manual model field belongs only to a selected "custom" entry.
                         toggleCustomModelField();
@@ -438,6 +467,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 selectedModel.appendChild(manualOpt);
                             }
                             alwaysThinkingModels = {};
+                            modelPrices = {};
                             updateThinkingWarning();
                             if (customModelDiv) customModelDiv.style.display = '';
                             if (apiStatusSpan) apiStatusSpan.textContent = errorMessage || (strings.enterModelManually || 'Enter model name manually');
@@ -663,6 +693,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             selectedModel.appendChild(opt);
                         });
                         alwaysThinkingModels = resp.data.always_thinking || {};
+                        modelPrices = resp.data.prices || {};
                         updateThinkingWarning();
                         // The list is in: the manual model field belongs only to a selected "custom" entry.
                         toggleCustomModelField();
@@ -708,6 +739,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 selectedModel.appendChild(manualOpt2);
                             }
                             alwaysThinkingModels = {};
+                            modelPrices = {};
                             updateThinkingWarning();
                             if (customModelDiv) customModelDiv.style.display = '';
                             if (apiStatusSpan) apiStatusSpan.textContent = errorMessage || (strings.enterModelManually || 'Enter model name manually');
@@ -1016,6 +1048,7 @@ document.addEventListener('DOMContentLoaded', function () {
             selectedModel.appendChild(loadingOpt);
         }
         alwaysThinkingModels = {};
+        modelPrices = {};
         updateThinkingWarning();
         // The new host has its own key: fetch it (shows nothing when there is none), then load the models.
         updateApiKeyField();

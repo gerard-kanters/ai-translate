@@ -1402,3 +1402,7 @@ msgstr "Ce modèle réfléchit toujours et cela ne peut pas être désactivé. L
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "Prix de sortie : $%s par million de tokens."
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "Prix : $%1$s en entrée / $%2$s en sortie par million de tokens."

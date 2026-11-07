@@ -1327,3 +1327,7 @@ msgstr "该模型总是会进行思考，且无法关闭。思考型模型对翻
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "输出价格：每百万 token $%s。"
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "价格：输入 $%1$s / 输出 $%2$s（每百万 token）。"

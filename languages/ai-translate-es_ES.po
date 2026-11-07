@@ -1401,3 +1401,7 @@ msgstr "Este modelo siempre piensa y no se puede desactivar. Los modelos con raz
 #, php-format
 msgid "Output price: $%s per million tokens."
 msgstr "Precio de salida: $%s por millón de tokens."
+
+#, php-format
+msgid "Price: $%1$s input / $%2$s output per million tokens."
+msgstr "Precio: $%1$s de entrada / $%2$s de salida por millón de tokens."
