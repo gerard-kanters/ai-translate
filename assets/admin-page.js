@@ -383,6 +383,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         });
                         alwaysThinkingModels = resp.data.always_thinking || {};
                         updateThinkingWarning();
+                        // The list is in: the manual model field belongs only to a selected "custom" entry.
+                        toggleCustomModelField();
 
                         // Only add "custom" option for custom provider
                         if (provider === 'custom') {
@@ -662,6 +664,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         });
                         alwaysThinkingModels = resp.data.always_thinking || {};
                         updateThinkingWarning();
+                        // The list is in: the manual model field belongs only to a selected "custom" entry.
+                        toggleCustomModelField();
 
                         // Only add "custom" option for custom provider
                         var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
