@@ -1322,8 +1322,8 @@ msgstr "API 密钥有效，但账户已没有余额。请在提供商处充值�
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "提供商正在限制请求频率。请稍等片刻后重试。"
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "该模型总是会进行思考，提供商也没有关闭思考的方式。它速度慢、翻译成本高，并且可能超时。不带思考的模型是更好的选择。"
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "该模型总是会进行思考，且无法关闭。思考型模型对翻译几乎没有帮助，通常更慢也更贵。"
 
 #, php-format
 msgid "Output price: $%s per million tokens."

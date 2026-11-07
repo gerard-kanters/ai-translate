@@ -1103,7 +1103,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'errorLoadingModels' => __('Error loading models', 'ai-translate'),
             'selectApiProviderFirst' => __('Select API Provider first...', 'ai-translate'),
             'selectModel' => __('Select a model...', 'ai-translate'),
-            'alwaysThinkingWarning' => __('This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice.', 'ai-translate'),
+            'alwaysThinkingWarning' => __('This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive.', 'ai-translate'),
             /* translators: %s: price in dollars per million output tokens */
             'alwaysThinkingPrice' => __('Output price: $%s per million tokens.', 'ai-translate'),
             'unknownError' => __('Unknown error', 'ai-translate'),

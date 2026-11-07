@@ -1345,8 +1345,8 @@ msgstr "API कुंजी मान्य है, लेकिन खाते
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "प्रदाता अनुरोधों को सीमित कर रहा है। थोड़ी देर प्रतीक्षा करें और फिर कोशिश करें।"
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "यह मॉडल हमेशा सोचता है और प्रदाता इसे बंद करने का कोई तरीका नहीं देता। यह धीमा है, अनुवादों के लिए महँगा है और टाइमआउट हो सकता है। बिना सोचने वाला मॉडल बेहतर विकल्प है।"
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "यह मॉडल हमेशा सोचता है और इसे बंद नहीं किया जा सकता। अनुवाद के लिए सोचने वाले मॉडल का लाभ बहुत कम है और वे आमतौर पर धीमे और महँगे होते हैं।"
 
 #, php-format
 msgid "Output price: $%s per million tokens."

@@ -1362,8 +1362,8 @@ msgstr "The API key is valid, but the account has no credit left. Add credit or 
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "The provider is rate limiting requests. Wait a moment and try again."
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
 
 #, php-format
 msgid "Output price: $%s per million tokens."

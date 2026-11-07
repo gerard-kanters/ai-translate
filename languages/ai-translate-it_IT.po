@@ -1388,8 +1388,8 @@ msgstr "La chiave API è valida, ma l'account non ha più credito. Aggiungi cred
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "Il provider sta limitando le richieste. Attendi un momento e riprova."
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "Questo modello ragiona sempre e il provider non offre modo di disattivarlo. È lento, costoso per le traduzioni e può andare in timeout. Un modello senza ragionamento è una scelta migliore."
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "Questo modello ragiona sempre e non è possibile disattivarlo. I modelli con ragionamento offrono pochi vantaggi per la traduzione e di solito sono più lenti e più costosi."
 
 #, php-format
 msgid "Output price: $%s per million tokens."

@@ -1373,8 +1373,8 @@ msgstr "APIキーは有効ですが、アカウントの残高がありません
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "プロバイダーがリクエストを制限しています。しばらく待ってからもう一度お試しください。"
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "このモデルは常に思考し、プロバイダー側でそれをオフにする方法がありません。翻訳には遅く、コストが高く、タイムアウトする場合があります。思考しないモデルを選ぶことをおすすめします。"
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "このモデルは常に思考し、オフにすることはできません。思考モデルは翻訳ではほとんど利点がなく、通常は速度が遅く、コストも高くなります。"
 
 #, php-format
 msgid "Output price: $%s per million tokens."

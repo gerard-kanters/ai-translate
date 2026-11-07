@@ -1377,8 +1377,8 @@ msgstr "De API-sleutel is geldig, maar het account heeft geen tegoed meer. Voeg 
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "De provider beperkt het aantal verzoeken. Wacht even en probeer het opnieuw."
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "Dit model denkt altijd en de provider biedt geen manier om dat uit te zetten. Het is traag, duur voor vertalingen en kan een time-out geven. Een model zonder denken is een betere keuze."
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "Dit model denkt altijd en dat kan niet worden uitgezet. Denkmodellen hebben weinig voordeel bij vertalen en zijn meestal trager en duurder."
 
 #, php-format
 msgid "Output price: $%s per million tokens."

@@ -27,6 +27,13 @@
     border-color: #ffd27f;
 }
 
+.ai-translate-api-status--note {
+    background-color: #f6f7f7;
+    color: #50575e;
+    border-color: #dcdcde;
+    font-weight: 400;
+}
+
 .ai-translate-api-status--success {
     background-color: #e6fff1;
     color: #0d6b3e;

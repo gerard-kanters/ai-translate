@@ -269,6 +269,9 @@ register_deactivation_hook(__FILE__, function () {
 add_action(\AITranslate\AI_Segment_Store::purge_hook(), ['\\AITranslate\\AI_Segment_Store', 'run_purge']);
 add_action('init', ['\\AITranslate\\AI_Segment_Store', 'schedule_purge']);
 
+// Background measurement of thinking models (queued after a successful API validation).
+add_action(\AITranslate\AI_Translate_Core::PROBE_HOOK, ['\\AITranslate\\AI_Translate_Core', 'run_scheduled_probe'], 10, 2);
+
 require_once __DIR__ . '/includes/request-filters.php';
 
 require_once __DIR__ . '/includes/frontend-output.php';

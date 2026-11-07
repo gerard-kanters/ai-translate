@@ -177,11 +177,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!note) {
             note = document.createElement('div');
             note.id = 'ai-translate-thinking-warning';
-            note.className = 'ai-translate-api-status ai-translate-api-status--validating';
+            note.className = 'ai-translate-api-status ai-translate-api-status--note';
             note.style.cssText = 'display:block;margin-top:8px;max-width:600px;';
             selectedModel.parentNode.insertBefore(note, selectedModel.nextSibling);
         }
-        var text = strings.alwaysThinkingWarning || 'This model always thinks and cannot be switched off. It is slow and expensive for translations.';
+        var text = strings.alwaysThinkingWarning || 'This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive.';
         var price = alwaysThinkingModels[model];
         if (price !== null && price !== undefined && strings.alwaysThinkingPrice) {
             text += ' ' + strings.alwaysThinkingPrice.replace('%s', price);

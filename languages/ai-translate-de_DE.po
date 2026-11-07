@@ -1396,8 +1396,8 @@ msgstr "Der API-Schlüssel ist gültig, aber das Konto hat kein Guthaben mehr. L
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "Der Anbieter begrenzt die Anfragen. Warte einen Moment und versuche es erneut."
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "Dieses Modell denkt immer und der Anbieter bietet keine Möglichkeit, das abzuschalten. Es ist langsam, für Übersetzungen teuer und kann in ein Zeitlimit laufen. Ein Modell ohne Denken ist die bessere Wahl."
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "Dieses Modell denkt immer, und das lässt sich nicht abschalten. Denkmodelle bringen beim Übersetzen kaum Vorteile und sind meist langsamer und teurer."
 
 #, php-format
 msgid "Output price: $%s per million tokens."

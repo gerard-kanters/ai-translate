@@ -1364,8 +1364,8 @@ msgstr "مفتاح API صالح، لكن الحساب لا يملك رصيدًا
 msgid "The provider is rate limiting requests. Wait a moment and try again."
 msgstr "يقوم المزوّد بتحديد عدد الطلبات. انتظر قليلًا ثم حاول مرة أخرى."
 
-msgid "This model always thinks and the provider offers no way to switch that off. It is slow, expensive for translations and can time out. A model without thinking is a better choice."
-msgstr "هذا النموذج يفكّر دائمًا ولا يوفّر المزوّد طريقة لإيقاف ذلك. إنه بطيء ومكلف للترجمة وقد تنتهي مهلته. النموذج الذي لا يفكّر خيار أفضل."
+msgid "This model always thinks and that cannot be switched off. Thinking models have little benefit for translation and are usually slower and more expensive."
+msgstr "هذا النموذج يفكّر دائمًا ولا يمكن إيقاف ذلك. نماذج التفكير قليلة الفائدة في الترجمة وعادةً ما تكون أبطأ وأغلى."
 
 #, php-format
 msgid "Output price: $%s per million tokens."

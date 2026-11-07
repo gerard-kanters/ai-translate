@@ -88,6 +88,82 @@ final class AI_Translate_Core
         return $retry;
     }
 
+    /** Default (preferred) model per provider, used when the saved model is no longer offered. */
+    private const DEFAULT_MODELS = [
+        'openai' => 'gpt-6-luna',
+        'openrouter' => 'openai/gpt-6-luna',
+        'deepinfra' => 'deepseek-ai/DeepSeek-V4-Flash',
+        'deepseek' => 'deepseek-v4-flash',
+        'groq' => 'qwen/qwen3.8-27b',
+    ];
+
+    /**
+     * The model to use for translating. A saved model that the plugin no longer offers (removed from the
+     * model list because it is not a text model or does not work) falls back to the provider's default.
+     */
+    public static function effective_model(string $provider, string $model): string
+    {
+        if ($model === '' || !isset(self::DEFAULT_MODELS[$provider])) {
+            return $model;
+        }
+        if (self::filter_admin_models([['id' => $model]], $provider) === []) {
+            return self::DEFAULT_MODELS[$provider];
+        }
+        return $model;
+    }
+
+    /** Cron hook that measures reasoning behaviour of a thinking model in the background. */
+    public const PROBE_HOOK = 'ai_translate_probe_reasoning';
+
+    /**
+     * Queue a background reasoning probe. The cron event carries no credentials: the job reads the
+     * saved API key, so nothing is queued when the key being validated is not the saved one.
+     */
+    public static function schedule_reasoning_probe(string $provider, string $apiKey, string $model): bool
+    {
+        $saved = (string) (self::settings(true)['api_keys'][$provider] ?? '');
+        if ($saved === '' || !hash_equals($saved, $apiKey) || !function_exists('wp_schedule_single_event')) {
+            return false;
+        }
+        $args = [$provider, $model];
+        if (wp_next_scheduled(self::PROBE_HOOK, $args) !== false) {
+            return true;
+        }
+        if (wp_schedule_single_event(time(), self::PROBE_HOOK, $args) === false) {
+            return false;
+        }
+        if (function_exists('spawn_cron')) {
+            spawn_cron();
+        }
+        return true;
+    }
+
+    /** Cron callback for PROBE_HOOK. */
+    public static function run_scheduled_probe($provider, $model): void
+    {
+        $provider = (string) $provider;
+        $model = (string) $model;
+        $settings = self::settings(true);
+        $key = (string) ($settings['api_keys'][$provider] ?? '');
+        $base = $provider === 'custom' ? (string) ($settings['custom_api_url'] ?? '') : self::get_api_url_for_provider($provider);
+        if ($key === '' || $base === '' || $model === '') {
+            return;
+        }
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(240); // phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
+        }
+        $endpoint = rtrim($base, '/') . self::get_model_endpoint_path($model);
+        $headers = self::build_api_headers($key, $provider, ['custom_api_url' => (string) ($settings['custom_api_url'] ?? '')]);
+        try {
+            $entry = self::probe_reasoning_params($endpoint, $headers, $model);
+        } catch (\Throwable $e) {
+            $entry = null;
+        }
+        if ($entry !== null) {
+            self::remember_reasoning_params($provider, $model, $entry);
+        }
+    }
+
     /**
      * Cached accessor for plugin settings. Avoids repeated get_option() calls per request.
      *
@@ -374,15 +450,6 @@ final class AI_Translate_Core
                     'deepseek/deepseek-r1' => true,
                     'deepseek/deepseek-r1-distill-llama-70b' => true,
                     'deepseek/deepseek-v3.2-exp' => true,
-                    'google/gemini-2.5-pro' => true,
-                    'google/gemini-2.5-pro-preview' => true,
-                    'google/gemini-3.1-pro-preview' => true,
-                    'google/gemini-3.1-pro-preview-customtools' => true,
-                    'google/gemini-3.5-flash' => true,
-                    'google/gemini-3.5-flash-lite' => true,
-                    'google/gemini-3.6-flash' => true,
-                    'google/gemini-3.7-flash' => true,
-                    'google/gemini-3.8-flash' => true,
                     'google/gemma-2-27b-it' => true,
                     'google/gemma-3-12b-it' => true,
                     'google/gemma-3-4b-it' => true,
@@ -1465,29 +1532,16 @@ final class AI_Translate_Core
             // The model list already says this model does not think: nothing to measure. A thinking model is
             // still measured, because the list does not show every parameter that can switch thinking off.
             $skipProbe = $thinkingHint !== null && !$thinkingHint['thinks'];
-            // Measuring a thinking model (the probe tries parameter sets until one works) can take minutes. Do it after the answer has been sent, so the
-            // settings page does not wait. Without fastcgi_finish_request it cannot run unnoticed.
+            // Measuring a thinking model (the probe tries parameter sets until one works) can take minutes. Run it
+            // as a one-off WP-Cron event, so the settings page does not wait. This works on any PHP setup.
             if (!$skipProbe && $thinkingHint !== null && $thinkingHint['thinks']) {
                 if (
-                    function_exists('fastcgi_finish_request')
-                    && self::reasoning_probe_needed($provider_key, $model)
+                    self::reasoning_probe_needed($provider_key, $model)
                     && !self::reasoning_probe_failed_recently($provider_key, $model)
+                    && self::schedule_reasoning_probe($provider_key, $api_key, $model)
                 ) {
                     // Mark it as tried first, so a second validation does not start another probe.
                     self::note_reasoning_probe_failure($provider_key, $model);
-                    $probeEndpoint = $chatEndpoint;
-                    $probeHeaders = $chatHeaders;
-                    add_action('shutdown', static function () use ($probeEndpoint, $probeHeaders, $model, $provider_key) {
-                        fastcgi_finish_request();
-                        try {
-                            $entry = self::probe_reasoning_params($probeEndpoint, $probeHeaders, (string) $model);
-                        } catch (\Throwable $e) {
-                            $entry = null;
-                        }
-                        if ($entry !== null) {
-                            self::remember_reasoning_params((string) $provider_key, (string) $model, $entry);
-                        }
-                    });
                 }
                 $skipProbe = true;
             }
@@ -2318,7 +2372,7 @@ final class AI_Translate_Core
         $settings = self::settings();
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
-        $model = $provider !== '' ? ($models[$provider] ?? '') : '';
+        $model = $provider !== '' ? self::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
 
@@ -2449,7 +2503,7 @@ final class AI_Translate_Core
         $settings = self::settings();
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
-        $model = $provider !== '' ? ($models[$provider] ?? '') : '';
+        $model = $provider !== '' ? self::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
         

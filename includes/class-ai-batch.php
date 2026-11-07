@@ -32,7 +32,7 @@ final class AI_Batch
         $settings = AI_Translate_Core::settings();
         $provider = isset($settings['api_provider']) ? (string)$settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
-        $model = $provider !== '' ? ($models[$provider] ?? '') : '';
+        $model = $provider !== '' ? AI_Translate_Core::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? ($apiKeys[$provider] ?? '') : '';
 
@@ -549,7 +549,7 @@ final class AI_Batch
         $settings = AI_Translate_Core::settings();
         $provider = isset($settings['api_provider']) ? (string) $settings['api_provider'] : '';
         $models = isset($settings['models']) && is_array($settings['models']) ? $settings['models'] : [];
-        $model = $provider !== '' ? (string) ($models[$provider] ?? '') : '';
+        $model = $provider !== '' ? AI_Translate_Core::effective_model($provider, (string) ($models[$provider] ?? '')) : '';
         $apiKeys = isset($settings['api_keys']) && is_array($settings['api_keys']) ? $settings['api_keys'] : [];
         $apiKey = $provider !== '' ? (string) ($apiKeys[$provider] ?? '') : '';
         if ($provider === '' || $model === '' || $apiKey === '' || !class_exists('\\WpOrg\\Requests\\Requests')) {
