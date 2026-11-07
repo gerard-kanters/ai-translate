@@ -723,7 +723,7 @@ document.addEventListener('DOMContentLoaded', function () {
             clearTimeout(apiKeyTimeout);
             apiKeyTimeout = setTimeout(function() {
                 var selectedProvider = apiProviderSelect ? apiProviderSelect.value : '';
-                if (selectedProvider && (selectedProvider === 'openai' || selectedProvider === 'deepseek' || selectedProvider === 'openrouter' || selectedProvider === 'groq' || selectedProvider === 'deepinfra')) {
+                if (selectedProvider && (selectedProvider === 'openai' || selectedProvider === 'deepseek' || selectedProvider === 'openrouter' || selectedProvider === 'groq' || selectedProvider === 'deepinfra' || (selectedProvider === 'custom' && customApiUrlInput && customApiUrlInput.value.trim() !== ''))) {
                     var model = modelsPerProvider[selectedProvider] || '';
                     loadModelsForProvider(selectedProvider, model);
                 }
@@ -913,10 +913,44 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // The remembered model of the custom provider belongs to one API host. When the URL points to another
+    // host (e.g. from OpenRouter to Anthropic) that model does not exist there: load the new list and
+    // preselect its preferred model.
+    function apiHostOf(url) {
+        var m = /^\s*(?:https?:\/\/)?([^\/\s?#]+)/i.exec(url || '');
+        return m ? m[1].toLowerCase() : '';
+    }
+    var lastCustomHost = customApiUrlInput ? apiHostOf(customApiUrlInput.value) : '';
+    var customHostTimer = null;
+    function reloadCustomModelsOnHostChange() {
+        if (!customApiUrlInput || !apiProviderSelect || apiProviderSelect.value !== 'custom') return;
+        var host = apiHostOf(customApiUrlInput.value);
+        if (!host || host === lastCustomHost || host.indexOf('.') === -1) return;
+        lastCustomHost = host;
+        modelsPerProvider.custom = '';
+        if (customModelInput) customModelInput.value = '';
+        if (selectedModel) {
+            var strings = aiTranslateAdmin.strings || {};
+            selectedModel.innerHTML = '';
+            var loadingOpt = document.createElement('option');
+            loadingOpt.value = '';
+            loadingOpt.textContent = strings.loadingModels || 'Loading models...';
+            loadingOpt.disabled = true;
+            loadingOpt.selected = true;
+            selectedModel.appendChild(loadingOpt);
+        }
+        alwaysThinkingModels = {};
+        updateThinkingWarning();
+        loadModelsForProvider('custom', '');
+    }
+
     if (customApiUrlInput) {
         customApiUrlInput.addEventListener('input', function () {
             scheduleApiValidation();
+            clearTimeout(customHostTimer);
+            customHostTimer = setTimeout(reloadCustomModelsOnHostChange, 900);
         });
+        customApiUrlInput.addEventListener('change', reloadCustomModelsOnHostChange);
     }
 
     var languageSectionDefs = {

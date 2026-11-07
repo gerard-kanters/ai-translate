@@ -1199,7 +1199,7 @@ function register_api_settings_section()
             echo '</div>';
             // Custom URL field
             echo '<div id="custom_api_url_div" style="margin-top:10px; display:none;">';
-            echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://api.perplexity.ai" class="regular-text">';
+            echo '<input type="url" name="ai_translate_settings[custom_api_url]" value="' . esc_attr($settings['custom_api_url'] ?? '') . '" placeholder="https://api.perplexity.ai" class="regular-text" autocomplete="url" id="ai_translate_custom_api_url">';
             $description_text = /* translators: %s: string value */ esc_html__('Enter the base URL of your API provider. The plugin appends /chat/completions automatically. Example for OpenRouter: %s. Anthropic (Claude) works through its OpenAI-compatible endpoint: https://api.anthropic.com/v1', 'ai-translate');
             $url_link = '<a href="https://openrouter.ai/api/v1/" target="_blank">https://openrouter.ai/api/v1/</a>';
 
@@ -1234,7 +1234,8 @@ function register_api_settings_section()
             $api_keys = $settings['api_keys'] ?? [];
             // The saved key itself never goes into the page: show the mask when there is one
             $value = !empty($api_keys[$current_provider_key]) ? KEY_MASK : '';
-            echo '<input type="password" name="ai_translate_settings[api_key]" value="' . esc_attr($value) . '" class="regular-text">';
+            // Not a login: stop browsers from treating the URL field above as a username and the key as a password.
+            echo '<input type="password" name="ai_translate_settings[api_key]" id="ai_translate_api_key" value="' . esc_attr($value) . '" class="regular-text" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">';
             echo ' <span id="api-key-request-link-span" style="margin-left:10px;"></span>';
         },
         'ai-translate',
