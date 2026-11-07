@@ -2628,6 +2628,15 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     if ($is_anthropic) {
         $preferred_model_patterns['custom'] = ['/^claude-haiku-5-5(?:-\d+)?$/i', '/^claude-haiku/i', '/^claude-sonnet/i', '/^claude/i'];
     }
+    if ($provider_key === 'custom' && !$is_anthropic) {
+        // Other known hosts: the same default as the provider of that name.
+        $custom_host = AI_Translate_Core::api_host((string) $api_url);
+        if ($custom_host === 'openrouter.ai') {
+            $preferred_model_patterns['custom'] = ['/^openai\/gpt[-\s_.]*(5\.)?6[-\s_.]*luna$/i'];
+        } elseif ($custom_host === 'api.openai.com') {
+            $preferred_model_patterns['custom'] = ['/^gpt[-\s_.]*(5\.)?6[-\s_.]*luna$/i'];
+        }
+    }
     if (isset($preferred_model_patterns[$provider_key])) {
         $preferred_index = false;
         foreach ($preferred_model_patterns[$provider_key] as $pattern) {

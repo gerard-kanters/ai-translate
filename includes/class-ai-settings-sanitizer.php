@@ -72,6 +72,13 @@ final class AI_Settings_Sanitizer
         }
         self::model($s, $input, $current);
         self::api_key($s, $input, $current);
+        // The old shared custom key moved to its host as soon as a host has its own key.
+        foreach (array_keys($s['api_keys']) as $slot) {
+            if (strpos((string) $slot, 'custom@') === 0) {
+                unset($s['api_keys']['custom']);
+                break;
+            }
+        }
         self::texts_per_domain($s, $input);
         self::languages($s, $input, $is_form);
         self::switcher_position($s, $input);
