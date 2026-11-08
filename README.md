@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.4.2
+Stable tag: 2.4.3
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -209,6 +209,11 @@ AI Translate requires an API key from one of the supported providers:
 ## Changelog
 
 
+
+### 2.4.3
+
+- Fix: with Claude (Anthropic) as a custom API, long pages were not translated, only the URL was. Claude 5 models think before answering by default, which made translations time out. Thinking is now switched off for translations on api.anthropic.com.
+- Better: errors about the temperature setting are recognised for every provider, and the request is retried without it.
 
 ### 2.4.2
 

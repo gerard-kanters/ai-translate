@@ -746,25 +746,7 @@ final class AI_Translate_Core
      */
     public static function is_unsupported_temperature_error(string $body): bool
     {
-        $data = json_decode($body, true);
-        $message = '';
-        $param = '';
-        if (is_array($data) && isset($data['error']) && is_array($data['error'])) {
-            $message = strtolower((string) ($data['error']['message'] ?? ''));
-            $param = strtolower((string) ($data['error']['param'] ?? ''));
-        } else {
-            $message = strtolower($body);
-        }
-        if ($param === 'temperature') {
-            return true;
-        }
-        return strpos($message, 'temperature') !== false
-            && (
-                strpos($message, 'unsupported') !== false
-                || strpos($message, 'does not support') !== false
-                || strpos($message, 'not support') !== false
-                || strpos($message, 'only the default') !== false
-            );
+        return \AITranslate\is_temperature_error($body);
     }
 
     /**
@@ -1085,6 +1067,16 @@ final class AI_Translate_Core
         }
         if ($omitTemperature) {
             unset($body['temperature']);
+        }
+
+        // Anthropic's OpenAI-compatible endpoint: Claude 5 models think by default and the thinking
+        // is not returned. A page translation then needs 20-45 s (the request limit is 45 s) and
+        // fails silently. Thinking can be switched off with the native field; reasoning_effort is ignored.
+        if ($provider === 'custom' && self::is_anthropic_url((string) (self::settings()['custom_api_url'] ?? ''))) {
+            if (!isset($body['thinking'])) {
+                $body['thinking'] = ['type' => 'disabled'];
+            }
+            return $body;
         }
 
         // Parameters the activation probe measured to work for this exact model win over the

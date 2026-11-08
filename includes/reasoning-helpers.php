@@ -74,3 +74,27 @@ function estimate_hidden_reasoning_tokens(array $data, string $visibleText): int
     // measured 40 tokens over the estimate, real thinking is a multiple of the answer.
     return ($hidden >= 60 && $hidden >= $visible) ? $hidden : 0;
 }
+
+/**
+ * Whether an API error body rejects the temperature value sent with the request.
+ *
+ * Wording differs per provider (Anthropic says the value "may only be set to 1" or is
+ * "deprecated" for newer Claude models), so any error that names temperature counts.
+ * Retrying without temperature is harmless when the error was about something else.
+ *
+ * @param string $body Raw HTTP response body.
+ * @return bool
+ */
+function is_temperature_error(string $body): bool
+{
+    $data = json_decode($body, true);
+    $message = '';
+    $param = '';
+    if (is_array($data) && isset($data['error']) && is_array($data['error'])) {
+        $message = strtolower((string) ($data['error']['message'] ?? ''));
+        $param = strtolower((string) ($data['error']['param'] ?? ''));
+    } else {
+        $message = strtolower($body);
+    }
+    return $param === 'temperature' || strpos($message, 'temperature') !== false;
+}
