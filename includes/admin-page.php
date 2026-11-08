@@ -2607,10 +2607,10 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     // Existing saved selections are kept by the UI; this only controls default-first ordering.
     $preferred_model_patterns = [
         'openai' => [
-            '/gpt[-\s_.]*(5\.)?6[-\s_.]*luna/i',
+            '/^gpt-6-luna$/i',
         ],
         'openrouter' => [
-            '/openai\/gpt[-\s_.]*(5\.)?6[-\s_.]*luna/i',
+            '/^openai\/gpt-6-luna$/i',
         ],
         'deepinfra' => [
             '/^deepseek-ai\/DeepSeek-V4-Flash$/i',
@@ -2632,9 +2632,9 @@ add_action('wp_ajax_ai_translate_get_models', function () {
         // Other known hosts: the same default as the provider of that name.
         $custom_host = AI_Translate_Core::api_host((string) $api_url);
         if ($custom_host === 'openrouter.ai') {
-            $preferred_model_patterns['custom'] = ['/^openai\/gpt[-\s_.]*(5\.)?6[-\s_.]*luna$/i'];
+            $preferred_model_patterns['custom'] = ['/^openai\/gpt-6-luna$/i'];
         } elseif ($custom_host === 'api.openai.com') {
-            $preferred_model_patterns['custom'] = ['/^gpt[-\s_.]*(5\.)?6[-\s_.]*luna$/i'];
+            $preferred_model_patterns['custom'] = ['/^gpt-6-luna$/i'];
         }
     }
     if (isset($preferred_model_patterns[$provider_key])) {
