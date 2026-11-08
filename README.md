@@ -212,7 +212,7 @@ AI Translate requires an API key from one of the supported providers:
 
 ### 2.4.3
 
-- Fix: with Claude (Anthropic) as a custom API, long pages were not translated, only the URL was. Claude 5 models think before answering by default, which made translations time out. Thinking is now switched off for translations on api.anthropic.com.
+- Fix: with Claude (Anthropic) as a custom API, long pages were not translated, only the URL was. Claude 5 models think before answering by default, which made translations time out. Thinking is now switched off for translations on api.anthropic.com, and for Claude models on OpenRouter.
 - Better: errors about the temperature setting are recognised for every provider, and the request is retried without it.
 
 ### 2.4.2

@@ -1054,7 +1054,10 @@ final class AI_Translate_Core
         // ~3x the output tokens versus 1.9s with thinking disabled.
         $isDeepSeekV = (bool) preg_match('/deepseek[-_]?(?:v\d|reasoner|flash)/i', $model);
         $isGemini    = stripos($model, 'gemini') !== false;
-        $isReasoning = $isOSeries || $isGpt5 || $isDeepSeekV || $isGemini;
+        // Claude 5 Haiku on OpenRouter thinks by default (measured: 14k instead of 6k output tokens for
+        // the same page, 48 s against the 45 s request limit); reasoning effort none switches it off.
+        $isClaudeOpenRouter = $provider === 'openrouter' && (bool) preg_match('/(?:^|\/)claude/i', $model);
+        $isReasoning = $isOSeries || $isGpt5 || $isDeepSeekV || $isGemini || $isClaudeOpenRouter;
 
         // Temperature 0 is only omitted when activation in admin proved this model
         // rejects that value. GPT-5 / O-series stay omitted until that check exists.
