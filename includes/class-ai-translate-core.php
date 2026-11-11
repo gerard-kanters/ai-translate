@@ -125,14 +125,38 @@ final class AI_Translate_Core
         return $retry;
     }
 
-    /** Default (preferred) model per provider, used when the saved model is no longer offered. */
-    private const DEFAULT_MODELS = [
-        'openai' => 'gpt-6-luna',
-        'openrouter' => 'openai/gpt-6-luna',
-        'deepinfra' => 'deepseek-ai/DeepSeek-V4-Flash',
-        'deepseek' => 'deepseek-v4-flash',
-        'groq' => 'openai/gpt-oss-120b',
-    ];
+    /** Providers that have a preferred (default) model list. */
+    private const DEFAULT_PROVIDERS = ['openai', 'openrouter', 'deepinfra', 'deepseek', 'groq'];
+
+    /**
+     * Preferred models per provider, best first, from includes/default-models.json.
+     *
+     * @return array<string,string[]>
+     */
+    public static function default_model_lists(): array
+    {
+        return \AITranslate\default_model_lists();
+    }
+
+    /** Preferred models for a provider key, or for the host of a custom API URL. */
+    public static function default_models_for(string $provider, string $api_url = ''): array
+    {
+        $lists = self::default_model_lists();
+        if ($provider === 'custom') {
+            if (self::is_anthropic_url($api_url)) {
+                return $lists['anthropic'] ?? [];
+            }
+            $host = self::api_host($api_url);
+            $provider = $host === 'openrouter.ai' ? 'openrouter' : ($host === 'api.openai.com' ? 'openai' : '');
+        }
+        return $lists[$provider] ?? [];
+    }
+
+    /** The default (best) model of a provider, '' when there is none. */
+    private static function default_model(string $provider): string
+    {
+        return in_array($provider, self::DEFAULT_PROVIDERS, true) ? (self::default_model_lists()[$provider][0] ?? '') : '';
+    }
 
     /**
      * The model to use for translating. A saved model that the plugin no longer offers (removed from the
@@ -144,15 +168,20 @@ final class AI_Translate_Core
             // Anthropic only has Claude models: a model left over from another API host cannot work.
             return stripos($model, 'claude') === 0 ? $model : self::ANTHROPIC_FALLBACK_MODELS[0];
         }
-        if ($model === '' || !isset(self::DEFAULT_MODELS[$provider])) {
+        $default = self::default_model($provider);
+        if ($model === '' || $default === '') {
             return $model;
         }
         if (self::filter_admin_models([['id' => $model]], $provider) === []) {
-            return self::DEFAULT_MODELS[$provider];
+            return $default;
         }
-        // The provider stopped offering the model (retired): use the default, if that one is still offered.
-        if (self::model_is_retired($provider, $model) && !self::model_is_retired($provider, self::DEFAULT_MODELS[$provider])) {
-            return self::DEFAULT_MODELS[$provider];
+        // The provider stopped offering the model (retired): use the first preferred model still offered.
+        if (self::model_is_retired($provider, $model)) {
+            foreach (self::default_model_lists()[$provider] as $candidate) {
+                if (!self::model_is_retired($provider, $candidate)) {
+                    return $candidate;
+                }
+            }
         }
         return $model;
     }
@@ -162,22 +191,23 @@ final class AI_Translate_Core
 
     public static function store_live_models(string $provider, array $rawModels): void
     {
-        if (isset(self::DEFAULT_MODELS[$provider])) {
+        if (self::default_model($provider) !== '') {
             \AITranslate\store_live_models($provider, $rawModels);
         }
     }
 
     public static function model_is_retired(string $provider, string $model): bool
     {
-        return isset(self::DEFAULT_MODELS[$provider]) && \AITranslate\model_is_retired($provider, $model);
+        return self::default_model($provider) !== '' && \AITranslate\model_is_retired($provider, $model);
     }
 
     /** Cron callback for LIVE_MODELS_HOOK: fetch /models for the active provider and store the IDs. */
     public static function refresh_live_models(): void
     {
+        \AITranslate\refresh_default_models(); // Weekly check inside; does nothing on the other days.
         $settings = self::settings(true);
         $provider = (string) ($settings['api_provider'] ?? '');
-        if (!isset(self::DEFAULT_MODELS[$provider])) {
+        if (self::default_model($provider) === '') {
             return;
         }
         $key = self::api_key_for($settings, $provider);
@@ -218,7 +248,7 @@ final class AI_Translate_Core
      */
     public static function unavailable_model_notice(string $provider, string $saved): string
     {
-        if ($provider === '' || $saved === '' || !isset(self::DEFAULT_MODELS[$provider])) {
+        if ($provider === '' || $saved === '' || self::default_model($provider) === '') {
             return '';
         }
         $effective = self::effective_model($provider, $saved);

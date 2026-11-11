@@ -172,12 +172,12 @@ Each visitor's language preference is remembered for future visits.
 
 ## Recommended Model Selection
 
-- **💡 OpenAI**: `gpt-5.4-mini` Pretty good for most languages and reasonably priced.
-- **💰 Deepseek**: `deepseek-chat` - Slower, but more cost-effective.
-- **🔧 OpenRouter**: Select google/gemini-3.1-flash-lite which has a very good price/performance ratio.
-- **💡 Groq**: Select openai/gpt-oss-120b  Extremely fast, pretty cheap and very good in translating.
+- **💡 OpenAI**: `gpt-6-luna` Good in most languages and the cheapest of the good choices.
+- **💰 DeepSeek**: `deepseek-flash` Cost-effective and good in Chinese, Japanese and Korean.
+- **🔧 OpenRouter**: `google/gemini-3.1-flash-lite` has a very good price/performance ratio.
+- **💡 Groq**: `openai/gpt-oss-120b` Extremely fast, pretty cheap and very good in translating.
 
-Gemini flash is the best price performance model available now. It is fast, support all languages and has low pricing. 
+These defaults were chosen by benchmarking translation quality in 25 languages against cost, leaving out models that think before answering. They are kept in `includes/default-models.json`, and the plugin checks once a week for an updated list (see External Services). Your own model choice is never changed.
 
 ## Development
 
@@ -195,6 +195,10 @@ AI Translate requires an API key from one of the supported providers:
 
 - 🔒 Only website content for translation is sent—no visitor IP or personal data
 - 💾 All translations are cached locally; nothing is shared externally
+
+#### Preferred model list
+
+Once a week the plugin downloads a small public file with the preferred model per provider from `https://raw.githubusercontent.com/gerard-kanters/ai-translate/master/includes/default-models.json` (GitHub). The request is a plain download and sends no data about your site or visitors. If it fails, the list bundled with the plugin is used. Use the `ai_translate_default_models_url` filter to change the address, or return an empty string to turn the download off.
 
 
 

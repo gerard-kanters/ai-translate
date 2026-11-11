@@ -1,0 +1,13 @@
+{
+  "_note": "USD per 1M tokens, list prices for providers whose model list has no prices. Peak rates, so providers compare fairly. Checked 2026-11-11 against the provider pages; update when they change.",
+  "deepseek": {
+    "deepseek-flash": {"in": 0.30, "out": 1.20, "note": "DeepSeek-V4.1-Flash-1017; off-peak is half"},
+    "deepseek-v4-pro": {"in": 1.32, "out": 3.96, "note": "DeepSeek-V4-Pro-0813; off-peak is half"}
+  },
+  "groq": {
+    "openai/gpt-oss-20b": {"in": 0.075, "out": 0.30},
+    "openai/gpt-oss-120b": {"in": 0.15, "out": 0.60},
+    "qwen/qwen3.8-27b": {"in": 0.80, "out": 4.00},
+    "qwen/qwen3.6-27b": {"in": 0.80, "out": 4.00, "note": "not listed by Groq: assumed equal to qwen3.8-27b"}
+  }
+}

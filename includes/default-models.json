@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "updated": "2026-11-11",
+  "note": "Preferred translation models per provider, best first. Chosen by tools/model-benchmark: cost first, no thinking, quality in many languages.",
+  "providers": {
+    "openrouter": ["google/gemini-3.1-flash-lite", "bytedance-seed/seed-2.0-mini", "deepseek/deepseek-v4.1-flash"],
+    "deepinfra": ["google/gemini-3.1-flash-lite", "ByteDance/Seed-2.0-mini", "deepseek-ai/DeepSeek-V4.1-Flash"],
+    "deepseek": ["deepseek-flash", "deepseek-v4-pro"],
+    "groq": ["openai/gpt-oss-120b"],
+    "openai": ["gpt-6-luna", "gpt-5.6-luna", "gpt-4.1-mini"],
+    "anthropic": ["claude-haiku-5-5"]
+  }
+}

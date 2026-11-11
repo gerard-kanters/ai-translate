@@ -2610,41 +2610,19 @@ add_action('wp_ajax_ai_translate_get_models', function () {
 
     // Place preferred translation models first per provider.
     // Existing saved selections are kept by the UI; this only controls default-first ordering.
-    $preferred_model_patterns = [
-        'openai' => [
-            '/^gpt-6-luna$/i',
-        ],
-        'openrouter' => [
-            '/^openai\/gpt-6-luna$/i',
-        ],
-        'deepinfra' => [
-            '/^deepseek-ai\/DeepSeek-V4-Flash$/i',
-        ],
-        'deepseek' => [
-            '/^deepseek-v4-flash$/i',
-        ],
-        // gpt-oss-120b thinks on Groq (only low/medium/high exist), but it is the cheapest good choice there.
-        'groq' => [
-            '/^openai\/gpt-oss-120b$/i',
-        ],
-    ];
-
+    // The preferred models come from includes/default-models.json (best first); a dated variant
+    // such as claude-haiku-5-5-20260101 counts as the same model.
+    $preferred_model_patterns = [];
+    foreach (AI_Translate_Core::default_models_for($provider_key, (string) $api_url) as $preferred_id) {
+        $preferred_model_patterns[] = '/^' . preg_quote($preferred_id, '/') . '(?:-\d+)?$/i';
+    }
     $preferred_model_found = null;
     if ($is_anthropic) {
-        $preferred_model_patterns['custom'] = ['/^claude-haiku-5-5(?:-\d+)?$/i', '/^claude-haiku/i', '/^claude-sonnet/i', '/^claude/i'];
+        array_push($preferred_model_patterns, '/^claude-haiku/i', '/^claude-sonnet/i', '/^claude/i');
     }
-    if ($provider_key === 'custom' && !$is_anthropic) {
-        // Other known hosts: the same default as the provider of that name.
-        $custom_host = AI_Translate_Core::api_host((string) $api_url);
-        if ($custom_host === 'openrouter.ai') {
-            $preferred_model_patterns['custom'] = ['/^openai\/gpt-6-luna$/i'];
-        } elseif ($custom_host === 'api.openai.com') {
-            $preferred_model_patterns['custom'] = ['/^gpt-6-luna$/i'];
-        }
-    }
-    if (isset($preferred_model_patterns[$provider_key])) {
+    if ($preferred_model_patterns !== []) {
         $preferred_index = false;
-        foreach ($preferred_model_patterns[$provider_key] as $pattern) {
+        foreach ($preferred_model_patterns as $pattern) {
             foreach ($models as $index => $model) {
                 if (preg_match($pattern, $model)) {
                     $preferred_index = $index;
