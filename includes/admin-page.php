@@ -1262,6 +1262,7 @@ function register_api_settings_section()
             $current_provider = isset($settings['api_provider']) ? $settings['api_provider'] : '';
             $models = isset($settings['models']) ? $settings['models'] : [];
             $selected_model = $current_provider !== '' ? ($models[$current_provider] ?? '') : '';
+            $unavailable_notice = AI_Translate_Core::unavailable_model_notice((string) $current_provider, (string) $selected_model);
             $selected_model = $current_provider !== '' ? AI_Translate_Core::effective_model((string) $current_provider, (string) $selected_model) : '';
             $custom_model = isset($settings['custom_model']) ? $settings['custom_model'] : '';
             echo '<select name="ai_translate_settings[selected_model]" id="selected_model">';
@@ -1271,6 +1272,9 @@ function register_api_settings_section()
             }
             echo '<option value="custom">' . esc_html__('Select...', 'ai-translate') . '</option>';
             echo '</select> ';
+            if ($unavailable_notice !== '') {
+                echo '<p class="notice notice-warning inline" style="margin:8px 0 0;padding:8px 12px;"><strong>' . esc_html($unavailable_notice) . '</strong></p>';
+            }
             echo '<div id="custom_model_div" style="margin-top:10px; display:none;">';
             echo '<input type="text" name="ai_translate_settings[custom_model]" value="' . esc_attr($custom_model) . '" placeholder="' . esc_attr__('E.g.: deepseek-chat, gpt-4o, ...', 'ai-translate') . '" class="regular-text">';
             echo '</div>';
@@ -2598,6 +2602,7 @@ add_action('wp_ajax_ai_translate_get_models', function () {
     if (!isset($data['data']) || !is_array($data['data'])) {
         wp_send_json_error(['message' => __('Invalid response from API', 'ai-translate')]);
     }
+    AI_Translate_Core::store_live_models($provider_key, $data['data']);
     $models = AI_Translate_Core::filter_admin_models($data['data'], $provider_key);
     if ($is_anthropic && $models === []) {
         $anthropic_fallback();

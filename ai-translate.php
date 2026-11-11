@@ -182,6 +182,7 @@ require_once __DIR__ . '/includes/request-path.php';
 require_once __DIR__ . '/includes/routing-query.php';
 require_once __DIR__ . '/includes/reasoning-helpers.php';
 require_once __DIR__ . '/includes/api-keys.php';
+require_once __DIR__ . '/includes/model-availability.php';
 require_once __DIR__ . '/includes/language-redirect.php';
 require_once __DIR__ . '/includes/admin-page.php';
 require_once __DIR__ . '/includes/class-ai-lang.php';
@@ -264,7 +265,12 @@ register_activation_hook(__FILE__, function () {
 
 register_deactivation_hook(__FILE__, function () {
     \AITranslate\AI_Segment_Store::unschedule_purge();
+    \AITranslate\AI_Translate_Core::unschedule_live_models_refresh();
 });
+
+// Daily refresh of the provider's model list, so a retired model falls back to the default.
+add_action(\AITranslate\AI_Translate_Core::LIVE_MODELS_HOOK, ['\\AITranslate\\AI_Translate_Core', 'refresh_live_models']);
+add_action('init', ['\\AITranslate\\AI_Translate_Core', 'schedule_live_models_refresh']);
 
 // Daily removal of segments older than the cache duration; also schedules itself for existing installs.
 add_action(\AITranslate\AI_Segment_Store::purge_hook(), ['\\AITranslate\\AI_Segment_Store', 'run_purge']);

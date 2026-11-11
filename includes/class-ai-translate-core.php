@@ -150,7 +150,87 @@ final class AI_Translate_Core
         if (self::filter_admin_models([['id' => $model]], $provider) === []) {
             return self::DEFAULT_MODELS[$provider];
         }
+        // The provider stopped offering the model (retired): use the default, if that one is still offered.
+        if (self::model_is_retired($provider, $model) && !self::model_is_retired($provider, self::DEFAULT_MODELS[$provider])) {
+            return self::DEFAULT_MODELS[$provider];
+        }
         return $model;
+    }
+
+    /** Cron hook that refreshes the stored model list of the active provider. */
+    public const LIVE_MODELS_HOOK = 'ai_translate_refresh_live_models';
+
+    public static function store_live_models(string $provider, array $rawModels): void
+    {
+        if (isset(self::DEFAULT_MODELS[$provider])) {
+            \AITranslate\store_live_models($provider, $rawModels);
+        }
+    }
+
+    public static function model_is_retired(string $provider, string $model): bool
+    {
+        return isset(self::DEFAULT_MODELS[$provider]) && \AITranslate\model_is_retired($provider, $model);
+    }
+
+    /** Cron callback for LIVE_MODELS_HOOK: fetch /models for the active provider and store the IDs. */
+    public static function refresh_live_models(): void
+    {
+        $settings = self::settings(true);
+        $provider = (string) ($settings['api_provider'] ?? '');
+        if (!isset(self::DEFAULT_MODELS[$provider])) {
+            return;
+        }
+        $key = self::api_key_for($settings, $provider);
+        $base = self::get_api_url_for_provider($provider);
+        if ($key === '' || $base === '') {
+            return;
+        }
+        $resp = wp_remote_get(rtrim($base, '/') . '/models', [
+            'headers' => self::build_api_headers($key, $provider, []),
+            'timeout' => 20,
+            'sslverify' => true,
+        ]);
+        if (is_wp_error($resp) || (int) wp_remote_retrieve_response_code($resp) !== 200) {
+            return; // Keep the previous list; it expires by itself.
+        }
+        $data = json_decode((string) wp_remote_retrieve_body($resp), true);
+        if (is_array($data) && isset($data['data']) && is_array($data['data'])) {
+            self::store_live_models($provider, $data['data']);
+        }
+    }
+
+    /** Make sure the daily refresh is scheduled, and run one soon when nothing is stored yet. */
+    public static function schedule_live_models_refresh(): void
+    {
+        if (!wp_next_scheduled(self::LIVE_MODELS_HOOK)) {
+            wp_schedule_event(time() + 60, 'daily', self::LIVE_MODELS_HOOK);
+        }
+    }
+
+    public static function unschedule_live_models_refresh(): void
+    {
+        wp_clear_scheduled_hook(self::LIVE_MODELS_HOOK);
+    }
+
+    /**
+     * Notice for the admin when the saved model can no longer be used, naming what is used instead.
+     * Empty string when the saved model is fine.
+     */
+    public static function unavailable_model_notice(string $provider, string $saved): string
+    {
+        if ($provider === '' || $saved === '' || !isset(self::DEFAULT_MODELS[$provider])) {
+            return '';
+        }
+        $effective = self::effective_model($provider, $saved);
+        if ($effective === $saved) {
+            return '';
+        }
+        return sprintf(
+            /* translators: 1: saved model ID, 2: model used instead */
+            __('The model "%1$s" is no longer offered by the provider. Translations now use "%2$s". Save the settings to keep this choice, or pick another model.', 'ai-translate'),
+            $saved,
+            $effective
+        );
     }
 
     /** Cron hook that measures reasoning behaviour of a thinking model in the background. */
@@ -2730,4 +2810,4 @@ final class AI_Translate_Core
         // If AI is configured but failed, throw exception instead of using fallback
         throw new \Exception('AI generation failed but no error was caught');
     }
-}
+}
