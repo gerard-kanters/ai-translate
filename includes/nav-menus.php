@@ -341,7 +341,7 @@ add_action('wp_footer', function() {
         $submenu_html .= '<li class="menu-item">';
         $submenu_html .= '<a href="' . $lang_url . '" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
 
-        $submenu_html .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-menu-language-flag" />';
+        $submenu_html .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-menu-language-flag" width="16" height="12" />';
         $submenu_html .= '<span class="ai-menu-language-code">' . esc_html($lang_label) . '</span>';
 
         $submenu_html .= '</a>';
@@ -355,7 +355,7 @@ add_action('wp_footer', function() {
 
     $replacement_html = '<li class="menu-item menu-item-language-switcher menu-item-has-children">';
     $replacement_html .= '<a href="#" class="ai-menu-language-current" data-ai-trans-skip="1">';
-    $replacement_html .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_label) . '" class="ai-menu-language-flag" />';
+    $replacement_html .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_label) . '" class="ai-menu-language-flag" width="16" height="12" />';
     $replacement_html .= '<span class="ai-menu-language-code">' . esc_html($current_label) . '</span>';
     $replacement_html .= '</a>';
     $replacement_html .= $submenu_html;

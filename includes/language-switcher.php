@@ -62,7 +62,7 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
             $lang_url = $lang_code === $default_language ? esc_url($sub . $path_no_lang) : esc_url($sub . '/' . $lang_code . $path_no_lang);
 
             $output .= '<a href="' . $lang_url . '" class="ai-language-item" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
-            if ($show_flags) $output .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" />';
+            if ($show_flags) $output .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" width="20" height="14" />';
             if ($show_codes) $output .= '<span class="ai-language-code">' . esc_html($lang_label) . '</span>';
             $output .= '</a>';
         }
@@ -74,7 +74,7 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
 
         $output = '<div class="ai-language-switcher-dropdown ' . esc_attr($class) . '" id="' . esc_attr($unique_id) . '" data-ai-trans-skip="1">';
         $output .= '<button type="button" class="ai-language-switcher-btn" aria-haspopup="true" aria-expanded="false" aria-controls="' . esc_attr($unique_id) . '-menu">';
-        if ($show_flags) $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_lang) . '" class="ai-language-flag" />';
+        if ($show_flags) $output .= '<img src="' . $current_flag . '" alt="' . esc_attr($current_lang) . '" class="ai-language-flag" width="20" height="14" />';
         if ($show_codes) $output .= '<span class="ai-language-code">' . esc_html($current_label) . '</span>';
         $output .= '<span class="ai-language-arrow" aria-hidden="true">▼</span></button>';
 
@@ -88,7 +88,7 @@ function ai_translate_generate_switcher_html($type = 'dropdown', $show_flags = t
             $lang_url = $lang_code === $default_language ? esc_url($sub . $path_no_lang) : esc_url($sub . '/' . $lang_code . $path_no_lang);
 
             $output .= '<a href="' . $lang_url . '" class="ai-language-item" role="menuitem" data-lang="' . esc_attr($lang_code) . '" data-ai-trans-skip="1">';
-            if ($show_flags) $output .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" />';
+            if ($show_flags) $output .= '<img src="' . esc_url($flags_url . $lang_code . '.png') . '" alt="' . esc_attr($lang_label) . '" class="ai-language-flag" width="20" height="14" />';
             if ($show_codes) $output .= '<span class="ai-language-code">' . esc_html($lang_label) . '</span>';
             $output .= '</a>';
         }
