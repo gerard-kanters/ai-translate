@@ -3,7 +3,7 @@ Contributors: gkanters
 Tags: translation, multilingual, woocommerce, seo, artificial intelligence
 Requires at least: 6.2
 Tested up to: 7.1
-Stable tag: 2.4.3
+Stable tag: 2.4.4
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -213,6 +213,10 @@ Once a week the plugin downloads a small public file with the preferred model pe
 ## Changelog
 
 
+
+### 2.4.4
+
+- Fix: chatbots and other scripts on translated pages failed with "Security check failed" because the security tokens (nonces) in the cached page had expired. The plugin now replaces them with fresh ones when a cached page is served.
 
 ### 2.4.3
 

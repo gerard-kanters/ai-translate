@@ -86,6 +86,46 @@ final class AI_OB
         return $html;
     }
 
+    /**
+     * Replace nonces baked into cached HTML (inline JSON such as chatbot_message_nonce or
+     * restNonce) by the ones WordPress generated for the current request. A nonce expires
+     * after 12-24 hours, so a cached translated page otherwise makes AJAX/REST calls fail
+     * ("Security check failed"). Keys are matched by name; values are WordPress nonces
+     * (10 hex characters). Cache files themselves stay unchanged.
+     */
+    private static function refresh_cached_nonces(string $html, string $source_html): string
+    {
+        // Group 1 = context that identifies the nonce, group 2 = the nonce (10 hex characters).
+        $patterns = [
+            // JSON / JS / URL: "x_nonce":"abc", nonce: 'abc', \"nonce\":\"abc\", ?_wpnonce=abc, &#038;_wpnonce=abc
+            '/([\w-]*nonce[\w-]*[\\\\"\']*\s*[:=]\s*[\\\\"\']*)([0-9a-f]{10})(?![0-9a-f])/i',
+            // Form fields: <input name="_wpnonce" ... value="abc"> and <input value="abc" name="_wpnonce">
+            '/(<input\b[^>]*\bname=["\'][^"\']*nonce[^"\']*["\'][^>]*?\bvalue=["\'])([0-9a-f]{10})(?![0-9a-f])/i',
+            '/(<input\b[^>]*\bvalue=["\'])([0-9a-f]{10})(?=["\'][^>]*\bname=["\'][^"\']*nonce)/i',
+        ];
+        foreach ($patterns as $pattern) {
+            if (!preg_match_all($pattern, $source_html, $m, PREG_SET_ORDER)) {
+                continue;
+            }
+            $fresh = [];
+            foreach ($m as $hit) {
+                $fresh[$hit[1]][] = $hit[2];
+            }
+            $seen = [];
+            $html = preg_replace_callback($pattern, static function ($hit) use ($fresh, &$seen) {
+                $key = $hit[1];
+                if (empty($fresh[$key])) {
+                    return $hit[0];
+                }
+                // Same context repeats in the same order in source and cache: pair by position.
+                $i = $seen[$key] ?? 0;
+                $seen[$key] = $i + 1;
+                return $key . ($fresh[$key][$i] ?? $fresh[$key][0]);
+            }, $html);
+        }
+        return $html;
+    }
+
     /** Refresh only enqueued stylesheet tags; leave translated markup untouched. */
     private static function refresh_cached_stylesheets(string $html, string $source_html): string
     {
@@ -393,10 +433,10 @@ final class AI_OB
 
             if ($cached !== false) {
                 $processing = false;
-                return $this->post_process_cached_content(self::refresh_cached_stylesheets($cached, $html));
+                return $this->post_process_cached_content(self::refresh_cached_nonces(self::refresh_cached_stylesheets($cached, $html), $html));
             }
         }
-        
+
         // Implement cache locking to prevent race conditions from concurrent requests
         // When multiple spiders/crawlers hit the same uncached page simultaneously,
         // only the first request generates the translation while others wait
@@ -419,7 +459,7 @@ final class AI_OB
                 $cached = AI_Cache::get($key);
                 if ($cached !== false) {
                     $processing = false;
-                    return $this->post_process_cached_content(self::refresh_cached_stylesheets($cached, $html));
+                    return $this->post_process_cached_content(self::refresh_cached_nonces(self::refresh_cached_stylesheets($cached, $html), $html));
                 }
             }
             $lockAcquired = true;
