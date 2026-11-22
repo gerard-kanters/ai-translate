@@ -181,6 +181,8 @@ require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/request-path.php';
 require_once __DIR__ . '/includes/routing-query.php';
 require_once __DIR__ . '/includes/reasoning-helpers.php';
+require_once __DIR__ . '/includes/zdr.php';
+require_once __DIR__ . '/includes/zdr-admin.php';
 require_once __DIR__ . '/includes/api-keys.php';
 require_once __DIR__ . '/includes/model-availability.php';
 require_once __DIR__ . '/includes/language-redirect.php';

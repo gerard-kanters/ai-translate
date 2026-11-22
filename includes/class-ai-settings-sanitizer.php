@@ -32,6 +32,8 @@ final class AI_Settings_Sanitizer
         'multi_domain_caching' => false,
         'keep_slugs_in_english' => false,
         'woocommerce_keep_product_names' => false,
+        // Off unless the admin switches it on, also after an update.
+        ZDR_SETTING => false,
     ];
 
     /**
@@ -72,6 +74,7 @@ final class AI_Settings_Sanitizer
         }
         self::model($s, $input, $current);
         self::api_key($s, $input, $current);
+        self::zdr($s, $current);
         // The old shared custom key moved to its host as soon as a host has its own key.
         foreach (array_keys($s['api_keys']) as $slot) {
             if (strpos((string) $slot, 'custom@') === 0) {
@@ -204,6 +207,24 @@ final class AI_Settings_Sanitizer
             $s[$key] = (bool) $input[$key];
         } elseif (!isset($s[$key])) {
             $s[$key] = $default;
+        }
+    }
+
+    /**
+     * Switching Zero Data Retention on tries it with the chosen model first. When OpenRouter has no ZDR
+     * endpoint for it, the setting stays off and the admin is told, instead of translations failing later.
+     */
+    private static function zdr(array &$s, array $current): void
+    {
+        if (empty($s[ZDR_SETTING]) || !empty($current[ZDR_SETTING]) || !zdr_provider_is_openrouter($s)) {
+            return;
+        }
+        $status = zdr_probe($s);
+        if ($status === 'unsupported') {
+            $s[ZDR_SETTING] = false;
+            self::error('zdr_unsupported', __('Zero Data Retention was not switched on: OpenRouter has no provider without data retention for the chosen model. Choose another model and try again.', 'ai-translate'));
+        } elseif ($status === 'unverified') {
+            self::error('zdr_unverified', __('Zero Data Retention is on, but it could not be tested with the chosen model right now. If translations fail, check the model or switch it off.', 'ai-translate'), 'warning');
         }
     }
 

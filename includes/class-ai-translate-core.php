@@ -87,13 +87,16 @@ final class AI_Translate_Core
     public static function remote_api_post(string $endpoint, array $headers, $body, int $timeout = 45, bool $adaptReasoning = true)
     {
         $send = static function ($payload) use ($endpoint, $headers, $timeout) {
-            return wp_remote_post($endpoint, [
+            $payload = \AITranslate\apply_zdr($endpoint, $payload);
+            $resp = wp_remote_post($endpoint, [
                 'headers' => $headers,
                 'timeout' => $timeout,
                 'connect_timeout' => min(10, max(1, $timeout)),
                 'sslverify' => true,
                 'body' => is_string($payload) ? $payload : wp_json_encode($payload),
             ]);
+            \AITranslate\note_zdr_result($resp, $endpoint, $payload);
+            return $resp;
         };
         $resp = $send($body);
         if (!$adaptReasoning || is_wp_error($resp) || (int) wp_remote_retrieve_response_code($resp) !== 400) {
@@ -1360,6 +1363,7 @@ final class AI_Translate_Core
     private static function stream_start_probe(string $endpoint, array $headers, array $body, int $timeout = 30)
     {
         $body['stream'] = true;
+        $body = \AITranslate\apply_zdr($endpoint, $body);
         $lines = [];
         foreach ($headers as $name => $value) {
             $lines[] = $name . ': ' . $value;
@@ -1393,7 +1397,9 @@ final class AI_Translate_Core
         if ($code === 0) {
             return new \WP_Error('http_request_failed', $error !== '' ? $error : 'cURL error ' . $errno);
         }
-        return ['response' => ['code' => $code], 'body' => $buffer];
+        $result = ['response' => ['code' => $code], 'body' => $buffer];
+        \AITranslate\note_zdr_result($result, $endpoint, $body);
+        return $result;
     }
 
     /**

@@ -229,7 +229,7 @@ final class AI_SettingsSanitizerTest extends TestCase
         $out = AI_Settings_Sanitizer::sanitize([]);
 
         $this->assertTrue($out['auto_clear_pages_on_menu_update']);
-        foreach (['stop_translations_except_cache_invalidation', 'prewarm_on_publish', 'multi_domain_caching', 'keep_slugs_in_english', 'woocommerce_keep_product_names'] as $key) {
+        foreach (['stop_translations_except_cache_invalidation', 'prewarm_on_publish', 'multi_domain_caching', 'keep_slugs_in_english', 'woocommerce_keep_product_names', 'openrouter_zdr'] as $key) {
             $this->assertFalse($out[$key], $key);
         }
     }

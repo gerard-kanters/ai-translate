@@ -26,6 +26,7 @@ require_once $includes . 'helpers.php';
 require_once $includes . 'request-path.php';
 require_once $includes . 'routing-query.php';
 require_once $includes . 'reasoning-helpers.php';
+require_once $includes . 'zdr.php';
 require_once $includes . 'api-keys.php';
 require_once $includes . 'model-availability.php';
 require_once $includes . 'language-redirect.php';

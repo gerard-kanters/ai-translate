@@ -1286,6 +1286,22 @@ function register_api_settings_section()
         'ai-translate',
         'ai_translate_api'
     );
+    add_settings_field(
+        'openrouter_zdr',
+        __('Zero Data Retention', 'ai-translate'),
+        function () {
+            $settings = AI_Translate_Core::settings();
+            echo '<label>';
+            echo '<input type="checkbox" name="ai_translate_settings[openrouter_zdr]" value="1" ' . checked(!empty($settings[ZDR_SETTING]), true, false) . '> ';
+            echo esc_html__('Only use OpenRouter providers that do not store prompts or translations', 'ai-translate');
+            echo '</label>';
+            echo '<p class="description">';
+            echo esc_html__('Applies to OpenRouter only, and is sent with every request of this plugin. Not every model has such a provider: when you switch this on, the chosen model is tested first. A model without one cannot be used while this is on.', 'ai-translate');
+            echo '</p>';
+        },
+        'ai-translate',
+        'ai_translate_api'
+    );
 }
 
 /**

@@ -162,6 +162,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Zero Data Retention only exists at OpenRouter: show its row for that provider (or a custom URL at openrouter.ai).
+    function toggleZdrField() {
+        var box = document.querySelector('input[name="ai_translate_settings[openrouter_zdr]"]');
+        var row = box ? box.closest('tr') : null;
+        if (!row || !apiProviderSelect) {
+            return;
+        }
+        var provider = apiProviderSelect.value;
+        var host = provider === 'custom' && customApiUrlInput ? apiHostOf(customApiUrlInput.value) : '';
+        var isOpenRouter = provider === 'openrouter' || host === 'openrouter.ai' || /\.openrouter\.ai$/.test(host);
+        row.style.display = isOpenRouter ? '' : 'none';
+    }
+
     // Models the provider says always think (id => null)
     var alwaysThinkingModels = {};
 
@@ -523,6 +536,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (apiProviderSelect) {
         apiProviderSelect.addEventListener('change', updateApiKeyRequestLink);
         apiProviderSelect.addEventListener('change', toggleCustomApiUrlField);
+        apiProviderSelect.addEventListener('change', toggleZdrField);
+        if (customApiUrlInput) {
+            customApiUrlInput.addEventListener('input', toggleZdrField);
+        }
         apiProviderSelect.addEventListener('change', toggleGpt5Warning);
         apiProviderSelect.addEventListener('change', updateApiKeyField); // Update API key field when provider changes
         apiProviderSelect.addEventListener('change', updateModelField);
@@ -536,6 +553,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Call update functions on initial load
         updateApiKeyRequestLink();
         toggleCustomApiUrlField();
+        toggleZdrField();
         toggleGpt5Warning();
         // Don't call updateApiKeyField() on initial load - let PHP value stay
         // Only update when user actively changes provider
