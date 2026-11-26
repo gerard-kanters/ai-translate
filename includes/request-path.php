@@ -46,3 +46,21 @@ function ai_translate_lang_in_path(string $path): ?string
     }
     return strtolower(sanitize_key($m[1]));
 }
+
+/**
+ * Whether a request path names a real XML file (/sitemap.xml, /wp-sitemap-posts-post-1.xml, /sitemap.xsl).
+ *
+ * Only the file extension counts: a path that merely contains the word "sitemap" ("/sitemap/", "/es/sitemap/xml")
+ * is an ordinary page or a 404. Files live at the site root, so anything below a language prefix is a normal
+ * request; treating it as XML makes every routing handler skip it and WordPress answers with the homepage.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function ai_translate_path_is_xml_file(string $path): bool
+{
+    if (preg_match('#^/[a-z]{2}(?:/|$)#i', $path)) {
+        return false;
+    }
+    return (bool) preg_match('/\.(?:xml|xsl|xslt)(?:\.gz)?$/i', $path);
+}

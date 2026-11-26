@@ -95,4 +95,18 @@ final class RequestPathTest extends TestCase
             $this->assertNull(ai_translate_lang_in_path($path), "'$path'");
         }
     }
+
+    public function test_only_files_at_the_root_with_an_xml_extension_are_xml_requests(): void
+    {
+        foreach (['/sitemap.xml', '/wp-sitemap.xml', '/wp-sitemap-posts-post-1.xml', '/translated-en-sitemap.xml', '/sitemap.xml.gz', '/sitemap.xsl', '/sitemap_index.XML'] as $path) {
+            $this->assertTrue(ai_translate_path_is_xml_file($path), $path);
+        }
+    }
+
+    public function test_paths_that_only_mention_sitemap_are_not_xml_requests(): void
+    {
+        foreach (['/sitemap/', '/sitemap', '/over-de-sitemap/', '/es/sitemap/xml', '/es/sitemap.xml', '/es/foutje.xml', '/DE/a/b.xml', '/es/', '/robots.txt', '/'] as $path) {
+            $this->assertFalse(ai_translate_path_is_xml_file($path), $path);
+        }
+    }
 }

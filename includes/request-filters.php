@@ -205,25 +205,14 @@ function ai_translate_is_editor_context()
  */
 function ai_translate_is_xml_request()
 {
-    $reqPath = ai_translate_request_path();
-
-    // Check if path ends with .xml
-    if (preg_match('/\.xml$/i', $reqPath)) {
-        return true;
-    }
-
     // Check for WordPress sitemap query vars
     if (isset($_GET['sitemap']) || isset($_GET['sitemap-index'])) {
         return true;
     }
 
-    // Check for sitemap in path (e.g., /wp-sitemap.xml, /sitemap.xml)
-    if (preg_match('/sitemap/i', $reqPath)) {
-        return true;
-    }
-
-    return false;
+    return ai_translate_path_is_xml_file(ai_translate_request_path());
 }
+
 
 /**
  * Check if the current request's User-Agent is a known search engine crawler.
