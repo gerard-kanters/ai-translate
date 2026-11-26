@@ -498,6 +498,14 @@ final class AI_SEO
             return;
         }
 
+        // A theme and a plugin may both print one; several canonicals can cancel each other out.
+        for ($i = $nodes->length - 1; $i > 0; $i--) {
+            $extra = $nodes->item($i);
+            if ($extra && $extra->parentNode) {
+                $extra->parentNode->removeChild($extra);
+            }
+        }
+
         if (strtolower((string) $lang) === strtolower((string) $default)) {
             return;
         }

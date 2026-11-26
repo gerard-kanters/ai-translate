@@ -205,6 +205,17 @@ final class AI_SEOInjectTest extends TestCase
         $this->assertSame('https://example.com/de/', $this->attr($x, '//link[@rel="canonical"]', 'href'));
     }
 
+    public function test_duplicate_canonicals_are_reduced_to_one(): void
+    {
+        [, $x] = $this->render(
+            '<link rel="canonical" href="https://example.com/"><link rel="canonical" href="https://example.com/">',
+            'de'
+        );
+
+        $this->assertSame(1, $x->query('//link[@rel="canonical"]')->length);
+        $this->assertSame('https://example.com/de/', $this->attr($x, '//link[@rel="canonical"]', 'href'));
+    }
+
     public function test_no_canonical_is_added_on_not_found_pages(): void
     {
         Functions\when('is_404')->justReturn(true);
