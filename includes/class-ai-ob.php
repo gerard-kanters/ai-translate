@@ -1447,12 +1447,7 @@ final class AI_OB
     private function should_skip_file_types($html)
     {
         // Skip XML files and sitemaps
-        $req_uri = ai_translate_request_uri();
-        $reqPath = (string) wp_parse_url($req_uri, PHP_URL_PATH);
-        if (preg_match('/\.xml$/i', $reqPath) ||
-            isset($_GET['sitemap']) ||
-            isset($_GET['sitemap-index']) ||
-            preg_match('/sitemap/i', $reqPath)) {
+        if (ai_translate_is_xml_request()) {
             return true;
         }
 
