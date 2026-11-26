@@ -95,4 +95,14 @@ final class RequestPathTest extends TestCase
             $this->assertNull(ai_translate_lang_in_path($path), "'$path'");
         }
     }
+
+    public function test_xml_below_a_language_prefix_is_recognised(): void
+    {
+        foreach (['/es/sitemap.xml', '/es/foutje.xml', '/DE/a/b.XML'] as $path) {
+            $this->assertTrue(ai_translate_is_xml_under_language_prefix($path), $path);
+        }
+        foreach (['/sitemap.xml', '/es/', '/es/over-ons/', '/es/robots.txt', '/esp/sitemap.xml', '/wp-sitemap.xml'] as $path) {
+            $this->assertFalse(ai_translate_is_xml_under_language_prefix($path), $path);
+        }
+    }
 }
