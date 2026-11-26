@@ -80,7 +80,10 @@ final class AI_URL
             $newBodyInner = (string) $bodyNew[1];
             
             // Only replace body inner content (URLs have been rewritten), keep everything else from original
-            $result = (string) preg_replace('/(<body\b[^>]*>)[\s\S]*?(<\/body>)/i', '$1' . $newBodyInner . '$2', (string) $html, 1);
+            // Callback so backslashes and $1 inside scripts in the body are not read as references.
+            $result = (string) preg_replace_callback('/(<body\b[^>]*>)[\s\S]*?(<\/body>)/i', static function ($m) use ($newBodyInner) {
+                return $m[1] . $newBodyInner . $m[2];
+            }, (string) $html, 1);
         }
         
         return $result;

@@ -217,6 +217,7 @@ Once a week the plugin downloads a small public file with the preferred model pe
 ### 2.4.4
 
 - Fix: chatbots and other scripts on translated pages failed with "Security check failed" or "Unauthorized access to conversation". The cached page contained values that are different for every visitor or expire (nonces, session and user IDs, timestamps). The plugin now replaces them with the values of the current visit when a cached page is served.
+- Fix: on translated pages, backslashes in inline scripts were lost (for example the formula delimiters of a chatbot), so text in parentheses was turned into broken, very wide formulas and the chat window scrolled sideways. Scripts are now restored exactly as the original.
 
 ### 2.4.3
 

@@ -390,4 +390,14 @@ final class AI_DOMTest extends TestCase
         $result = AI_DOM::merge($plan, $translations);
         $this->assertStringContainsString('Vertaalde Titel', $result);
     }
+
+    public function test_restore_placeholder_keeps_backslashes_and_dollar_references(): void
+    {
+        $script = '<script>window.MathJax={tex:{inlineMath:[["\\\\(","\\\\)"]]}};var a="$1 \\1 $0";</script>';
+        $html = '<body><div data-ai-placeholder="SCRIPT_PLACEHOLDER_1" style="display:none;"></div></body>';
+
+        $result = AI_DOM::restorePlaceholder($html, 'SCRIPT_PLACEHOLDER_1', $script);
+
+        $this->assertSame('<body>' . $script . '</body>', $result);
+    }
 }

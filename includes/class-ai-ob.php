@@ -61,7 +61,9 @@ final class AI_OB
             // Without this class the injected bar overlays the menu instead of sitting above it.
             $html = self::ensure_rtl_class_on_tag($html, 'body', 'admin-bar');
             $admin_bar_html = $this->get_simple_admin_bar_html();
-            $html = preg_replace('/(<body[^>]*>)/', '$1' . $admin_bar_html, $html, 1);
+            $html = preg_replace_callback('/(<body[^>]*>)/', static function ($m) use ($admin_bar_html) {
+                return $m[1] . $admin_bar_html;
+            }, $html, 1);
         } elseif (!$should_show_admin_bar && $has_admin_bar) {
             // Regular user should NOT see admin bar but it's in cached content – strip it.
             // Uses a depth-counting string traversal instead of DOMDocument to avoid a
@@ -150,7 +152,9 @@ final class AI_OB
             $inserted = true;
             return $replacement;
         }, $html);
-        return $inserted ? $html : preg_replace('/<\/head>/i', $replacement . "\n</head>", $html, 1);
+        return $inserted ? $html : preg_replace_callback('/<\/head>/i', static function () use ($replacement) {
+            return $replacement . "\n</head>";
+        }, $html, 1);
     }
 
     /**
@@ -637,7 +641,10 @@ final class AI_OB
         }
         // Preserve original body attributes/classes (Kadence relies on these for layout sizing).
         if (preg_match('/<body\b[^>]*>/i', (string) $html2, $origBodyOpen)) {
-            $html3 = (string) preg_replace('/<body\b[^>]*>/i', (string) $origBodyOpen[0], (string) $html3, 1);
+            $origBody = (string) $origBodyOpen[0];
+            $html3 = (string) preg_replace_callback('/<body\b[^>]*>/i', static function () use ($origBody) {
+                return $origBody;
+            }, (string) $html3, 1);
         }
 
         // Restore script/style tags from placeholders

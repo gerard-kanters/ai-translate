@@ -438,7 +438,11 @@ final class AI_DOM
         ];
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $html)) {
-                return preg_replace($pattern, $original_tag, $html, 1);
+                // Callback: a plain replacement string would treat backslashes and $1 / \1 inside
+                // the original script as references (turning "\\(" into "\(" and breaking inline JS/JSON).
+                return preg_replace_callback($pattern, static function () use ($original_tag) {
+                    return $original_tag;
+                }, $html, 1);
             }
         }
         return $html;
