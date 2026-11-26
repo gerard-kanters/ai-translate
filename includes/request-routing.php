@@ -451,7 +451,7 @@ add_action('parse_request', function ($wp) {
                 if ($potential_slug === '') {
                     $cpt_obj = get_post_type_object($detected_post_type);
                     if ($cpt_obj && $cpt_obj->has_archive) {
-                        ai_translate_route_to_archive($wp, $detected_post_type);
+                        ai_translate_route_to_archive($wp, $detected_post_type, (int) $suffix_info['paged']);
                         return;
                     }
                     nocache_headers();
@@ -478,7 +478,7 @@ add_action('parse_request', function ($wp) {
             $detected_rewrite_slug = $cpt_match['rewrite_slug'];
             $cpt_obj = get_post_type_object($detected_post_type);
             if ($cpt_obj && $cpt_obj->has_archive) {
-                ai_translate_route_to_archive($wp, $detected_post_type);
+                ai_translate_route_to_archive($wp, $detected_post_type, (int) $suffix_info['paged']);
                 return;
             }
             nocache_headers();
@@ -528,7 +528,7 @@ add_action('parse_request', function ($wp) {
     if (!$post_id && strpos($rest, '/') === false) {
         $cpt_archive_type = ai_translate_detect_cpt_archive($rest);
         if ($cpt_archive_type) {
-            ai_translate_route_to_archive($wp, $cpt_archive_type);
+            ai_translate_route_to_archive($wp, $cpt_archive_type, (int) $suffix_info['paged']);
             return;
         }
     }

@@ -92,6 +92,7 @@ final class AI_Sitemap
             $entries[] = [
                 'loc'     => $home . '/' . $lang . '/',
                 'lastmod' => $lastmod_ts,
+                'post_id' => 0,
             ];
         }
 
@@ -128,7 +129,7 @@ final class AI_Sitemap
 
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a server-built '%s, %s, ...' string for IN(); $table/$col_lang are passed via %i below
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT s.translated_slug, p.post_modified_gmt
+            "SELECT s.post_id, s.translated_slug, p.post_type, p.post_modified_gmt
              FROM %i s
              JOIN {$wpdb->posts} p ON p.ID = s.post_id
              WHERE s.%i = %s
@@ -152,8 +153,11 @@ final class AI_Sitemap
             if ($slug === '') {
                 continue;
             }
+            // Custom post types live under their rewrite slug; without it the URL only redirects.
+            $prefix = function_exists('ai_translate_cpt_path_prefix') ? ai_translate_cpt_path_prefix((string) $row['post_type']) : '';
             $entry = [
-                'loc' => $home . '/' . $lang . '/' . $slug . '/',
+                'loc'     => $home . '/' . $lang . '/' . $prefix . $slug . '/',
+                'post_id' => (int) $row['post_id'],
             ];
             if (!empty($row['post_modified_gmt']) && $row['post_modified_gmt'] !== '0000-00-00 00:00:00') {
                 $entry['lastmod'] = strtotime($row['post_modified_gmt']);
@@ -234,6 +238,148 @@ final class AI_Sitemap
         return ($schema === 'original') ? 'language_code' : 'lang';
     }
 
+    private const XHTML_NS = 'http://www.w3.org/1999/xhtml';
+
+    /**
+     * Language alternates for sitemap entries, keyed by post ID (0 = homepage).
+     *
+     * Only languages that already have a translated slug are listed, so building a sitemap
+     * never triggers a translation. The default language and x-default point to the original URL.
+     *
+     * @param int[] $post_ids
+     * @return array<int, array<string,string>> post_id => [hreflang => absolute URL]
+     */
+    public static function get_alternates(array $post_ids)
+    {
+        $default = AI_Lang::default();
+        if ($default === null || $default === '') {
+            return [];
+        }
+        $default = strtolower((string) $default);
+        $langs   = self::get_sitemap_languages();
+        $home    = AI_SEO::homeRoot();
+        $out     = [];
+
+        if (in_array(0, $post_ids, true)) {
+            $set = [$default => $home];
+            foreach ($langs as $lang) {
+                $set[$lang] = $home . $lang . '/';
+            }
+            $set['x-default'] = $home;
+            $out[0] = $set;
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', $post_ids), static function ($id) {
+            return $id > 0;
+        })));
+        if (empty($ids) || empty($langs)) {
+            return $out;
+        }
+
+        global $wpdb;
+        $table    = $wpdb->prefix . 'ai_translate_slugs';
+        $col_lang = self::slug_lang_column();
+        $id_ph    = implode(', ', array_fill(0, count($ids), '%d'));
+        $lang_ph  = implode(', ', array_fill(0, count($langs), '%s'));
+
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- placeholder lists are server-built; table/column go through %i
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.post_id, s.%i AS lang, s.translated_slug, p.post_type
+             FROM %i s
+             JOIN {$wpdb->posts} p ON p.ID = s.post_id
+             WHERE s.post_id IN ({$id_ph})
+               AND s.%i IN ({$lang_ph})
+               AND s.translated_slug != ''
+               AND p.post_status = 'publish'",
+            array_merge([$col_lang, $table], $ids, [$col_lang], $langs)
+        ), ARRAY_A);
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+        $by_post = [];
+        foreach ((array) $rows as $row) {
+            $by_post[(int) $row['post_id']][strtolower((string) $row['lang'])] = $row;
+        }
+
+        if (function_exists('_prime_post_caches')) {
+            _prime_post_caches($ids, false, false);
+        }
+
+        foreach ($ids as $id) {
+            if (empty($by_post[$id])) {
+                continue;
+            }
+            $original = get_permalink($id);
+            if (!is_string($original) || $original === '') {
+                continue;
+            }
+            $set = [$default => $original];
+            foreach ($langs as $lang) {
+                if (!isset($by_post[$id][$lang])) {
+                    continue;
+                }
+                $row    = $by_post[$id][$lang];
+                $slug   = trim((string) $row['translated_slug'], '/');
+                $prefix = function_exists('ai_translate_cpt_path_prefix') ? ai_translate_cpt_path_prefix((string) $row['post_type']) : '';
+                if ($slug !== '') {
+                    $set[$lang] = $home . $lang . '/' . $prefix . $slug . '/';
+                }
+            }
+            $set['x-default'] = $original;
+            $out[$id] = $set;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Add an 'alternates' list to each entry that has a post_id.
+     *
+     * @param array[] $entries
+     * @return array[]
+     */
+    public static function with_alternates(array $entries)
+    {
+        $ids = [];
+        foreach ($entries as $e) {
+            if (isset($e['post_id'])) {
+                $ids[] = (int) $e['post_id'];
+            }
+        }
+        if (empty($ids)) {
+            return $entries;
+        }
+        $map = self::get_alternates($ids);
+        foreach ($entries as &$e) {
+            $id = isset($e['post_id']) ? (int) $e['post_id'] : -1;
+            if (isset($map[$id])) {
+                $e['alternates'] = $map[$id];
+            }
+        }
+        unset($e);
+        return $entries;
+    }
+
+    /**
+     * xhtml:link elements for one entry.
+     *
+     * @param array<string,string> $alternates hreflang => URL
+     * @param bool                 $declare_ns Declare the namespace on each element (when the root does not).
+     * @return string
+     */
+    public static function alternates_xml(array $alternates, $declare_ns = false)
+    {
+        $xml = '';
+        foreach ($alternates as $hreflang => $href) {
+            if ($href === '') {
+                continue;
+            }
+            $xml .= "\t\t<xhtml:link rel=\"alternate\" hreflang=\"" . htmlspecialchars((string) $hreflang, ENT_QUOTES | ENT_XML1) . '" href="'
+                . htmlspecialchars(esc_url_raw((string) $href), ENT_QUOTES | ENT_XML1) . '"'
+                . ($declare_ns ? ' xmlns:xhtml="' . self::XHTML_NS . '"' : '') . " />\n";
+        }
+        return $xml;
+    }
+
     /**
      * Build a standard sitemap XML string from entry arrays.
      *
@@ -242,13 +388,16 @@ final class AI_Sitemap
      */
     private static function build_sitemap_xml(array $entries)
     {
-        $xml = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        $xml = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="' . self::XHTML_NS . '">' . "\n";
 
-        foreach ($entries as $entry) {
+        foreach (self::with_alternates($entries) as $entry) {
             $xml .= "\t<url>\n";
             $xml .= "\t\t<loc>" . esc_url($entry['loc']) . "</loc>\n";
             if (!empty($entry['lastmod'])) {
                 $xml .= "\t\t<lastmod>" . wp_date('c', (int) $entry['lastmod']) . "</lastmod>\n";
+            }
+            if (!empty($entry['alternates'])) {
+                $xml .= self::alternates_xml($entry['alternates']);
             }
             $xml .= "\t</url>\n";
         }
@@ -425,8 +574,8 @@ final class AI_Sitemap
             || ($type === 'pt' && is_string($params) && strpos($params, 'languages') === 0);
 
         if ($is_lang) {
-            foreach (self::get_language_entries() as $e) {
-                $gsg->add_url($e['loc'], $e['lastmod'], 'weekly', 0.5);
+            foreach (self::with_alternates(self::get_language_entries()) as $e) {
+                self::gsm_add_entry($gsg, $e);
             }
             return;
         }
@@ -440,12 +589,38 @@ final class AI_Sitemap
         // Extract language code from params: "translated-{lang}-sitemap..."
         if (preg_match('/^translated-([a-z]{2,5})-/', $params, $m)) {
             $lang    = $m[1];
-            $entries = self::get_translated_entries($lang, 50000, 0);
+            $entries = self::with_alternates(self::get_translated_entries($lang, 50000, 0));
             foreach ($entries as $e) {
-                $lastmod = !empty($e['lastmod']) ? $e['lastmod'] : 0;
-                $gsg->add_url($e['loc'], $lastmod, 'weekly', 0.5);
+                self::gsm_add_entry($gsg, $e);
             }
         }
+    }
+
+    /**
+     * Output one URL in a Google XML Sitemaps sitemap, with hreflang alternates when known.
+     *
+     * @param \GoogleSitemapGenerator $gsg
+     * @param array $e Entry with 'loc', optional 'lastmod' and 'alternates'.
+     */
+    private static function gsm_add_entry($gsg, array $e)
+    {
+        $lastmod = !empty($e['lastmod']) ? (int) $e['lastmod'] : 0;
+        if (empty($e['alternates']) || !class_exists('GoogleSitemapGeneratorXmlEntry')) {
+            $gsg->add_url($e['loc'], $lastmod, 'weekly', 0.5);
+            return;
+        }
+        if ($gsg->get_option('in_lastmod') === false) {
+            $lastmod = 0;
+        }
+        $xml = "\t<url>\n\t\t<loc>" . htmlspecialchars(esc_url_raw($e['loc']), ENT_QUOTES | ENT_XML1) . "</loc>\n";
+        if ($lastmod > 0) {
+            $xml .= "\t\t<lastmod>" . gmdate('Y-m-d\TH:i:sP', $lastmod) . "</lastmod>\n";
+        }
+        $xml .= "\t\t<changefreq>weekly</changefreq>\n\t\t<priority>0.5</priority>\n";
+        // The generator's urlset does not declare the xhtml namespace, so each element does.
+        $xml .= self::alternates_xml($e['alternates'], true);
+        $xml .= "\t</url>\n";
+        $gsg->add_element(new \GoogleSitemapGeneratorXmlEntry($xml));
     }
 }
 

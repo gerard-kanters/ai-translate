@@ -260,4 +260,80 @@ final class AI_SEOInjectTest extends TestCase
 
         $this->assertSame('https://example.com/de/product/', $this->attr($x, '//link[@rel="canonical"]', 'href'));
     }
+
+    public function test_search_results_get_no_hreflang(): void
+    {
+        $this->onArchive('/en/');
+        Functions\when('is_search')->justReturn(true);
+
+        [, $x] = $this->render('<title>Search</title><link rel="alternate" hreflang="nl" href="https://example.com/">', 'en');
+
+        // Existing tags are left alone and nothing new is generated.
+        $this->assertSame(1, $x->query('//link[@hreflang]')->length);
+        $this->assertNull($this->attr($x, '//link[@hreflang="de"]', 'href'));
+    }
+
+    private function jsonLd(array $data): string
+    {
+        return '<html><head><script type="application/ld+json">' . json_encode($data, JSON_UNESCAPED_SLASHES) . '</script></head><body></body></html>';
+    }
+
+    private function decodeJsonLd(string $html): array
+    {
+        preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $html, $m);
+        return json_decode($m[1], true);
+    }
+
+    public function test_json_ld_webpage_gets_in_language_of_the_served_page(): void
+    {
+        $html = AI_SEO::translateJsonLd($this->jsonLd([
+            '@context' => 'https://schema.org',
+            '@graph' => [
+                ['@type' => 'WebPage', 'url' => 'https://example.com/', 'inLanguage' => 'nl-NL'],
+                ['@type' => 'Article', 'headline' => 'Titel'],
+                ['@type' => 'Organization', 'name' => 'Acme'],
+            ],
+        ]), 'en');
+
+        $graph = $this->decodeJsonLd($html)['@graph'];
+        $this->assertSame('en-GB', $graph[0]['inLanguage']);
+        $this->assertSame('en-GB', $graph[1]['inLanguage']);
+        $this->assertArrayNotHasKey('inLanguage', $graph[2], 'Organization has no inLanguage');
+    }
+
+    public function test_json_ld_is_untouched_for_the_default_language(): void
+    {
+        $in = $this->jsonLd(['@type' => 'WebPage', 'inLanguage' => 'nl-NL']);
+
+        $this->assertSame($in, AI_SEO::translateJsonLd($in, 'nl'));
+    }
+
+    public function test_breadcrumb_home_and_internal_items_point_to_the_current_language(): void
+    {
+        $html = AI_SEO::translateJsonLd($this->jsonLd([
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => 'https://example.com'],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'Producten', 'item' => 'https://example.com/product/'],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => 'Elders', 'item' => 'https://other.example.org/product/'],
+            ],
+        ]), 'de');
+
+        $items = $this->decodeJsonLd($html)['itemListElement'];
+        $this->assertSame('https://example.com/de/', $items[0]['item']);
+        $this->assertSame('https://example.com/de/product/', $items[1]['item']);
+        $this->assertSame('https://other.example.org/product/', $items[2]['item'], 'external URLs stay as they are');
+    }
+
+    public function test_breadcrumb_item_already_in_the_current_language_is_unchanged(): void
+    {
+        $html = AI_SEO::translateJsonLd($this->jsonLd([
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => 'https://example.com/de/product/'],
+            ],
+        ]), 'de');
+
+        $this->assertSame('https://example.com/de/product/', $this->decodeJsonLd($html)['itemListElement'][0]['item']);
+    }
 }

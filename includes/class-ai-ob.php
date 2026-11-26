@@ -453,7 +453,7 @@ final class AI_OB
                 if ((time() - $lockStart) > $maxLockWait) {
                     // Another request is still generating this page; avoid duplicate API calls
                     $processing = false;
-                    return $html;
+                    return self::mark_untranslated($html, (string) $lang);
                 }
                 usleep(200000);
                 $cached = AI_Cache::get($key);
@@ -473,9 +473,9 @@ final class AI_OB
                 self::release_cache_lock($lockKey);
             }
             $processing = false;
-            return $html;
+            return self::mark_untranslated($html, (string) $lang);
         }
-        
+
         // Extend execution time for large pages (translation pipeline can exceed default 30s on big HTML).
         if ($timeLimit > 0 && $timeLimit < 120) {
             // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- required for large-page translation that exceeds default execution time
@@ -529,7 +529,7 @@ final class AI_OB
                 }
                 
                 $processing = false;
-                return $html; // Return untranslated HTML (or cached if exists)
+                return self::mark_untranslated($html, (string) $lang);
             }
         }
 
@@ -549,7 +549,7 @@ final class AI_OB
                 self::release_cache_lock($lockKey);
             }
             $processing = false;
-            return $html;
+            return self::mark_untranslated($html, (string) $lang);
         } else {
             AI_SEO::mark_translated($translations, (string) $lang);
             $merged = AI_DOM::merge($plan, $translations, $lang);
@@ -836,6 +836,55 @@ final class AI_OB
         }
         
         return false;
+    }
+
+    /**
+     * Keep a page that is served untranslated under a language URL out of the index.
+     *
+     * When translation is skipped or fails (stopped translations, lock timeout, API failure) the
+     * visitor gets the default-language page at /{lang}/…. Indexed, that is duplicate content in the
+     * wrong language. The page is not cached, so it is indexable again once a translation exists.
+     *
+     * @param string $html Untranslated page.
+     * @param string $lang Requested language.
+     * @return string
+     */
+    public static function mark_untranslated($html, $lang)
+    {
+        $html = (string) $html;
+        $default = AI_Lang::default();
+        if ($lang === '' || $default === null || strtolower($lang) === strtolower((string) $default)) {
+            return $html;
+        }
+
+        if (!headers_sent()) {
+            header('X-Robots-Tag: noindex, follow', true);
+        }
+
+        if (preg_match('/<meta\b[^>]*\bname=["\']robots["\'][^>]*>/i', $html, $m)) {
+            $tag = $m[0];
+            if (preg_match('/\bcontent=(["\'])(.*?)\1/i', $tag, $c)) {
+                $directives = array_filter(array_map('trim', explode(',', strtolower($c[2]))), static function ($d) {
+                    return $d !== '' && $d !== 'index' && $d !== 'all';
+                });
+                if (!in_array('noindex', $directives, true) && !in_array('none', $directives, true)) {
+                    array_unshift($directives, 'noindex');
+                }
+                $newTag = str_replace($c[0], 'content=' . $c[1] . implode(', ', $directives) . $c[1], $tag);
+                return (string) preg_replace_callback('/' . preg_quote($tag, '/') . '/', static function () use ($newTag) {
+                    return $newTag;
+                }, $html, 1);
+            }
+            return $html;
+        }
+
+        $meta = '<meta name="robots" content="noindex, follow">';
+        if (stripos($html, '</head>') === false) {
+            return $html;
+        }
+        return (string) preg_replace_callback('/<\/head>/i', static function ($mm) use ($meta) {
+            return $meta . "\n" . $mm[0];
+        }, $html, 1);
     }
 
     /**

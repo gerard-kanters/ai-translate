@@ -132,4 +132,25 @@ final class RoutingQueryTest extends TestCase
         $this->assertTrue($wp->is_single);
         $this->assertTrue($wp->is_singular);
     }
+
+    public function test_archive_routing_keeps_the_page_number_from_a_page_suffix(): void
+    {
+        $wp = $this->wp(['lang' => 'en']);
+
+        ai_translate_route_to_archive($wp, 'product', 99);
+
+        $this->assertSame(99, $wp->query_vars['paged']);
+        $this->assertSame('product', $wp->query_vars['post_type']);
+    }
+
+    public function test_archive_routing_sets_no_paged_for_the_first_page(): void
+    {
+        foreach ([0, 1] as $paged) {
+            $wp = $this->wp(['lang' => 'en']);
+
+            ai_translate_route_to_archive($wp, 'product', $paged);
+
+            $this->assertArrayNotHasKey('paged', $wp->query_vars);
+        }
+    }
 }

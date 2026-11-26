@@ -938,6 +938,11 @@ final class AI_SEO
      */
     private static function injectHreflang($doc, $xpath, $head, $current, $default)
     {
+        // Search results are noindex and have no per-language equivalent.
+        if (function_exists('is_search') && is_search()) {
+            return;
+        }
+
         // Remove all existing hreflang alternate links to ensure clean injection
         // This prevents conflicts with incorrectly generated hreflang tags from other sources
         $links = $xpath->query('//head/link[@rel="alternate" and @hreflang]');
@@ -1031,7 +1036,9 @@ final class AI_SEO
         
         // Fallback: use basic rewrite (language prefix only)
         $path = AI_URL::rewrite_single_href($currentUrl, $targetLang, $default);
-        if (!is_string($path) || $path === '') {
+        // An absolute URL means the href was left untouched (no per-language path): omit the tag
+        // instead of producing https://host/https://host/.
+        if (!is_string($path) || $path === '' || preg_match('#^[a-z][a-z0-9+.\-]*://#i', $path)) {
             return '';
         }
         return home_url($path);
@@ -1320,11 +1327,69 @@ final class AI_SEO
         }
     }
 
+    /** JSON-LD types (CreativeWork family) that carry an inLanguage property. */
+    private const JSONLD_LANGUAGE_TYPES = [
+        'WebSite', 'WebPage', 'CollectionPage', 'ItemPage', 'AboutPage', 'ContactPage',
+        'FAQPage', 'SearchResultsPage', 'ProfilePage', 'Article', 'BlogPosting', 'NewsArticle',
+        'TechArticle', 'Blog',
+    ];
+
+    /**
+     * Point an internal URL in structured data at the current language.
+     * External URLs and values that are not URLs are returned unchanged.
+     *
+     * @param mixed  $url
+     * @param string $lang
+     * @param string $default
+     * @return mixed
+     */
+    private static function localizeJsonLdUrl($url, $lang, $default)
+    {
+        if (!is_string($url) || $url === '') {
+            return $url;
+        }
+        $home = self::homeRoot();
+        $homeHost = wp_parse_url($home, PHP_URL_HOST);
+        $host = wp_parse_url($url, PHP_URL_HOST);
+        if (!$host || !$homeHost || strcasecmp((string) $host, (string) $homeHost) !== 0) {
+            return $url;
+        }
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        $sub = rtrim((string) wp_parse_url($home, PHP_URL_PATH), '/');
+        $rel = ($sub !== '' && str_starts_with($path, $sub)) ? substr($path, strlen($sub)) : $path;
+        if ($rel === '' || $rel === '/') {
+            return home_url('/' . $lang . '/');
+        }
+        $rewritten = AI_URL::rewrite_single_href($url, $lang, $default);
+        if (!is_string($rewritten) || $rewritten === '' || preg_match('#^[a-z][a-z0-9+.\-]*://#i', $rewritten)) {
+            return $url;
+        }
+        return home_url($rewritten);
+    }
+
     private static function translateJsonLdNode(array &$node, $default, $lang)
     {
         $type = $node['@type'] ?? '';
-        $changed = false;        if ($type === 'BreadcrumbList' && isset($node['itemListElement']) && is_array($node['itemListElement'])) {
+        $changed = false;
+
+        // inLanguage must describe the page as served, not the language it was written in.
+        if (array_intersect(self::JSONLD_LANGUAGE_TYPES, (array) $type)) {
+            $htmlLang = AI_OB::getLangAttribute((string) $lang);
+            if (($node['inLanguage'] ?? null) !== $htmlLang) {
+                $node['inLanguage'] = $htmlLang;
+                $changed = true;
+            }
+        }
+
+        if ($type === 'BreadcrumbList' && isset($node['itemListElement']) && is_array($node['itemListElement'])) {
             foreach ($node['itemListElement'] as &$item) {
+                if (isset($item['item']) && is_string($item['item'])) {
+                    $localized = self::localizeJsonLdUrl($item['item'], (string) $lang, (string) $default);
+                    if ($localized !== $item['item']) {
+                        $item['item'] = $localized;
+                        $changed = true;
+                    }
+                }
                 if (isset($item['name']) && is_string($item['name']) && trim($item['name']) !== '') {
                     $translated = self::maybeTranslateMeta($item['name'], $default, $lang);
                     if (is_string($translated) && $translated !== '' && $translated !== $item['name']) {

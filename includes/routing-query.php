@@ -30,11 +30,16 @@ function ai_translate_clear_post_query_vars(array $query_vars, bool $with_own_pa
  *
  * @param object $wp        WP object from parse_request.
  * @param string $post_type Post type whose archive is shown.
+ * @param int    $paged     Page number from a /page/N suffix; 0 or 1 means the first page.
  */
-function ai_translate_route_to_archive($wp, string $post_type): void
+function ai_translate_route_to_archive($wp, string $post_type, int $paged = 0): void
 {
     $wp->query_vars = ai_translate_clear_post_query_vars($wp->query_vars, true);
     $wp->query_vars['post_type'] = $post_type;
+    if ($paged > 1) {
+        // Without this /{lang}/product/page/99/ would render page 1 with a 200.
+        $wp->query_vars['paged'] = $paged;
+    }
     $wp->is_archive = true;
     $wp->is_singular = false;
     $wp->is_404 = false;
