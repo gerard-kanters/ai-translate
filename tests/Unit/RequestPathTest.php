@@ -96,6 +96,13 @@ final class RequestPathTest extends TestCase
         }
     }
 
+    public function test_a_prefix_with_capitals_needs_the_lowercase_redirect(): void
+    {
+        $this->assertTrue(ai_translate_prefix_needs_lowercase('EN'));
+        $this->assertTrue(ai_translate_prefix_needs_lowercase('En'));
+        $this->assertFalse(ai_translate_prefix_needs_lowercase('en'));
+    }
+
     public function test_only_files_at_the_root_with_an_xml_extension_are_xml_requests(): void
     {
         foreach (['/sitemap.xml', '/wp-sitemap.xml', '/wp-sitemap-posts-post-1.xml', '/translated-en-sitemap.xml', '/sitemap.xml.gz', '/sitemap.xsl', '/sitemap_index.XML'] as $path) {

@@ -48,6 +48,14 @@ function ai_translate_lang_in_path(string $path): ?string
 }
 
 /**
+ * Whether a language prefix as typed in the URL differs from its canonical lowercase form ("EN", "En").
+ */
+function ai_translate_prefix_needs_lowercase(string $prefix): bool
+{
+    return $prefix !== strtolower($prefix);
+}
+
+/**
  * Whether a request path names a real XML file (/sitemap.xml, /wp-sitemap-posts-post-1.xml, /sitemap.xsl).
  *
  * Only the file extension counts: a path that merely contains the word "sitemap" ("/sitemap/", "/es/sitemap/xml")

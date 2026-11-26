@@ -63,7 +63,13 @@ add_action('parse_request', function ($wp) {
     if (!is_string($request_path)) {
         $request_path = '/';
     }
-    if (preg_match('#^/([a-z]{2})/?$#i', $request_path)) {
+    if (preg_match('#^/([a-z]{2})/?$#i', $request_path, $root_match)) {
+        // /EN/ is the same page as /en/: send it to the lowercase URL, like deeper paths already are.
+        if (ai_translate_prefix_needs_lowercase($root_match[1]) && \AITranslate\lang_is_offered(strtolower($root_match[1]))) {
+            nocache_headers();
+            wp_safe_redirect(home_url('/' . strtolower($root_match[1]) . '/'), 301);
+            exit;
+        }
         // Mirror org behaviour: only force front when no other query vars (except 'lang').
         // Special-case: when theme uses ?blogpage or native 'paged', route to the posts page.
         $qv = is_array($wp->query_vars) ? $wp->query_vars : array();
