@@ -844,7 +844,7 @@ final class AI_OB
      * @param string $lang Language code (e.g., 'de', 'en', 'nl')
      * @return string Locale format (e.g., 'de-DE', 'en-GB', 'nl-NL')
      */
-    private static function getLangAttribute($lang)
+    public static function getLangAttribute($lang)
     {
         $lang = strtolower(trim($lang));
         $localeMap = [

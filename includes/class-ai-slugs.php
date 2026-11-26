@@ -217,10 +217,11 @@ final class AI_Slugs
         // Absolute last fallback: search directly in wp_posts by post_name.
         // Handles fresh installations where the slug map is still empty.
         $post_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_status = 'publish' AND post_type NOT IN ('revision','nav_menu_item','attachment') LIMIT 1",
+            "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_status = 'publish' AND post_type NOT IN ('revision','nav_menu_item','attachment','custom_css','jp_img_sitemap','jp_sitemap','jp_sitemap_master','wds-slider','fmemailverification','is_search_form','oembed_cache') LIMIT 1",
             $slug
         ));
-        if ($post_id) return (int) $post_id;
+        // Internal types such as the Customizer's custom_css have no public URL: never route to them.
+        if ($post_id && is_post_type_viewable(get_post_type($post_id))) return (int) $post_id;
 
         // Fallback for wrongly stored URL-encoded slugs (e.g. Hungarian): request path may be
         // decoded ("fellépés-...") or still encoded ("fell%c3%a9p%c3%a9s-..."); DB may contain encoded.

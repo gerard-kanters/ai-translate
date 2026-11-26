@@ -191,6 +191,41 @@ final class AI_SlugsTest extends TestCase
         $this->assertSame(99, $result);
     }
 
+    public function test_wp_posts_fallback_never_routes_to_a_non_viewable_post_type(): void
+    {
+        $this->stubPrepare();
+
+        $this->wpdb->shouldReceive('get_col')->andReturn([], []);
+        // Slug map lookups fail; the posts-table fallback finds the Customizer's custom_css post.
+        $this->wpdb->shouldReceive('get_var')->andReturn(null, null, '818', null);
+        $this->wpdb->shouldReceive('get_results')->andReturn([]);
+
+        Functions\when('get_post')->justReturn(null);
+        Functions\when('get_post_type')->justReturn('custom_css');
+
+        $this->assertNull(AI_Slugs::resolve_path_to_post('da', 'netcare'));
+    }
+
+    public function test_wp_posts_fallback_query_excludes_internal_post_types(): void
+    {
+        $captured = [];
+        $this->wpdb->shouldReceive('prepare')->andReturnUsing(function () use (&$captured) {
+            $captured[] = func_get_arg(0);
+            return func_get_arg(0);
+        });
+        $this->wpdb->shouldReceive('esc_like')->andReturnUsing(fn($s) => $s);
+        $this->wpdb->shouldReceive('get_col')->andReturn([], []);
+        $this->wpdb->shouldReceive('get_var')->andReturn(null);
+        $this->wpdb->shouldReceive('get_results')->andReturn([]);
+        Functions\when('get_post')->justReturn(null);
+
+        AI_Slugs::resolve_path_to_post('da', 'netcare');
+
+        $postsQueries = array_values(array_filter($captured, fn($q) => str_contains($q, 'FROM wp_posts WHERE post_name')));
+        $this->assertNotEmpty($postsQueries);
+        $this->assertStringContainsString("'custom_css'", $postsQueries[0]);
+    }
+
     public function test_no_match_returns_null(): void
     {
         $this->stubPrepare();

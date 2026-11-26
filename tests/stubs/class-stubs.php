@@ -61,6 +61,11 @@ if (!class_exists('AITranslate\\AI_Translate_Core')) {
             return '';
         }
 
+        public static function get_homepage_meta_description()
+        {
+            return (string) (self::$settings['homepage_meta_description'] ?? '');
+        }
+
         public static function get_api_providers(): array
         {
             return ['openai' => [], 'deepseek' => [], 'custom' => []];

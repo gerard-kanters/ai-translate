@@ -7,6 +7,9 @@ namespace AITranslate;
  */
 final class AI_SEO
 {
+    /** Maximum length of generated meta descriptions (roughly what search results show). */
+    private const META_DESCRIPTION_MAX = 160;
+
     /** @var array<string,string> In-request translation cache keyed by "{lang}|{md5(text)}". */
     private static $metaTranslationCache = [];
 
@@ -145,7 +148,13 @@ final class AI_SEO
         
         $desc = self::computeMetaDescription();
         $shouldReplace = false;
-        
+
+        // An SEO plugin owns the descriptions: keep its text and only translate it.
+        $seoManaged = self::seoPluginManagesMeta();
+        if ($seoManaged && $existingMetaDesc !== null && trim((string) $existingMetaDesc->getAttribute('content')) !== '') {
+            $desc = '';
+        }
+
         if ($existingMetaDesc === null) {
             $shouldReplace = true;
         } else {
@@ -168,14 +177,14 @@ final class AI_SEO
         
         if ($shouldReplace && $desc !== '') {
             $finalDesc = self::maybeTranslateMeta($desc, $default, $lang);
-            $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
+            $finalDesc = self::truncateUtf8($finalDesc, self::META_DESCRIPTION_MAX, '...');
             if ($finalDesc !== '') {
                 if ($existingMetaDesc !== null) {
-                    $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
+                    $existingMetaDesc->setAttribute('content', $finalDesc);
                 } else {
                     $meta = $doc->createElement('meta');
                     $meta->setAttribute('name', 'description');
-                    $meta->setAttribute('content', esc_attr($finalDesc));
+                    $meta->setAttribute('content', $finalDesc);
                     $head->appendChild($meta);
                     $head->appendChild($doc->createTextNode("\n"));
                 }
@@ -185,9 +194,11 @@ final class AI_SEO
                 $existingContent = trim((string) $existingMetaDesc->getAttribute('content'));
                 if ($existingContent !== '') {
                     $finalDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
-                    $finalDesc = self::truncateUtf8($finalDesc, 200, '...');
+                    if (!$seoManaged) {
+                        $finalDesc = self::truncateUtf8($finalDesc, self::META_DESCRIPTION_MAX, '...');
+                    }
                     if ($finalDesc !== '') {
-                        $existingMetaDesc->setAttribute('content', esc_attr($finalDesc));
+                        $existingMetaDesc->setAttribute('content', $finalDesc);
                     }
                 }
             }
@@ -207,6 +218,13 @@ final class AI_SEO
                 $regionPart = strtoupper(preg_replace('/[^a-z]/i', '', $m[2]));
                 if ($regionPart !== '') {
                     $ogLocale = $langPart . '_' . $regionPart;
+                }
+            }
+            if ($ogLocale === '') {
+                // Keep og:locale in step with the <html lang> value (en-GB -> en_GB).
+                $htmlLang = AI_OB::getLangAttribute($langNorm);
+                if (strpos($htmlLang, '-') !== false) {
+                    $ogLocale = str_replace('-', '_', $htmlLang);
                 }
             }
             if ($ogLocale === '') {
@@ -241,7 +259,7 @@ final class AI_SEO
             }
             $meta = $doc->createElement('meta');
             $meta->setAttribute('property', 'og:locale');
-            $meta->setAttribute('content', esc_attr($ogLocale));
+            $meta->setAttribute('content', $ogLocale);
             $head->appendChild($meta);
             $head->appendChild($doc->createTextNode("\n"));
         }
@@ -284,11 +302,11 @@ final class AI_SEO
             }
 
             $ogDesc = '';
-            if ($shouldReplaceOgDesc) {
+            if ($shouldReplaceOgDesc && !($seoManaged && !$ogDescMissing)) {
                 $ogDesc = self::computeMetaDescription();
                 if ($ogDesc !== '') {
                     $ogDesc = self::maybeTranslateMeta($ogDesc, $default, $lang);
-                    $ogDesc = self::truncateUtf8($ogDesc, 200, '...');
+                    $ogDesc = self::truncateUtf8($ogDesc, self::META_DESCRIPTION_MAX, '...');
                 }
             }
 
@@ -344,7 +362,7 @@ final class AI_SEO
             if ($ogTitleMissing && $ogTitle !== '') {
                 $meta = $doc->createElement('meta');
                 $meta->setAttribute('property', 'og:title');
-                $meta->setAttribute('content', esc_attr(trim($ogTitle)));
+                $meta->setAttribute('content', trim($ogTitle));
                 $head->appendChild($meta);
                 $head->appendChild($doc->createTextNode("\n"));
             }
@@ -353,12 +371,12 @@ final class AI_SEO
                 if ($existingOgDesc && $existingOgDesc->length > 0) {
                     $ogDescElem = $existingOgDesc->item(0);
                     if ($ogDescElem instanceof \DOMElement) {
-                        $ogDescElem->setAttribute('content', esc_attr(trim($ogDesc)));
+                        $ogDescElem->setAttribute('content', trim($ogDesc));
                     }
                 } else {
                     $meta = $doc->createElement('meta');
                     $meta->setAttribute('property', 'og:description');
-                    $meta->setAttribute('content', esc_attr(trim($ogDesc)));
+                    $meta->setAttribute('content', trim($ogDesc));
                     $head->appendChild($meta);
                     $head->appendChild($doc->createTextNode("\n"));
                 }
@@ -370,9 +388,11 @@ final class AI_SEO
                         $existingContent = trim((string) $ogDescElem->getAttribute('content'));
                         if ($existingContent !== '') {
                             $translatedOgDesc = self::maybeTranslateMeta($existingContent, $default, $lang);
-                            $translatedOgDesc = self::truncateUtf8($translatedOgDesc, 200, '...');
+                            if (!$seoManaged) {
+                                $translatedOgDesc = self::truncateUtf8($translatedOgDesc, self::META_DESCRIPTION_MAX, '...');
+                            }
                             if ($translatedOgDesc !== '') {
-                                $ogDescElem->setAttribute('content', esc_attr(trim($translatedOgDesc)));
+                                $ogDescElem->setAttribute('content', trim($translatedOgDesc));
                             }
                         }
                     }
@@ -383,12 +403,12 @@ final class AI_SEO
                 if ($existingOgImage && $existingOgImage->length > 0) {
                     $ogImageElem = $existingOgImage->item(0);
                     if ($ogImageElem instanceof \DOMElement) {
-                        $ogImageElem->setAttribute('content', esc_url($ogImage));
+                        $ogImageElem->setAttribute('content', esc_url_raw($ogImage));
                     }
                 } else {
                     $meta = $doc->createElement('meta');
                     $meta->setAttribute('property', 'og:image');
-                    $meta->setAttribute('content', esc_url($ogImage));
+                    $meta->setAttribute('content', esc_url_raw($ogImage));
                     $head->appendChild($meta);
                     $head->appendChild($doc->createTextNode("\n"));
                 }
@@ -402,7 +422,7 @@ final class AI_SEO
                         if ($existingAlt !== '') {
                             $translatedAlt = self::maybeTranslateMeta($existingAlt, $default, $lang);
                             if (is_string($translatedAlt) && $translatedAlt !== '') {
-                                $ogImageAltElem->setAttribute('content', esc_attr(trim($translatedAlt)));
+                                $ogImageAltElem->setAttribute('content', trim($translatedAlt));
                             }
                         }
                     }
@@ -411,7 +431,7 @@ final class AI_SEO
             if ($ogUrlMissing && $ogUrl !== '') {
                 $meta = $doc->createElement('meta');
                 $meta->setAttribute('property', 'og:url');
-                $meta->setAttribute('content', esc_url($ogUrl));
+                $meta->setAttribute('content', esc_url_raw($ogUrl));
                 $head->appendChild($meta);
                 $head->appendChild($doc->createTextNode("\n"));
             }
@@ -419,6 +439,115 @@ final class AI_SEO
 
         // 3) hreflang alternates
         self::injectHreflang($doc, $xpath, $head, $lang, $default);
+
+        // 4) canonical: collapse accidental double slashes, then make sure it is self-referencing
+        self::normalizeCanonical($xpath);
+        self::ensureCanonical($doc, $xpath, $head, $lang, $default);
+    }
+
+    /**
+     * True when an SEO plugin that writes its own meta descriptions is active.
+     * Filter `ai_translate_seo_plugin_active` lets other setups opt in or out.
+     *
+     * @return bool
+     */
+    public static function seoPluginManagesMeta(): bool
+    {
+        $active = defined('WPSEO_VERSION')
+            || defined('RANK_MATH_VERSION')
+            || defined('AIOSEO_VERSION')
+            || defined('SEOPRESS_VERSION')
+            || defined('THE_SEO_FRAMEWORK_VERSION')
+            || defined('SLIM_SEO_VER');
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- hook prefixed with plugin slug equivalent (ai_translate)
+        return (bool) apply_filters('ai_translate_seo_plugin_active', $active);
+    }
+
+    /**
+     * Make sure translated pages carry a canonical that points to themselves.
+     * Adds one when missing, and replaces one that points to the default-language URL.
+     * Search results and 404 pages are left alone.
+     *
+     * @param \DOMDocument $doc
+     * @param \DOMXPath $xpath
+     * @param \DOMElement $head
+     * @param string $lang
+     * @param string $default
+     * @return void
+     */
+    private static function ensureCanonical($doc, $xpath, $head, $lang, $default): void
+    {
+        if ((function_exists('is_404') && is_404()) || (function_exists('is_search') && is_search())) {
+            return;
+        }
+        $postId = is_singular() ? (int) get_queried_object_id() : 0;
+        $currentAbs = self::currentPageUrlAbsolute();
+        $selfUrl = self::buildHreflangUrl($currentAbs, (string) $lang, (string) $default, $postId);
+        if ($selfUrl === '') {
+            return;
+        }
+
+        $nodes = $xpath->query('//link[translate(@rel, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="canonical"]');
+        if (!$nodes || $nodes->length === 0) {
+            $el = $doc->createElement('link');
+            $el->setAttribute('rel', 'canonical');
+            $el->setAttribute('href', esc_url_raw($selfUrl));
+            $head->appendChild($doc->createTextNode("\n"));
+            $head->appendChild($el);
+            $head->appendChild($doc->createTextNode("\n"));
+            return;
+        }
+
+        if (strtolower((string) $lang) === strtolower((string) $default)) {
+            return;
+        }
+        $defaultUrl = self::buildHreflangUrl($currentAbs, (string) $default, (string) $default, $postId);
+        $first = $nodes->item(0);
+        if ($defaultUrl !== '' && $first instanceof \DOMElement
+            && rtrim($first->getAttribute('href'), '/') === rtrim($defaultUrl, '/')) {
+            $first->setAttribute('href', esc_url_raw($selfUrl));
+        }
+    }
+
+    /**
+     * Site root URL without the language prefix that the home_url filter adds on
+     * translated requests. Always ends with a single slash.
+     *
+     * @return string
+     */
+    public static function homeRoot(): string
+    {
+        return trailingslashit((string) get_option('home', get_option('siteurl', '')));
+    }
+
+    /**
+     * Collapse repeated slashes in the path of an existing rel=canonical
+     * (e.g. https://example.com/en// becomes https://example.com/en/).
+     *
+     * @param \DOMXPath $xpath
+     * @return void
+     */
+    private static function normalizeCanonical(\DOMXPath $xpath): void
+    {
+        $nodes = $xpath->query('//link[translate(@rel, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="canonical"]');
+        if (!$nodes) {
+            return;
+        }
+        foreach ($nodes as $node) {
+            if (!($node instanceof \DOMElement)) {
+                continue;
+            }
+            $href = trim($node->getAttribute('href'));
+            $fixed = $href;
+            $parts = preg_split('/([?#])/', $fixed, 2, PREG_SPLIT_DELIM_CAPTURE);
+            if (is_array($parts) && isset($parts[0])) {
+                $parts[0] = preg_replace('#(?<!:)/{2,}#', '/', $parts[0]);
+                $fixed = implode('', $parts);
+            }
+            if ($fixed !== '' && $fixed !== $href) {
+                $node->setAttribute('href', $fixed);
+            }
+        }
     }
 
     /**
@@ -851,7 +980,7 @@ final class AI_SEO
             $el = $doc->createElement('link');
             $el->setAttribute('rel', 'alternate');
             $el->setAttribute('hreflang', $lc);
-            $el->setAttribute('href', esc_url($href));
+            $el->setAttribute('href', esc_url_raw($href));
             $head->appendChild($doc->createTextNode("\n"));
             $head->appendChild($el);            
         }
@@ -865,7 +994,7 @@ final class AI_SEO
                 $el = $doc->createElement('link');
                 $el->setAttribute('rel', 'alternate');
                 $el->setAttribute('hreflang', 'x-default');
-                $el->setAttribute('href', esc_url($defaultUrl));
+                $el->setAttribute('href', esc_url_raw($defaultUrl));
                 $head->appendChild($doc->createTextNode("\n"));
                 $head->appendChild($el);
                 $head->appendChild($doc->createTextNode("\n"));
@@ -887,7 +1016,7 @@ final class AI_SEO
         // For homepage
         if (is_front_page() || is_home()) {
             if (strtolower($targetLang) === strtolower($default)) {
-                return home_url('/');
+                return self::homeRoot();
             }
             return home_url('/' . $targetLang . '/');
         }
@@ -927,14 +1056,14 @@ final class AI_SEO
         $front_page_id = (int) get_option('page_on_front');
         if ($front_page_id > 0 && (int) $post_id === $front_page_id) {
             if (strtolower($lang) === strtolower($default)) {
-                return home_url('/');
+                return self::homeRoot();
             }
             return home_url('/' . $lang . '/');
         }
 
         if ((int) $post_id === 0) {
             if (strtolower($lang) === strtolower($default)) {
-                return home_url('/');
+                return self::homeRoot();
             }
             return home_url('/' . $lang . '/');
         }
@@ -1013,6 +1142,22 @@ final class AI_SEO
     }
 
     /**
+     * Whether a two-letter path segment is one of the site's languages.
+     *
+     * @param string $code
+     * @return bool
+     */
+    private static function isKnownLanguage(string $code): bool
+    {
+        $known = array_merge(
+            AI_Translate_Core::enabled_languages(),
+            AI_Translate_Core::detectable_languages(),
+            [(string) AI_Lang::default()]
+        );
+        return in_array(strtolower($code), array_map('strtolower', array_map('strval', $known)), true);
+    }
+
+    /**
      * Compute absolute URL for the current page.
      *
      * @return string
@@ -1027,12 +1172,16 @@ final class AI_SEO
             }
         }
         if (is_front_page() || is_home()) {
-            return home_url('/');
+            return self::homeRoot();
         }
-        $req_uri = ai_translate_request_uri('/');
-        $path = (string) wp_parse_url($req_uri, PHP_URL_PATH);
-        if ($path === '') { $path = '/'; }
-        return home_url($path);
+        // Archives: use the request path without its language prefix, so every target
+        // language is built from the original-language path.
+        $path = ai_translate_request_path(true);
+        $reqLang = ai_translate_lang_in_path($path);
+        if ($reqLang !== null && self::isKnownLanguage($reqLang)) {
+            $path = ai_translate_strip_lang_prefix($path, $reqLang);
+        }
+        return self::homeRoot() . ltrim($path, '/');
     }
 
     /**
