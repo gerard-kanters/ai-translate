@@ -98,7 +98,8 @@ final class AI_OB
         // Group 1 = context that identifies the nonce, group 2 = the nonce (10 hex characters).
         $patterns = [
             // JSON / JS / URL: "x_nonce":"abc", nonce: 'abc', \"nonce\":\"abc\", ?_wpnonce=abc, &#038;_wpnonce=abc
-            '/([\w-]*nonce[\w-]*[\\\\"\']*\s*[:=]\s*[\\\\"\']*)([0-9a-f]{10})(?![0-9a-f])/i',
+            // Any key with a hex/numeric token (nonce, session_id, user_id, timestamps, cache busters).
+            '/([\w-]+[\\\\"\']*\s*[:=]\s*[\\\\"\']*)([0-9a-f]{10,64})(?![\w])/i',
             // Form fields: <input name="_wpnonce" ... value="abc"> and <input value="abc" name="_wpnonce">
             '/(<input\b[^>]*\bname=["\'][^"\']*nonce[^"\']*["\'][^>]*?\bvalue=["\'])([0-9a-f]{10})(?![0-9a-f])/i',
             '/(<input\b[^>]*\bvalue=["\'])([0-9a-f]{10})(?=["\'][^>]*\bname=["\'][^"\']*nonce)/i',
@@ -111,16 +112,23 @@ final class AI_OB
             foreach ($m as $hit) {
                 $fresh[$hit[1]][] = $hit[2];
             }
+            $cached_count = [];
+            if (preg_match_all($pattern, $html, $c, PREG_SET_ORDER)) {
+                foreach ($c as $hit) {
+                    $cached_count[$hit[1]] = ($cached_count[$hit[1]] ?? 0) + 1;
+                }
+            }
             $seen = [];
-            $html = preg_replace_callback($pattern, static function ($hit) use ($fresh, &$seen) {
+            $html = preg_replace_callback($pattern, static function ($hit) use ($fresh, $cached_count, &$seen) {
                 $key = $hit[1];
-                if (empty($fresh[$key])) {
+                // Pair by position only when the context occurs equally often in both pages.
+                if (empty($fresh[$key]) || count($fresh[$key]) !== ($cached_count[$key] ?? 0)) {
                     return $hit[0];
                 }
                 // Same context repeats in the same order in source and cache: pair by position.
                 $i = $seen[$key] ?? 0;
                 $seen[$key] = $i + 1;
-                return $key . ($fresh[$key][$i] ?? $fresh[$key][0]);
+                return $key . $fresh[$key][$i];
             }, $html);
         }
         return $html;

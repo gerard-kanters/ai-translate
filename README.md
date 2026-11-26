@@ -216,7 +216,7 @@ Once a week the plugin downloads a small public file with the preferred model pe
 
 ### 2.4.4
 
-- Fix: chatbots and other scripts on translated pages failed with "Security check failed" because the security tokens (nonces) in the cached page had expired. The plugin now replaces them with fresh ones when a cached page is served.
+- Fix: chatbots and other scripts on translated pages failed with "Security check failed" or "Unauthorized access to conversation". The cached page contained values that are different for every visitor or expire (nonces, session and user IDs, timestamps). The plugin now replaces them with the values of the current visit when a cached page is served.
 
 ### 2.4.3
 
