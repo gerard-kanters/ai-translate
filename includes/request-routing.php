@@ -50,25 +50,6 @@ add_action('parse_request', function ($wp) {
 }, 0);
 
 /**
- * /{lang}/anything.xml names no file: the XML handlers skip it, so without this the language rewrite
- * rule leaves only unknown query vars and WordPress answers with the homepage and a 200.
- */
-add_action('parse_request', function ($wp) {
-    if (is_admin() || wp_doing_ajax()) {
-        return;
-    }
-    $path = ai_translate_request_path(true);
-    if (!ai_translate_is_xml_under_language_prefix($path)) {
-        return;
-    }
-    $lang = ai_translate_lang_in_path($path);
-    if ($lang === null || !\AITranslate\lang_is_offered($lang)) {
-        return;
-    }
-    $wp->query_vars = ['error' => '404'];
-}, 0);
-
-/**
  * Ensure language-only URLs (e.g., /en/, /de/) route to the site's front page.
  */
 add_action('parse_request', function ($wp) {

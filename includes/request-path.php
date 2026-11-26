@@ -46,15 +46,3 @@ function ai_translate_lang_in_path(string $path): ?string
     }
     return strtolower(sanitize_key($m[1]));
 }
-
-/**
- * Whether a path is an XML file below a language prefix ("/es/sitemap.xml").
- * Sitemaps live at the site root only, so such a path never names a real file.
- *
- * @param string $path Request path.
- * @return bool
- */
-function ai_translate_is_xml_under_language_prefix(string $path): bool
-{
-    return (bool) preg_match('#^/[a-z]{2}/.+\.xml$#i', $path);
-}
